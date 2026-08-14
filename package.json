@@ -1,0 +1,41 @@
+{
+  "name": "rentfinder",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Agrégateur personnel d'annonces de location à Nice : collecte multi-sources, dédoublonnage, scoring et contact assisté.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=20.10.0"
+  },
+  "packageManager": "pnpm@9.12.3",
+  "scripts": {
+    "build": "pnpm -r --filter \"./packages/*\" run build && pnpm --filter frontend run build",
+    "dev": "pnpm --filter frontend run dev",
+    "collect": "pnpm --filter @rentfinder/collector run collect",
+    "typecheck": "tsc --build --force && tsc --project tsconfig.test.json",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "pnpm --filter frontend run test:e2e",
+    "check:secrets": "node scripts/check-secrets.mjs",
+    "db:migrate": "pnpm --filter @rentfinder/collector run db:migrate",
+    "verify": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run check:secrets"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.17.0",
+    "@types/node": "^22.10.2",
+    "@vitest/coverage-v8": "^2.1.8",
+    "eslint": "^9.17.0",
+    "eslint-config-prettier": "^9.1.0",
+    "globals": "^15.14.0",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.18.1",
+    "vitest": "^2.1.8"
+  }
+}

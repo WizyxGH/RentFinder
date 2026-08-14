@@ -1,0 +1,13 @@
+node_modules
+dist
+build
+coverage
+playwright-report
+test-results
+pnpm-lock.yaml
+CHANGELOG.md
+
+# Les fixtures sont des captures fidèles de HTML réel : les reformater
+# invaliderait les tests de parsing (§50).
+tests/fixtures
+packages/collector/tests/fixtures

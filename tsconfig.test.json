@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    // Les fichiers de test ne produisent rien : ils sont exclus des builds des
+    // paquets. Sans cette configuration dédiée, ils échapperaient complètement
+    // à la vérification de types — un test qui ne compile pas est un test qui
+    // ne protège de rien.
+    "noEmit": true,
+    "composite": false,
+    "declaration": false,
+    "declarationMap": false,
+    "jsx": "react-jsx",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    // `@testing-library/jest-dom` n'est pas listé ici : il est installé dans
+    // `frontend/`, hors de portée de la résolution racine. Ses matchers sont
+    // déclarés en incluant `frontend/src/test-setup.ts` ci-dessous, dont
+    // l'import augmente les types de Vitest.
+    "types": ["node", "vitest/globals"],
+    "baseUrl": ".",
+    "paths": {
+      "@rentfinder/shared": ["./packages/shared/src/index.ts"],
+      "@rentfinder/collector": ["./packages/collector/src/index.ts"]
+    }
+  },
+  "include": [
+    "frontend/src/test-setup.ts",
+    "frontend/src/vite-env.d.ts",
+    "packages/*/src/**/*.test.ts",
+    "packages/*/src/**/*.test.tsx",
+    "frontend/src/**/*.test.ts",
+    "frontend/src/**/*.test.tsx",
+    "frontend/e2e/**/*.ts",
+    "tests/**/*.ts"
+  ]
+}

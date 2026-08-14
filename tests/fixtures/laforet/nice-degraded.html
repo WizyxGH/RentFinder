@@ -1,0 +1,70 @@
+<!--
+  Fixture dégradée — cas limites exigés par le §50.
+
+  Chaque annonce isole un défaut différent :
+    1. prix absent
+    2. surface absente
+    3. format de prix inhabituel (séparateur point, décimales)
+    4. balisage modifié : les <span> internes ont disparu, tout est à plat
+    5. annonce sans aucune donnée exploitable hormis l'URL
+
+  Le parser doit rendre ce qu'il peut sans lever d'exception, et la
+  normalisation doit répondre `null` plutôt que d'inventer (§17).
+-->
+<!doctype html>
+<html lang="fr">
+<head><title>Appartements à louer à Nice - Laforêt Immobilier</title></head>
+<body>
+<main>
+    <div class="grid">
+
+        <!-- 1. Prix absent -->
+        <div class="relative flex h-full flex-col gap-2 p-2">
+            <a href="https://www.laforet.com/agence-immobiliere/nice-centre/louer/nice/appartement-2-pieces-50000001">
+                <h3>
+                    <span><span>Appartement</span></span>
+                    <span>NICE (06000)</span>
+                </h3>
+                <div class="text">28 m²&nbsp;&bull;&nbsp;2 pièces</div>
+                <div class="text">Nous consulter</div>
+            </a>
+        </div>
+
+        <!-- 2. Surface absente -->
+        <div class="relative flex h-full flex-col gap-2 p-2">
+            <a href="https://www.laforet.com/agence-immobiliere/nice-centre/louer/nice/appartement-1-piece-50000002">
+                <h3>
+                    <span><span>Appartement</span><span>595 €/mois</span></span>
+                    <span>NICE (06000)</span>
+                </h3>
+                <div class="text">1 pièce</div>
+            </a>
+        </div>
+
+        <!-- 3. Format de prix inhabituel : point séparateur de milliers -->
+        <div class="relative flex h-full flex-col gap-2 p-2">
+            <a href="https://www.laforet.com/agence-immobiliere/nice-port/louer/nice/appartement-4-pieces-50000003">
+                <h3>
+                    <span><span>Appartement</span><span>1.250,50 €/mois</span></span>
+                    <span>NICE (06300)</span>
+                </h3>
+                <div class="text">88,5 m²&nbsp;&bull;&nbsp;4 pièces&nbsp;&bull;&nbsp;3 chambres</div>
+            </a>
+        </div>
+
+        <!-- 4. Balisage modifié : plus de <span>, texte à plat -->
+        <div class="card">
+            <a href="https://www.laforet.com/agence-immobiliere/nice-gambetta/louer/nice/appartement-2-pieces-50000004">
+                Appartement 700 €/mois NICE (06200) 25 m² &bull; 2 pièces &bull; Meublé
+            </a>
+        </div>
+
+        <!-- 5. Aucune donnée exploitable hormis l'URL -->
+        <div class="card">
+            <a href="https://www.laforet.com/agence-immobiliere/nice-centre/louer/nice/appartement-1-piece-50000005"></a>
+        </div>
+
+    </div>
+</main>
+</body>
+</html>

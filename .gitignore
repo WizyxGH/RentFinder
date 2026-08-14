@@ -1,0 +1,92 @@
+# ---------------------------------------------------------------------------
+# RentFinder — .gitignore
+#
+# Ce dépôt est PUBLIC. Ce fichier est la première ligne de défense contre la
+# publication accidentelle de données personnelles ou de secrets (§26).
+#
+# Règle de lecture : tout ce qui est marqué « PRIVÉ » ci-dessous ne doit JAMAIS
+# apparaître dans un commit. En cas de doute, ne pas committer et lancer
+# `pnpm run check:secrets`.
+# ---------------------------------------------------------------------------
+
+# --- PRIVÉ : secrets, credentials, tokens ----------------------------------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+secrets/
+credentials/
+.turso/
+
+# --- PRIVÉ : profil locataire et points de référence (§20, §25) ------------
+# Ces fichiers contiennent le nom réel, les revenus, le lieu de travail, etc.
+config/private/
+config/*.private.json
+config/*.private.yaml
+profile.json
+tenant-profile.json
+reference-points.json
+
+# --- PRIVÉ : données collectées et exports ---------------------------------
+# Les annonces réelles, l'historique de contact et les statistiques
+# personnelles ne sont jamais versionnés.
+data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+exports/
+snapshots/
+
+# --- PRIVÉ : captures de scraping brutes -----------------------------------
+# Le HTML brut d'une source peut contenir des coordonnées de particuliers.
+# Les fixtures de test sont anonymisées manuellement puis ajoutées en force
+# (voir docs/privacy.md et CONTRIBUTING.md).
+.cache/
+.http-cache/
+raw/
+*.raw.html
+
+# --- Node / pnpm -----------------------------------------------------------
+node_modules/
+.pnpm-store/
+.pnpm-debug.log*
+npm-debug.log*
+yarn-error.log*
+
+# --- Build -----------------------------------------------------------------
+dist/
+dist-types/
+build/
+out/
+.wrangler/
+*.tsbuildinfo
+
+# --- Tests / couverture ----------------------------------------------------
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
+blob-report/
+.playwright/
+
+# --- Outils / IDE ----------------------------------------------------------
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.shared.json
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Divers ----------------------------------------------------------------
+.eslintcache
+.turbo/
+tmp/
+temp/

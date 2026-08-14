@@ -1,0 +1,9 @@
+# Normalisation des fins de ligne : LF dans le dépôt, quel que soit l'OS du
+# poste de travail. Aligné sur Prettier (`endOfLine: lf`) pour que le format
+# check de la CI (Linux) et le poste Windows voient les mêmes fichiers.
+* text=auto eol=lf
+
+# Fichiers binaires éventuels.
+*.png binary
+*.jpg binary
+*.woff2 binary

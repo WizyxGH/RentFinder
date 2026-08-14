@@ -1,0 +1,25 @@
+{
+  "name": "@rentfinder/collector",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Collecte, normalisation, dédoublonnage, scoring et persistance des annonces.",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc --build",
+    "collect": "node --experimental-strip-types src/cli/collect.ts",
+    "db:migrate": "node --experimental-strip-types src/cli/migrate.ts"
+  },
+  "dependencies": {
+    "@libsql/client": "^0.14.0",
+    "@rentfinder/shared": "workspace:*",
+    "cheerio": "^1.0.0"
+  }
+}

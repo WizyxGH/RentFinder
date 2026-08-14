@@ -1,0 +1,215 @@
+<!--
+  Fixture — laforet.com, page « ville » de location.
+  Structure observée le 2026-08-14 sur
+  https://www.laforet.com/ville/location-appartement-nice-06000
+
+  La STRUCTURE (imbrication, classes Tailwind, entités &nbsp; / &bull;) est
+  reproduite fidèlement. Le CONTENU est fictif — voir tests/fixtures/README.md.
+-->
+<!doctype html>
+<html lang="fr">
+<head>
+    <title>Appartements à louer à Nice (06000) - 5 annonces ⇔ Laforêt Immobilier</title>
+</head>
+<body>
+<main>
+    <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+
+        <!-- Annonce 1 — nominale, dans les critères (≤ 700 €, ≥ 12 m²) -->
+        <div class="group/card relative overflow-hidden rounded-lg border">
+            <div class="relative flex h-full flex-col gap-2 p-2 xl:p-4">
+                <a
+                    href="https://www.laforet.com/agence-immobiliere/nice-centre/louer/nice/appartement-1-piece-40000001"
+                    target="_blank"
+                    class="after:absolute after:inset-0 after:content-['']"
+                    aria-label="appartement-1-piece-40000001"
+                >
+                    <h3 class="mb-2">
+                    <span class="mb-2 flex flex-wrap text-xl">
+                        <span class="text-primary font-semibold">
+                            Appartement
+                        </span>
+                        <span class="text-tertiary font-bold ml-auto text-right">
+                            690 €/mois
+                        </span>
+                    </span>
+                    <span class="font-bold text-gray-600">
+                        NICE
+                        (06000)
+                    </span>
+                </h3>
+                    <div>
+                        <div class="text flex flex-wrap">
+                            34 m²&nbsp;&bull;&nbsp;1 pièce
+                        </div>
+                        <div class="text truncate">
+                            Ascenseur&nbsp;&bull;&nbsp;1 salle de bain&nbsp;&bull;&nbsp;Meublé
+                        </div>
+                    </div>
+                    <span class="sr-only">(nouvel onglet)</span>
+                </a>
+            </div>
+        </div>
+
+        <!-- Annonce 2 — hors critères : loyer supérieur au budget -->
+        <div class="group/card relative overflow-hidden rounded-lg border">
+            <div class="relative flex h-full flex-col gap-2 p-2 xl:p-4">
+                <a
+                    href="https://www.laforet.com/agence-immobiliere/nice-gambetta/louer/nice/appartement-3-pieces-40000002"
+                    target="_blank"
+                    class="after:absolute after:inset-0 after:content-['']"
+                    aria-label="appartement-3-pieces-40000002"
+                >
+                    <h3 class="mb-2">
+                    <span class="mb-2 flex flex-wrap text-xl">
+                        <span class="text-primary font-semibold">
+                            Appartement
+                        </span>
+                        <span class="text-tertiary font-bold ml-auto text-right">
+                            1 890 €/mois
+                        </span>
+                    </span>
+                    <span class="font-bold text-gray-600">
+                        NICE
+                        (06000)
+                    </span>
+                </h3>
+                    <div>
+                        <div class="text flex flex-wrap">
+                            67 m²&nbsp;&bull;&nbsp;3 pièces&nbsp;&bull;&nbsp;2 chambres
+                        </div>
+                        <div class="text truncate">
+                            Ascenseur&nbsp;&bull;&nbsp;1 salle de bain&nbsp;&bull;&nbsp;Meublé
+                        </div>
+                    </div>
+                    <span class="sr-only">(nouvel onglet)</span>
+                </a>
+                <!-- Second lien vers la MÊME annonce : ne doit pas créer de doublon -->
+                <a
+                    href="https://www.laforet.com/agence-immobiliere/nice-gambetta/louer/nice/appartement-3-pieces-40000002#section-video"
+                    class="text-sm"
+                >Voir la vidéo</a>
+            </div>
+        </div>
+
+        <!-- Annonce 3 — studio non meublé, dans les critères -->
+        <div class="group/card relative overflow-hidden rounded-lg border">
+            <div class="relative flex h-full flex-col gap-2 p-2 xl:p-4">
+                <a
+                    href="https://www.laforet.com/agence-immobiliere/nice-port/louer/nice/appartement-1-piece-40000003"
+                    target="_blank"
+                    class="after:absolute after:inset-0 after:content-['']"
+                    aria-label="appartement-1-piece-40000003"
+                >
+                    <h3 class="mb-2">
+                    <span class="mb-2 flex flex-wrap text-xl">
+                        <span class="text-primary font-semibold">
+                            Studio
+                        </span>
+                        <span class="text-tertiary font-bold ml-auto text-right">
+                            650 €/mois
+                        </span>
+                    </span>
+                    <span class="font-bold text-gray-600">
+                        NICE
+                        (06300)
+                    </span>
+                </h3>
+                    <div>
+                        <div class="text flex flex-wrap">
+                            18 m²&nbsp;&bull;&nbsp;1 pièce
+                        </div>
+                        <div class="text truncate">
+                            Non meublé&nbsp;&bull;&nbsp;1 salle d'eau
+                        </div>
+                    </div>
+                    <span class="sr-only">(nouvel onglet)</span>
+                </a>
+            </div>
+        </div>
+
+        <!-- Annonce 4 — commune voisine : la page en liste aussi -->
+        <div class="group/card relative overflow-hidden rounded-lg border">
+            <div class="relative flex h-full flex-col gap-2 p-2 xl:p-4">
+                <a
+                    href="https://www.laforet.com/agence-immobiliere/cagnes-sur-mer/louer/cagnes-sur-mer/appartement-2-pieces-40000004"
+                    target="_blank"
+                    class="after:absolute after:inset-0 after:content-['']"
+                    aria-label="appartement-2-pieces-40000004"
+                >
+                    <h3 class="mb-2">
+                    <span class="mb-2 flex flex-wrap text-xl">
+                        <span class="text-primary font-semibold">
+                            Appartement
+                        </span>
+                        <span class="text-tertiary font-bold ml-auto text-right">
+                            680 €/mois
+                        </span>
+                    </span>
+                    <span class="font-bold text-gray-600">
+                        Cagnes-sur-Mer
+                        (06800)
+                    </span>
+                </h3>
+                    <div>
+                        <div class="text flex flex-wrap">
+                            29 m²&nbsp;&bull;&nbsp;2 pièces&nbsp;&bull;&nbsp;1 chambre
+                        </div>
+                        <div class="text truncate">
+                            Balcon&nbsp;&bull;&nbsp;Parking
+                        </div>
+                    </div>
+                    <span class="sr-only">(nouvel onglet)</span>
+                </a>
+            </div>
+        </div>
+
+        <!-- Annonce 5 — surface trop petite : sous le minimum de 12 m² -->
+        <div class="group/card relative overflow-hidden rounded-lg border">
+            <div class="relative flex h-full flex-col gap-2 p-2 xl:p-4">
+                <a
+                    href="https://www.laforet.com/agence-immobiliere/nice-centre/louer/nice/chambre-1-piece-40000005"
+                    target="_blank"
+                    class="after:absolute after:inset-0 after:content-['']"
+                    aria-label="chambre-1-piece-40000005"
+                >
+                    <h3 class="mb-2">
+                    <span class="mb-2 flex flex-wrap text-xl">
+                        <span class="text-primary font-semibold">
+                            Chambre
+                        </span>
+                        <span class="text-tertiary font-bold ml-auto text-right">
+                            420 €/mois
+                        </span>
+                    </span>
+                    <span class="font-bold text-gray-600">
+                        NICE
+                        (06100)
+                    </span>
+                </h3>
+                    <div>
+                        <div class="text flex flex-wrap">
+                            9 m²&nbsp;&bull;&nbsp;1 pièce
+                        </div>
+                        <div class="text truncate">
+                            Meublé
+                        </div>
+                    </div>
+                    <span class="sr-only">(nouvel onglet)</span>
+                </a>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Pagination -->
+    <nav aria-label="Pagination">
+        <a href="/ville/location-appartement-nice-06000?page=2" class="btn">Suivant</a>
+    </nav>
+
+    <!-- Liens à ignorer : agences, pas des annonces -->
+    <a href="https://www.laforet.com/agence-immobiliere/nice-centre">Agence Laforêt Nice Centre</a>
+    <a href="https://www.laforet.com/agence-immobiliere/nice-centre/louer">Toutes nos locations</a>
+</main>
+</body>
+</html>

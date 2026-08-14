@@ -1,0 +1,143 @@
+# RentFinder
+
+Agrégateur **personnel** d'annonces de location à Nice. Ce n'est pas un énième
+site immobilier : c'est un outil dont l'unique objectif est de **maximiser le
+nombre de visites obtenues** — trouver vite les logements pertinents sur un
+maximum de sources, éliminer les doublons et le bruit, évaluer chaque
+opportunité, et permettre de contacter le bailleur en quelques secondes.
+
+Ouvert sur un téléphone, il répond à une seule question :
+
+> **Quelles sont les meilleures annonces que je dois contacter maintenant ?**
+
+## Fonctionnalités
+
+- **Collecte multi-sources** avec scheduler adaptatif : les sources productives
+  sont interrogées plus souvent, les sources calmes espacées, les sources en
+  erreur mises de côté — jamais de « tout le monde toutes les 10 minutes ».
+- **Scraping poli par construction** : User-Agent identifiable, budgets de
+  requêtes par source, cache ETag/304, arrêt anticipé en terrain connu, arrêt
+  immédiat sur 429, arrêt définitif si une source refuse l'accès automatisé.
+  Aucun contournement de protection, jamais.
+- **Dédoublonnage** multi-signaux (téléphone, référence, GPS, prix, surface,
+  textes) : une seule fiche par logement, **toutes** les occurrences et URLs
+  d'origine conservées. Les cas ambigus ne sont pas fusionnés — un doublon
+  visible vaut mieux qu'un logement disparu.
+- **Fusion avec provenance** : téléphone de Leboncoin + référence du site
+  d'agence + DPE de SeLoger sur la même fiche ; les valeurs divergentes sont
+  affichées, jamais écrasées en silence.
+- **Quatre scores expliqués** — Match, Opportunité, Probabilité de visite,
+  Risque — chacun avec ses raisons ligne à ligne et ses angles morts déclarés
+  (« calculé sans le nombre de favoris »). Une donnée absente n'est jamais
+  inventée.
+- **Détection d'arnaques** : prix anormal, incohérences, formulations
+  classiques (« clés par courrier », « virement avant visite ») — signalées,
+  jamais bloquantes.
+- **Distances** vers des points de référence privés (travail, gare), libellés
+  neutres, coordonnées jamais versionnées.
+- **Contact en mode manuel** : coordonnées + message prêt à envoyer
+  ([Modifier] [Copier] [Ouvrir] [J'ai envoyé]) — rien ne part sans votre geste.
+  Un mode automatique optionnel existe sous garde-fous stricts, **désactivé par
+  défaut**.
+- **Suivi** : statuts (Nouveau → Contacté → … → Loué), journal des contacts,
+  événements conservés pour les statistiques futures.
+- **Coût : 0 €** — GitHub Pages + GitHub Actions + Turso + Cloudflare Workers,
+  tous en free tier, avec une discipline d'écriture qui y maintient.
+
+## Architecture en bref
+
+```
+GitHub Actions (cron) → Scheduler → Scrapers → Normalisation
+    → Dédoublonnage → Scoring → Turso ← API (Cloudflare Worker, jeton)
+                                            ← Frontend (GitHub Pages)
+```
+
+Le frontend publié ne contient **aucune donnée** : vos annonces, statuts et
+distances restent derrière une API à jeton. Détails, diagramme et décisions :
+[docs/architecture.md](docs/architecture.md).
+
+**Stack** : TypeScript partout — monorepo pnpm, React + Vite (frontend),
+Node 22 (collecteur), cheerio (parsing), libsql/Turso (base), Vitest +
+Playwright (tests), Cloudflare Workers (API).
+
+## Démarrage rapide
+
+Prérequis : Node ≥ 20.10, pnpm 9 (`corepack enable`).
+
+```bash
+git clone <votre-fork> && cd rentfinder
+pnpm install
+pnpm dev          # → http://localhost:5173, interface complète sur données fictives
+```
+
+Le mode démo fonctionne sans base, sans secret, sans réseau : c'est aussi
+l'environnement des tests. Pour la vraie collecte et le déploiement complet
+(Turso, Worker, Pages, secrets) : [docs/deployment.md](docs/deployment.md).
+
+## Commandes
+
+| Commande                      | Effet                                                                       |
+| ----------------------------- | --------------------------------------------------------------------------- |
+| `pnpm dev`                    | frontend en mode démo                                                       |
+| `pnpm collect`                | un cycle de collecte (`-- --backfill`, `-- --verbose`)                      |
+| `pnpm db:migrate`             | applique les migrations                                                     |
+| `pnpm test` / `pnpm test:e2e` | tests Node / scénarios Playwright                                           |
+| `pnpm verify`                 | **tout** : format, lint, types, tests, secrets — à lancer avant tout commit |
+| `pnpm check:secrets`          | scanner de secrets seul                                                     |
+
+## Documentation
+
+| Document                                    | Contenu                                                              |
+| ------------------------------------------- | -------------------------------------------------------------------- |
+| [architecture.md](docs/architecture.md)     | composants, flux, décisions, limites                                 |
+| [sources.md](docs/sources.md)               | étude datée des sources (robots.txt, verdicts, priorités)            |
+| [scraping.md](docs/scraping.md)             | règles de collecte, garanties du core, diagnostic d'un scraper cassé |
+| [scheduler.md](docs/scheduler.md)           | fréquences adaptatives                                               |
+| [deduplication.md](docs/deduplication.md)   | signaux, vetos, fusion, provenance                                   |
+| [scoring.md](docs/scoring.md)               | les 4 scores et la priorité d'action                                 |
+| [risk-detection.md](docs/risk-detection.md) | signaux d'arnaque                                                    |
+| [contact.md](docs/contact.md)               | mode manuel, garde-fous du mode auto, relances                       |
+| [database.md](docs/database.md)             | schéma, migrations, économie d'écritures                             |
+| [privacy.md](docs/privacy.md)               | cartographie des données, les six barrières anti-fuite               |
+| [deployment.md](docs/deployment.md)         | mise en production pas à pas                                         |
+| [contributing.md](docs/contributing.md)     | **ajouter une source**, conventions                                  |
+
+## Principes non négociables
+
+1. **Respect des sources** — pas de contournement de CAPTCHA, d'anti-bot, de
+   rate limit ni de `robots.txt` ; une source hostile est abandonnée, pas
+   forcée. Identité du bot toujours annoncée.
+2. **Pas de données inventées** — un champ que la source ne publie pas est
+   « inconnu », dans le modèle comme à l'écran.
+3. **Rien de personnel dans le dépôt** — il est public ; six barrières
+   automatiques l'assurent ([privacy.md](docs/privacy.md)).
+4. **Aucun message sans action humaine** en mode manuel — le mode par défaut.
+5. **Économie** — minimum de requêtes, d'écritures et de minutes CI pour le
+   maximum d'information utile.
+
+## Limites connues
+
+- Le mode automatique de contact n'a **pas d'envoi implémenté** (garde-fous
+  seulement) : il n'arrivera qu'après une collecte éprouvée, comme prévu.
+- Une seule source réelle (Laforêt) pour l'instant — l'[étude des
+  sources](docs/sources.md) liste les suivantes par priorité.
+- Distances à vol d'oiseau corrigées (× 1,3), pas des itinéraires.
+- Leboncoin et SeLoger sont **écartés** : pas de méthode d'accès conforme
+  identifiée à ce jour.
+- Les crons GitHub Actions peuvent avoir quelques minutes de retard.
+
+## Roadmap
+
+- **MVP (actuel)** : pipeline complet, 1 source, 4 scores, dédoublonnage,
+  contact manuel, frontend mobile, CI, docs, 267 tests dont 18 scénarios E2E.
+- **V2** : Orpi + PAP (sitemap) + Foncia, adaptateurs génériques d'agences
+  locales, relances automatisées, statistiques (taux de réponse par
+  source/heure/délai), historique des changements de prix.
+- **V3** : scores calibrés sur les résultats réels, scheduler optimisé
+  dynamiquement, automatisation avancée.
+
+## Licence
+
+[MIT](LICENSE). Le code est libre ; son **usage** doit rester conforme aux CGU
+des sites consultés et au droit applicable (RGPD compris). Ce projet est conçu
+pour un usage personnel de recherche de logement, à faible volume.

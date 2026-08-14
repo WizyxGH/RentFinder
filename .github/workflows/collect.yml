@@ -1,0 +1,96 @@
+# Collecte planifiée (§29).
+#
+# UN SEUL workflow pour toutes les sources — pas un workflow par scraper.
+# C'est le scheduler interne qui décide, à chaque réveil, quelles sources
+# méritent d'être interrogées, en fonction de leur productivité récente, de
+# leurs erreurs et de leurs budgets (§7).
+#
+# Conséquence : augmenter le nombre de sources n'augmente pas le nombre de
+# workflows, et le coût en minutes GitHub Actions reste borné (§30).
+
+name: Collecte
+
+on:
+  schedule:
+    # Toutes les 20 minutes. Le scheduler interne filtre ensuite : une source
+    # dont l'intervalle n'est pas écoulé n'émet aucune requête.
+    # Note : GitHub Actions ne garantit pas la ponctualité des crons.
+    - cron: '*/20 * * * *'
+  workflow_dispatch:
+    inputs:
+      backfill:
+        description: 'Mode backfill (récupération d’annonces plus anciennes)'
+        type: boolean
+        default: false
+      verbose:
+        description: 'Journalisation détaillée'
+        type: boolean
+        default: false
+
+# Deux collectes simultanées écriraient en concurrence dans Turso et
+# doubleraient les requêtes vers les sources.
+concurrency:
+  group: collect
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  collect:
+    name: Cycle de collecte
+    runs-on: ubuntu-latest
+    # Borne dure : une source qui traîne ne doit pas consommer le quota.
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Installer les dépendances
+        run: pnpm install --frozen-lockfile
+
+      - name: Construire les paquets
+        run: pnpm -r --filter "./packages/*" run build
+
+      - name: Appliquer les migrations
+        run: pnpm run db:migrate
+        env:
+          TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
+          TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
+
+      - name: Lancer la collecte
+        run: |
+          ARGS=""
+          if [ "${{ inputs.backfill }}" = "true" ]; then ARGS="$ARGS --backfill"; fi
+          if [ "${{ inputs.verbose }}" = "true" ]; then ARGS="$ARGS --verbose"; fi
+          pnpm run collect -- $ARGS
+        env:
+          TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
+          TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
+
+          # Identification honnête du collecteur (§10).
+          COLLECTOR_USER_AGENT: ${{ vars.COLLECTOR_USER_AGENT }}
+
+          # §8 : le backfill exige l'intention explicite ET l'activation.
+          BACKFILL_ENABLED: ${{ vars.BACKFILL_ENABLED }}
+
+          # §23 : interrupteur global du contact automatique. Absent = OFF.
+          AUTO_CONTACT_ENABLED: ${{ vars.AUTO_CONTACT_ENABLED }}
+
+          # §20 : points de référence privés, stockés en secrets de dépôt.
+          # Leur absence désactive simplement le calcul des distances.
+          REFERENCE_WORK_LABEL: ${{ vars.REFERENCE_WORK_LABEL }}
+          REFERENCE_WORK_LAT: ${{ secrets.REFERENCE_WORK_LAT }}
+          REFERENCE_WORK_LON: ${{ secrets.REFERENCE_WORK_LON }}
+          REFERENCE_STATION_LABEL: ${{ vars.REFERENCE_STATION_LABEL }}
+          REFERENCE_STATION_LAT: ${{ secrets.REFERENCE_STATION_LAT }}
+          REFERENCE_STATION_LON: ${{ secrets.REFERENCE_STATION_LON }}

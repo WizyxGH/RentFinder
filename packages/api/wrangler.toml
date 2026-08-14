@@ -1,0 +1,22 @@
+# Configuration du Worker Cloudflare (§28).
+#
+# AUCUN SECRET DANS CE FICHIER — il est versionné dans un dépôt public (§26).
+# Les valeurs sensibles sont fournies via `wrangler secret put` :
+#
+#   wrangler secret put TURSO_DATABASE_URL
+#   wrangler secret put TURSO_AUTH_TOKEN
+#   wrangler secret put API_ACCESS_TOKEN
+#
+# `API_ALLOWED_ORIGIN` n'est pas secret : c'est l'URL publique GitHub Pages.
+
+name = "rentfinder-api"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+# Remplacer par votre URL GitHub Pages avant déploiement.
+API_ALLOWED_ORIGIN = "https://example-user.github.io"
+
+[observability]
+enabled = true
