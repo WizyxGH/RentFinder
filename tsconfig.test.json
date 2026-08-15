@@ -23,7 +23,6 @@
     "paths": {
       "@rentfinder/shared": ["./packages/shared/src/index.ts"],
       "@rentfinder/collector": ["./packages/collector/src/index.ts"],
-      "@rentfinder/api/routes": ["./packages/api/src/routes.ts"],
       "@/*": ["./frontend/src/*"]
     }
   },

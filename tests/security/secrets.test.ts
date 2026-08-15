@@ -70,9 +70,8 @@ describe('.env.example', () => {
 
   it('déclare toutes les variables utilisées par le collecteur', () => {
     const required = [
-      'TURSO_DATABASE_URL',
-      'TURSO_AUTH_TOKEN',
-      'API_ACCESS_TOKEN',
+      'BEP_SUBSCRIBER_USER',
+      'BEP_SUBSCRIBER_PASSWORD',
       'COLLECTOR_USER_AGENT',
       'BACKFILL_ENABLED',
       'AUTO_CONTACT_ENABLED',
@@ -114,24 +113,10 @@ describe('exposition au frontend', () => {
     }
   });
 
-  it('ne référence aucune URL Turso dans le frontend', () => {
+  it('ne référence aucune URL distante libsql dans le frontend', () => {
     const files = listFrontendFiles(resolve(ROOT, 'frontend/src'));
     for (const file of files) {
       expect(readFileSync(file, 'utf8')).not.toMatch(/libsql:\/\//);
     }
-  });
-});
-
-describe('wrangler.toml', () => {
-  const config = read('packages/api/wrangler.toml');
-
-  it('ne contient aucun secret en clair', () => {
-    expect(config).not.toMatch(/TURSO_AUTH_TOKEN\s*=/);
-    expect(config).not.toMatch(/API_ACCESS_TOKEN\s*=/);
-    expect(config).not.toMatch(/libsql:\/\/(?!example)/);
-  });
-
-  it('documente la procédure de dépôt des secrets', () => {
-    expect(config).toMatch(/wrangler secret put/);
   });
 });

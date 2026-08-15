@@ -1,14 +1,10 @@
 /**
- * Routes de l'API — logique métier PORTABLE.
+ * Routes de l'API locale (§36, §37, §35, §33, §63).
  *
- * Ce module ne connaît ni Cloudflare, ni Node : uniquement les standards Web
- * (`Request`, `Response`, `URL`) et l'interface `Client` de libsql, identique
- * pour Turso (`@libsql/client/web`) et pour un fichier SQLite local
- * (`@libsql/client`). Il est ainsi consommé par DEUX transports :
- *
- *   - le Worker Cloudflare (`index.ts`) — production, Turso, jeton + CORS ;
- *   - le serveur local (`@rentfinder/collector`, cli/serve.ts) — mode
- *     zéro-cloud, fichier SQLite, sans jeton car limité à 127.0.0.1.
+ * Le projet est 100% local : ce module est consommé par le serveur local
+ * (`cli/serve.ts`, mode zéro-cloud, fichier SQLite, limité à 127.0.0.1). Il ne
+ * dépend que des standards Web (`Request`, `Response`, `URL`) et de l'interface
+ * `Client` de libsql.
  *
  * Routes :
  *   GET   /api/listings              liste triée par priorité d'action (§36)
@@ -20,7 +16,6 @@
  */
 
 import type { Client } from '@libsql/client';
-import { jsonError } from './auth.js';
 
 /** Statuts de suivi acceptés par l'API (§35). */
 const TRACKING_STATUSES = new Set([
@@ -35,6 +30,14 @@ const TRACKING_STATUSES = new Set([
   'rented',
   'ignored',
 ]);
+
+/** Réponse d'erreur JSON, sans détail exploitable. */
+function jsonError(status: number, message: string): Response {
+  return new Response(JSON.stringify({ error: message }), {
+    status,
+    headers: { 'content-type': 'application/json; charset=utf-8' },
+  });
+}
 
 function json(data: unknown, cors: Record<string, string>, status = 200): Response {
   return new Response(JSON.stringify(data), {
@@ -241,14 +244,8 @@ async function recordContact(
 }
 
 /**
- * Aiguillage des routes.
- *
- * Séparé des transports, qui ne s'occupent que du protocole (CORS,
- * authentification, gestion d'erreur). Chacun reste ainsi lisible et testable
- * isolément (§75).
- *
- * La clé de routage combine méthode et forme du chemin : `GET /listings/:id`.
- * Les segments sont validés avant d'arriver ici.
+ * Aiguillage des routes. La clé de routage combine méthode et forme du chemin.
+ * Les segments sont validés par le transport avant d'arriver ici (§75).
  */
 export async function route(
   db: Client,

@@ -1,11 +1,11 @@
 /**
  * Connexion à la base (§27).
  *
- * Turso en production, fichier SQLite local en développement et en test.
- * L'API `@libsql/client` étant identique dans les deux cas, aucun code métier
- * ne sait sur quoi il tourne — ce qui garantit que les tests d'intégration
- * exercent le vrai chemin de code sans jamais toucher la base de production
- * (§52).
+ * Projet 100% local : un fichier SQLite via `@libsql/client` (protocole libsql,
+ * utilisé ici en mode fichier — aucun service cloud). La base de test tourne en
+ * mémoire. Aucune configuration, aucun compte, aucun jeton n'est requis, ce qui
+ * rend la CI possible sur un dépôt public et garantit que les tests exercent le
+ * vrai chemin de code sans jamais toucher de données réelles (§52).
  */
 
 import { mkdirSync } from 'node:fs';
@@ -31,56 +31,25 @@ export function defaultLocalDatabaseUrl(): string {
 
 export interface DatabaseOptions {
   readonly url: string;
-  readonly authToken?: string;
 }
 
-/**
- * Ouvre une connexion.
- *
- * @throws si l'URL pointe vers Turso sans jeton d'authentification — mieux vaut
- *         échouer immédiatement qu'écrire dans le vide.
- */
+/** Ouvre une connexion vers un fichier SQLite local (ou `:memory:` en test). */
 export function openDatabase(options: DatabaseOptions): Database {
-  const isRemote = options.url.startsWith('libsql://') || options.url.startsWith('https://');
-  if (isRemote && !options.authToken) {
-    throw new Error(
-      'TURSO_AUTH_TOKEN est requis pour une base distante. ' +
-        'Voir .env.example et docs/database.md.',
-    );
-  }
-
-  return createClient({
-    url: options.url,
-    ...(options.authToken !== undefined ? { authToken: options.authToken } : {}),
-  });
+  return createClient({ url: options.url });
 }
 
 /**
  * Ouvre la base à partir de l'environnement.
  *
- * `TEST_DATABASE_URL` a priorité : c'est la garantie qu'un test lancé avec un
- * `.env` de production ne l'atteindra pas (§52).
+ * `TEST_DATABASE_URL` a priorité : c'est la garantie qu'un test ne touchera
+ * jamais la base locale de travail (§52). `DATABASE_URL` permet éventuellement
+ * de pointer vers un autre fichier local ; sinon, la base locale par défaut.
  */
 export function openDatabaseFromEnv(env: NodeJS.ProcessEnv = process.env): Database {
-  const testUrl = env['TEST_DATABASE_URL'];
   if (env['NODE_ENV'] === 'test' || env['VITEST'] === 'true') {
-    return openDatabase({ url: testUrl ?? ':memory:' });
+    return openDatabase({ url: env['TEST_DATABASE_URL'] ?? ':memory:' });
   }
 
-  const url = env['TURSO_DATABASE_URL'];
-  if (url === undefined || url === '') {
-    // En CI, une URL absente est une erreur de configuration : un fallback
-    // silencieux écrirait dans un fichier éphémère et perdrait la collecte.
-    if (env['CI'] !== undefined) {
-      throw new Error('TURSO_DATABASE_URL manquant. Voir .env.example.');
-    }
-    // En local, le mode zéro-configuration prend le relais : tout fonctionne
-    // sans compte cloud, dans un fichier SQLite du dépôt (ignoré par git).
-    const localUrl = defaultLocalDatabaseUrl();
-    console.error(`TURSO_DATABASE_URL absent — base locale utilisée : ${localUrl}`);
-    return openDatabase({ url: localUrl });
-  }
-
-  const token = env['TURSO_AUTH_TOKEN'];
-  return openDatabase({ url, ...(token !== undefined ? { authToken: token } : {}) });
+  const url = env['DATABASE_URL'];
+  return openDatabase({ url: url !== undefined && url !== '' ? url : defaultLocalDatabaseUrl() });
 }

@@ -1,9 +1,10 @@
-# Déploiement
+# Installation et usage — 100% local
 
-## Mode local — zéro cloud (aucun compte requis)
+RentFinder fonctionne **intégralement sur votre machine** : aucun compte cloud,
+aucun service à payer, aucune clé d'API. La base est un fichier SQLite, la
+collecte et l'interface tournent en local.
 
-Le projet fonctionne intégralement sur votre machine, sans Turso, sans
-Cloudflare et sans GitHub Actions :
+## Démarrage
 
 ```bash
 pnpm install
@@ -11,123 +12,59 @@ pnpm collect      # collecte réelle → data/local.db (créée automatiquement)
 pnpm local        # interface + API sur http://127.0.0.1:8788
 ```
 
-- La base est un fichier SQLite (`data/local.db`, ignoré par git), utilisé
-  automatiquement dès que `TURSO_DATABASE_URL` est absent (hors CI).
-- Le serveur n'écoute que sur 127.0.0.1 et ne demande donc pas de jeton.
-- Les migrations s'appliquent automatiquement au démarrage.
-- Relancer `pnpm collect` quand vous voulez rafraîchir ; le scheduler, les
-  budgets et le cache s'appliquent comme en production.
-- Les distances (§20) fonctionnent aussi en local : renseigner les variables
-  `REFERENCE_*` dans un `.env` à la racine (voir `.env.example`).
+- La base est un fichier SQLite (`data/local.db`, ignoré par git).
+- Le serveur n'écoute que sur `127.0.0.1` : il n'est joignable ni depuis le
+  réseau local ni depuis Internet, donc aucun jeton n'est nécessaire.
+- Les migrations s'appliquent automatiquement au démarrage (`pnpm collect` et
+  `pnpm local`).
+- Relancez `pnpm collect` quand vous voulez rafraîchir ; le scheduler, les
+  budgets et le cache s'appliquent comme prévu.
 
-Ce mode est le chemin recommandé tant que le déploiement cloud n'est pas
-nécessaire (quota Turso épuisé, essai du projet, développement). Le passage au
-cloud ne migre pas les données locales — la collecte cloud repart de zéro et
-retrouve les annonces actives en quelques runs.
+## Configuration privée (`.env`)
 
-## Déploiement cloud
+Copiez `.env.example` vers `.env` (ignoré par git) et renseignez ce qui vous
+concerne. Tout est optionnel — sans `.env`, la collecte fonctionne, simplement
+sans distances ni message pré-rempli.
 
-Architecture 100 % gratuite (§28) : GitHub (code + Actions + Pages), Turso
-(base), Cloudflare Workers (API). Aucun composant payant.
+| Variable                                       | Rôle                                                              |
+| ---------------------------------------------- | ----------------------------------------------------------------- |
+| `REFERENCE_WORK_ADDRESS` (ou `_LAT`/`_LON`)    | Lieu de travail — géocodé pour afficher le temps de trajet (§20). |
+| `REFERENCE_STATION_ADDRESS` (ou `_LAT`/`_LON`) | Gare de référence.                                                |
+| `TENANT_*`                                     | Profil locataire pour composer les messages de contact (§25).     |
+| `BEP_SUBSCRIBER_USER` / `_PASSWORD`            | Accès abonné BEP payé, si vous en avez un (§6).                   |
+| `COLLECTOR_USER_AGENT`                         | User-Agent du collecteur (identifiable, honnête — §10).           |
+| `BACKFILL_ENABLED`                             | Mode backfill, `false` par défaut (§8).                           |
 
-## 1. Base Turso
+`.env` est chargé automatiquement par `pnpm collect` et `pnpm local`.
 
-> **Windows — attention au faux ami.** Le paquet `turso`/`tursodb` installable
-> nativement sous Windows est le **shell de base locale** (Turso Database,
-> ex-Limbo) : il attend du SQL et ne connaît ni `auth` ni `db create`. Le
-> **CLI de la plateforme cloud** est un outil distinct, prévu pour
-> Linux/macOS/WSL. Deux options sous Windows :
->
-> 1. **Sans CLI (recommandé)** : créer la base sur le tableau de bord web
->    [app.turso.tech](https://app.turso.tech) — l'URL `libsql://…` et la
->    création d'un token y sont accessibles depuis la page de la base.
-> 2. **Via WSL** : `curl -sSfL https://get.tur.so/install.sh | bash` dans un
->    terminal WSL, puis les commandes ci-dessous.
+## Régler les filtres de recherche
 
-```bash
-# CLI plateforme (Linux/macOS/WSL) : https://docs.turso.tech/cli/installation
-turso auth signup
-turso db create rentfinder
-turso db show rentfinder --url          # → TURSO_DATABASE_URL
-turso db tokens create rentfinder       # → TURSO_AUTH_TOKEN
-```
+Éditez `config/search.json` (ville, budget, surface, exclusions), voir
+[config/README.md](../config/README.md). Les changements s'appliquent à la
+prochaine collecte.
 
-## 2. Secrets et variables GitHub
+## Commandes utiles
 
-Dans _Settings → Secrets and variables → Actions_ :
+| Commande                     | Effet                                                     |
+| ---------------------------- | --------------------------------------------------------- |
+| `pnpm collect`               | un cycle de collecte                                      |
+| `pnpm collect -- --verbose`  | collecte avec journalisation détaillée                    |
+| `pnpm collect -- --backfill` | descend dans l'historique (exige `BACKFILL_ENABLED=true`) |
+| `pnpm local`                 | construit l'interface et lance le serveur local           |
+| `pnpm dev`                   | interface en mode démo (données fictives, sans base)      |
+| `pnpm verify`                | format + lint + types + tests + secrets                   |
 
-**Secrets** (jamais visibles) :
+## Vérifier que tout fonctionne
 
-| Nom                                               | Contenu                                        |
-| ------------------------------------------------- | ---------------------------------------------- |
-| `TURSO_DATABASE_URL`                              | URL libsql de l'étape 1                        |
-| `TURSO_AUTH_TOKEN`                                | jeton d'écriture                               |
-| `REFERENCE_WORK_LAT` / `REFERENCE_WORK_LON`       | coordonnées du lieu de travail (§20 — privées) |
-| `REFERENCE_STATION_LAT` / `REFERENCE_STATION_LON` | coordonnées de la gare                         |
+- `pnpm local` puis ouvrez `http://127.0.0.1:8788`.
+- La page « Sources » montre l'état et le dernier passage de chaque source.
+- Si le port 8788 est occupé : `PORT=8789 pnpm local`.
 
-**Variables** (non sensibles) :
+## Pourquoi plus de cloud ?
 
-| Nom                                                | Exemple                                                     |
-| -------------------------------------------------- | ----------------------------------------------------------- |
-| `COLLECTOR_USER_AGENT`                             | `RentFinderBot/0.1 (+https://github.com/<vous>/rentfinder)` |
-| `API_URL`                                          | URL du Worker (étape 3)                                     |
-| `REFERENCE_WORK_LABEL` / `REFERENCE_STATION_LABEL` | `Travail` / `Gare` (libellés neutres)                       |
-| `BACKFILL_ENABLED` / `AUTO_CONTACT_ENABLED`        | absents ou `false` (défaut sûr)                             |
-
-Sans les secrets `REFERENCE_*`, tout fonctionne — simplement sans distances.
-
-## 3. API Cloudflare Worker
-
-```bash
-cd packages/api
-# Éditer wrangler.toml : API_ALLOWED_ORIGIN = votre URL GitHub Pages
-npx wrangler login
-npx wrangler secret put TURSO_DATABASE_URL
-npx wrangler secret put TURSO_AUTH_TOKEN
-npx wrangler secret put API_ACCESS_TOKEN     # openssl rand -base64 32
-npx wrangler deploy                          # → notez l'URL du Worker
-```
-
-Reportez l'URL du Worker dans la variable `API_URL` du dépôt.
-
-## 4. GitHub Pages
-
-_Settings → Pages → Source : GitHub Actions._ Le workflow
-`deploy-frontend.yml` construit et publie à chaque push touchant `frontend/`
-ou `packages/shared/`. Il vérifie par grep qu'aucun motif de secret n'est dans
-le bundle avant de publier.
-
-## 5. Collecte
-
-Le workflow `collect.yml` tourne sur cron (~20 min ; GitHub ne garantit pas la
-ponctualité). Premier lancement manuel : _Actions → Collecte → Run workflow_.
-Les migrations s'appliquent automatiquement en tête de run.
-
-## 6. Première utilisation
-
-1. Ouvrir l'URL GitHub Pages sur votre téléphone.
-2. Saisir le jeton `API_ACCESS_TOKEN` (conservé dans le navigateur).
-3. Renseigner le profil locataire (bouton « Profil » — reste sur l'appareil).
-
-## Développement local
-
-```bash
-pnpm install
-pnpm dev                                   # frontend en mode démo (données fictives)
-cp .env.example .env                       # puis remplir pour le mode connecté
-pnpm db:migrate && pnpm collect            # collecte locale (SQLite ou Turso selon .env)
-pnpm collect -- --verbose                  # journalisation détaillée
-cd packages/api && npx wrangler dev        # API locale
-```
-
-## Vérifier un déploiement
-
-- `GET <API_URL>/api/stats` avec `Authorization: Bearer <jeton>` → compteurs.
-- Sans jeton → 401 ; jeton serveur absent → 503 (l'API est fermée par défaut).
-- Page « Sources » du frontend → santé et dernier passage de chaque source.
-
-## Rotation des jetons
-
-- API : `wrangler secret put API_ACCESS_TOKEN` puis ressaisir dans l'interface.
-- Turso : `turso db tokens create` + mise à jour des deux emplacements
-  (secrets Actions et Worker), puis `turso db tokens revoke` sur l'ancien.
+Les versions antérieures déployaient sur GitHub Pages + Cloudflare Workers +
+Turso. Le projet est désormais **volontairement 100% local** : plus simple, sans
+quota, sans secret à gérer, et vos données (annonces suivies, statuts, adresses)
+ne quittent jamais votre machine — ce qui est le mieux du point de vue de la
+confidentialité (§26). L'historique Git conserve l'ancienne architecture cloud
+si vous souhaitez y revenir.

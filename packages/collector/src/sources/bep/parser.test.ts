@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { normalizeListing } from '../../normalization/normalize.js';
 import { parsePhone } from '../../normalization/parse-listing-fields.js';
 import { parseDetailPage, parseListingUrl, parseSitemap, parseSitemapIndex } from './parser.js';
+import { mostRecentDate } from '../apimo/parser.js';
 
 const FIXTURES = join(import.meta.dirname, '../../../../../tests/fixtures/bep');
 
@@ -90,6 +91,16 @@ describe('parseDetailPage — fiche nominale (JSON-LD)', () => {
     expect(listing?.cityText).toBe('Nice');
     expect(listing?.postalCodeText).toBe('06000');
     expect(listing?.publishedAtText).toBe('2026-08-14');
+  });
+
+  it('retient la date la plus récente entre publication et modification', () => {
+    // Convention « mise à jour le… » : une annonce ancienne mais rafraîchie ne
+    // doit pas être sur-vieillie par le score de fraîcheur (§17).
+    expect(mostRecentDate('2026-01-09', '2026-02-02')).toBe('2026-02-02');
+    expect(mostRecentDate('2026-02-02', '2026-01-09')).toBe('2026-02-02');
+    expect(mostRecentDate('2026-01-09', undefined)).toBe('2026-01-09');
+    expect(mostRecentDate(undefined, undefined)).toBeUndefined();
+    expect(mostRecentDate('pas une date', '2026-01-09')).toBe('2026-01-09');
   });
 
   it("extrait les coordonnées d'agence publiées (§21)", () => {

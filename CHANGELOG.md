@@ -4,6 +4,34 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 Documenter ici : nouvelles sources, changements d'architecture ou de schéma,
 évolutions des scores et du système de contact, corrections importantes (§70).
 
+## [0.9.0] — 2026-08-15
+
+### Changé — projet désormais 100% local
+
+- **Turso retiré** : la base est un simple fichier SQLite local
+  (`data/local.db`) via `@libsql/client` en mode fichier. Plus de compte, plus
+  de quota, plus de jeton d'écriture.
+- **API Cloudflare Worker supprimée** (`packages/api`) : ses routes portables
+  ont été déplacées dans `packages/collector/src/server/routes.ts`, consommées
+  par le serveur local (`pnpm local`, 127.0.0.1, sans jeton).
+- **Workflows cloud supprimés** : collecte planifiée GitHub Actions et
+  déploiement GitHub Pages. La CI (tests) reste.
+- `.env` est **chargé automatiquement** par `pnpm collect` et `pnpm local`.
+- Documentation entièrement mise à jour (deployment, database, architecture,
+  README, privacy, security). L'ancienne architecture cloud reste dans
+  l'historique Git.
+
+### Ajouté
+
+- **Distance au lieu de travail** configurable par simple **adresse**
+  (`REFERENCE_WORK_ADDRESS`), géocodée via la Base Adresse Nationale.
+- Date effective des annonces Apimo (BEP/D'Azur) = plus récente de `datePosted`
+  / `dateModified` (convention « mise à jour le… », évite de sur-vieillir une
+  annonce rafraîchie).
+- Carte de résultats retravaillée (pastille de priorité colorée, prix mis en
+  valeur, adresse, pastilles DPE + atouts).
+- Fondations de l'accès abonné **BEP payé** (config `.env` + `scripts/capture-bep.mjs`).
+
 ## [0.8.0] — 2026-08-15
 
 ### Ajouté

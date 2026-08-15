@@ -22,6 +22,7 @@ import { runPipeline } from '../pipeline.js';
 import {
   backfillEnabled,
   collectorUserAgent,
+  loadDotEnv,
   loadPublicConfig,
   loadReferenceAddresses,
   loadReferencePoints,
@@ -32,6 +33,8 @@ const here = dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS_DIR = resolve(here, '../../../../database/migrations');
 
 async function main(): Promise<void> {
+  // Charge la configuration privée locale (.env) avant toute lecture d'env.
+  loadDotEnv();
   const args = new Set(process.argv.slice(2));
   const logger = createLogger({ minLevel: args.has('--verbose') ? 'debug' : 'info' });
 

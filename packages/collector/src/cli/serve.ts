@@ -5,8 +5,8 @@
  *   pnpm --filter @rentfinder/collector serve
  *
  * Sert sur 127.0.0.1 :
- *   - l'API (mêmes routes que le Worker Cloudflare, via `@rentfinder/api`),
- *     branchée sur la base locale (fichier SQLite, fallback automatique) ;
+ *   - l'API (routes de `../server/routes.js`), branchée sur la base locale
+ *     (fichier SQLite) ;
  *   - l'interface construite en mode `selfhost` (`frontend/dist-local`).
  *
  * SÉCURITÉ. Pas de jeton ici, et c'est un choix : le serveur n'écoute QUE sur
@@ -19,7 +19,8 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { route } from '@rentfinder/api/routes';
+import { route } from '../server/routes.js';
+import { loadDotEnv } from '../config.js';
 import { openDatabaseFromEnv } from '../db/client.js';
 import { migrate } from '../db/migrate.js';
 import { createLogger } from '../core/logger.js';
@@ -103,6 +104,7 @@ async function serveStatic(pathname: string, res: ServerResponse): Promise<void>
 }
 
 async function main(): Promise<void> {
+  loadDotEnv();
   const logger = createLogger({ minLevel: 'info' });
   const db = openDatabaseFromEnv();
 

@@ -2,9 +2,9 @@
  * Profil locataire côté navigateur (§25, §26).
  *
  * CHOIX DE CONCEPTION. Le profil est stocké dans le `localStorage` du
- * navigateur, et nulle part ailleurs. Il ne transite ni par l'API, ni par
- * Turso, ni par GitHub. Le message de contact est composé localement, sur
- * l'appareil de l'utilisateur.
+ * navigateur, et nulle part ailleurs. Il ne transite ni par l'API, ni par la
+ * base. Le message de contact est composé localement, sur l'appareil de
+ * l'utilisateur.
  *
  * Conséquence assumée : le profil doit être ressaisi sur chaque appareil.
  * C'est le prix d'une garantie simple à vérifier — un dépôt public ne peut pas

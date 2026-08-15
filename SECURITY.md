@@ -11,18 +11,19 @@ confidentialité.
 ## Modèle de menace en bref
 
 Le dépôt est public ; les données (annonces, contacts, localisation) sont
-privées. La frontière est l'API Cloudflare : jeton Bearer comparé en temps
-constant, CORS restreint à l'origine du frontend, API **fermée (503)** si le
-jeton serveur n'est pas configuré. Le frontend publié ne contient aucune
-donnée ni credential — vérifié par grep au déploiement.
+privées et **ne quittent jamais la machine** : le projet est 100% local, la
+base est un fichier SQLite (`data/`, ignoré par git) et le serveur n'écoute que
+sur `127.0.0.1`. Il n'y a donc ni service exposé, ni jeton, ni données
+publiées. Les surfaces sensibles restantes : les identifiants privés dans
+`.env` (accès abonné BEP, profil) et l'injection via le HTML scrapé.
 
 ## Gestion des secrets
 
-- Aucun secret dans le dépôt, jamais : ils vivent dans les secrets GitHub
-  Actions, `wrangler secret`, et `.env` local (ignoré par git).
-- Interdiction de committer des credentials — appliquée par trois mécanismes
-  bloquants en CI : scanner maison (`pnpm check:secrets`), Gitleaks sur
-  l'historique, grep du bundle au déploiement.
+- Aucun secret dans le dépôt, jamais : ils vivent dans `.env` local (ignoré par
+  git).
+- Interdiction de committer des credentials — appliquée par deux mécanismes
+  bloquants en CI : scanner maison (`pnpm check:secrets`) et Gitleaks sur
+  l'historique.
 - Les logs expurgent automatiquement jetons, e-mails et téléphones avant
   écriture (`packages/collector/src/core/logger.ts`).
 - Données fictives obligatoires dans tests et fixtures : `example.invalid`,

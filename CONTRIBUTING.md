@@ -17,8 +17,8 @@ pnpm verify              # la vérification complète doit passer sur main
 
 Un monorepo pnpm : `packages/shared` (types et contrats, zéro logique),
 `packages/collector` (collecte → normalisation → dédoublonnage → scoring →
-Turso), `packages/api` (Worker Cloudflare à jeton), `frontend/` (React).
-Commencez par [docs/architecture.md](docs/architecture.md).
+SQLite local, + le serveur local `src/server`), `frontend/` (React).
+Projet 100% local. Commencez par [docs/architecture.md](docs/architecture.md).
 
 ## Règles de sécurité et de confidentialité — bloquantes
 
@@ -26,8 +26,8 @@ Le dépôt est **public**. Toute PR doit passer `pnpm check:secrets` et Gitleaks
 
 - Jamais de vraie donnée personnelle, même en exemple : e-mails en
   `example.invalid`, téléphones en `06 00 00 00 xx`, noms inventés.
-- Jamais de jeton, cookie, URL Turso réelle — y compris dans les messages de
-  commit et les captures d'écran.
+- Jamais de jeton, cookie, mot de passe ou identifiant réel — y compris dans
+  les messages de commit et les captures d'écran.
 - Les fixtures HTML sont anonymisées à la main avant d'entrer dans le dépôt
   ([tests/fixtures/README.md](tests/fixtures/README.md)).
 - Détail complet : [docs/privacy.md](docs/privacy.md).

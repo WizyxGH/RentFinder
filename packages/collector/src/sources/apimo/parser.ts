@@ -102,6 +102,7 @@ interface JsonLdData {
   readonly postalCode?: string;
   readonly streetAddress?: string;
   readonly datePosted?: string;
+  readonly dateModified?: string;
   readonly offerPrice?: string;
   readonly imageUrls?: readonly string[];
   readonly agencyName?: string;
@@ -158,6 +159,9 @@ function parseJsonLd($: cheerio.CheerioAPI): JsonLdData | null {
         ...(typeof property['datePosted'] === 'string'
           ? { datePosted: property['datePosted'] }
           : {}),
+        ...(typeof property['dateModified'] === 'string'
+          ? { dateModified: property['dateModified'] }
+          : {}),
         ...(typeof offers?.['price'] === 'string' || typeof offers?.['price'] === 'number'
           ? { offerPrice: String(offers['price']) }
           : {}),
@@ -178,6 +182,20 @@ function parseJsonLd($: cheerio.CheerioAPI): JsonLdData | null {
 export interface ParsedDetail {
   readonly listing: RawListing | null;
   readonly warnings: readonly string[];
+}
+
+/**
+ * Rend la plus récente de deux dates ISO (`AAAA-MM-JJ`), en ignorant celles qui
+ * sont absentes ou illisibles. `undefined` si aucune n'est exploitable.
+ */
+export function mostRecentDate(a?: string, b?: string): string | undefined {
+  const candidates = [a, b].filter(
+    (value): value is string => typeof value === 'string' && Number.isFinite(Date.parse(value)),
+  );
+  if (candidates.length === 0) return undefined;
+  return candidates.reduce((latest, current) =>
+    Date.parse(current) > Date.parse(latest) ? current : latest,
+  );
 }
 
 /**
@@ -252,7 +270,13 @@ export function parseDetailPage(
     ...(jsonLd?.agencyPhone !== undefined ? { phoneText: jsonLd.agencyPhone } : {}),
     ...(jsonLd?.agencyEmail !== undefined ? { emailText: jsonLd.agencyEmail } : {}),
     contactFormUrl: parsedUrl.canonicalUrl,
-    ...(jsonLd?.datePosted !== undefined ? { publishedAtText: jsonLd.datePosted } : {}),
+    // Date effective = la plus récente entre publication et dernière modif
+    // (convention « annonce mise à jour le… » des portails). Sur ces sites
+    // d'agences, `datePosted` peut être très ancien pour une annonce laissée
+    // en ligne et rafraîchie ; `dateModified` reflète mieux l'activité réelle.
+    ...(mostRecentDate(jsonLd?.datePosted, jsonLd?.dateModified) !== undefined
+      ? { publishedAtText: mostRecentDate(jsonLd?.datePosted, jsonLd?.dateModified) }
+      : {}),
     ...(jsonLd?.imageUrls !== undefined && jsonLd.imageUrls.length > 0
       ? { imageUrls: jsonLd.imageUrls }
       : {}),

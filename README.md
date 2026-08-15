@@ -41,33 +41,28 @@ Ouvert sur un téléphone, il répond à une seule question :
   défaut**.
 - **Suivi** : statuts (Nouveau → Contacté → … → Loué), journal des contacts,
   événements conservés pour les statistiques futures.
-- **Coût : 0 €** — GitHub Pages + GitHub Actions + Turso + Cloudflare Workers,
-  tous en free tier, avec une discipline d'écriture qui y maintient.
+- **Coût : 0 €, et 100% local** — tout tourne sur votre machine (fichier SQLite
+  - serveur local). Aucun compte, aucun quota, aucun secret cloud à gérer, et
+    vos données ne quittent jamais l'appareil.
 
 ## Architecture en bref
 
 ```
-GitHub Actions (cron) → Scheduler → Scrapers → Normalisation
-    → Dédoublonnage → Scoring → Turso ← API (Cloudflare Worker, jeton)
-                                            ← Frontend (GitHub Pages)
+pnpm collect : Scheduler → Scrapers → Normalisation → Dédoublonnage
+             → Scoring + distances → SQLite local (data/local.db)
+pnpm local   : SQLite → API (127.0.0.1) → Frontend React
 ```
 
-Le frontend publié ne contient **aucune donnée** : vos annonces, statuts et
-distances restent derrière une API à jeton. Détails, diagramme et décisions :
-[docs/architecture.md](docs/architecture.md).
+Vos annonces, statuts et distances restent dans un fichier SQLite local, jamais
+publié. Détails, diagramme et décisions : [docs/architecture.md](docs/architecture.md).
 
 **Stack** : TypeScript partout — monorepo pnpm, React + Vite + Tailwind CSS
-v4 + shadcn/ui (frontend), Node 22 (collecteur), cheerio (parsing),
-libsql/Turso (base), Vitest + Playwright (tests), Cloudflare Workers (API).
+v4 + shadcn/ui (frontend), Node 22 (collecteur + serveur local), cheerio
+(parsing), SQLite via `@libsql/client` (base), Vitest + Playwright (tests).
 
 ## Démarrage rapide
 
 Prérequis : Node ≥ 20.10, pnpm 9 (`corepack enable`).
-
-### Mode local — zéro compte, zéro configuration (recommandé pour commencer)
-
-Tout tourne sur votre machine : base SQLite fichier, API locale, interface.
-Aucun compte Turso, Cloudflare ou GitHub n'est nécessaire.
 
 ```bash
 git clone <votre-fork> && cd rentfinder
@@ -77,17 +72,16 @@ pnpm local        # → http://127.0.0.1:8788 : l'interface sur VOS données
 ```
 
 Relancez `pnpm collect` quand vous voulez rafraîchir (le scheduler et les
-budgets s'appliquent aussi en local). `data/` est ignoré par git.
+budgets s'appliquent). `data/` est ignoré par git.
 
-### Mode démo (sans réseau)
+### Mode démo (sans réseau, sans base)
 
 ```bash
 pnpm dev          # → http://localhost:5173, interface sur données fictives
 ```
 
-C'est aussi l'environnement des tests. Pour le déploiement cloud complet
-(collecte automatique GitHub Actions, accès depuis le téléphone — Turso,
-Worker, Pages) : [docs/deployment.md](docs/deployment.md).
+C'est aussi l'environnement des tests. Installation détaillée et configuration
+privée (`.env`) : [docs/deployment.md](docs/deployment.md).
 
 ## Commandes
 

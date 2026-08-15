@@ -42,6 +42,19 @@ export interface PublicConfig {
   readonly missingRunsBeforeInactive: number;
 }
 
+/**
+ * Charge le `.env` de la racine du dépôt, s'il existe (mode local, §66).
+ * Sans échec si le fichier est absent : la config privée est alors simplement
+ * vide. À appeler AVANT toute lecture de `process.env`.
+ */
+export function loadDotEnv(): void {
+  try {
+    process.loadEnvFile(fileURLToPath(new URL('../../../.env', import.meta.url)));
+  } catch {
+    // Pas de .env : fonctionnement sans configuration privée (CI, démo).
+  }
+}
+
 export const PUBLIC_CONFIG: PublicConfig = {
   criteria: MVP_CRITERIA,
   maxSourcesPerRun: 6,
@@ -234,6 +247,29 @@ export function loadTenantProfile(env: NodeJS.ProcessEnv = process.env): TenantP
     hasGuarantor: env['TENANT_HAS_GUARANTOR'] === 'true',
     moveInDate: env['TENANT_MOVE_IN_DATE'] ?? null,
   };
+}
+
+/** Identifiants d'un accès abonné PAYÉ (ex. BEP Logement) — PRIVÉ. */
+export interface SubscriberCredentials {
+  readonly user: string;
+  readonly password: string;
+}
+
+/**
+ * Charge les identifiants de l'espace abonné BEP depuis l'environnement.
+ *
+ * Accès **payé par l'utilisateur** : s'y connecter est une méthode autorisée
+ * (§6), pas un contournement (§10). Les identifiants sont PRIVÉS : ils vivent
+ * dans `.env`/secrets, jamais dans le dépôt, jamais dans les logs (§26, §66).
+ * `null` si non configurés → la source reste en mode public.
+ */
+export function loadBepCredentials(
+  env: NodeJS.ProcessEnv = process.env,
+): SubscriberCredentials | null {
+  const user = env['BEP_SUBSCRIBER_USER'];
+  const password = env['BEP_SUBSCRIBER_PASSWORD'];
+  if (user === undefined || user === '' || password === undefined || password === '') return null;
+  return { user, password };
 }
 
 /** User-Agent du collecteur — honnête et identifiable, jamais un faux navigateur (§10). */

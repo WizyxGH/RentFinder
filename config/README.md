@@ -40,4 +40,4 @@ sur ce seul motif (§17 : on n'élimine pas sur une donnée absente).
 
 Les données personnelles restent hors du dépôt (§26) et se configurent dans
 `.env` : profil locataire (`TENANT_*`), points de référence (`REFERENCE_*`),
-jetons (`TURSO_*`, `API_ACCESS_TOKEN`).
+identifiants privés (`BEP_SUBSCRIBER_*`).

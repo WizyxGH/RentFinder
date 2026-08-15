@@ -1,10 +1,11 @@
 # Base de données
 
-## Turso, et pourquoi ça reste gratuit
+## SQLite local, et pourquoi ça reste léger
 
-Turso (SQLite distribué, protocole libsql) stocke tout l'état persistant (§27).
-Le free tier est large, mais le projet est conçu pour y rester **par
-construction**, pas par chance :
+La base est un **fichier SQLite local** (`data/local.db`), lu et écrit via
+`@libsql/client` en mode fichier (§27). Aucun service cloud. Le projet reste
+économe **par construction** — utile pour garder une base compacte et des runs
+rapides :
 
 | Mécanisme                                            | Effet                                                                                                                                                                  |
 | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -54,24 +55,16 @@ relation fraîcheur → taux de visite (V2).
 
 ## Environnements
 
-| Contexte                    | Base                                                                                | Garantie                                                                 |
-| --------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| production (GitHub Actions) | Turso via `TURSO_DATABASE_URL` + token                                              | secrets de dépôt uniquement                                              |
-| développement local         | fichier SQLite (`file:./data/dev.db`)                                               | ignoré par git                                                           |
-| tests                       | `:memory:` — `TEST_DATABASE_URL`/`VITEST` ont **priorité** sur toute autre variable | un test lancé avec un `.env` de production ne peut pas l'atteindre (§52) |
+| Contexte            | Base                                                       | Garantie                                                |
+| ------------------- | ---------------------------------------------------------- | ------------------------------------------------------- |
+| usage / collecte    | fichier SQLite `data/local.db` (créé automatiquement)      | ignoré par git — rien ne quitte la machine (§26)        |
+| autre fichier local | `DATABASE_URL=file:./…`                                    | optionnel                                               |
+| tests               | `:memory:` — `TEST_DATABASE_URL`/`VITEST` ont **priorité** | un test ne peut pas toucher votre base de travail (§52) |
 
 Même API libsql dans les trois cas : les tests d'intégration exercent le vrai
 code de persistance.
 
-## Mise en route Turso
+## Mise en route
 
-Sous Windows, préférer le tableau de bord web — voir l'avertissement dans
-[deployment.md](deployment.md#1-base-turso) (le binaire Windows `turso` est le
-shell local, pas le CLI cloud).
-
-```bash
-turso db create rentfinder
-turso db show rentfinder --url        # → TURSO_DATABASE_URL
-turso db tokens create rentfinder     # → TURSO_AUTH_TOKEN (écriture)
-pnpm db:migrate
-```
+Aucune. Le fichier `data/local.db` est créé au premier `pnpm collect`, et les
+migrations s'appliquent automatiquement. Rien à configurer.

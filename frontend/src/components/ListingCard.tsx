@@ -29,33 +29,61 @@ interface ListingCardProps {
   readonly onOpen: (id: string) => void;
 }
 
+/**
+ * Palier de priorité → couleur, pour que le classement se lise sans réfléchir.
+ * Les classes sont écrites en toutes lettres : Tailwind ne génère que les noms
+ * de classe qu'il voit littéralement dans le source (pas d'interpolation).
+ */
+function priorityTier(priority: number): { className: string; label: string } {
+  if (priority >= 85) return { className: 'text-hot bg-hot/10', label: 'à contacter' };
+  if (priority >= 70) return { className: 'text-good bg-good/10', label: 'à voir' };
+  return { className: 'text-muted-foreground bg-muted-foreground/10', label: 'priorité' };
+}
+
 export function ListingCard({ listing, nowMs, onOpen }: ListingCardProps): React.JSX.Element {
-  const sourceCount = new Set(listing.occurrences.map((occurrence) => occurrence.sourceId)).size;
+  const sources = [...new Set(listing.occurrences.map((occurrence) => occurrence.sourceId))];
   const isHot = listing.actionPriority >= 85;
+  const tier = priorityTier(listing.actionPriority);
   const publishedAt = listing.publishedAt.value;
+  const neighborhood = listing.address.value;
+
+  // Atouts compacts pour la carte : DPE puis les premiers atouts, sans saturer.
+  const dpe = listing.dpe?.value ?? null;
+  const chips = [...(dpe !== null ? [`DPE ${dpe}`] : []), ...(listing.features ?? []).slice(0, 3)];
 
   return (
-    <Card className={isHot ? 'border-2 border-hot' : undefined} data-testid="listing-card">
-      <header className="flex items-start gap-2.5">
-        <div className="flex min-w-11 flex-col items-center">
-          {isHot && <span aria-hidden="true">🔥</span>}
-          <span className="text-2xl leading-none font-bold">{listing.actionPriority}</span>
+    <Card
+      className={`transition-shadow hover:shadow-md ${isHot ? 'border-2 border-hot' : ''}`}
+      data-testid="listing-card"
+    >
+      <header className="flex items-start gap-3">
+        {/* Indicateur de priorité : pastille teintée par palier (§36 : tri par action). */}
+        <div
+          className={`flex w-14 shrink-0 flex-col items-center rounded-lg py-1.5 ${tier.className}`}
+        >
+          <span className="text-[1.6rem] leading-none font-bold">{listing.actionPriority}</span>
+          <span className="mt-0.5 text-center text-[0.6rem] leading-tight tracking-wide uppercase">
+            {isHot && <span aria-hidden="true">🔥 </span>}
+            {tier.label}
+          </span>
         </div>
 
         <div className="min-w-0 flex-1">
-          <h2 className="text-base font-semibold">
+          <h2 className="truncate text-base font-semibold">
             {formatPropertyType(listing.propertyType.value)} · {formatCity(listing.city.value)}
           </h2>
-          <p className="mt-0.5 text-[0.95rem]">
-            <strong>{formatPrice(listing.price.value)}</strong>
-            <span aria-hidden="true"> · </span>
-            {formatArea(listing.area.value)}
-            <span aria-hidden="true"> · </span>
-            {formatRooms(listing.rooms.value)}
+          {neighborhood !== null && (
+            <p className="truncate text-[0.8rem] text-muted-foreground">{neighborhood}</p>
+          )}
+          <p className="mt-1 flex items-baseline gap-1.5">
+            <strong className="text-lg font-bold">{formatPrice(listing.price.value)}</strong>
+            <span className="text-[0.9rem] text-muted-foreground">
+              {formatArea(listing.area.value)} · {formatRooms(listing.rooms.value)}
+            </span>
           </p>
         </div>
 
-        <span className="flex flex-col items-end gap-1">
+        <span className="flex shrink-0 flex-col items-end gap-1">
           {listing.tracking !== 'new' && <Badge>{formatTracking(listing.tracking)}</Badge>}
           {listing.priceDropped === true && <Badge variant="good">Prix en baisse</Badge>}
           {listing.flatShare?.value === true && <Badge variant="warning">Colocation</Badge>}
@@ -64,34 +92,39 @@ export function ListingCard({ listing, nowMs, onOpen }: ListingCardProps): React
 
       <ScoreRow scores={listing.scores} />
 
-      <p className="mt-2 text-[0.85rem] text-muted-foreground">
-        {publishedAt === null
-          ? `Découverte ${formatAge(listing.firstSeenAt, nowMs)}`
-          : `Publiée ${formatAge(publishedAt, nowMs)}`}
-      </p>
-
-      {/* §20 : les distances n'apparaissent que si des points de référence
-          privés sont configurés — le libellé reste neutre. */}
-      {listing.distances.length > 0 && (
-        <ul className="mt-1.5 flex gap-3 text-[0.85rem] text-muted-foreground">
-          {listing.distances.map((distance) => (
-            <li key={distance.label}>
-              {distance.label} : {formatDuration(distance.durationMinutes)}
+      {/* Atouts : DPE + premières caractéristiques, uniquement si publiés (§17). */}
+      {chips.length > 0 && (
+        <ul className="mt-2 flex flex-wrap gap-1.5">
+          {chips.map((chip) => (
+            <li
+              key={chip}
+              className="rounded-full border border-border px-2 py-0.5 text-[0.75rem] text-muted-foreground"
+            >
+              {chip}
             </li>
           ))}
         </ul>
       )}
 
-      {/* §13, §38 : montrer d'où vient l'annonce et combien de fois elle circule. */}
-      <p className="mt-2 text-[0.85rem] text-muted-foreground">
-        {sourceCount === 1 ? '1 source' : `${sourceCount} sources`}
+      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[0.85rem] text-muted-foreground">
         <span>
-          {' '}
-          ·{' '}
-          {[...new Set(listing.occurrences.map((occurrence) => occurrence.sourceId))]
-            .map(formatSourceName)
-            .join(', ')}
+          {publishedAt === null
+            ? `Découverte ${formatAge(listing.firstSeenAt, nowMs)}`
+            : `Publiée ${formatAge(publishedAt, nowMs)}`}
         </span>
+        {/* §20 : distances vers des points de référence privés, libellés neutres. */}
+        {listing.distances.map((distance) => (
+          <span key={distance.label} className="text-foreground">
+            <span className="text-muted-foreground">{distance.label} </span>
+            {formatDuration(distance.durationMinutes)}
+          </span>
+        ))}
+      </div>
+
+      {/* §13, §38 : d'où vient l'annonce et combien de fois elle circule. */}
+      <p className="mt-1 text-[0.85rem] text-muted-foreground">
+        {sources.length === 1 ? '1 source' : `${sources.length} sources`} ·{' '}
+        {sources.map(formatSourceName).join(', ')}
       </p>
 
       <div className="mt-3 flex gap-2">

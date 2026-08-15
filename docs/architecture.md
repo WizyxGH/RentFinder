@@ -2,35 +2,32 @@
 
 ## Vue d'ensemble
 
-RentFinder est composé de quatre parties indépendantes, reliées uniquement par
-la base Turso et par les types du paquet `@rentfinder/shared` :
+RentFinder est **100% local** : tout tourne sur la machine de l'utilisateur,
+relié par un fichier SQLite et par les types du paquet `@rentfinder/shared` :
 
 ```mermaid
 flowchart TB
-    subgraph GitHub["GitHub Actions (cron ~20 min)"]
+    subgraph Collect["pnpm collect (à la demande)"]
         SCHED[Scheduler adaptatif]
         SCRAP[Scrapers actifs]
         NORM[Normalisation]
         DEDUP[Dédoublonnage]
-        SCORE[Scoring + distances]
+        SCORE[Scoring + distances + géocodage]
     end
 
-    subgraph Turso["Turso (SQLite distribué, free tier)"]
-        DB[(occurrences / listings /<br/>contact_attempts / source_state /<br/>collection_runs / events / http_cache)]
+    subgraph DBLayer["SQLite local (data/local.db)"]
+        DB[(occurrences / listings / contact_attempts /<br/>source_state / collection_runs / events /<br/>http_cache / listing_history / geocode_cache)]
     end
 
-    subgraph CF["Cloudflare Worker (free tier)"]
-        API[API REST + jeton + CORS]
-    end
-
-    subgraph Pages["GitHub Pages"]
-        FE[Frontend React<br/>aucune donnée embarquée]
+    subgraph Serve["pnpm local — serveur 127.0.0.1"]
+        API[API REST]
+        FE[Frontend React selfhost]
     end
 
     SITES[Sites immobiliers] -->|HTTP poli :<br/>UA identifiable, budgets,<br/>ETag, arrêt sur 429| SCRAP
     SCHED --> SCRAP --> NORM --> DEDUP --> SCORE --> DB
     DB <--> API
-    API <-->|Bearer token<br/>saisi par l'utilisateur| FE
+    API <-->|même origine, 127.0.0.1| FE
 ```
 
 Le flux de données suit la chaîne du §78 :
@@ -79,7 +76,8 @@ deux (§24, §75).
 | `scoring/`       | les 4 scores + distances                                                                                                          |
 | `contact/`       | garde-fous du contact automatique (`guards.ts`)                                                                                   |
 | `db/`            | client libsql, migrations, repository économe en écritures                                                                        |
-| `cli/`           | `collect.ts` et `migrate.ts`, appelés par GitHub Actions                                                                          |
+| `cli/`           | `collect.ts` (collecte), `serve.ts` (serveur local), `migrate.ts`                                                                 |
+| `server/`        | routes de l'API locale (`routes.ts`)                                                                                              |
 | `pipeline.ts`    | orchestration d'un run complet, isolation des pannes                                                                              |
 
 Frontières strictes :
@@ -91,36 +89,34 @@ Frontières strictes :
 - La **normalisation** ne connaît aucune particularité de site.
 - Le **repository** est le seul code qui parle SQL.
 
-### `packages/api` — Cloudflare Worker
+### `collector/src/server` — API locale
 
-Rôle unique : exposer les données Turso au frontend sans que le bundle public
-ne contienne jamais de credentials (§26, §28). Authentification par jeton
-Bearer comparé en temps constant, CORS restreint à l'origine GitHub Pages,
-API fermée (503) si le jeton serveur n'est pas configuré.
+Les routes REST (`routes.ts`) consommées par le serveur local (`cli/serve.ts`).
+Le serveur n'écoute que sur `127.0.0.1` : injoignable depuis le réseau ou
+Internet, donc **aucun jeton nécessaire**. Ne jamais changer l'adresse
+d'écoute sans réintroduire une authentification (§26).
 
 ### `frontend/` — interface
 
-React + Vite, trois vues (liste / fiche / profil+sources), **zéro dépendance**
-au-delà de React (§39, §65). Deux modes automatiques :
+React + Vite, trois vues (liste / fiche / profil+sources). Deux modes :
 
-- **démo** : pas de `VITE_API_URL` → données fictives de `mock-data.ts` ;
-- **connecté** : jeton saisi par l'utilisateur, stocké en `localStorage`.
+- **démo** (`pnpm dev`) : données fictives de `mock-data.ts`, sans base ;
+- **local** (`pnpm local`) : servi par le serveur local, même origine.
 
 Le profil locataire est stocké uniquement dans le navigateur ; le message de
 contact est composé localement et n'est jamais transmis à l'API (§25, §26).
 
 ## Décisions structurantes et leurs raisons
 
-| Décision                                                  | Raison                                                                                                                                 |
-| --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| TypeScript partout                                        | un seul modèle de données partagé compilé, une seule CI, pas de double maintenance Pydantic/TS                                         |
-| API serverless + jeton plutôt que JSON statique sur Pages | un JSON public exposerait annonces suivies, statuts de contact et distances (triangulation du lieu de travail) — contraire aux §20/§26 |
-| Fichier SQLite = Turso en test                            | même API libsql ; les tests d'intégration exercent le vrai code sans toucher la production (§52)                                       |
-| `content_hash` par ligne                                  | une annonce revue à l'identique ne coûte aucune écriture Turso (§30)                                                                   |
-| Dédoublonnage par blocage + union-find                    | O(n²) interdit au-delà de quelques milliers d'annonces (§56)                                                                           |
-| Paires ambiguës **non** fusionnées par défaut             | fusionner deux logements distincts fait disparaître une annonce réelle ; un doublon affiché est moins grave (§14)                      |
-| Horloge injectable (`Clock`)                              | tests déterministes, aucune dépendance à l'heure réelle (§59)                                                                          |
-| Un seul workflow de collecte                              | le scheduler interne décide ; ajouter une source n'ajoute pas de workflow (§29)                                                        |
+| Décision                                      | Raison                                                                                                            |
+| --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| TypeScript partout                            | un seul modèle de données partagé compilé, une seule CI                                                           |
+| 100% local (SQLite + serveur 127.0.0.1)       | pas de quota, pas de secret à gérer ; les données ne quittent jamais la machine (§26)                             |
+| Base en mémoire en test                       | même API libsql ; les tests exercent le vrai code sans toucher la base de travail (§52)                           |
+| `content_hash` par ligne                      | une annonce revue à l'identique ne coûte aucune écriture (§30)                                                    |
+| Dédoublonnage par blocage + union-find        | O(n²) interdit au-delà de quelques milliers d'annonces (§56)                                                      |
+| Paires ambiguës **non** fusionnées par défaut | fusionner deux logements distincts fait disparaître une annonce réelle ; un doublon affiché est moins grave (§14) |
+| Horloge injectable (`Clock`)                  | tests déterministes, aucune dépendance à l'heure réelle (§59)                                                     |
 
 ## Limites connues
 
@@ -128,7 +124,7 @@ contact est composé localement et n'est jamais transmis à l'API (§25, §26).
   réels — suffisant pour classer, pas pour planifier (§20 MVP).
 - `VISIT PROBABILITY` est un indice à base de règles, pas une statistique ;
   l'interface l'affiche avec cet avertissement (§18).
-- La collecte dépend de la ponctualité des crons GitHub Actions, qui n'est pas
-  garantie (retards de quelques minutes fréquents).
+- La collecte est déclenchée manuellement (`pnpm collect`) : à vous de la
+  relancer pour rafraîchir. Pas de collecte automatique en arrière-plan.
 - Le tri « annonces les plus fraîches d'abord » suppose que la source liste les
   nouveautés en tête — vrai pour Laforêt, à vérifier par source (§9).
