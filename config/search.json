@@ -2,7 +2,9 @@
   "_commentaire": "Filtres de recherche — éditez ce fichier puis relancez `pnpm collect`. Voir config/README.md pour le détail de chaque champ. Ces réglages sont publics (aucune donnée personnelle) ; les points de référence privés (travail, gare) vont dans .env, pas ici.",
   "cities": ["nice"],
   "maxPrice": 700,
+  "minPrice": 250,
   "minArea": 14,
   "excludeFlatShare": true,
+  "excludeStudent": true,
   "referencePricePerSqm": 20
 }

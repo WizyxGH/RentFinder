@@ -102,6 +102,8 @@ export function loadPublicConfig(onWarn?: (message: string) => void): PublicConf
       ...(parsed.excludeFlatShare !== undefined
         ? { excludeFlatShare: parsed.excludeFlatShare }
         : {}),
+      ...(parsed.minPrice !== undefined ? { minPrice: parsed.minPrice } : {}),
+      ...(parsed.excludeStudent !== undefined ? { excludeStudent: parsed.excludeStudent } : {}),
       ...(parsed.furnished !== undefined ? { furnished: parsed.furnished } : {}),
       ...(parsed.propertyTypes !== undefined ? { propertyTypes: parsed.propertyTypes } : {}),
       ...(parsed.minRooms !== undefined ? { minRooms: parsed.minRooms } : {}),

@@ -20,6 +20,19 @@ export interface SearchCriteria {
   readonly minArea: number;
 
   // --- Prévus, inactifs par défaut (§2) ------------------------------------
+  /**
+   * Loyer mensuel MINIMUM en euros. Sert surtout à écarter les biens non
+   * résidentiels mal étiquetés « appartement » par la source (parking, box,
+   * cave à ~100 €), qu'aucun autre signal fiable ne distingue. Un bien sans
+   * prix publié n'est jamais exclu (§17).
+   */
+  readonly minPrice?: number;
+  /**
+   * `true` : exclure les locations ÉTUDIANTES (résidences étudiantes, biens
+   * annoncés « étudiant/erasmus »). Détecté par mots-clés dans le titre, la
+   * description et l'URL. Décision utilisateur.
+   */
+  readonly excludeStudent?: boolean;
   readonly propertyTypes?: readonly PropertyType[];
   readonly minRooms?: number;
   readonly maxRooms?: number;
@@ -53,4 +66,8 @@ export const MVP_CRITERIA: SearchCriteria = {
   minArea: 14,
   // L'utilisateur ne cherche pas de colocation (décision du 2026-08-15).
   excludeFlatShare: true,
+  // Écarte les parkings/box/caves mal étiquetés « appartement » (~100 €).
+  minPrice: 250,
+  // L'utilisateur ne cherche pas de location étudiante (décision du 2026-08-15).
+  excludeStudent: true,
 };

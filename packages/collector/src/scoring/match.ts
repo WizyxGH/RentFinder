@@ -24,6 +24,21 @@ export interface MatchOutcome {
   readonly matchesCriteria: boolean;
 }
 
+/**
+ * Signaux FORTS de location étudiante — volontairement stricts pour ne pas
+ * exclure un studio classique simplement « idéal pour un étudiant ». On vise
+ * les résidences/locations dédiées et Erasmus/CROUS.
+ */
+const STUDENT_PATTERN =
+  /residence etudiante|logement etudiant|location etudiant|\berasmus\b|\bcrous\b/;
+
+function isStudentHousing(listing: AggregatedListing): boolean {
+  const text = comparable(`${listing.title.value ?? ''} ${listing.description.value ?? ''}`);
+  if (STUDENT_PATTERN.test(text)) return true;
+  // Signal d'URL : segment « etudiant » (ex. /location-etudiants/).
+  return listing.occurrences.some((occurrence) => /etudiant/i.test(occurrence.sourceUrl));
+}
+
 /** Évalue la correspondance d'un logement aux critères de recherche. */
 export function scoreMatch(listing: AggregatedListing, criteria: SearchCriteria): MatchOutcome {
   const reasons: ScoreReason[] = [];
@@ -53,6 +68,16 @@ export function scoreMatch(listing: AggregatedListing, criteria: SearchCriteria)
   if (price === null) {
     unknownSignals.push('loyer');
     reasons.push({ code: 'price.unknown', label: 'Loyer non publié', delta: 0 });
+  } else if (criteria.minPrice !== undefined && price < criteria.minPrice) {
+    // Sous ce plancher, ce n'est presque jamais un logement (parking/box/cave
+    // mal étiqueté « appartement »). Éliminatoire, mais l'annonce reste
+    // consultable en « hors critères ».
+    matchesCriteria = false;
+    reasons.push({
+      code: 'price.under_floor',
+      label: `${price} € sous le plancher de ${criteria.minPrice} € (probable parking/box)`,
+      delta: 0,
+    });
   } else if (price <= criteria.maxPrice) {
     // Plus le loyer est bas sous le plafond, meilleur est le score : à 30 % du
     // budget sous le plafond, on atteint le maximum.
@@ -106,6 +131,16 @@ export function scoreMatch(listing: AggregatedListing, criteria: SearchCriteria)
     reasons.push({
       code: 'type.parking',
       label: 'Stationnement / box — pas un logement',
+      delta: 0,
+    });
+  }
+
+  // --- Location étudiante : filtre éliminatoire quand l'utilisateur l'exclut -
+  if (criteria.excludeStudent === true && isStudentHousing(listing)) {
+    matchesCriteria = false;
+    reasons.push({
+      code: 'student.excluded',
+      label: 'Location étudiante — exclue de la recherche',
       delta: 0,
     });
   }

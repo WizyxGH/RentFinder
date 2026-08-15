@@ -50,6 +50,40 @@ describe('scoreMatch (§16)', () => {
     expect(matchesCriteria).toBe(false);
   });
 
+  it('exclut un bien sous le plancher de prix (parking mal étiqueté)', () => {
+    expect(scoreMatch(makeAggregated({ price: 115 }), MVP_CRITERIA).matchesCriteria).toBe(false);
+    // Un vrai logement au-dessus du plancher passe.
+    expect(scoreMatch(makeAggregated({ price: 400 }), MVP_CRITERIA).matchesCriteria).toBe(true);
+  });
+
+  it('exclut une location étudiante (signal fort), pas un studio « idéal étudiant »', () => {
+    expect(
+      scoreMatch(makeAggregated({ title: 'T1 en résidence étudiante' }), MVP_CRITERIA)
+        .matchesCriteria,
+    ).toBe(false);
+    // « idéal étudiant » est un studio classique : NON exclu (§17).
+    expect(
+      scoreMatch(
+        makeAggregated({ description: 'Joli studio idéal pour un étudiant, proche fac' }),
+        MVP_CRITERIA,
+      ).matchesCriteria,
+    ).toBe(true);
+  });
+
+  it('détecte la location étudiante via l’URL de la source', () => {
+    const listing = makeAggregated({
+      occurrences: [
+        makeOccurrence({
+          id: 'dazur:1',
+          sourceId: 'dazur',
+          sourceUrl:
+            'https://dazur.fr/fr/propriete/location+appartement+nice+location-etudiants+86',
+        }),
+      ],
+    });
+    expect(scoreMatch(listing, MVP_CRITERIA).matchesCriteria).toBe(false);
+  });
+
   it('exclut un stationnement de la liste principale', () => {
     const { matchesCriteria } = scoreMatch(
       makeAggregated({ propertyType: 'parking' }),
