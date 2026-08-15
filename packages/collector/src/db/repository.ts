@@ -12,7 +12,7 @@
  * par heure.
  */
 
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import type {
   NormalizedListing,
   ScoredListing,
@@ -26,6 +26,55 @@ import type { CacheEntry, HttpCacheStore } from '../core/http-client.js';
 
 /** Instruction SQL prête pour `db.batch`. */
 type Statement = { sql: string; args: InValue[] };
+
+/** État antérieur minimal d'une occurrence, pour la détection de changement. */
+interface PreviousOccurrence {
+  readonly hash: string;
+  readonly firstSeenAt: string;
+  readonly price: number | null;
+  readonly area: number | null;
+  readonly availableAt: string | null;
+}
+
+/**
+ * Construit l'instruction d'historique (§31), ou `null` s'il n'y a rien à
+ * consigner (annonce connue dont ni loyer, ni surface, ni disponibilité n'ont
+ * changé). À la première observation, une ligne « baseline » fixe le point de
+ * départ de la trajectoire.
+ */
+function historyStatement(
+  listing: NormalizedListing,
+  previous: PreviousOccurrence | undefined,
+): Statement | null {
+  let change: string;
+  if (previous === undefined) {
+    change = 'baseline';
+  } else {
+    const changed: string[] = [];
+    if (previous.price !== listing.price) changed.push('price');
+    if (previous.area !== listing.area) changed.push('area');
+    if (previous.availableAt !== listing.availableAt) changed.push('availability');
+    if (changed.length === 0) return null;
+    change = changed.length === 1 ? (changed[0] as string) : 'multiple';
+  }
+
+  return {
+    sql: `INSERT INTO listing_history
+            (id, occurrence_id, source_id, source_ref, price, area, available_at, change, recorded_at)
+          VALUES (?,?,?,?,?,?,?,?,?)`,
+    args: [
+      randomUUID(),
+      listing.id,
+      listing.sourceId,
+      listing.sourceRef,
+      listing.price,
+      listing.area,
+      listing.availableAt,
+      change,
+      listing.scrapedAt,
+    ],
+  };
+}
 
 /** Empreinte stable des champs métier d'une occurrence. */
 export function occurrenceHash(listing: NormalizedListing): string {
@@ -157,14 +206,21 @@ export function createRepository(db: Database): Repository {
       const ids = listings.map((listing) => listing.id);
       const placeholders = ids.map(() => '?').join(',');
       const existing = await db.execute({
-        sql: `SELECT id, content_hash, first_seen_at FROM occurrences WHERE id IN (${placeholders})`,
+        sql: `SELECT id, content_hash, first_seen_at, price, area, available_at
+              FROM occurrences WHERE id IN (${placeholders})`,
         args: ids,
       });
 
       const known = new Map(
         existing.rows.map((row) => [
           String(row['id']),
-          { hash: String(row['content_hash']), firstSeenAt: String(row['first_seen_at']) },
+          {
+            hash: String(row['content_hash']),
+            firstSeenAt: String(row['first_seen_at']),
+            price: row['price'] === null ? null : Number(row['price']),
+            area: row['area'] === null ? null : Number(row['area']),
+            availableAt: row['available_at'] === null ? null : String(row['available_at']),
+          },
         ]),
       );
 
@@ -183,6 +239,11 @@ export function createRepository(db: Database): Repository {
           touches.push(listing.id);
           continue;
         }
+
+        // §31 : consigner l'historique — baseline à la 1re observation, puis
+        // uniquement quand loyer / surface / disponibilité changent.
+        const historyRow = historyStatement(listing, previous);
+        if (historyRow !== null) inserts.push(historyRow);
 
         if (previous === undefined) inserted += 1;
         else updated += 1;

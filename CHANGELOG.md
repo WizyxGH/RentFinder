@@ -4,6 +4,31 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 Documenter ici : nouvelles sources, changements d'architecture ou de schéma,
 évolutions des scores et du système de contact, corrections importantes (§70).
 
+## [0.6.0] — 2026-08-15
+
+### Ajouté
+
+- **Collecte de l'historique** (§31) : nouvelle table `listing_history`
+  (migration `0003`). Un instantané daté est écrit à la première observation
+  (`baseline`), puis **uniquement** quand le loyer, la surface ou la
+  disponibilité changent — jamais à chaque run (§30). Base des futures baisses
+  de prix (§17) et de la durée de publication. Validé en réel (16 baselines).
+
+### Documentation
+
+- **Addendum au cahier des charges** (`docs/cahier-des-charges-addendum.md`) :
+  retrait officiel de Leboncoin, SeLoger et Bien'ici du périmètre (§3), avec
+  justification §6/§10 — ces principes priment sur la liste de sources.
+
+### Vérifié (contre-enquête demandée)
+
+- **123loger** : l'API WordPress (`/wp-json`) n'expose aucun type « annonce » —
+  confirmé sans inventaire accessible.
+- **studapart** : atteignable via une API Elasticsearch interne
+  (`search-api.studapart.com`, POST ES-DSL, non documentée) — jugée trop
+  fragile/non officielle pour être implémentée (§6, §75), différée et
+  documentée.
+
 ## [0.5.1] — 2026-08-15
 
 ### Ajouté
