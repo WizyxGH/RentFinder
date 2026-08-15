@@ -1,0 +1,139 @@
+<!doctype html>
+<!--
+  Fixture ANONYMISÉE du bulletin abonné BEP Logement (page « Classeurs »),
+  structure observée le 2026-08-15 après connexion. Données FICTIVES.
+
+  Chaque annonce = un bloc : type (cellule t4, rouge), ligne « BULLETIN N° … DU
+  date », titre « {réf} : {localisation} », « DESCRIPTION : … » avec la surface,
+  « LOYER : {prix} € … » avec charges + DPE, puis des liens photos.
+
+  Accès PAYÉ par l'utilisateur (§6). Le bulletin est régional : le filtre ville
+  ne garde que les annonces de Nice (§16).
+-->
+<html>
+  <head>
+    <title>Classeurs</title>
+  </head>
+  <body>
+    <table>
+      <!-- Annonce 1 : NICE, dans les critères. -->
+      <tr bgcolor="#FFAAAA" height="30">
+        <td class="t4" align="center" bgcolor="#FFAAAA">
+          <font class="textsml"><font style="font-size: 18;"><b>APPARTEMENT T2</b></font></font>
+        </td>
+      </tr>
+      <tr height="25" bgcolor="#FFFFFF">
+        <td class="t4a" align="right" width="100%">
+          <font class="textsml"
+            ><font style="color: #aa0000; font-size: 12;"
+              ><b>( BULLETIN N&deg; 10593 DU 13/08/2026 )&nbsp;</b></font
+            ></font
+          >
+        </td>
+      </tr>
+      <tr onMouseOver="this.style.backgroundColor='#DDDDDD';">
+        <td class="t4" align="left">
+          <table width="100%" border="0">
+            <tr height="25">
+              <td align="left" width="100%"><b>9000001 : NICE CENTRE / GAMBETTA</b></td>
+            </tr>
+            <tr height="15">
+              <td width="100%">
+                <div style="float: left; width: 320px">
+                  <font class="textsml"
+                    ><font style="font-size: 12;"
+                      >DESCRIPTION : <b>APPARTEMENT T2</b>, 42 M², AU 3EME ETAGE AVEC ASCENSEUR,
+                      CUISINE EQUIPEE, BALCON, PROCHE COMMERCES ET TRAMWAY.<br /><b
+                        >LOYER : 690.00 &euro;&nbsp;&nbsp;LOYER MENSUEL CHARGES COMPRISES 690 EUROS.
+                        DEPOT DE GARANTIE 630 EUROS. CLASSE ENERGETIQUE D.&nbsp;&nbsp;</b
+                      ><br /><br /></font
+                  ></font>
+                  <table width="300">
+                    <tr>
+                      <td>
+                        <a
+                          rel="{handler: 'image'}"
+                          class="modal"
+                          href="http://www.beptransaction.com/bep/docs/9000001-salon.jpg"
+                          >salon.jpg</a
+                        >
+                      </td>
+                    </tr>
+                  </table>
+                </div>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+
+      <!-- Annonce 2 : hors Nice (Grasse) — sera écartée par le filtre ville. -->
+      <tr bgcolor="#FFAAAA" height="30">
+        <td class="t4" align="center" bgcolor="#FFAAAA">
+          <font class="textsml"><font style="font-size: 18;"><b>STUDIO MEUBLE</b></font></font>
+        </td>
+      </tr>
+      <tr height="25" bgcolor="#FFFFFF">
+        <td class="t4a" align="right" width="100%">
+          <font class="textsml"
+            ><font style="color: #aa0000; font-size: 12;"
+              ><b>( BULLETIN N&deg; 10593 DU 12/08/2026 )&nbsp;</b></font
+            ></font
+          >
+        </td>
+      </tr>
+      <tr onMouseOver="this.style.backgroundColor='#DDDDDD';">
+        <td class="t4" align="left">
+          <table width="100%" border="0">
+            <tr height="25">
+              <td align="left" width="100%"><b>9000002 : GRASSE CENTRE</b></td>
+            </tr>
+            <tr height="15">
+              <td width="100%">
+                <font class="textsml"
+                  ><font style="font-size: 12;"
+                    >DESCRIPTION : <b>STUDIO MEUBLE</b>, 20 M², REFAIT A NEUF.<br /><b
+                      >LOYER : 480.00 &euro;&nbsp;&nbsp;LOYER MENSUEL CHARGES COMPRISES 480 EUROS.
+                      CLASSE ENERGETIQUE NON COMMUNIQUEE.&nbsp;&nbsp;</b
+                    ><br /></font
+                ></font>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+
+      <!-- Annonce 3 : NICE, colocation. PAS d'en-tête rouge ici : elle est
+           regroupée sous le même en-tête que la précédente — cas réel où un
+           en-tête « secteur/type » coiffe plusieurs annonces. -->
+      <tr height="25" bgcolor="#FFFFFF">
+        <td class="t4a" align="right" width="100%">
+          <font class="textsml"
+            ><font style="color: #aa0000; font-size: 12;"
+              ><b>( BULLETIN N&deg; 10593 DU 13/08/2026 )&nbsp;</b></font
+            ></font
+          >
+        </td>
+      </tr>
+      <tr onMouseOver="this.style.backgroundColor='#DDDDDD';">
+        <td class="t4" align="left">
+          <table width="100%" border="0">
+            <tr height="25">
+              <td align="left" width="100%"><b>9000003 : NICE NORD</b></td>
+            </tr>
+            <tr height="15">
+              <td width="100%">
+                <font class="textsml"
+                  ><font style="font-size: 12;"
+                    >DESCRIPTION : <b>CHAMBRE</b> EN COLOCATION, 12 M², DANS APPARTEMENT PARTAGE.<br /><b
+                      >LOYER : 420.00 &euro;&nbsp;&nbsp;CHARGES COMPRISES. CLASSE ENERGETIQUE E.&nbsp;</b
+                    ><br /></font
+                ></font>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

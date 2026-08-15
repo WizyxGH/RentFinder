@@ -68,6 +68,16 @@ describe('.env.example', () => {
     }
   });
 
+  it('ne contient JAMAIS de vrais identifiants d’accès abonné', () => {
+    // Filet de sécurité : les valeurs BEP_SUBSCRIBER_* de .env.example doivent
+    // rester des placeholders « exemple-… » (les vrais identifiants vont dans
+    // .env, ignoré par git). Empêche une fuite par copie dans le mauvais fichier.
+    const values = [...example.matchAll(/^BEP_SUBSCRIBER_\w+=(.+)$/gm)].map((m) => m[1]?.trim());
+    for (const value of values) {
+      expect(value).toMatch(/^exemple-/);
+    }
+  });
+
   it('déclare toutes les variables utilisées par le collecteur', () => {
     const required = [
       'BEP_SUBSCRIBER_USER',

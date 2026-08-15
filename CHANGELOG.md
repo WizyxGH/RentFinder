@@ -4,6 +4,26 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 Documenter ici : nouvelles sources, changements d'architecture ou de schéma,
 évolutions des scores et du système de contact, corrections importantes (§70).
 
+## [0.11.0] — 2026-08-15
+
+### Ajouté
+
+- **Source BEP Logement — espace abonné (accès payé, §6)** : nouvelle source
+  authentifiée `bep-abonnes`. Se connecte avec les identifiants privés de
+  l'utilisateur (`.env` : `BEP_SUBSCRIBER_*`, jamais committés) et lit le
+  bulletin « Classeurs » — **388 annonces** en 2 requêtes, dont réf, type,
+  localisation, surface, loyer (charges comprises), DPE, date de bulletin,
+  photos. Inactive proprement si les identifiants sont absents. Filtrée sur
+  Nice + critères comme les autres sources (63 à Nice, ~3 dans le budget ≤700 €).
+- **Script `capture-bep.mjs`** pour inspecter la structure du bulletin en local.
+
+### Sécurité
+
+- Le scanner de secrets ignore `data/` (captures locales, ignorées par git) —
+  évite un faux positif sur les coordonnées d'agences des annonces collectées.
+- Test durci : les valeurs `BEP_SUBSCRIBER_*` de `.env.example` doivent rester
+  des placeholders (filet contre une saisie dans le mauvais fichier).
+
 ## [0.10.0] — 2026-08-15
 
 ### Ajouté

@@ -80,13 +80,19 @@ async function main() {
   console.log(`Redirection : ${login.headers.get('location') ?? '(aucune)'}`);
   console.log(`Cookies de session : ${jar.size > 0 ? [...jar.keys()].join(', ') : '(aucun)'}`);
 
-  // 3. Récupérer la page abonnés après connexion.
-  const landingPath = login.headers.get('location') ?? 'w_index_abonnes.php';
-  const landingUrl = landingPath.startsWith('http') ? landingPath : `${BASE}/${landingPath}`;
-  const page = await fetch(landingUrl, {
-    headers: { 'User-Agent': UA, Cookie: cookieHeader(jar) },
-  });
-  const html = await page.text();
+  // 3. Récupérer la page abonnés. Le POST de login renvoie DIRECTEMENT la page
+  //    authentifiée (pas de redirection). On l'utilise telle quelle ; on ne
+  //    re-fetch une autre URL que si la réponse est encore le formulaire.
+  let html = await login.text();
+  const location = login.headers.get('location');
+  if (/name="abonpassword"/i.test(html) && location !== null) {
+    const landingUrl = location.startsWith('http') ? location : `${BASE}/${location}`;
+    const page = await fetch(landingUrl, {
+      headers: { 'User-Agent': UA, Cookie: cookieHeader(jar) },
+    });
+    html = await page.text();
+  }
+  const page = login;
 
   // 4. Sauvegarde locale (jamais committée) + diagnostic.
   const dataDir = fileURLToPath(new URL('../data/', import.meta.url));

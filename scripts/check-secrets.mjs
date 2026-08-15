@@ -33,6 +33,10 @@ const SKIP_DIRS = new Set([
   'test-results',
   '.pnpm-store',
   'dist-types',
+  // Données locales collectées (captures, base) : ignorées par git, jamais
+  // committées, mais contiennent de vraies coordonnées d'annonces. Rien à y
+  // scanner puisqu'elles ne peuvent pas fuiter dans le dépôt (§26).
+  'data',
 ]);
 
 /** Extensions analysées. Le binaire n'a pas à être scanné. */
