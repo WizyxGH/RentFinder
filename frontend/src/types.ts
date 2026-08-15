@@ -48,6 +48,10 @@ export interface ListingView {
   readonly furnished: MergedField<boolean | null>;
   /** Colocation — absent sur les fiches écrites avant l'ajout du champ. */
   readonly flatShare?: MergedField<boolean | null>;
+  /** Classe énergétique (DPE) — absent sur les fiches anciennes. */
+  readonly dpe?: MergedField<string | null>;
+  /** Atouts affichables (« Ascenseur », « Balcon »…) — absent sur les fiches anciennes. */
+  readonly features?: readonly string[];
   readonly address: MergedField<string | null>;
   readonly city: MergedField<string | null>;
   readonly postalCode: MergedField<string | null>;

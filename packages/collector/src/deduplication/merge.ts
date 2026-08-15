@@ -197,6 +197,10 @@ export function mergeGroup(occurrences: readonly NormalizedListing[]): Aggregate
     propertyType: mergeField<PropertyType>(occurrences, primary, (l) => l.propertyType),
     furnished: mergeField(occurrences, primary, (l) => l.furnished),
     flatShare: mergeField(occurrences, primary, (l) => l.flatShare),
+    dpe: mergeField(occurrences, primary, (l) => l.dpe),
+    // Atouts : union dédoublonnée de toutes les sources (§15 — on additionne
+    // l'information plutôt que d'en perdre).
+    features: [...new Set(occurrences.flatMap((l) => l.features))],
 
     address: mergeField(occurrences, primary, (l) => l.address),
     city: mergeField(occurrences, primary, (l) => l.city),

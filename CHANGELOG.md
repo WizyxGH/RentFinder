@@ -4,6 +4,18 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 Documenter ici : nouvelles sources, changements d'architecture ou de schéma,
 évolutions des scores et du système de contact, corrections importantes (§70).
 
+## [0.8.0] — 2026-08-15
+
+### Ajouté
+
+- **Plus de données par annonce** : nouvelle **classe énergétique (DPE)** typée
+  (alimente aussi le critère `energyClasses`) et **liste d'atouts** affichables
+  — étage, ascenseur, balcon, terrasse, jardin, parking, cave, piscine,
+  climatisation, meublé, rénové. Extraits des attributs structurés d'Orpi et du
+  texte des autres sources, fusionnés (union des sources), affichés en pastilles
+  sur la fiche + ligne DPE. Uniquement ce que la source mentionne (§17).
+  Validé en réel (DPE + 13 annonces avec atouts).
+
 ## [0.7.0] — 2026-08-15
 
 ### Ajouté

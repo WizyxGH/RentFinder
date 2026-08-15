@@ -21,8 +21,10 @@ import {
   parseBedrooms,
   parseCharges,
   parseEmail,
+  parseDpe,
   parseFlatShare,
   parseFurnished,
+  extractFeatures,
   parsePhone,
   parsePostalCode,
   parsePrice,
@@ -140,6 +142,15 @@ export function normalizeListing(
     propertyType: parsePropertyType(typeSource),
     furnished: parseFurnished(furnishedSource),
     flatShare: parseFlatShare(`${typeSource} ${raw.description ?? ''}`),
+    dpe:
+      parseDpe(raw.extra?.['dpe']) ??
+      parseDpe(raw.title) ??
+      parseDpe(raw.description) ??
+      parseDpe(raw.extra?.['features']),
+    features: extractFeatures(
+      `${raw.title ?? ''} ${raw.description ?? ''} ${raw.furnishedText ?? ''} ${raw.extra?.['features'] ?? ''}`,
+      raw.extra,
+    ),
 
     address: toNull(raw.addressText),
     // La ville est stockée en forme comparable pour que les filtres et le

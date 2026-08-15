@@ -115,6 +115,12 @@ interface EulerianData {
   readonly quartier?: string;
   readonly dateCreation?: string;
   readonly dpe?: string | null;
+  readonly etage?: number | null;
+  readonly ascenseur?: number;
+  readonly nbBalcons?: number | string;
+  readonly nbTerrasses?: number;
+  readonly nbParking?: number | null;
+  readonly meuble?: number;
 }
 
 /**
@@ -246,6 +252,14 @@ export function parseSearchPage(html: string, pageUrl: string): ParsedPage {
       extra['quartier'] = eulerian.quartier;
     }
     if (eulerian?.dpe != null && eulerian.dpe !== '') extra['dpe'] = eulerian.dpe;
+    // Attributs structurés → alimentent la liste d'atouts en normalisation.
+    if (eulerian?.etage != null) extra['etage'] = String(eulerian.etage);
+    if (eulerian?.ascenseur != null) extra['ascenseur'] = String(eulerian.ascenseur);
+    if (eulerian?.nbBalcons != null && eulerian.nbBalcons !== '') {
+      extra['nbBalcons'] = String(eulerian.nbBalcons);
+    }
+    if (eulerian?.nbTerrasses != null) extra['nbTerrasses'] = String(eulerian.nbTerrasses);
+    if (eulerian?.nbParking != null) extra['nbParking'] = String(eulerian.nbParking);
 
     const listing: RawListing = {
       sourceRef: reference,

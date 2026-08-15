@@ -149,6 +149,14 @@ export interface ListingOccurrence {
    * possible »). `null` : la source ne le dit pas (§17).
    */
   readonly flatShare: Maybe<boolean>;
+  /** Classe énergétique (DPE) en majuscule « A »–« G », ou `null` (§17). */
+  readonly dpe: Maybe<string>;
+  /**
+   * Atouts affichables extraits de l'annonce (« Ascenseur », « Balcon »,
+   * « 3e étage », « Meublé »…). Liste normalisée, dédoublonnée, jamais
+   * inventée : uniquement ce que la source mentionne. Vide si rien.
+   */
+  readonly features: readonly string[];
 
   readonly address: Maybe<string>;
   readonly city: Maybe<string>;
@@ -202,6 +210,9 @@ export interface AggregatedListing {
   readonly propertyType: MergedField<PropertyType>;
   readonly furnished: MergedField<Maybe<boolean>>;
   readonly flatShare: MergedField<Maybe<boolean>>;
+  readonly dpe: MergedField<Maybe<string>>;
+  /** Union dédoublonnée des atouts de toutes les sources. */
+  readonly features: readonly string[];
 
   readonly address: MergedField<Maybe<string>>;
   readonly city: MergedField<Maybe<string>>;

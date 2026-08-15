@@ -99,6 +99,8 @@ export const MOCK_LISTINGS: readonly ListingView[] = [
     rooms: field(2),
     propertyType: field('apartment'),
     furnished: field(true),
+    dpe: field('C'),
+    features: ['3e étage', 'Ascenseur', 'Balcon', 'Meublé'],
     address: field('Rue de la Démonstration'),
     city: field('nice'),
     postalCode: field('06000'),

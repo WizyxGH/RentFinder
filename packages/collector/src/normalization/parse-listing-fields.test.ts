@@ -6,6 +6,8 @@ import {
   parseEmail,
   parseFlatShare,
   parseFurnished,
+  parseDpe,
+  extractFeatures,
   parsePhone,
   parsePostalCode,
   parsePrice,
@@ -135,6 +137,48 @@ describe('parsePropertyType', () => {
   it('rend unknown plutôt que de supposer', () => {
     expect(parsePropertyType('')).toBe('unknown');
     expect(parsePropertyType(null)).toBe('unknown');
+  });
+});
+
+describe('parseDpe', () => {
+  it('extrait la classe énergétique sous ses formes courantes', () => {
+    expect(parseDpe('DPE : D')).toBe('D');
+    expect(parseDpe('Classe énergie C')).toBe('C');
+    expect(parseDpe('étiquette énergétique B')).toBe('B');
+    expect(parseDpe('C')).toBe('C'); // valeur brute d'un attribut Orpi
+  });
+
+  it('rend null sans mention fiable (§17)', () => {
+    expect(parseDpe('bel appartement lumineux')).toBeNull();
+    expect(parseDpe('')).toBeNull();
+    expect(parseDpe(null)).toBeNull();
+  });
+});
+
+describe('extractFeatures', () => {
+  it('relève les atouts mentionnés dans le texte', () => {
+    const features = extractFeatures('T2 au 3e étage avec ascenseur, balcon et cave. Proche mer.');
+    expect(features).toContain('3e étage');
+    expect(features).toContain('Ascenseur');
+    expect(features).toContain('Balcon');
+    expect(features).toContain('Cave');
+  });
+
+  it('utilise les attributs structurés (Orpi) et dédoublonne', () => {
+    const features = extractFeatures('appartement avec ascenseur', {
+      etage: '2',
+      ascenseur: '1',
+      nbTerrasses: '1',
+    });
+    expect(features).toContain('2e étage');
+    expect(features).toContain('Ascenseur');
+    expect(features).toContain('Terrasse');
+    expect(features.filter((f) => f === 'Ascenseur')).toHaveLength(1);
+  });
+
+  it('ne relève rien quand rien n’est mentionné (§17)', () => {
+    expect(extractFeatures('joli logement')).toEqual([]);
+    expect(extractFeatures(null)).toEqual([]);
   });
 });
 

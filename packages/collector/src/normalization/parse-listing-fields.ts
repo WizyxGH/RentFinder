@@ -187,6 +187,83 @@ export function parseFlatShare(text: string | null | undefined): boolean | null 
   return null;
 }
 
+/**
+ * Extrait la classe énergétique (DPE) : « A » à « G ». On accepte les formes
+ * « DPE : D », « DPE D », « classe énergie C », « étiquette énergétique B ».
+ * `null` si rien de fiable (§17) — jamais deviné, jamais « vierge → G ».
+ */
+export function parseDpe(text: string | null | undefined): string | null {
+  if (text === null || text === undefined || text === '') return null;
+
+  // Valeur brute d'un attribut structuré : une seule lettre A–G.
+  const trimmed = text.trim();
+  if (/^[A-Ga-g]$/.test(trimmed)) return trimmed.toUpperCase();
+
+  // Texte libre : on retire les accents (« énergétique » → « energetique »)
+  // pour une détection robuste, puis on cherche la lettre qui SUIT le mot-clé.
+  const flat = comparable(text);
+  const match = flat.match(/\b(?:dpe|classe\s+energ\w*|etiquette\s+energ\w*)\b\W*\b([a-g])\b/);
+  return match?.[1] !== undefined ? match[1].toUpperCase() : null;
+}
+
+/**
+ * Construit la liste d'atouts affichables à partir du texte de l'annonce et
+ * d'attributs déjà extraits. Chaque atout n'est ajouté que s'il est mentionné
+ * (§17). Résultat dédoublonné, ordre stable.
+ *
+ * @param text texte libre (titre + description + caractéristiques)
+ * @param extra attributs structurés éventuels (Orpi : etage, ascenseur…)
+ */
+export function extractFeatures(
+  text: string | null | undefined,
+  extra?: Readonly<Record<string, string>>,
+): string[] {
+  const lower = comparable(text);
+  const features: string[] = [];
+  const add = (value: string): void => {
+    if (!features.includes(value)) features.push(value);
+  };
+
+  // Étage : d'abord l'attribut structuré, sinon le texte (« au 3e étage »).
+  const floorAttr = extra?.['etage'];
+  if (floorAttr !== undefined && floorAttr !== '' && floorAttr !== '0') {
+    add(`${floorAttr}e étage`);
+  } else if (floorAttr === '0') {
+    add('Rez-de-chaussée');
+  } else {
+    const floor = lower.match(/\b(\d{1,2})\s*(?:e|er|eme|ème)?\s*etage/);
+    if (floor?.[1] !== undefined) add(`${floor[1]}e étage`);
+    else if (/rez.de.chaussee|\brdc\b/.test(lower)) add('Rez-de-chaussée');
+  }
+
+  const flags: Array<[boolean, string]> = [
+    [extra?.['ascenseur'] === '1' || /\bascenseur\b/.test(lower), 'Ascenseur'],
+    [/\bbalcon/.test(lower) || numericAttr(extra?.['nbBalcons']) > 0, 'Balcon'],
+    [/\bterrasse/.test(lower) || numericAttr(extra?.['nbTerrasses']) > 0, 'Terrasse'],
+    [/\bjardin/.test(lower), 'Jardin'],
+    [
+      /\bparking|stationnement|place de parking/.test(lower) ||
+        numericAttr(extra?.['nbParking']) > 0,
+      'Parking',
+    ],
+    [/\bgarage/.test(lower), 'Garage'],
+    [/\bcave\b/.test(lower), 'Cave'],
+    [/\bpiscine/.test(lower), 'Piscine'],
+    [/\bclimatisation|\bclim\b|climatise/.test(lower), 'Climatisation'],
+    [/\bmeuble/.test(lower), 'Meublé'],
+    [/\bneuf\b|\brenove|refait a neuf/.test(lower), 'Rénové / neuf'],
+  ];
+  for (const [present, label] of flags) if (present) add(label);
+
+  return features;
+}
+
+function numericAttr(value: string | undefined): number {
+  if (value === undefined) return 0;
+  const n = Number.parseInt(value, 10);
+  return Number.isFinite(n) ? n : 0;
+}
+
 /** Extrait un code postal français à cinq chiffres. */
 export function parsePostalCode(text: string | null | undefined): string | null {
   const cleaned = cleanText(text);

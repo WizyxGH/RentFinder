@@ -128,6 +128,9 @@ export function ListingDetail({
               : 'Non — logement entier'}
         </dd>
 
+        <dt className={FACT_LABEL}>DPE</dt>
+        <dd>{listing.dpe?.value ? `Classe ${listing.dpe.value}` : UNKNOWN}</dd>
+
         <dt className={FACT_LABEL}>Localisation</dt>
         <dd>
           {formatCity(listing.city.value)}
@@ -148,6 +151,20 @@ export function ListingDetail({
         <dt className={FACT_LABEL}>Vue pour la première fois</dt>
         <dd>{formatAge(listing.firstSeenAt, nowMs)}</dd>
       </dl>
+
+      {/* Atouts extraits de l'annonce (§17 : uniquement ce qui est mentionné). */}
+      {listing.features !== undefined && listing.features.length > 0 && (
+        <ul className="mb-4 flex flex-wrap gap-1.5">
+          {listing.features.map((feature) => (
+            <li
+              key={feature}
+              className="rounded-full border border-border bg-card px-2.5 py-0.5 text-[0.8rem]"
+            >
+              {feature}
+            </li>
+          ))}
+        </ul>
+      )}
 
       {/* §20 : distances vers des points de référence privés, libellés neutres. */}
       {listing.distances.length > 0 && (
