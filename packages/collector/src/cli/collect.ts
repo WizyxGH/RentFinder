@@ -22,8 +22,8 @@ import { runPipeline } from '../pipeline.js';
 import {
   backfillEnabled,
   collectorUserAgent,
+  loadPublicConfig,
   loadReferencePoints,
-  PUBLIC_CONFIG,
 } from '../config.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -42,6 +42,15 @@ async function main(): Promise<void> {
     });
   }
 
+  // §66 : filtres lus depuis config/search.json (éditable), défauts en secours.
+  const config = loadPublicConfig((message) => logger.warn('config.invalid', { message }));
+  logger.info('config.loaded', {
+    cities: config.criteria.cities,
+    maxPrice: config.criteria.maxPrice,
+    minArea: config.criteria.minArea,
+    excludeFlatShare: config.criteria.excludeFlatShare ?? false,
+  });
+
   const db = openDatabaseFromEnv();
 
   try {
@@ -50,7 +59,7 @@ async function main(): Promise<void> {
     const report = await runPipeline({
       registry: createRegistry(ALL_SCRAPERS),
       repository: createRepository(db),
-      config: PUBLIC_CONFIG,
+      config,
       referencePoints: loadReferencePoints(),
       userAgent: collectorUserAgent(),
       mode,

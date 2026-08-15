@@ -24,6 +24,13 @@ export interface SearchCriteria {
   readonly minRooms?: number;
   readonly maxRooms?: number;
   readonly furnished?: boolean;
+  /**
+   * `true` : exclure les biens proposés EN colocation de la liste principale
+   * (ils restent collectés et consultables via « hors critères », §53). Un
+   * bien dont la source ne précise rien n'est PAS exclu (on n'élimine pas sur
+   * une donnée absente, §17).
+   */
+  readonly excludeFlatShare?: boolean;
   readonly districts?: readonly string[];
   /** Durée maximale acceptée vers un point de référence, en minutes. */
   readonly maxDurationToReference?: Readonly<Record<string, number>>;
@@ -44,4 +51,6 @@ export const MVP_CRITERIA: SearchCriteria = {
   maxPrice: 700,
   // 14 m² depuis le 2026-08-15 (12 m² à l'origine) — décision utilisateur.
   minArea: 14,
+  // L'utilisateur ne cherche pas de colocation (décision du 2026-08-15).
+  excludeFlatShare: true,
 };

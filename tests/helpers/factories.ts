@@ -88,6 +88,7 @@ export interface AggregatedOverrides {
   readonly rooms?: number | null;
   readonly propertyType?: PropertyType;
   readonly furnished?: boolean | null;
+  readonly flatShare?: boolean | null;
   readonly city?: string | null;
   readonly postalCode?: string | null;
   readonly address?: string | null;
@@ -117,7 +118,7 @@ export function makeAggregated(overrides: AggregatedOverrides = {}): AggregatedL
     rooms: field(overrides.rooms === undefined ? 2 : overrides.rooms),
     propertyType: field(overrides.propertyType ?? 'apartment'),
     furnished: field(overrides.furnished ?? null),
-    flatShare: field(null),
+    flatShare: field(overrides.flatShare ?? null),
     address: field(overrides.address ?? null),
     city: field(overrides.city === undefined ? 'nice' : overrides.city),
     postalCode: field(overrides.postalCode ?? '06000'),

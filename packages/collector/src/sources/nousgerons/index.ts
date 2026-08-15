@@ -16,9 +16,12 @@ import type {
   StopReason,
 } from '@rentfinder/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
-import { parseSearchPage } from './parser.js';
+import { parseDetailPage, parseSearchPage } from './parser.js';
 
 const ENTRY_URL = 'https://www.nousgerons.com/location/nice';
+
+/** Fiches détail visitées au maximum par run (§6, §30). */
+const MAX_DETAILS = 12;
 
 export const NOUSGERONS_DESCRIPTOR: SourceDescriptor = {
   id: 'nousgerons',
@@ -61,12 +64,55 @@ export const nousgeronsScraper: Scraper = {
         const parsed = parseSearchPage(response.body, ENTRY_URL);
         warnings.push(...parsed.warnings);
 
+        // Enrichissement : la fiche détail contient l'adresse exacte, le
+        // détail des charges et une description complète, absents de la liste.
+        // On ne visite QUE les annonces nouvelles, dans la limite du budget
+        // (§6, §30) ; les connues gardent leurs données déjà en base.
         let known = 0;
+        let enriched = 0;
         for (const listing of parsed.listings) {
-          if (context.isKnown(listing.sourceRef)) known += 1;
-          listings.push(listing);
+          if (context.isKnown(listing.sourceRef)) {
+            known += 1;
+            listings.push(listing);
+            continue;
+          }
+
+          if (enriched >= MAX_DETAILS || context.shouldStop()) {
+            listings.push(listing);
+            continue;
+          }
+
+          try {
+            const detail = await context.fetch(listing.sourceUrl);
+            requestCount += 1;
+            if (!detail.notModified) {
+              pagesFetched += 1;
+              const parsedDetail = parseDetailPage(detail.body, listing.sourceUrl);
+              warnings.push(...parsedDetail.warnings);
+              // La fiche prime ; à défaut, on garde la donnée de liste.
+              listings.push(parsedDetail.listing ?? listing);
+              if (parsedDetail.listing !== null) enriched += 1;
+            } else {
+              listings.push(listing);
+            }
+          } catch (error) {
+            // §69 : une fiche en échec n'empêche pas de garder la donnée liste.
+            const message = error instanceof Error ? error.message : String(error);
+            warnings.push(`Détail échoué ${listing.sourceUrl} : ${message}`);
+            listings.push(listing);
+            if (message.includes('429')) {
+              stopReason = 'rateLimited';
+              break;
+            }
+          }
         }
-        context.log('page.parsed', { url: ENTRY_URL, found: parsed.listings.length, known });
+
+        context.log('page.parsed', {
+          url: ENTRY_URL,
+          found: parsed.listings.length,
+          known,
+          enriched,
+        });
       }
     } catch (error) {
       // §69 : échec propre, les autres sources continuent.

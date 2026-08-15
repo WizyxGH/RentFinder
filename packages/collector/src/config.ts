@@ -14,6 +14,8 @@
  * public.
  */
 
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import type { AutoContactLimits, SearchCriteria, TenantProfile } from '@rentfinder/shared';
 import { MVP_CRITERIA } from '@rentfinder/shared';
 import type { TravelMode } from './core/geo.js';
@@ -47,6 +49,67 @@ export const PUBLIC_CONFIG: PublicConfig = {
   missingRunsBeforePossiblyInactive: 2,
   missingRunsBeforeInactive: 6,
 };
+
+/**
+ * Emplacement du fichier de configuration éditable, à la racine du dépôt.
+ * Résolu depuis ce module (dist/config.js) pour être trouvé quel que soit le
+ * répertoire d'exécution du CLI.
+ */
+const SEARCH_CONFIG_URL = new URL('../../../config/search.json', import.meta.url);
+
+/**
+ * Charge la configuration publique en fusionnant `config/search.json` (s'il
+ * existe) par-dessus les défauts. C'est le fichier que l'utilisateur édite
+ * pour régler SES filtres sans toucher au code (§66).
+ *
+ * Tolérant par conception : fichier absent → défauts ; JSON invalide → défauts
+ * + avertissement. Une faute de frappe dans la config ne doit jamais casser la
+ * collecte, seulement être signalée.
+ *
+ * @param onWarn rappel optionnel pour journaliser une config illisible.
+ */
+export function loadPublicConfig(onWarn?: (message: string) => void): PublicConfig {
+  let raw: string;
+  try {
+    raw = readFileSync(fileURLToPath(SEARCH_CONFIG_URL), 'utf8');
+  } catch {
+    // Fichier absent : comportement par défaut, sans bruit.
+    return PUBLIC_CONFIG;
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as Partial<SearchCriteria> & Partial<PublicConfig>;
+    // Les champs de critères connus sont fusionnés ; les clés inconnues (dont
+    // le « _commentaire » d'aide) sont ignorées sans dommage.
+    const criteria: SearchCriteria = {
+      ...MVP_CRITERIA,
+      ...(parsed.cities !== undefined ? { cities: parsed.cities } : {}),
+      ...(parsed.maxPrice !== undefined ? { maxPrice: parsed.maxPrice } : {}),
+      ...(parsed.minArea !== undefined ? { minArea: parsed.minArea } : {}),
+      ...(parsed.excludeFlatShare !== undefined
+        ? { excludeFlatShare: parsed.excludeFlatShare }
+        : {}),
+      ...(parsed.furnished !== undefined ? { furnished: parsed.furnished } : {}),
+      ...(parsed.propertyTypes !== undefined ? { propertyTypes: parsed.propertyTypes } : {}),
+      ...(parsed.minRooms !== undefined ? { minRooms: parsed.minRooms } : {}),
+      ...(parsed.energyClasses !== undefined ? { energyClasses: parsed.energyClasses } : {}),
+    };
+
+    return {
+      ...PUBLIC_CONFIG,
+      criteria,
+      ...(typeof parsed.maxSourcesPerRun === 'number'
+        ? { maxSourcesPerRun: parsed.maxSourcesPerRun }
+        : {}),
+      ...(typeof parsed.referencePricePerSqm === 'number'
+        ? { referencePricePerSqm: parsed.referencePricePerSqm }
+        : {}),
+    };
+  } catch {
+    onWarn?.('config/search.json illisible (JSON invalide) — filtres par défaut appliqués');
+    return PUBLIC_CONFIG;
+  }
+}
 
 /**
  * Garde-fous du contact automatique (§23).

@@ -52,8 +52,8 @@ function Shell({
 }): React.JSX.Element {
   const tabs: readonly { key: View; label: string }[] = [
     { key: 'list', label: 'Annonces' },
-    { key: 'sources', label: 'Sources' },
     { key: 'profile', label: 'Profil' },
+    { key: 'sources', label: 'Sources' },
   ];
   // La fiche appartient à l'univers « Annonces ».
   const active = view === 'detail' ? 'list' : view;

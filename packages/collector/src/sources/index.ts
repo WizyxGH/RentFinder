@@ -16,6 +16,7 @@
 import type { Scraper } from '@rentfinder/shared';
 import { bepScraper } from './bep/index.js';
 import { century21Scraper } from './century21/index.js';
+import { dazurScraper } from './dazur/index.js';
 import { fonciaScraper } from './foncia/index.js';
 import { laforetScraper } from './laforet/index.js';
 import { nousgeronsScraper } from './nousgerons/index.js';
@@ -30,6 +31,7 @@ export const ALL_SCRAPERS: readonly Scraper[] = [
   fonciaScraper,
   century21Scraper,
   nousgeronsScraper,
+  dazurScraper,
 ];
 
 export { laforetScraper } from './laforet/index.js';
@@ -38,3 +40,5 @@ export { orpiScraper } from './orpi/index.js';
 export { ORPI_DESCRIPTOR } from './orpi/index.js';
 export { bepScraper } from './bep/index.js';
 export { BEP_DESCRIPTOR } from './bep/index.js';
+export { dazurScraper } from './dazur/index.js';
+export { DAZUR_DESCRIPTOR } from './dazur/index.js';

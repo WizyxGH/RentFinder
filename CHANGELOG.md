@@ -4,6 +4,40 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 Documenter ici : nouvelles sources, changements d'architecture ou de schéma,
 évolutions des scores et du système de contact, corrections importantes (§70).
 
+## [0.5.0] — 2026-08-15
+
+### Ajouté
+
+- **Filtre colocation** : nouveau critère `excludeFlatShare` (actif par défaut,
+  décision utilisateur) — les colocations sortent de la liste principale mais
+  restent collectées et consultables via « hors critères » (§53).
+- **Fichier de configuration des filtres** `config/search.json` (+ `config/README.md`) :
+  l'utilisateur règle ville, budget, surface, exclusion coloc… sans toucher au
+  code (§66). Chargé au démarrage de la collecte, tolérant (JSON invalide →
+  défauts + avertissement).
+- **Adaptateur générique Apimo/Cello** (`sources/apimo`, §47) : la logique BEP
+  a été généralisée en fabrique `makeApimoScraper` ; BEP en est désormais une
+  instance, comme **D'Azur Immobilier** (`dazur`, demandée) — ajouter une
+  agence Apimo = quelques lignes.
+- **Enrichissement par fiche détail** (NousGérons) : les nouvelles annonces
+  sont complétées depuis leur fiche (adresse exacte « 42 Bd … », charges
+  détaillées, description complète) — « maximum d'informations » demandé (§6 :
+  une requête par annonce nouvelle seulement).
+- **Extraction d'adresse** depuis le titre des annonces NousGérons.
+- Champ `chargesText` dérivé de la description (« Provision pour charges : 50 € »).
+
+### Interface
+
+- **Scores en anneaux de progression circulaires** (SVG inline, demandé).
+- **Onglet Sources déplacé en dernier** (Annonces / Profil / Sources).
+- Badge et ligne « Colocation » ; relance intégrée au panneau de contact (§34).
+
+### Sources — état
+
+- 7 actives : Laforêt, Orpi, BEP, Foncia, Century 21, NousGérons, D'Azur.
+- PAP prête mais désactivée (WAF). Manda, 123loger, Studapart, Guy Hoquet,
+  Square Habitat : à l'étude.
+
 ## [0.4.0] — 2026-08-15
 
 ### Ajouté

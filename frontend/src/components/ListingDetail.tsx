@@ -121,7 +121,7 @@ export function ListingDetail({
           {listing.flatShare?.value == null
             ? UNKNOWN
             : listing.flatShare.value
-              ? 'Oui — bien proposé en colocation'
+              ? 'Oui'
               : 'Non — logement entier'}
         </dd>
 

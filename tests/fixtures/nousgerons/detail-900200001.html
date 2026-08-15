@@ -1,0 +1,50 @@
+<!doctype html>
+<!--
+  Fixture ANONYMISÉE d'une fiche détail nousgerons.com (/logement/location/…)
+  observée le 2026-08-15. Données FICTIVES — voir tests/fixtures/README.md.
+
+  La fiche est bien plus riche que la liste : son @graph Product porte des
+  additionalProperty supplémentaires (« Adresse » avec numéro + voie, « Code
+  postal ») et une description détaillant les charges et la disponibilité.
+-->
+<html lang="fr">
+  <head>
+    <title>T4 en colocation — Nice (fixture détail NousGérons)</title>
+    <script type="application/ld+json">
+      { "@context": "https://schema.org", "@type": "Organization", "name": "NousGérons" }
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Product",
+            "@id": "https://www.nousgerons.com/propriete/900200001#listing",
+            "category": "Real Estate",
+            "name": "T4 en colocation – Bon état – Bd Fictif – Nice (06000) - Quartier fictif",
+            "description": "T4 meublé lumineux – Boulevard Fictif - Nice 06000. Nous vous proposons une chambre dans cet appartement en colocation, meublé et équipé de 62.16 m². Conditions de location : - Loyer de base : 500 € - Provision pour charges : 50 € - Loyer charges comprises : 550 € - Dépôt de garantie : 590 €. Disponibilité de la chambre : Immédiate.",
+            "image": ["https://cdn.example.invalid/fixture-ng/photo-1.png"],
+            "offers": {
+              "@type": "Offer",
+              "priceCurrency": "EUR",
+              "price": "550.00",
+              "availability": "https://schema.org/LimitedAvailability",
+              "url": "https://www.nousgerons.com/logement/location/900200001-nice"
+            },
+            "additionalProperty": [
+              { "@type": "PropertyValue", "name": "Type de bien", "value": "T4" },
+              { "@type": "PropertyValue", "name": "Nombre de pièces", "value": 4 },
+              { "@type": "PropertyValue", "name": "Surface habitable", "value": 62, "unitCode": "MTK", "unitText": "m²" },
+              { "@type": "PropertyValue", "name": "Ville", "value": "Nice" },
+              { "@type": "PropertyValue", "name": "Adresse", "value": "42 Bd Fictif" },
+              { "@type": "PropertyValue", "name": "Code postal", "value": "06000" }
+            ]
+          }
+        ]
+      }
+    </script>
+  </head>
+  <body>
+    <main>62 m² · 550 €/mois (dont 50 € de charges) · Disponible immédiatement</main>
+  </body>
+</html>

@@ -98,6 +98,20 @@ export function scoreMatch(listing: AggregatedListing, criteria: SearchCriteria)
     });
   }
 
+  // --- Colocation : filtre éliminatoire quand l'utilisateur l'exclut --------
+  // C'est un filtre binaire (dedans/dehors), pas une dimension notée : il
+  // n'entre ni dans `total` ni dans `maxTotal`, et un flatShare inconnu
+  // n'élimine pas (§17) — inutile donc de le compter en signal manquant, ce
+  // qui fausserait le dénominateur pour toutes les annonces silencieuses.
+  if (criteria.excludeFlatShare === true && listing.flatShare.value === true) {
+    matchesCriteria = false;
+    reasons.push({
+      code: 'flatshare.excluded',
+      label: 'Colocation — exclue de la recherche',
+      delta: 0,
+    });
+  }
+
   // --- Critères optionnels, inactifs dans le MVP (§2) -----------------------
   if (criteria.propertyTypes !== undefined && criteria.propertyTypes.length > 0) {
     maxTotal += 10;

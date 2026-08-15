@@ -50,6 +50,25 @@ describe('scoreMatch (§16)', () => {
     expect(matchesCriteria).toBe(false);
   });
 
+  it('exclut une colocation quand excludeFlatShare est actif', () => {
+    const { matchesCriteria } = scoreMatch(makeAggregated({ flatShare: true }), MVP_CRITERIA);
+    expect(matchesCriteria).toBe(false);
+  });
+
+  it('garde un logement entier et une coloc inconnue (§17)', () => {
+    expect(scoreMatch(makeAggregated({ flatShare: false }), MVP_CRITERIA).matchesCriteria).toBe(
+      true,
+    );
+    expect(scoreMatch(makeAggregated({ flatShare: null }), MVP_CRITERIA).matchesCriteria).toBe(
+      true,
+    );
+  });
+
+  it("n'exclut pas les colocations si le critère est désactivé", () => {
+    const criteria = { ...MVP_CRITERIA, excludeFlatShare: false };
+    expect(scoreMatch(makeAggregated({ flatShare: true }), criteria).matchesCriteria).toBe(true);
+  });
+
   it('favorise un loyer nettement sous le plafond', () => {
     const cheap = scoreMatch(makeAggregated({ price: 500 }), MVP_CRITERIA).score.value;
     const tight = scoreMatch(makeAggregated({ price: 699 }), MVP_CRITERIA).score.value;
