@@ -1,0 +1,235 @@
+<!doctype html>
+<!--
+  Fixture ANONYMISÉE reproduisant la structure de /location-immobiliere-nice/
+  observée le 2026-08-15. Toutes les données (références, agences, quartiers,
+  coordonnées, textes) sont FICTIVES — voir tests/fixtures/README.md.
+
+  Points structurels reproduits fidèlement :
+  - cartes <article data-test-estate data-reference="...">
+  - prix dans <span class="h4 font-bold">690&nbsp;&euro;</span> par mois
+  - lien principal c-overlay__link avec titre + « N pièce(s) X m<sup>2</sup> »
+  - bouton favoris portant data-eulerian-action (JSON HTML-encodé riche :
+    prdref, prdamount, surfaceBien, nbPieces, GPS, quartier, agence, date)
+  - CONTRADICTION RÉELLE observée : le JSON dit "meuble":0 alors que le tag
+    visible dit « Meublé » → le parser ne doit PAS utiliser ce champ JSON
+  - annonce de stationnement (hors périmètre résidentiel, à ignorer)
+  - liens ?contact=true (doublons d'URL à ignorer)
+  - dropdown de quartiers (liens /location-immobiliere-nice-*/ à ignorer)
+  - ld+json ItemList + pagination rel="next"
+-->
+<html lang="fr">
+  <head>
+    <title>Location immobilière Nice | Orpi (fixture)</title>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "ItemList",
+        "name": "Biens à louer à Nice",
+        "url": "https://www.orpi.com/location-immobiliere-nice/",
+        "numberOfItems": 5,
+        "itemListElement": [
+          {
+            "@type": "ListItem",
+            "position": 1,
+            "url": "https://www.orpi.com/annonce-location-stationnement-nice-06300-x-000000-901/",
+            "item": { "@type": "Product", "name": "Location Stationnement", "offers": { "@type": "Offer", "price": 100, "priceCurrency": "EUR" } }
+          },
+          {
+            "@type": "ListItem",
+            "position": 2,
+            "url": "https://www.orpi.com/annonce-location-appartement-t1-nice-06000-x-000001-101/",
+            "item": { "@type": "Product", "name": "Location Appartement", "offers": { "@type": "Offer", "price": 690, "priceCurrency": "EUR" } }
+          },
+          {
+            "@type": "ListItem",
+            "position": 3,
+            "url": "https://www.orpi.com/annonce-location-appartement-t2-nice-06100-00000000-0000-4000-8000-000000000202/",
+            "item": { "@type": "Product", "name": "Location Appartement", "offers": { "@type": "Offer", "price": 690, "priceCurrency": "EUR" } }
+          },
+          {
+            "@type": "ListItem",
+            "position": 4,
+            "url": "https://www.orpi.com/annonce-location-appartement-t3-nice-06100-x-000003-303/",
+            "item": { "@type": "Product", "name": "Location Appartement", "offers": { "@type": "Offer", "price": 1280, "priceCurrency": "EUR" } }
+          },
+          {
+            "@type": "ListItem",
+            "position": 5,
+            "url": "https://www.orpi.com/annonce-location-maison-t4-nice-06200-x-000004-404/",
+            "item": { "@type": "Product", "name": "Location Maison", "offers": { "@type": "Offer", "price": 1900, "priceCurrency": "EUR" } }
+          }
+        ]
+      }
+    </script>
+  </head>
+  <body>
+    <article>
+      <h2>Découvrez tous nos biens immobiliers à louer à Nice</h2>
+      <div class="c-dropdown">
+        <ul id="dropdown-location" class="c-dropdown__menu">
+          <li class="c-dropdown__item">
+            <a href="/location-immobiliere-nice-acropolis/" class="c-dropdown__link">Acropolis</a>
+          </li>
+          <li class="c-dropdown__item">
+            <a href="/location-immobiliere-nice-liberation/" class="c-dropdown__link">Libération</a>
+          </li>
+        </ul>
+      </div>
+    </article>
+
+    <!-- Carte 1 : stationnement — hors périmètre résidentiel, à IGNORER -->
+    <article class="c-estate-thumb c-box" data-test-estate data-reference="x-000000-901">
+      <div class="c-estate-thumb__banner">
+        <span class="h4 font-bold">100&nbsp;&euro;</span> par mois
+      </div>
+      <a
+        href="/annonce-location-stationnement-nice-06300-x-000000-901/"
+        class="link-unstyled c-overlay__link"
+      >
+        <b><span class="text-dark-grey capitalize"> Location Stationnement </span></b>
+        Nice
+      </a>
+      <a href="/annonce-location-stationnement-nice-06300-x-000000-901/?contact=true">Message</a>
+    </article>
+
+    <!-- Carte 2 : studio meublé DANS les critères, JSON eulerian complet.
+         Contradiction voulue : tag « Meublé » mais "meuble":0 dans le JSON. -->
+    <article class="c-estate-thumb c-box" data-test-estate data-reference="x-000001-101">
+      <div class="c-estate-thumb__img">
+        <img
+          data-src="https://img.example.invalid/fixture-orpi/photo-101.jpg?p=estate-result-item"
+          alt="Appartement à louer à Nice vignette"
+        />
+      </div>
+      <div class="c-estate-thumb__banner">
+        <span class="h4 font-bold">690&nbsp;&euro;</span> par mois
+      </div>
+      <a
+        href="/annonce-location-appartement-t1-nice-06000-x-000001-101/"
+        class="link-unstyled c-overlay__link"
+      >
+        <b>
+          <span class="text-dark-grey capitalize"> Location Appartement </span>
+          1 pièce 13,50 m<sup>2</sup>
+        </b>
+        <br />
+        <span class="c-estate-thumb__infos__location">Nice</span>
+      </a>
+      <button
+        type="button"
+        data-eulerian-action="{&quot;event&quot;:&quot;declenche-eulerian-bien-favoris&quot;,&quot;prdref&quot;:&quot;x-000001-101&quot;,&quot;prdname&quot;:&quot;appartement-t1-nice-06000-x-000001-101&quot;,&quot;prdamount&quot;:690,&quot;typeBien&quot;:&quot;appartement&quot;,&quot;typeTransaction&quot;:&quot;orpi.result.transaction.rent&quot;,&quot;dateCreation&quot;:&quot;2026-08-15&quot;,&quot;agenceNom&quot;:&quot;Agence Fictive Azur&quot;,&quot;codePostal&quot;:null,&quot;nomVille&quot;:&quot;Nice&quot;,&quot;quartier&quot;:&quot;Quartier Fictif Nord&quot;,&quot;nbPieces&quot;:1,&quot;nbChambres&quot;:null,&quot;meuble&quot;:0,&quot;surfaceBien&quot;:13.5,&quot;dpe&quot;:null,&quot;latitude&quot;:43.7017875,&quot;longitude&quot;:7.2628625}"
+      >
+        <span class="sr-only">Favoris</span>
+      </button>
+      <a href="/annonce-location-appartement-t1-nice-06000-x-000001-101/?contact=true">Message</a>
+      <div class="c-estate-thumb__tags">
+        <ul>
+          <li><span class="c-tag c-tag--secondary"> Studio </span></li>
+          <li><span class="c-tag c-tag--secondary"> Bon état </span></li>
+          <li><span class="c-tag c-tag--secondary"> Meublé </span></li>
+          <li><span class="c-tag c-tag--secondary"> Ascenseur </span></li>
+        </ul>
+      </div>
+      <div>
+        <div class="text-sm mt-sm">
+          NICE CENTRE - STUDIO MEUBLE FICTIF - RUE IMAGINAIRE. REFAIT A NEUF - LUMINEUX - PROXIMITE
+          COMMODITES ET TR …
+        </div>
+      </div>
+    </article>
+
+    <!-- Carte 3 : T2 dans les critères, référence UUID, sert au test de
+         dédoublonnage croisé avec la source Laforêt. -->
+    <article
+      class="c-estate-thumb c-box"
+      data-test-estate
+      data-reference="00000000-0000-4000-8000-000000000202"
+    >
+      <div class="c-estate-thumb__banner">
+        <span class="h4 font-bold">690&nbsp;&euro;</span> par mois
+      </div>
+      <a
+        href="/annonce-location-appartement-t2-nice-06100-00000000-0000-4000-8000-000000000202/"
+        class="link-unstyled c-overlay__link"
+      >
+        <b>
+          <span class="text-dark-grey capitalize"> Location Appartement </span>
+          2 pièces 34 m<sup>2</sup>
+        </b>
+        <br />
+        <span class="c-estate-thumb__infos__location">Nice</span>
+      </a>
+      <button
+        type="button"
+        data-eulerian-action="{&quot;event&quot;:&quot;declenche-eulerian-bien-favoris&quot;,&quot;prdref&quot;:&quot;00000000-0000-4000-8000-000000000202&quot;,&quot;prdamount&quot;:690,&quot;typeBien&quot;:&quot;appartement&quot;,&quot;dateCreation&quot;:&quot;2026-08-14&quot;,&quot;agenceNom&quot;:&quot;Agence Fictive Riviera&quot;,&quot;codePostal&quot;:&quot;06100&quot;,&quot;nomVille&quot;:&quot;Nice&quot;,&quot;quartier&quot;:&quot;Quartier Fictif Ouest&quot;,&quot;nbPieces&quot;:2,&quot;meuble&quot;:0,&quot;surfaceBien&quot;:34,&quot;dpe&quot;:&quot;D&quot;,&quot;latitude&quot;:43.7102,&quot;longitude&quot;:7.262}"
+      >
+        <span class="sr-only">Favoris</span>
+      </button>
+      <div class="c-estate-thumb__tags">
+        <ul>
+          <li><span class="c-tag c-tag--secondary"> Balcon </span></li>
+        </ul>
+      </div>
+      <div>
+        <div class="text-sm mt-sm">
+          T2 lumineux fictif avec balcon, proche commerces et transports. Cuisine équipée fictive …
+        </div>
+      </div>
+    </article>
+
+    <!-- Carte 4 : T3 HORS budget (1 280 €), JSON complet. -->
+    <article class="c-estate-thumb c-box" data-test-estate data-reference="x-000003-303">
+      <div class="c-estate-thumb__banner">
+        <span class="h4 font-bold">1&nbsp;280&nbsp;&euro;</span> par mois
+      </div>
+      <a
+        href="/annonce-location-appartement-t3-nice-06100-x-000003-303/"
+        class="link-unstyled c-overlay__link"
+      >
+        <b>
+          <span class="text-dark-grey capitalize"> Location Appartement </span>
+          3 pièces 62 m<sup>2</sup>
+        </b>
+        <br />
+        <span class="c-estate-thumb__infos__location">Nice</span>
+      </a>
+      <button
+        type="button"
+        data-eulerian-action="{&quot;event&quot;:&quot;declenche-eulerian-bien-favoris&quot;,&quot;prdref&quot;:&quot;x-000003-303&quot;,&quot;prdamount&quot;:1280,&quot;typeBien&quot;:&quot;appartement&quot;,&quot;dateCreation&quot;:&quot;2026-08-10&quot;,&quot;agenceNom&quot;:&quot;Agence Fictive Azur&quot;,&quot;codePostal&quot;:&quot;06100&quot;,&quot;nomVille&quot;:&quot;Nice&quot;,&quot;quartier&quot;:&quot;Quartier Fictif Est&quot;,&quot;nbPieces&quot;:3,&quot;nbChambres&quot;:2,&quot;meuble&quot;:0,&quot;surfaceBien&quot;:62,&quot;dpe&quot;:&quot;C&quot;,&quot;latitude&quot;:43.7205,&quot;longitude&quot;:7.2751}"
+      >
+        <span class="sr-only">Favoris</span>
+      </button>
+      <div>
+        <div class="text-sm mt-sm">Bel appartement familial fictif au calme, dernier étage …</div>
+      </div>
+    </article>
+
+    <!-- Carte 5 : maison SANS bouton favoris (pas de JSON eulerian) —
+         vérifie le repli sur le HTML visible seul. -->
+    <article class="c-estate-thumb c-box" data-test-estate data-reference="x-000004-404">
+      <div class="c-estate-thumb__banner">
+        <span class="h4 font-bold">1&nbsp;900&nbsp;&euro;</span> par mois
+      </div>
+      <a
+        href="/annonce-location-maison-t4-nice-06200-x-000004-404/"
+        class="link-unstyled c-overlay__link"
+      >
+        <b>
+          <span class="text-dark-grey capitalize"> Location Maison </span>
+          4 pièces 95 m<sup>2</sup>
+        </b>
+        <br />
+        <span class="c-estate-thumb__infos__location">Nice</span>
+      </a>
+      <div>
+        <div class="text-sm mt-sm">Maison fictive avec jardin, quartier résidentiel …</div>
+      </div>
+    </article>
+
+    <nav class="c-pagination">
+      <a href="/location-immobiliere-nice/?page=2">2</a>
+      <a href="/location-immobiliere-nice/?page=3">3</a>
+      <a rel="next" href="/location-immobiliere-nice/?page=2">Suivant</a>
+    </nav>
+  </body>
+</html>

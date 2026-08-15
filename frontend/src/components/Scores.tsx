@@ -8,6 +8,7 @@
  */
 
 import type { ExplainedScore, ListingScores } from '@rentfinder/shared';
+import { Card } from '@/components/ui/card.js';
 
 /** Palette par plage : vert au-dessus de 75, orange au-dessus de 50, rouge sinon. */
 function toneFor(value: number, invert: boolean): 'good' | 'medium' | 'bad' {
@@ -16,6 +17,16 @@ function toneFor(value: number, invert: boolean): 'good' | 'medium' | 'bad' {
   if (effective >= 50) return 'medium';
   return 'bad';
 }
+
+/**
+ * Classes complètes par ton — jamais de `text-${tone}` dynamique : le scanner
+ * Tailwind ne détecte que les littéraux.
+ */
+const TONE_TEXT: Record<'good' | 'medium' | 'bad', string> = {
+  good: 'text-good',
+  medium: 'text-medium',
+  bad: 'text-bad',
+};
 
 interface ScoreChipProps {
   readonly label: string;
@@ -30,14 +41,16 @@ export function ScoreChip({ label, score, invert = false }: ScoreChipProps): Rea
   const incomplete = score.unknownSignals.length > 0;
 
   return (
-    <div className={`score-chip score-chip--${tone}`}>
-      <span className="score-chip__label">{label}</span>
-      <span className="score-chip__value">
+    <div className="rounded-lg border border-border px-1.5 py-1 text-center">
+      <span className="block text-[0.68rem] tracking-wide text-muted-foreground uppercase">
+        {label}
+      </span>
+      <span className={`text-[1.05rem] font-bold ${TONE_TEXT[tone]}`}>
         {score.value}
         {/* Astérisque discret : le score repose sur une information partielle. */}
         {incomplete && (
           <span
-            className="score-chip__partial"
+            className="cursor-help text-xs text-muted-foreground"
             title={`Calculé sans : ${score.unknownSignals.join(', ')}`}
             aria-label={`information partielle : ${score.unknownSignals.join(', ')}`}
           >
@@ -52,7 +65,7 @@ export function ScoreChip({ label, score, invert = false }: ScoreChipProps): Rea
 /** Rangée de scores de la carte d'annonce. */
 export function ScoreRow({ scores }: { readonly scores: ListingScores }): React.JSX.Element {
   return (
-    <div className="score-row">
+    <div className="mt-2.5 grid grid-cols-4 gap-1.5">
       <ScoreChip label="Match" score={scores.match} />
       <ScoreChip label="Opportunité" score={scores.opportunity} />
       <ScoreChip label="Visite" score={scores.visitProbability} />
@@ -79,20 +92,20 @@ export function ScoreDetail({
   const tone = toneFor(score.value, invert);
 
   return (
-    <section className="score-detail">
-      <header className="score-detail__header">
-        <h3>{title}</h3>
-        <span className={`score-detail__value score-detail__value--${tone}`}>
-          {score.value}/100
-        </span>
+    <Card className="mb-3">
+      <header className="flex items-baseline justify-between">
+        <h3 className="text-base font-semibold">{title}</h3>
+        <span className={`font-bold ${TONE_TEXT[tone]}`}>{score.value}/100</span>
       </header>
 
-      {caveat !== undefined && <p className="score-detail__caveat">{caveat}</p>}
+      {caveat !== undefined && (
+        <p className="mt-1.5 text-[0.82rem] text-muted-foreground italic">{caveat}</p>
+      )}
 
-      <ul className="score-detail__reasons">
+      <ul className="mt-2 text-sm">
         {score.reasons.map((reason, index) => (
-          <li key={`${reason.code}-${index}`} className="score-detail__reason">
-            <span aria-hidden="true" className="score-detail__marker">
+          <li key={`${reason.code}-${index}`} className="flex gap-2 py-0.5">
+            <span aria-hidden="true" className="w-4 shrink-0">
               {reason.delta > 0 ? (invert ? '⚠' : '✓') : reason.delta < 0 ? '⚠' : '·'}
             </span>
             <span>{reason.label}</span>
@@ -102,10 +115,10 @@ export function ScoreDetail({
 
       {/* §17 : dire explicitement ce qui manquait plutôt que de le taire. */}
       {score.unknownSignals.length > 0 && (
-        <p className="score-detail__unknown">
+        <p className="mt-1.5 text-[0.82rem] text-muted-foreground italic">
           Information non fournie par les sources : {score.unknownSignals.join(', ')}.
         </p>
       )}
-    </section>
+    </Card>
   );
 }

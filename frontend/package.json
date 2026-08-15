@@ -7,17 +7,23 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --build && vite build",
+    "build:selfhost": "tsc --build && vite build --mode selfhost",
     "preview": "vite preview",
     "test": "vitest run --config vitest.config.ts",
     "test:e2e": "playwright test"
   },
   "dependencies": {
     "@rentfinder/shared": "workspace:*",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.31.0",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.49.1",
+    "@tailwindcss/vite": "^4.3.3",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.1.0",
     "@testing-library/user-event": "^14.5.2",
@@ -25,6 +31,7 @@
     "@types/react-dom": "^18.3.5",
     "@vitejs/plugin-react": "^4.3.4",
     "jsdom": "^25.0.1",
+    "tailwindcss": "^4.3.3",
     "vite": "^5.4.11",
     "vitest": "^2.1.8"
   }

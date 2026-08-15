@@ -22,6 +22,8 @@ import {
 } from '../format.js';
 import { ScoreDetail } from './Scores.js';
 import { ContactPanel } from './ContactPanel.js';
+import { Badge } from '@/components/ui/badge.js';
+import { Button } from '@/components/ui/button.js';
 
 interface ListingDetailProps {
   readonly listing: ListingView;
@@ -43,7 +45,10 @@ function ConflictNote({
 }): React.JSX.Element | null {
   if (conflicts.length === 0) return null;
   return (
-    <span className="conflict-note" title="Les sources ne s’accordent pas sur cette valeur">
+    <span
+      className="text-[0.85rem] text-medium"
+      title="Les sources ne s’accordent pas sur cette valeur"
+    >
       {' '}
       (
       {conflicts.map((conflict, index) => (
@@ -57,6 +62,10 @@ function ConflictNote({
   );
 }
 
+/** Grille étiquette/valeur utilisée par la fiche et le contact. */
+const FACTS_GRID = 'mb-4 grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1 text-[0.92rem]';
+const FACT_LABEL = 'text-muted-foreground';
+
 export function ListingDetail({
   listing,
   profile,
@@ -69,25 +78,25 @@ export function ListingDetail({
   const charges = listing.charges.value;
 
   return (
-    <div className="detail">
-      <header className="detail__header">
-        <button type="button" className="btn btn--ghost" onClick={onBack}>
+    <div>
+      <header className="mb-2 flex items-center justify-between">
+        <Button variant="ghost" onClick={onBack}>
           ← Retour
-        </button>
-        {!listing.matchesCriteria && (
-          <span className="detail__badge">Hors critères de recherche</span>
-        )}
+        </Button>
+        {!listing.matchesCriteria && <Badge variant="warning">Hors critères de recherche</Badge>}
       </header>
 
-      <h1 className="detail__title">{listing.title.value ?? 'Annonce sans titre'}</h1>
+      <h1 className="mb-1 text-xl font-bold">{listing.title.value ?? 'Annonce sans titre'}</h1>
 
-      <p className="detail__summary">
+      <p className="mb-3 text-[1.05rem]">
         <strong>{formatPrice(listing.price.value)}</strong>
         <ConflictNote
           conflicts={listing.price.conflicts}
           render={(value) => formatPrice(value as number | null)}
         />
-        {charges !== null && <span className="detail__charges"> + {charges} € de charges</span>}
+        {charges !== null && (
+          <span className="text-sm text-muted-foreground"> + {charges} € de charges</span>
+        )}
         <span aria-hidden="true"> · </span>
         {formatArea(listing.area.value)}
         <ConflictNote
@@ -98,43 +107,45 @@ export function ListingDetail({
         {formatRooms(listing.rooms.value)}
       </p>
 
-      <dl className="detail__facts">
-        <dt>Type</dt>
+      <dl className={FACTS_GRID}>
+        <dt className={FACT_LABEL}>Type</dt>
         <dd>{formatPropertyType(listing.propertyType.value)}</dd>
 
-        <dt>Meublé</dt>
+        <dt className={FACT_LABEL}>Meublé</dt>
         <dd>
           {listing.furnished.value === null ? UNKNOWN : listing.furnished.value ? 'Oui' : 'Non'}
         </dd>
 
-        <dt>Localisation</dt>
+        <dt className={FACT_LABEL}>Localisation</dt>
         <dd>
           {formatCity(listing.city.value)}
           {listing.postalCode.value !== null && ` (${listing.postalCode.value})`}
           {listing.address.value !== null && ` — ${listing.address.value}`}
         </dd>
 
-        <dt>Publiée</dt>
+        <dt className={FACT_LABEL}>Publiée</dt>
         <dd>{formatAge(listing.publishedAt.value, nowMs)}</dd>
 
-        <dt>Disponible</dt>
+        <dt className={FACT_LABEL}>Disponible</dt>
         <dd>
           {listing.availableAt.value === null
             ? UNKNOWN
             : new Date(listing.availableAt.value).toLocaleDateString('fr-FR')}
         </dd>
 
-        <dt>Vue pour la première fois</dt>
+        <dt className={FACT_LABEL}>Vue pour la première fois</dt>
         <dd>{formatAge(listing.firstSeenAt, nowMs)}</dd>
       </dl>
 
       {/* §20 : distances vers des points de référence privés, libellés neutres. */}
       {listing.distances.length > 0 && (
-        <ul className="detail__distances">
+        <ul className="mb-4">
           {listing.distances.map((distance) => (
             <li key={distance.label}>
               <strong>{distance.label}</strong> : {formatDuration(distance.durationMinutes)}{' '}
-              <span className="detail__distance-km">({distance.distanceKm} km à vol d’oiseau)</span>
+              <span className="text-sm text-muted-foreground">
+                ({distance.distanceKm} km à vol d’oiseau)
+              </span>
             </li>
           ))}
         </ul>
@@ -149,7 +160,7 @@ export function ListingDetail({
       />
 
       {/* §35 : suivi du statut. */}
-      <section className="detail__tracking">
+      <section className="my-4 flex items-center gap-2">
         <label htmlFor="tracking-select">Statut</label>
         <select
           id="tracking-select"
@@ -165,15 +176,15 @@ export function ListingDetail({
       </section>
 
       {/* §38 : toutes les sources, avec leurs URLs d'origine. */}
-      <section className="detail__sources">
-        <h3>Cette annonce a été trouvée sur</h3>
-        <ul>
+      <section data-testid="listing-sources">
+        <h3 className="font-semibold">Cette annonce a été trouvée sur</h3>
+        <ul className="mt-1.5 list-disc pl-5">
           {listing.occurrences.map((occurrence) => (
             <li key={occurrence.id}>
               <a href={occurrence.sourceUrl} target="_blank" rel="noreferrer noopener">
                 {formatSourceName(occurrence.sourceId)}
               </a>
-              <span className="detail__source-facts">
+              <span className="text-sm text-muted-foreground">
                 {' '}
                 — {formatPrice(occurrence.price)}, {formatArea(occurrence.area)}
               </span>
@@ -183,13 +194,13 @@ export function ListingDetail({
       </section>
 
       {listing.description.value !== null && (
-        <section className="detail__description">
-          <h3>Description</h3>
-          <p>{listing.description.value}</p>
+        <section className="mt-4">
+          <h3 className="font-semibold">Description</h3>
+          <p className="whitespace-pre-wrap">{listing.description.value}</p>
         </section>
       )}
 
-      <div className="detail__scores">
+      <div className="mt-4 sm:grid sm:grid-cols-2 sm:gap-3">
         <ScoreDetail title="Correspondance" score={listing.scores.match} />
         <ScoreDetail title="Opportunité" score={listing.scores.opportunity} />
         <ScoreDetail

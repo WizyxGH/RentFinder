@@ -14,9 +14,15 @@
  */
 
 import type { Scraper } from '@rentfinder/shared';
+import { bepScraper } from './bep/index.js';
 import { laforetScraper } from './laforet/index.js';
+import { orpiScraper } from './orpi/index.js';
 
-export const ALL_SCRAPERS: readonly Scraper[] = [laforetScraper];
+export const ALL_SCRAPERS: readonly Scraper[] = [laforetScraper, orpiScraper, bepScraper];
 
 export { laforetScraper } from './laforet/index.js';
 export { LAFORET_DESCRIPTOR } from './laforet/index.js';
+export { orpiScraper } from './orpi/index.js';
+export { ORPI_DESCRIPTOR } from './orpi/index.js';
+export { bepScraper } from './bep/index.js';
+export { BEP_DESCRIPTOR } from './bep/index.js';

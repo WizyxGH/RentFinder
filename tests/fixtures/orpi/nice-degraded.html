@@ -1,0 +1,74 @@
+<!doctype html>
+<!--
+  Fixture DÉGRADÉE (§50) : structure Orpi altérée pour tester la robustesse.
+  Données fictives — voir tests/fixtures/README.md.
+
+  Cas couverts :
+  - carte sans prix affiché ni JSON (déclenche le warning §61 si généralisé)
+  - JSON data-eulerian-action corrompu (troncature) → repli sur le HTML
+  - surface absente du titre et du JSON
+  - carte dont le seul lien est ?contact=true (l'URL canonique doit être déduite)
+  - dernière page : aucune pagination rel="next"
+-->
+<html lang="fr">
+  <head>
+    <title>Location immobilière Nice | Orpi (fixture dégradée)</title>
+  </head>
+  <body>
+    <!-- Carte 1 : aucun prix nulle part, surface absente. -->
+    <article class="c-estate-thumb c-box" data-test-estate data-reference="x-000010-110">
+      <a
+        href="/annonce-location-appartement-nice-06000-x-000010-110/"
+        class="link-unstyled c-overlay__link"
+      >
+        <b><span class="text-dark-grey capitalize"> Location Appartement </span></b>
+        <br />
+        <span class="c-estate-thumb__infos__location">Nice</span>
+      </a>
+      <div>
+        <div class="text-sm mt-sm">Appartement fictif, informations en cours de saisie …</div>
+      </div>
+    </article>
+
+    <!-- Carte 2 : JSON corrompu (tronqué) — le parser doit se replier sur le
+         HTML sans lever, et le prix visible doit rester lu. -->
+    <article class="c-estate-thumb c-box" data-test-estate data-reference="x-000011-111">
+      <div class="c-estate-thumb__banner">
+        <span class="h4 font-bold">650&nbsp;&euro;</span> par mois
+      </div>
+      <a
+        href="/annonce-location-appartement-t1-nice-06300-x-000011-111/"
+        class="link-unstyled c-overlay__link"
+      >
+        <b>
+          <span class="text-dark-grey capitalize"> Location Appartement </span>
+          1 pièce 20 m<sup>2</sup>
+        </b>
+        <br />
+        <span class="c-estate-thumb__infos__location">Nice</span>
+      </a>
+      <button
+        type="button"
+        data-eulerian-action="{&quot;event&quot;:&quot;declenche-eulerian-bien-favoris&quot;,&quot;prdref&quot;:&quot;x-000011-111&quot;,&quot;prdamount&quot;:650,&quot;surfa"
+      >
+        <span class="sr-only">Favoris</span>
+      </button>
+    </article>
+
+    <!-- Carte 3 : le lien principal manque, seul le lien ?contact=true existe.
+         L'URL canonique doit être reconstruite sans le paramètre. -->
+    <article class="c-estate-thumb c-box" data-test-estate data-reference="x-000012-112">
+      <div class="c-estate-thumb__banner">
+        <span class="h4 font-bold">700&nbsp;&euro;</span> par mois
+      </div>
+      <a href="/annonce-location-appartement-t2-nice-06200-x-000012-112/?contact=true">
+        <b>
+          <span class="text-dark-grey capitalize"> Location Appartement </span>
+          2 pièces 30 m<sup>2</sup>
+        </b>
+      </a>
+    </article>
+
+    <!-- Pas de pagination : dernière page. -->
+  </body>
+</html>

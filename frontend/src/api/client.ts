@@ -22,6 +22,13 @@ export const API_URL: string = (import.meta.env['VITE_API_URL'] as string | unde
 
 export const isDemoMode = (): boolean => API_URL === '';
 
+/**
+ * Mode LOCAL (`/`) : l'interface est servie par le serveur du mode zéro-cloud
+ * (`pnpm local`), qui expose l'API sur la même origine, sans jeton — il
+ * n'écoute que sur 127.0.0.1. Voir `packages/collector/src/cli/serve.ts`.
+ */
+export const isLocalMode = (): boolean => API_URL === '/';
+
 export function readToken(): string | null {
   try {
     return localStorage.getItem(TOKEN_STORAGE_KEY);
@@ -59,13 +66,15 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const token = readToken();
-  if (token === null) throw new ApiError('Jeton d’accès absent', 401);
+  // En mode local, l'API est sur la même origine et sans jeton.
+  const local = isLocalMode();
+  const token = local ? null : readToken();
+  if (!local && token === null) throw new ApiError('Jeton d’accès absent', 401);
 
-  const response = await fetch(`${API_URL}${path}`, {
+  const response = await fetch(`${local ? '' : API_URL}${path}`, {
     ...init,
     headers: {
-      authorization: `Bearer ${token}`,
+      ...(token !== null ? { authorization: `Bearer ${token}` } : {}),
       ...(init.body !== undefined ? { 'content-type': 'application/json' } : {}),
       ...init.headers,
     },

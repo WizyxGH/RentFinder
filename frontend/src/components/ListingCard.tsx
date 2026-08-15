@@ -19,6 +19,9 @@ import {
   formatTracking,
 } from '../format.js';
 import { ScoreRow } from './Scores.js';
+import { Badge } from '@/components/ui/badge.js';
+import { Button } from '@/components/ui/button.js';
+import { Card } from '@/components/ui/card.js';
 
 interface ListingCardProps {
   readonly listing: ListingView;
@@ -32,18 +35,18 @@ export function ListingCard({ listing, nowMs, onOpen }: ListingCardProps): React
   const publishedAt = listing.publishedAt.value;
 
   return (
-    <article className={`card${isHot ? ' card--hot' : ''}`} data-testid="listing-card">
-      <header className="card__header">
-        <div className="card__priority">
+    <Card className={isHot ? 'border-2 border-hot' : undefined} data-testid="listing-card">
+      <header className="flex items-start gap-2.5">
+        <div className="flex min-w-11 flex-col items-center">
           {isHot && <span aria-hidden="true">🔥</span>}
-          <span className="card__priority-value">{listing.actionPriority}</span>
+          <span className="text-2xl leading-none font-bold">{listing.actionPriority}</span>
         </div>
 
-        <div className="card__identity">
-          <h2 className="card__title">
+        <div className="min-w-0 flex-1">
+          <h2 className="text-base font-semibold">
             {formatPropertyType(listing.propertyType.value)} · {formatCity(listing.city.value)}
           </h2>
-          <p className="card__facts">
+          <p className="mt-0.5 text-[0.95rem]">
             <strong>{formatPrice(listing.price.value)}</strong>
             <span aria-hidden="true"> · </span>
             {formatArea(listing.area.value)}
@@ -52,14 +55,12 @@ export function ListingCard({ listing, nowMs, onOpen }: ListingCardProps): React
           </p>
         </div>
 
-        {listing.tracking !== 'new' && (
-          <span className="card__tracking">{formatTracking(listing.tracking)}</span>
-        )}
+        {listing.tracking !== 'new' && <Badge>{formatTracking(listing.tracking)}</Badge>}
       </header>
 
       <ScoreRow scores={listing.scores} />
 
-      <p className="card__age">
+      <p className="mt-2 text-[0.85rem] text-muted-foreground">
         {publishedAt === null
           ? `Découverte ${formatAge(listing.firstSeenAt, nowMs)}`
           : `Publiée ${formatAge(publishedAt, nowMs)}`}
@@ -68,7 +69,7 @@ export function ListingCard({ listing, nowMs, onOpen }: ListingCardProps): React
       {/* §20 : les distances n'apparaissent que si des points de référence
           privés sont configurés — le libellé reste neutre. */}
       {listing.distances.length > 0 && (
-        <ul className="card__distances">
+        <ul className="mt-1.5 flex gap-3 text-[0.85rem] text-muted-foreground">
           {listing.distances.map((distance) => (
             <li key={distance.label}>
               {distance.label} : {formatDuration(distance.durationMinutes)}
@@ -78,9 +79,9 @@ export function ListingCard({ listing, nowMs, onOpen }: ListingCardProps): React
       )}
 
       {/* §13, §38 : montrer d'où vient l'annonce et combien de fois elle circule. */}
-      <p className="card__sources">
+      <p className="mt-2 text-[0.85rem] text-muted-foreground">
         {sourceCount === 1 ? '1 source' : `${sourceCount} sources`}
-        <span className="card__sources-list">
+        <span>
           {' '}
           ·{' '}
           {[...new Set(listing.occurrences.map((occurrence) => occurrence.sourceId))]
@@ -89,14 +90,14 @@ export function ListingCard({ listing, nowMs, onOpen }: ListingCardProps): React
         </span>
       </p>
 
-      <div className="card__actions">
-        <button type="button" className="btn btn--secondary" onClick={() => onOpen(listing.id)}>
+      <div className="mt-3 flex gap-2">
+        <Button variant="outline" className="flex-1" onClick={() => onOpen(listing.id)}>
           Voir
-        </button>
-        <button type="button" className="btn btn--primary" onClick={() => onOpen(listing.id)}>
+        </Button>
+        <Button className="flex-1" onClick={() => onOpen(listing.id)}>
           Contacter
-        </button>
+        </Button>
       </div>
-    </article>
+    </Card>
   );
 }

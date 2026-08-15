@@ -8,6 +8,7 @@
 import { useState } from 'react';
 import type { TenantProfile } from '@rentfinder/shared';
 import { EMPTY_PROFILE } from '../profile.js';
+import { Button } from '@/components/ui/button.js';
 
 interface ProfileFormProps {
   readonly initial: TenantProfile | null;
@@ -15,6 +16,8 @@ interface ProfileFormProps {
   readonly onCancel: () => void;
   readonly onClear: () => void;
 }
+
+const FIELD = 'flex flex-col gap-1 text-[0.88rem] text-muted-foreground';
 
 export function ProfileForm({
   initial,
@@ -30,22 +33,21 @@ export function ProfileForm({
 
   return (
     <form
-      className="profile-form"
       onSubmit={(event) => {
         event.preventDefault();
         onSave(profile);
       }}
     >
-      <h2>Profil locataire</h2>
+      <h2 className="mb-2 text-lg font-bold">Profil locataire</h2>
 
-      <p className="profile-form__notice">
+      <p className="border-l-3 border-primary pl-2.5 text-[0.85rem] text-muted-foreground">
         Ces informations servent uniquement à composer vos messages de contact. Elles sont
         enregistrées <strong>dans ce navigateur uniquement</strong> : elles ne sont envoyées ni à
         l’API, ni à la base de données, ni à GitHub.
       </p>
 
-      <div className="profile-form__grid">
-        <label>
+      <div className="my-4 grid gap-2.5 sm:grid-cols-2">
+        <label className={FIELD}>
           Prénom
           <input
             type="text"
@@ -55,7 +57,7 @@ export function ProfileForm({
           />
         </label>
 
-        <label>
+        <label className={FIELD}>
           Nom
           <input
             type="text"
@@ -65,7 +67,7 @@ export function ProfileForm({
           />
         </label>
 
-        <label>
+        <label className={FIELD}>
           E-mail
           <input
             type="email"
@@ -74,7 +76,7 @@ export function ProfileForm({
           />
         </label>
 
-        <label>
+        <label className={FIELD}>
           Téléphone
           <input
             type="tel"
@@ -83,7 +85,7 @@ export function ProfileForm({
           />
         </label>
 
-        <label>
+        <label className={FIELD}>
           Situation professionnelle
           <input
             type="text"
@@ -93,7 +95,7 @@ export function ProfileForm({
           />
         </label>
 
-        <label>
+        <label className={FIELD}>
           Revenus mensuels (€)
           <input
             type="number"
@@ -108,7 +110,7 @@ export function ProfileForm({
           />
         </label>
 
-        <label>
+        <label className={FIELD}>
           Date d’entrée souhaitée
           <input
             type="date"
@@ -119,7 +121,7 @@ export function ProfileForm({
           />
         </label>
 
-        <label className="profile-form__checkbox">
+        <label className="flex flex-row items-center gap-2 text-[0.88rem] text-muted-foreground">
           <input
             type="checkbox"
             checked={profile.hasGuarantor}
@@ -129,16 +131,14 @@ export function ProfileForm({
         </label>
       </div>
 
-      <div className="profile-form__actions">
-        <button type="button" className="btn btn--ghost" onClick={onCancel}>
+      <div className="flex flex-wrap gap-2">
+        <Button type="button" variant="ghost" onClick={onCancel}>
           Annuler
-        </button>
-        <button type="button" className="btn btn--secondary" onClick={onClear}>
+        </Button>
+        <Button type="button" variant="outline" onClick={onClear}>
           Effacer de cet appareil
-        </button>
-        <button type="submit" className="btn btn--primary">
-          Enregistrer
-        </button>
+        </Button>
+        <Button type="submit">Enregistrer</Button>
       </div>
     </form>
   );

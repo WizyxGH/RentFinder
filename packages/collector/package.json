@@ -14,11 +14,13 @@
   "types": "./dist/index.d.ts",
   "scripts": {
     "build": "tsc --build",
-    "collect": "node --experimental-strip-types src/cli/collect.ts",
-    "db:migrate": "node --experimental-strip-types src/cli/migrate.ts"
+    "collect": "tsc --build && node dist/cli/collect.js",
+    "db:migrate": "tsc --build && node dist/cli/migrate.js",
+    "serve": "tsc --build && node dist/cli/serve.js"
   },
   "dependencies": {
     "@libsql/client": "^0.14.0",
+    "@rentfinder/api": "workspace:*",
     "@rentfinder/shared": "workspace:*",
     "cheerio": "^1.0.0"
   }

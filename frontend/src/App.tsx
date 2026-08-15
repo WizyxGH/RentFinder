@@ -20,6 +20,7 @@ import {
   writeToken,
 } from './api/client.js';
 import { clearProfile, loadProfile, saveProfile } from './profile.js';
+import { Button } from '@/components/ui/button.js';
 import { ListingCard } from './components/ListingCard.js';
 import { ListingDetail } from './components/ListingDetail.js';
 import { ProfileForm } from './components/ProfileForm.js';
@@ -112,10 +113,10 @@ export function App(): React.JSX.Element {
   // --- Saisie du jeton d'accès (§26) ----------------------------------------
   if (needsToken) {
     return (
-      <main className="app app--gate">
-        <h1>RentFinder</h1>
+      <main className="mx-auto max-w-[720px] px-3 py-4 pb-12 sm:px-4 sm:py-6 sm:pb-16">
+        <h1 className="mb-3 text-xl font-bold">RentFinder</h1>
         <form
-          className="token-gate"
+          className="flex max-w-[380px] flex-col gap-2"
           onSubmit={(event) => {
             event.preventDefault();
             const input = new FormData(event.currentTarget).get('token');
@@ -127,13 +128,11 @@ export function App(): React.JSX.Element {
         >
           <label htmlFor="token-input">Jeton d’accès à l’API</label>
           <input id="token-input" name="token" type="password" autoComplete="off" required />
-          <p className="token-gate__notice">
+          <p className="border-l-3 border-primary pl-2.5 text-[0.85rem] text-muted-foreground">
             Le jeton est conservé dans ce navigateur uniquement. Il n’est jamais inclus dans le code
             publié.
           </p>
-          <button type="submit" className="btn btn--primary">
-            Se connecter
-          </button>
+          <Button type="submit">Se connecter</Button>
         </form>
       </main>
     );
@@ -141,7 +140,7 @@ export function App(): React.JSX.Element {
 
   if (view === 'profile') {
     return (
-      <main className="app">
+      <main className="mx-auto max-w-[720px] px-3 py-4 pb-12 sm:px-4 sm:py-6 sm:pb-16">
         <ProfileForm
           initial={profile}
           onSave={(next) => {
@@ -162,7 +161,7 @@ export function App(): React.JSX.Element {
 
   if (view === 'sources') {
     return (
-      <main className="app">
+      <main className="mx-auto max-w-[720px] px-3 py-4 pb-12 sm:px-4 sm:py-6 sm:pb-16">
         <SourcesPanel sources={sources} nowMs={nowMs} onBack={() => setView('list')} />
       </main>
     );
@@ -170,7 +169,7 @@ export function App(): React.JSX.Element {
 
   if (view === 'detail' && selected !== null) {
     return (
-      <main className="app">
+      <main className="mx-auto max-w-[720px] px-3 py-4 pb-12 sm:px-4 sm:py-6 sm:pb-16">
         <ListingDetail
           listing={selected}
           profile={profile}
@@ -185,33 +184,36 @@ export function App(): React.JSX.Element {
   }
 
   return (
-    <main className="app">
-      <header className="app__header">
+    <main className="mx-auto max-w-[720px] px-3 py-4 pb-12 sm:px-4 sm:py-6 sm:pb-16">
+      <header className="mb-2 flex items-start justify-between gap-3">
         <div>
-          <h1>Recherche Nice</h1>
+          <h1 className="text-xl font-bold">Recherche Nice</h1>
           {/* §36 : rappeler les critères actifs, pour lever toute ambiguïté. */}
-          <p className="app__criteria">
+          <p className="mt-0.5 text-sm text-muted-foreground">
             ≤ {MVP_CRITERIA.maxPrice} € · ≥ {MVP_CRITERIA.minArea} m²
           </p>
         </div>
-        <nav className="app__nav">
-          <button type="button" className="btn btn--ghost" onClick={() => setView('profile')}>
+        <nav className="flex gap-1">
+          <Button variant="ghost" onClick={() => setView('profile')}>
             Profil
-          </button>
-          <button type="button" className="btn btn--ghost" onClick={() => void openSources()}>
+          </Button>
+          <Button variant="ghost" onClick={() => void openSources()}>
             Sources
-          </button>
+          </Button>
         </nav>
       </header>
 
       {isDemoMode() && (
-        <p className="app__demo" role="status">
+        <p
+          className="my-2 rounded-xl border border-border bg-primary/10 px-3 py-2 text-[0.85rem]"
+          role="status"
+        >
           Mode démonstration — données fictives. Définissez <code>VITE_API_URL</code> pour vous
           connecter à vos données.
         </p>
       )}
 
-      <div className="app__controls">
+      <div className="my-3 flex flex-wrap items-center gap-2 text-sm">
         <label htmlFor="sort-select">Trier par</label>
         <select
           id="sort-select"
@@ -223,7 +225,7 @@ export function App(): React.JSX.Element {
           <option value="price">Loyer croissant</option>
         </select>
 
-        <label className="app__toggle">
+        <label className="flex items-center gap-1.5">
           <input
             type="checkbox"
             checked={includeOutOfCriteria}
@@ -234,17 +236,19 @@ export function App(): React.JSX.Element {
       </div>
 
       {error !== null && (
-        <p className="app__error" role="alert">
+        <p className="rounded-xl border border-bad px-3 py-2 text-bad" role="alert">
           {error}
         </p>
       )}
 
       {loading ? (
-        <p className="app__loading">Chargement…</p>
+        <p className="py-8 text-center text-muted-foreground">Chargement…</p>
       ) : listings.length === 0 ? (
-        <p className="app__empty">Aucune annonce ne correspond à vos critères pour l’instant.</p>
+        <p className="py-8 text-center text-muted-foreground">
+          Aucune annonce ne correspond à vos critères pour l’instant.
+        </p>
       ) : (
-        <section className="app__list">
+        <section className="flex flex-col gap-3">
           {listings.map((listing) => (
             <ListingCard
               key={listing.id}

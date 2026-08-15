@@ -6,6 +6,16 @@
   "description": "API serverless (Cloudflare Worker) exposant les annonces à l'interface, protégée par jeton.",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./routes": {
+      "types": "./dist/routes.d.ts",
+      "default": "./dist/routes.js"
+    }
+  },
   "scripts": {
     "build": "tsc --build",
     "dev": "wrangler dev",

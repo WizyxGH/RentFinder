@@ -1,12 +1,51 @@
 # Déploiement
 
+## Mode local — zéro cloud (aucun compte requis)
+
+Le projet fonctionne intégralement sur votre machine, sans Turso, sans
+Cloudflare et sans GitHub Actions :
+
+```bash
+pnpm install
+pnpm collect      # collecte réelle → data/local.db (créée automatiquement)
+pnpm local        # interface + API sur http://127.0.0.1:8788
+```
+
+- La base est un fichier SQLite (`data/local.db`, ignoré par git), utilisé
+  automatiquement dès que `TURSO_DATABASE_URL` est absent (hors CI).
+- Le serveur n'écoute que sur 127.0.0.1 et ne demande donc pas de jeton.
+- Les migrations s'appliquent automatiquement au démarrage.
+- Relancer `pnpm collect` quand vous voulez rafraîchir ; le scheduler, les
+  budgets et le cache s'appliquent comme en production.
+- Les distances (§20) fonctionnent aussi en local : renseigner les variables
+  `REFERENCE_*` dans un `.env` à la racine (voir `.env.example`).
+
+Ce mode est le chemin recommandé tant que le déploiement cloud n'est pas
+nécessaire (quota Turso épuisé, essai du projet, développement). Le passage au
+cloud ne migre pas les données locales — la collecte cloud repart de zéro et
+retrouve les annonces actives en quelques runs.
+
+## Déploiement cloud
+
 Architecture 100 % gratuite (§28) : GitHub (code + Actions + Pages), Turso
 (base), Cloudflare Workers (API). Aucun composant payant.
 
 ## 1. Base Turso
 
+> **Windows — attention au faux ami.** Le paquet `turso`/`tursodb` installable
+> nativement sous Windows est le **shell de base locale** (Turso Database,
+> ex-Limbo) : il attend du SQL et ne connaît ni `auth` ni `db create`. Le
+> **CLI de la plateforme cloud** est un outil distinct, prévu pour
+> Linux/macOS/WSL. Deux options sous Windows :
+>
+> 1. **Sans CLI (recommandé)** : créer la base sur le tableau de bord web
+>    [app.turso.tech](https://app.turso.tech) — l'URL `libsql://…` et la
+>    création d'un token y sont accessibles depuis la page de la base.
+> 2. **Via WSL** : `curl -sSfL https://get.tur.so/install.sh | bash` dans un
+>    terminal WSL, puis les commandes ci-dessous.
+
 ```bash
-# Installer le CLI : https://docs.turso.tech/cli/installation
+# CLI plateforme (Linux/macOS/WSL) : https://docs.turso.tech/cli/installation
 turso auth signup
 turso db create rentfinder
 turso db show rentfinder --url          # → TURSO_DATABASE_URL

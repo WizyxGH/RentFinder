@@ -4,6 +4,65 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 Documenter ici : nouvelles sources, changements d'architecture ou de schéma,
 évolutions des scores et du système de contact, corrections importantes (§70).
 
+## [0.2.0] — 2026-08-15
+
+### Modifié
+
+- **Critère de surface : minimum relevé de 12 à 14 m²** (décision utilisateur).
+  `MVP_CRITERIA.minArea` est la source unique ; les annonces déjà collectées
+  sont re-scorées au prochain run de collecte.
+
+### Ajouté
+
+- **Source Orpi** (`orpi`) : deuxième réseau d'agences — robots.txt revérifié
+  le 2026-08-15, page ville unique couvrant tous les codes postaux de Nice.
+  Première source fournissant les **coordonnées GPS** (signal de dédoublonnage
+  très fort, §14) ainsi que quartier, agence, date de création, via l'attribut
+  de tracking `data-eulerian-action` traité comme enrichissement fragile — le
+  HTML visible fait foi. Le champ JSON `meuble`, contradictoire avec les tags
+  affichés, est volontairement ignoré (§17).
+- **Source BEP Logement** (`bep`) : première **agence locale** (§3) et première
+  source de méthode **sitemap** (§6) — 2 requêtes découvrent toutes les fiches
+  avec `lastmod` ; seules les nouvelles des communes cibles sont visitées, les
+  connues sont confirmées sans requête via `ScrapeResult.confirmedRefs`
+  (nouveau champ du contrat, §32). Fiches lues par JSON-LD schema.org
+  (téléphone/e-mail d'agence publiés §21, date de publication, surface),
+  HTML en secours.
+- **Mode local zéro-cloud** : `pnpm local` sert l'interface et l'API sur
+  127.0.0.1 depuis un fichier SQLite créé automatiquement
+  (`data/local.db`) quand `TURSO_DATABASE_URL` est absent (hors CI). Les
+  routes du Worker sont extraites dans `@rentfinder/api/routes` (portables) et
+  réutilisées par le serveur local ; build frontend dédié `--mode selfhost`
+  (même origine, pas de jeton — le serveur n'écoute que sur 127.0.0.1).
+- Test de dédoublonnage croisé Laforêt × Orpi sur fixtures réelles :
+  anti-fusion (veto pièces) et fusion par signal GPS (§53 scénario 2).
+- Filtrage des biens non résidentiels (stationnement, local…) au niveau des
+  parsers : un parking à 100 €/mois passerait tous les critères MVP.
+- `parsePhone` : prise en charge du format « +33-0X… » des JSON-LD Apimo.
+- **Interface refaite avec Tailwind CSS v4 + shadcn/ui** (demande utilisateur,
+  aligné sur ses autres projets) : thème `light-dark()` sans classes `dark:`,
+  composants `Button`/`Card`/`Badge` copiés dans `src/components/ui/`, alias
+  `@/` configuré pour `npx shadcn add`. Les éléments `select`/`checkbox`
+  restent natifs (§39/§65) et les 44 tests frontend + E2E restent verts.
+
+### Corrigé
+
+- **Les CLI `pnpm collect` / `pnpm db:migrate` ne fonctionnaient pas** :
+  `node --experimental-strip-types` ne résout pas les imports `.js` vers des
+  sources `.ts`. Ils compilent désormais (`tsc --build`, incrémental) puis
+  exécutent `dist/`. Première collecte réelle validée dans la foulée :
+  62 annonces (Laforêt 26, Orpi 36), 6 requêtes, 0 warning de parsing.
+- Le scraper Orpi dédoublonne ses références entre pages d'un même run (le
+  tri de la source bouge entre deux requêtes).
+- Config Playwright : `vite preview` écoutait sur `localhost` (résolu IPv6
+  sous Windows/Node ≥ 17) tandis que Playwright interrogeait l'IPv4 —
+  `--host 127.0.0.1` explicite.
+
+### Sécurité
+
+- Le bundle `dist-local` du mode selfhost est ignoré par git (jamais publié)
+  et le serveur local n'écoute que sur 127.0.0.1 — voir `cli/serve.ts`.
+
 ## [0.1.0] — 2026-08-14
 
 Fondations complètes du MVP.

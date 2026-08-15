@@ -64,6 +64,10 @@ code de persistance.
 
 ## Mise en route Turso
 
+Sous Windows, préférer le tableau de bord web — voir l'avertissement dans
+[deployment.md](deployment.md#1-base-turso) (le binaire Windows `turso` est le
+shell local, pas le CLI cloud).
+
 ```bash
 turso db create rentfinder
 turso db show rentfinder --url        # → TURSO_DATABASE_URL

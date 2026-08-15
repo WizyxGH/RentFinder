@@ -1,5 +1,7 @@
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
 
 /**
  * Le site est publié sur GitHub Pages, servi depuis `/<repo>/`.
@@ -8,13 +10,29 @@ import react from '@vitejs/plugin-react';
  */
 const base = process.env['BASE_PATH'] ?? '/';
 
-export default defineConfig({
-  base,
-  plugins: [react()],
-  build: {
-    // §39 : le frontend doit rester léger. Un dépassement signale une
-    // dépendance lourde ajoutée sans y penser.
-    chunkSizeWarningLimit: 300,
-    sourcemap: false,
-  },
+export default defineConfig(({ mode }) => {
+  /**
+   * Mode `selfhost` : build destiné au serveur local du mode zéro-cloud
+   * (`pnpm local`). L'API est servie par la même origine (`/`), aucun jeton
+   * n'est demandé — le serveur n'écoute que sur 127.0.0.1. La sortie va dans
+   * `dist-local` pour ne jamais être confondue avec le bundle GitHub Pages.
+   */
+  const selfhost = mode === 'selfhost';
+
+  return {
+    base: selfhost ? '/' : base,
+    plugins: [react(), tailwindcss()],
+    resolve: {
+      // Alias shadcn/ui standard — permet `npx shadcn add <composant>`.
+      alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
+    },
+    ...(selfhost ? { define: { 'import.meta.env.VITE_API_URL': JSON.stringify('/') } } : {}),
+    build: {
+      // §39 : le frontend doit rester léger. Un dépassement signale une
+      // dépendance lourde ajoutée sans y penser.
+      chunkSizeWarningLimit: 300,
+      sourcemap: false,
+      ...(selfhost ? { outDir: 'dist-local' } : {}),
+    },
+  };
 });

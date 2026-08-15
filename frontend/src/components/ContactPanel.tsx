@@ -17,6 +17,8 @@
 import { useMemo, useState } from 'react';
 import { prepareMessage, type TenantProfile } from '@rentfinder/shared';
 import type { ListingView } from '../types.js';
+import { Button, ButtonLink } from '@/components/ui/button.js';
+import { Card } from '@/components/ui/card.js';
 
 interface ContactPanelProps {
   readonly listing: ListingView;
@@ -40,6 +42,8 @@ function actionLink(
   if (channel === 'form') return recipient;
   return null;
 }
+
+const MUTED_NOTE = 'my-1.5 text-[0.82rem] text-muted-foreground';
 
 export function ContactPanel({
   listing,
@@ -75,26 +79,28 @@ export function ContactPanel({
   };
 
   return (
-    <section className="contact" aria-labelledby="contact-title">
-      <h3 id="contact-title">Contact</h3>
+    <Card className="my-4" aria-labelledby="contact-title" role="region">
+      <h3 id="contact-title" className="mb-2.5 text-base font-semibold">
+        Contact
+      </h3>
 
       {/* §21 : afficher ce qui est publiquement disponible, et sa source. */}
-      <dl className="contact__details">
+      <dl className="mb-4 grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1 text-[0.92rem]">
         {name !== null && (
           <>
-            <dt>Interlocuteur</dt>
+            <dt className="text-muted-foreground">Interlocuteur</dt>
             <dd>{name}</dd>
           </>
         )}
         {agencyName !== null && (
           <>
-            <dt>Agence</dt>
+            <dt className="text-muted-foreground">Agence</dt>
             <dd>{agencyName}</dd>
           </>
         )}
         {phone !== null && (
           <>
-            <dt>Téléphone</dt>
+            <dt className="text-muted-foreground">Téléphone</dt>
             <dd>
               <a href={`tel:${phone}`}>{phone}</a>
             </dd>
@@ -102,7 +108,7 @@ export function ContactPanel({
         )}
         {email !== null && (
           <>
-            <dt>E-mail</dt>
+            <dt className="text-muted-foreground">E-mail</dt>
             <dd>
               <a href={`mailto:${email}`}>{email}</a>
             </dd>
@@ -110,7 +116,7 @@ export function ContactPanel({
         )}
         {formUrl !== null && (
           <>
-            <dt>Formulaire</dt>
+            <dt className="text-muted-foreground">Formulaire</dt>
             <dd>
               <a href={formUrl} target="_blank" rel="noreferrer noopener">
                 Ouvrir le formulaire de l’annonce
@@ -121,81 +127,74 @@ export function ContactPanel({
       </dl>
 
       {listing.contact.providedBy.length > 0 && (
-        <p className="contact__provenance">
+        <p className={MUTED_NOTE}>
           Coordonnées issues de : {listing.contact.providedBy.join(', ')}
         </p>
       )}
 
       {/* §17 : ne pas faire croire à une coordonnée qui n'existe pas. */}
       {!hasAnyContact && (
-        <p className="contact__empty">
+        <p className={MUTED_NOTE}>
           Aucune coordonnée n’est publiée par les sources. Ouvrez l’annonce d’origine pour utiliser
           le canal prévu par le site.
         </p>
       )}
 
       {profile === null ? (
-        <div className="contact__profile-missing">
-          <p>
+        <div>
+          <p className="mb-2">
             Renseignez votre profil locataire pour générer un message. Il reste stocké uniquement
             sur cet appareil et n’est jamais transmis.
           </p>
-          <button type="button" className="btn btn--secondary" onClick={onConfigureProfile}>
+          <Button variant="outline" onClick={onConfigureProfile}>
             Configurer mon profil
-          </button>
+          </Button>
         </div>
       ) : (
         <>
-          <label className="contact__label" htmlFor="contact-message">
+          <label
+            className="mt-2 block text-[0.85rem] text-muted-foreground"
+            htmlFor="contact-message"
+          >
             Message préparé
           </label>
           <textarea
             id="contact-message"
-            className="contact__message"
+            className="w-full resize-y bg-background text-[0.92rem]"
             value={message}
             readOnly={!editing}
             rows={10}
             onChange={(event) => setDraft(event.target.value)}
           />
 
-          <p className="contact__notice">
+          <p className={MUTED_NOTE}>
             Rien n’est envoyé automatiquement. Vous déclenchez l’envoi vous-même.
           </p>
 
-          <div className="contact__actions">
-            <button
-              type="button"
-              className="btn btn--secondary"
-              onClick={() => setEditing((value) => !value)}
-            >
+          <div className="mt-2.5 flex flex-wrap gap-2">
+            <Button variant="outline" onClick={() => setEditing((value) => !value)}>
               {editing ? 'Terminer' : 'Modifier'}
-            </button>
+            </Button>
 
-            <button type="button" className="btn btn--secondary" onClick={() => void handleCopy()}>
+            <Button variant="outline" onClick={() => void handleCopy()}>
               {copied ? 'Copié' : 'Copier'}
-            </button>
+            </Button>
 
             {link !== null && (
-              <a
-                className="btn btn--secondary"
+              <ButtonLink
+                variant="outline"
                 href={link}
                 target={channel === 'form' ? '_blank' : undefined}
                 rel="noreferrer noopener"
               >
                 Ouvrir
-              </a>
+              </ButtonLink>
             )}
 
-            <button
-              type="button"
-              className="btn btn--primary"
-              onClick={() => onRecorded(channel, message)}
-            >
-              J’ai envoyé
-            </button>
+            <Button onClick={() => onRecorded(channel, message)}>J’ai envoyé</Button>
           </div>
         </>
       )}
-    </section>
+    </Card>
   );
 }

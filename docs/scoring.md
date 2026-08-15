@@ -14,7 +14,9 @@ Trois règles transverses, non négociables :
 
 ## MATCH — « correspond-il à mes critères ? » (§16)
 
-Critères MVP : ville ∈ {nice}, loyer ≤ 700 €, surface ≥ 12 m² (§2).
+Critères MVP : ville ∈ {nice}, loyer ≤ 700 €, surface ≥ 14 m² (12 m² à
+l'origine, relevé le 2026-08-15). Source unique : `MVP_CRITERIA` dans
+`packages/shared/src/criteria.ts` — les docs peuvent dater, le code fait foi.
 
 - Les trois critères actifs sont **éliminatoires** : une violation met
   `matchesCriteria = false` — l'annonce reste collectée et consultable, mais

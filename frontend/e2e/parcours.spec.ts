@@ -16,7 +16,7 @@ test('la liste répond à « que dois-je contacter maintenant ? » (§36)', asyn
   await expect(page.getByRole('heading', { name: 'Recherche Nice' })).toBeVisible();
 
   // Les critères actifs sont rappelés sans ambiguïté.
-  await expect(page.getByText('≤ 700 € · ≥ 12 m²')).toBeVisible();
+  await expect(page.getByText('≤ 700 € · ≥ 14 m²')).toBeVisible();
 
   const cards = page.getByTestId('listing-card');
   await expect(cards.first()).toBeVisible();
@@ -40,7 +40,7 @@ test('scénario 2 — une annonce multi-sources n’apparaît qu’une fois (§5
 
   // La fiche liste les quatre origines, avec leurs liens d'accès direct (§38).
   await expect(page.getByText('Cette annonce a été trouvée sur')).toBeVisible();
-  const sourceLinks = page.locator('.detail__sources a');
+  const sourceLinks = page.getByTestId('listing-sources').getByRole('link');
   await expect(sourceLinks).toHaveCount(4);
   await expect(sourceLinks.first()).toHaveAttribute('href', /^https:\/\//);
 });

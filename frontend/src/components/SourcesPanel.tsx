@@ -9,6 +9,8 @@
 
 import type { SourceStateView } from '../types.js';
 import { formatAge, formatSourceName } from '../format.js';
+import { Button } from '@/components/ui/button.js';
+import { Card } from '@/components/ui/card.js';
 
 const HEALTH_LABELS: Record<SourceStateView['health'], string> = {
   healthy: 'OK',
@@ -16,6 +18,15 @@ const HEALTH_LABELS: Record<SourceStateView['health'], string> = {
   cooldown: 'En repos (429)',
   disabled: 'Désactivée',
   blocked: 'Bloquée',
+};
+
+/** Liseré gauche selon la santé — littéraux complets pour le scanner Tailwind. */
+const HEALTH_BORDER: Record<SourceStateView['health'], string> = {
+  healthy: 'border-l-good',
+  degraded: 'border-l-medium',
+  cooldown: 'border-l-medium',
+  disabled: 'border-l-bad',
+  blocked: 'border-l-bad',
 };
 
 interface SourcesPanelProps {
@@ -26,43 +37,51 @@ interface SourcesPanelProps {
 
 export function SourcesPanel({ sources, nowMs, onBack }: SourcesPanelProps): React.JSX.Element {
   return (
-    <div className="sources">
-      <header className="detail__header">
-        <button type="button" className="btn btn--ghost" onClick={onBack}>
+    <div>
+      <header className="mb-2 flex items-center justify-between">
+        <Button variant="ghost" onClick={onBack}>
           ← Retour
-        </button>
+        </Button>
       </header>
 
-      <h1>État des sources</h1>
+      <h1 className="mb-3 text-xl font-bold">État des sources</h1>
 
       {sources.length === 0 ? (
         <p>Aucune source n’a encore été exécutée.</p>
       ) : (
-        <ul className="sources__list">
+        <ul className="flex flex-col gap-3">
           {sources.map((source) => (
-            <li key={source.sourceId} className={`sources__item sources__item--${source.health}`}>
-              <div className="sources__head">
+            <Card
+              key={source.sourceId}
+              // Rendue comme <li> sémantique via le wrapper : Card est un div,
+              // on garde la liste pour les lecteurs d'écran.
+              role="listitem"
+              className={`border-l-4 ${HEALTH_BORDER[source.health]}`}
+            >
+              <div className="mb-2 flex justify-between">
                 <strong>{formatSourceName(source.sourceId)}</strong>
-                <span className="sources__health">{HEALTH_LABELS[source.health]}</span>
+                <span className="text-[0.8rem] text-muted-foreground">
+                  {HEALTH_LABELS[source.health]}
+                </span>
               </div>
 
-              <dl className="sources__facts">
-                <dt>Dernière exécution</dt>
+              <dl className="grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1 text-[0.92rem]">
+                <dt className="text-muted-foreground">Dernière exécution</dt>
                 <dd>{formatAge(source.lastRunAt, nowMs)}</dd>
 
-                <dt>Dernière réussite</dt>
+                <dt className="text-muted-foreground">Dernière réussite</dt>
                 <dd>{formatAge(source.lastSuccessAt, nowMs)}</dd>
 
-                <dt>Nouvelles annonces (moyenne)</dt>
+                <dt className="text-muted-foreground">Nouvelles annonces (moyenne)</dt>
                 <dd>{source.averageNewListingCount.toFixed(1)}</dd>
 
-                <dt>Erreurs consécutives</dt>
+                <dt className="text-muted-foreground">Erreurs consécutives</dt>
                 <dd>{source.consecutiveErrors}</dd>
               </dl>
 
               {/* §10 : expliquer une mise au repos plutôt que de la subir. */}
               {source.cooldownUntil !== null && (
-                <p className="sources__cooldown">
+                <p className="mt-1 text-[0.85rem] text-muted-foreground">
                   En repos après un HTTP 429 jusqu’à{' '}
                   {new Date(source.cooldownUntil).toLocaleTimeString('fr-FR')}. Aucune requête n’est
                   émise vers cette source d’ici là.
@@ -70,12 +89,12 @@ export function SourcesPanel({ sources, nowMs, onBack }: SourcesPanelProps): Rea
               )}
 
               {source.health === 'blocked' && (
-                <p className="sources__blocked">
+                <p className="mt-1 text-[0.85rem] text-muted-foreground">
                   Cette source refuse l’accès automatisé. Le scraper est arrêté et ne tentera aucun
                   contournement.
                 </p>
               )}
-            </li>
+            </Card>
           ))}
         </ul>
       )}

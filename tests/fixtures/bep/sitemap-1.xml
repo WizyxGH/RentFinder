@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Fixture ANONYMISÉE reproduisant la structure de bep-logement.com/sitemap-1.xml
+  observée le 2026-08-15 : <loc> en CDATA, <lastmod> en date simple, URLs de
+  fiches au format /fr/propriete/location+{type}+{ville}+{slug}+{référence}.
+  Toutes les données sont FICTIVES — voir tests/fixtures/README.md.
+-->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  <url>
+    <loc><![CDATA[https://bep-logement.com/fr/]]></loc>
+    <lastmod>2025-01-24</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1</priority>
+  </url>
+  <url>
+    <loc><![CDATA[https://bep-logement.com/fr/locations]]></loc>
+    <lastmod>2026-08-14</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <!-- Fiche location à Nice, récente : candidate à la collecte. -->
+  <url>
+    <loc><![CDATA[https://bep-logement.com/fr/propriete/location+appartement+nice+studio-meuble-fictif-centre+90000001]]></loc>
+    <lastmod>2026-08-14</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <!-- Fiche location à Saint-Laurent-du-Var (commune cible) : candidate. -->
+  <url>
+    <loc><![CDATA[https://bep-logement.com/fr/propriete/location+appartement+saint-laurent-du-var+deux-pieces-fictif-vue-mer+90000002]]></loc>
+    <lastmod>2026-08-13</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <!-- Fiche location à Antibes : HORS des communes cibles, ignorée. -->
+  <url>
+    <loc><![CDATA[https://bep-logement.com/fr/propriete/location+appartement+antibes+trois-pieces-fictif-terrasse+90000003]]></loc>
+    <lastmod>2026-08-14</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <!-- Fiche de VENTE : ignorée (le projet ne collecte que la location). -->
+  <url>
+    <loc><![CDATA[https://bep-logement.com/fr/propriete/vente+appartement+nice+quatre-pieces-fictif-a-vendre+90000004]]></loc>
+    <lastmod>2026-08-14</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <!-- Fiche ancienne à Nice : dépriorisée par lastmod en mode live. -->
+  <url>
+    <loc><![CDATA[https://bep-logement.com/fr/propriete/location+appartement+nice+ancien-deux-pieces-fictif+90000005]]></loc>
+    <lastmod>2025-07-04</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>
+</urlset>

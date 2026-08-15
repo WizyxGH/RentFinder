@@ -191,6 +191,7 @@ export async function runPipeline(options: PipelineOptions): Promise<PipelineRep
   // --- 2. Collecte, source par source, en isolation -------------------------
   const outcomes: SourceOutcome[] = [];
   const rawBySource = new Map<string, readonly RawListing[]>();
+  const confirmedBySource = new Map<string, readonly string[]>();
 
   for (const decision of plan.selected) {
     const scraper = registry.get(decision.sourceId);
@@ -203,6 +204,7 @@ export async function runPipeline(options: PipelineOptions): Promise<PipelineRep
 
     if (outcome.result !== null) {
       rawBySource.set(decision.sourceId, outcome.result.listings);
+      confirmedBySource.set(decision.sourceId, outcome.result.confirmedRefs ?? []);
     }
 
     const base = previousState ?? (await repository.loadSourceState(decision.sourceId));
@@ -246,9 +248,13 @@ export async function runPipeline(options: PipelineOptions): Promise<PipelineRep
   const occurrenceReport = await repository.upsertOccurrences(normalized);
   logger.info('pipeline.occurrences_written', { ...occurrenceReport });
 
-  // Cycle de vie des annonces non revues, source par source (§32).
+  // Cycle de vie des annonces non revues, source par source (§32). Les refs
+  // confirmées par la source sans re-téléchargement (sitemap) comptent comme
+  // vues : leur fiche n'a pas été visitée, mais la source les dit publiées.
   for (const [sourceId, raws] of rawBySource) {
-    await repository.markMissing(sourceId, new Set(raws.map((raw) => raw.sourceRef)), {
+    const seen = new Set(raws.map((raw) => raw.sourceRef));
+    for (const ref of confirmedBySource.get(sourceId) ?? []) seen.add(ref);
+    await repository.markMissing(sourceId, seen, {
       possiblyInactiveAfter: config.missingRunsBeforePossiblyInactive,
       inactiveAfter: config.missingRunsBeforeInactive,
     });

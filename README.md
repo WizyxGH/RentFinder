@@ -56,29 +56,45 @@ Le frontend publié ne contient **aucune donnée** : vos annonces, statuts et
 distances restent derrière une API à jeton. Détails, diagramme et décisions :
 [docs/architecture.md](docs/architecture.md).
 
-**Stack** : TypeScript partout — monorepo pnpm, React + Vite (frontend),
-Node 22 (collecteur), cheerio (parsing), libsql/Turso (base), Vitest +
-Playwright (tests), Cloudflare Workers (API).
+**Stack** : TypeScript partout — monorepo pnpm, React + Vite + Tailwind CSS
+v4 + shadcn/ui (frontend), Node 22 (collecteur), cheerio (parsing),
+libsql/Turso (base), Vitest + Playwright (tests), Cloudflare Workers (API).
 
 ## Démarrage rapide
 
 Prérequis : Node ≥ 20.10, pnpm 9 (`corepack enable`).
 
+### Mode local — zéro compte, zéro configuration (recommandé pour commencer)
+
+Tout tourne sur votre machine : base SQLite fichier, API locale, interface.
+Aucun compte Turso, Cloudflare ou GitHub n'est nécessaire.
+
 ```bash
 git clone <votre-fork> && cd rentfinder
 pnpm install
-pnpm dev          # → http://localhost:5173, interface complète sur données fictives
+pnpm collect      # collecte réelle → data/local.db (créée automatiquement)
+pnpm local        # → http://127.0.0.1:8788 : l'interface sur VOS données
 ```
 
-Le mode démo fonctionne sans base, sans secret, sans réseau : c'est aussi
-l'environnement des tests. Pour la vraie collecte et le déploiement complet
-(Turso, Worker, Pages, secrets) : [docs/deployment.md](docs/deployment.md).
+Relancez `pnpm collect` quand vous voulez rafraîchir (le scheduler et les
+budgets s'appliquent aussi en local). `data/` est ignoré par git.
+
+### Mode démo (sans réseau)
+
+```bash
+pnpm dev          # → http://localhost:5173, interface sur données fictives
+```
+
+C'est aussi l'environnement des tests. Pour le déploiement cloud complet
+(collecte automatique GitHub Actions, accès depuis le téléphone — Turso,
+Worker, Pages) : [docs/deployment.md](docs/deployment.md).
 
 ## Commandes
 
 | Commande                      | Effet                                                                       |
 | ----------------------------- | --------------------------------------------------------------------------- |
 | `pnpm dev`                    | frontend en mode démo                                                       |
+| `pnpm local`                  | mode local complet : interface + API sur `data/local.db`                    |
 | `pnpm collect`                | un cycle de collecte (`-- --backfill`, `-- --verbose`)                      |
 | `pnpm db:migrate`             | applique les migrations                                                     |
 | `pnpm test` / `pnpm test:e2e` | tests Node / scénarios Playwright                                           |
@@ -119,8 +135,8 @@ l'environnement des tests. Pour la vraie collecte et le déploiement complet
 
 - Le mode automatique de contact n'a **pas d'envoi implémenté** (garde-fous
   seulement) : il n'arrivera qu'après une collecte éprouvée, comme prévu.
-- Une seule source réelle (Laforêt) pour l'instant — l'[étude des
-  sources](docs/sources.md) liste les suivantes par priorité.
+- Trois sources réelles (Laforêt, Orpi, BEP Logement) pour l'instant —
+  l'[étude des sources](docs/sources.md) liste les suivantes par priorité.
 - Distances à vol d'oiseau corrigées (× 1,3), pas des itinéraires.
 - Leboncoin et SeLoger sont **écartés** : pas de méthode d'accès conforme
   identifiée à ce jour.
@@ -128,11 +144,14 @@ l'environnement des tests. Pour la vraie collecte et le déploiement complet
 
 ## Roadmap
 
-- **MVP (actuel)** : pipeline complet, 1 source, 4 scores, dédoublonnage,
-  contact manuel, frontend mobile, CI, docs, 267 tests dont 18 scénarios E2E.
-- **V2** : Orpi + PAP (sitemap) + Foncia, adaptateurs génériques d'agences
-  locales, relances automatisées, statistiques (taux de réponse par
-  source/heure/délai), historique des changements de prix.
+- **MVP (actuel)** : pipeline complet, 3 sources réelles (Laforêt, Orpi — GPS
+  compris —, BEP Logement — première agence locale, méthode sitemap), mode
+  local zéro-cloud, 4 scores, dédoublonnage, contact manuel, frontend mobile
+  (Tailwind CSS + shadcn/ui), CI, docs, 314 tests dont 18 scénarios E2E.
+- **V2** : PAP (sitemap) + Foncia + Bien'ici, adaptateurs génériques d'agences
+  locales (le parser BEP/Apimo est le premier candidat), relances
+  automatisées, statistiques (taux de réponse par source/heure/délai),
+  historique des changements de prix.
 - **V3** : scores calibrés sur les résultats réels, scheduler optimisé
   dynamiquement, automatisation avancée.
 

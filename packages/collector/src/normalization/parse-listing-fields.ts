@@ -188,6 +188,9 @@ export function parsePhone(text: string | null | undefined): string | null {
   if (/^\+33[1-9]\d{8}$/.test(digitsOnly)) return digitsOnly;
   if (/^0033[1-9]\d{8}$/.test(digitsOnly)) return `+33${digitsOnly.slice(4)}`;
   if (/^0[1-9]\d{8}$/.test(digitsOnly)) return `+33${digitsOnly.slice(1)}`;
+  // « +33-0493… » : indicatif accolé au 0 national — rencontré tel quel dans
+  // le JSON-LD de sites d'agences (BEP Logement, plateforme Apimo).
+  if (/^\+330[1-9]\d{8}$/.test(digitsOnly)) return `+33${digitsOnly.slice(4)}`;
 
   return null;
 }

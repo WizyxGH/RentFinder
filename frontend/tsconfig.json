@@ -9,7 +9,9 @@
     "moduleResolution": "Bundler",
     "noEmit": false,
     "emitDeclarationOnly": true,
-    "types": ["vite/client"]
+    "types": ["vite/client"],
+    "baseUrl": ".",
+    "paths": { "@/*": ["./src/*"] }
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"],
   "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx", "e2e/**"],

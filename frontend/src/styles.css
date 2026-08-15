@@ -1,621 +1,76 @@
 /* ---------------------------------------------------------------------------
-   RentFinder — feuille de style unique (§39, §65).
+   RentFinder — Tailwind CSS v4 + thème shadcn/ui (§39).
 
-   Aucun framework CSS : Tailwind ou une bibliothèque de composants coûterait
-   des centaines de kilo-octets pour une interface de trois écrans. Tout tient
-   ici, en variables CSS et flexbox.
+   La mise en page vit dans les classes utilitaires des composants ; les
+   composants réutilisables (Button, Card, Badge…) sont dans
+   `src/components/ui/`, à la manière shadcn/ui.
 
-   Mobile-first : les règles de base visent le téléphone, une seule media query
-   élargit la mise en page au-delà de 640 px.
+   Ce fichier définit uniquement :
+   - le THÈME : tokens shadcn (background, card, primary…) plus les couleurs
+     métier des scores (good/medium/bad/hot). Chaque valeur est un
+     `light-dark()` : le navigateur choisit selon `color-scheme`, aucune
+     classe `dark:` à répéter et aucun toggle à maintenir ;
+   - la BASE : body (safe-area des téléphones, §36 mobile-first), champs de
+     formulaire natifs (select/checkbox restent natifs : plus légers et
+     mieux adaptés au tactile que leurs équivalents scriptés, §39/§65), liens.
 --------------------------------------------------------------------------- */
 
-:root {
-  --bg: #f8fafc;
-  --surface: #ffffff;
-  --border: #e2e8f0;
-  --text: #0f172a;
-  --text-muted: #64748b;
-  --accent: #1d4ed8;
-  --accent-text: #ffffff;
-  --good: #15803d;
-  --medium: #b45309;
-  --bad: #b91c1c;
-  --hot: #ea580c;
-  --radius: 10px;
-  --gap: 12px;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0f172a;
-    --surface: #1e293b;
-    --border: #334155;
-    --text: #f1f5f9;
-    --text-muted: #94a3b8;
-    --accent: #3b82f6;
-    --good: #4ade80;
-    --medium: #fbbf24;
-    --bad: #f87171;
-    --hot: #fb923c;
-  }
-}
-
-* {
-  box-sizing: border-box;
-}
-
-body {
-  margin: 0;
-  background: var(--bg);
-  color: var(--text);
-  font-family:
-    system-ui,
-    -apple-system,
-    'Segoe UI',
-    Roboto,
-    sans-serif;
-  font-size: 16px;
-  line-height: 1.5;
-  /* Respecte l'encoche des téléphones récents. */
-  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
-    env(safe-area-inset-left);
-}
-
-.app {
-  max-width: 720px;
-  margin: 0 auto;
-  padding: 16px 12px 48px;
-}
-
-/* --- En-tête ------------------------------------------------------------- */
-
-.app__header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--gap);
-  margin-bottom: 8px;
-}
-
-.app__header h1 {
-  font-size: 1.35rem;
-  margin: 0;
-}
-
-.app__criteria {
-  margin: 2px 0 0;
-  color: var(--text-muted);
-  font-size: 0.9rem;
-}
-
-.app__nav {
-  display: flex;
-  gap: 4px;
-}
-
-.app__demo {
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 8px 12px;
-  font-size: 0.85rem;
-  margin: 8px 0;
-}
-
-.app__controls {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  margin: 12px 0;
-  font-size: 0.9rem;
-}
-
-.app__toggle {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.app__error {
-  color: var(--bad);
-  border: 1px solid var(--bad);
-  border-radius: var(--radius);
-  padding: 8px 12px;
-}
-
-.app__loading,
-.app__empty {
-  color: var(--text-muted);
-  text-align: center;
-  padding: 32px 0;
-}
-
-.app__list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--gap);
-}
-
-/* --- Carte d'annonce ----------------------------------------------------- */
-
-.card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 12px;
-}
-
-.card--hot {
-  border-color: var(--hot);
-  border-width: 2px;
-}
-
-.card__header {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-}
-
-.card__priority {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  min-width: 44px;
-}
-
-.card__priority-value {
-  font-size: 1.4rem;
-  font-weight: 700;
-  line-height: 1;
-}
-
-.card__identity {
-  flex: 1;
-  min-width: 0;
-}
-
-.card__title {
-  font-size: 1rem;
-  margin: 0;
-  font-weight: 600;
-}
-
-.card__facts {
-  margin: 2px 0 0;
-  font-size: 0.95rem;
-}
-
-.card__tracking {
-  font-size: 0.75rem;
-  background: var(--border);
-  border-radius: 999px;
-  padding: 2px 8px;
-  white-space: nowrap;
-}
-
-.card__age,
-.card__sources {
-  margin: 8px 0 0;
-  font-size: 0.85rem;
-  color: var(--text-muted);
-}
-
-.card__distances {
-  display: flex;
-  gap: 12px;
-  list-style: none;
-  padding: 0;
-  margin: 6px 0 0;
-  font-size: 0.85rem;
-  color: var(--text-muted);
-}
-
-.card__actions {
-  display: flex;
-  gap: 8px;
-  margin-top: 12px;
-}
-
-.card__actions .btn {
-  flex: 1;
-}
-
-/* --- Scores -------------------------------------------------------------- */
-
-.score-row {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 6px;
-  margin-top: 10px;
-}
-
-.score-chip {
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 4px 6px;
-  text-align: center;
-}
-
-.score-chip__label {
-  display: block;
-  font-size: 0.68rem;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-}
-
-.score-chip__value {
-  font-size: 1.05rem;
-  font-weight: 700;
-}
-
-.score-chip--good .score-chip__value {
-  color: var(--good);
-}
-.score-chip--medium .score-chip__value {
-  color: var(--medium);
-}
-.score-chip--bad .score-chip__value {
-  color: var(--bad);
-}
-
-/* Astérisque signalant un score calculé sur information partielle (§17). */
-.score-chip__partial {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  cursor: help;
-}
-
-.score-detail {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 12px;
-  margin-bottom: var(--gap);
-}
-
-.score-detail__header {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-}
-
-.score-detail__header h3 {
-  margin: 0;
-  font-size: 1rem;
-}
-
-.score-detail__value {
-  font-weight: 700;
-}
-.score-detail__value--good {
-  color: var(--good);
-}
-.score-detail__value--medium {
-  color: var(--medium);
-}
-.score-detail__value--bad {
-  color: var(--bad);
-}
-
-.score-detail__caveat,
-.score-detail__unknown {
-  font-size: 0.82rem;
-  color: var(--text-muted);
-  margin: 6px 0 0;
-  font-style: italic;
-}
-
-.score-detail__reasons {
-  list-style: none;
-  padding: 0;
-  margin: 8px 0 0;
-  font-size: 0.9rem;
-}
-
-.score-detail__reason {
-  display: flex;
-  gap: 8px;
-  padding: 2px 0;
-}
-
-.score-detail__marker {
-  width: 1em;
-  flex-shrink: 0;
-}
-
-/* --- Fiche détaillée ----------------------------------------------------- */
-
-.detail__header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-}
-
-.detail__badge {
-  font-size: 0.75rem;
-  border: 1px solid var(--medium);
-  color: var(--medium);
-  border-radius: 999px;
-  padding: 2px 8px;
-}
-
-.detail__title {
-  font-size: 1.25rem;
-  margin: 0 0 4px;
-}
-
-.detail__summary {
-  font-size: 1.05rem;
-  margin: 0 0 12px;
-}
-
-.detail__charges,
-.detail__distance-km,
-.detail__source-facts {
-  color: var(--text-muted);
-  font-size: 0.9rem;
-}
-
-/* Valeur divergente entre sources — signalée, jamais masquée (§15). */
-.conflict-note {
-  color: var(--medium);
-  font-size: 0.85rem;
-}
-
-.detail__facts,
-.contact__details,
-.sources__facts {
-  display: grid;
-  grid-template-columns: max-content 1fr;
-  gap: 4px 12px;
-  margin: 0 0 16px;
-  font-size: 0.92rem;
-}
-
-.detail__facts dt,
-.contact__details dt,
-.sources__facts dt {
-  color: var(--text-muted);
-}
-
-.detail__facts dd,
-.contact__details dd,
-.sources__facts dd {
-  margin: 0;
-}
-
-.detail__distances {
-  list-style: none;
-  padding: 0;
-  margin: 0 0 16px;
-}
-
-.detail__tracking {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 16px 0;
-}
-
-.detail__sources ul {
-  padding-left: 18px;
-  margin: 6px 0 0;
-}
-
-.detail__description p {
-  white-space: pre-wrap;
-}
-
-/* --- Contact ------------------------------------------------------------- */
-
-.contact {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 12px;
-  margin: 16px 0;
-}
-
-.contact h3 {
-  margin: 0 0 10px;
-  font-size: 1rem;
-}
-
-.contact__provenance,
-.contact__empty,
-.contact__notice {
-  font-size: 0.82rem;
-  color: var(--text-muted);
-  margin: 6px 0;
-}
-
-.contact__label {
-  display: block;
-  font-size: 0.85rem;
-  color: var(--text-muted);
-  margin-top: 8px;
-}
-
-.contact__message {
-  width: 100%;
-  font-family: inherit;
-  font-size: 0.92rem;
-  padding: 8px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg);
-  color: var(--text);
-  resize: vertical;
-}
-
-.contact__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 10px;
-}
-
-/* --- Profil -------------------------------------------------------------- */
-
-.profile-form__notice,
-.token-gate__notice {
-  font-size: 0.85rem;
-  color: var(--text-muted);
-  border-left: 3px solid var(--accent);
-  padding-left: 10px;
-}
-
-.profile-form__grid {
-  display: grid;
-  gap: 10px;
-  margin: 16px 0;
-}
-
-.profile-form__grid label {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 0.88rem;
-  color: var(--text-muted);
-}
-
-.profile-form__checkbox {
-  flex-direction: row !important;
-  align-items: center;
-  gap: 8px !important;
-}
-
-.profile-form__actions,
-.token-gate {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.token-gate {
-  flex-direction: column;
-  max-width: 380px;
-}
-
-input,
-select,
-textarea {
-  font-family: inherit;
-  font-size: 1rem;
-  padding: 8px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--surface);
-  color: var(--text);
-}
-
-/* --- Sources ------------------------------------------------------------- */
-
-.sources__list {
-  list-style: none;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--gap);
-}
-
-.sources__item {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-left-width: 4px;
-  border-radius: var(--radius);
-  padding: 12px;
-}
-
-.sources__item--healthy {
-  border-left-color: var(--good);
-}
-.sources__item--degraded {
-  border-left-color: var(--medium);
-}
-.sources__item--cooldown {
-  border-left-color: var(--medium);
-}
-.sources__item--blocked,
-.sources__item--disabled {
-  border-left-color: var(--bad);
-}
-
-.sources__head {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 8px;
-}
-
-.sources__health {
-  font-size: 0.8rem;
-  color: var(--text-muted);
-}
-
-.sources__cooldown,
-.sources__blocked {
-  font-size: 0.85rem;
-  color: var(--text-muted);
-  margin: 4px 0 0;
-}
-
-/* --- Boutons ------------------------------------------------------------- */
-
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  /* 44 px : cible tactile minimale confortable sur mobile. */
-  min-height: 44px;
-  padding: 8px 14px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text);
-  font-size: 0.95rem;
-  font-family: inherit;
-  cursor: pointer;
-  text-decoration: none;
-}
-
-.btn:hover {
-  border-color: var(--accent);
-}
-
-.btn--primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--accent-text);
-  font-weight: 600;
-}
-
-.btn--ghost {
-  border-color: transparent;
-  background: transparent;
-  color: var(--accent);
-}
-
-a {
-  color: var(--accent);
-}
-
-/* --- Élargissement au-delà du téléphone ---------------------------------- */
-
-@media (min-width: 640px) {
-  .app {
-    padding: 24px 16px 64px;
+@import 'tailwindcss';
+
+@theme {
+  /* Tokens shadcn/ui — ordre : light-dark(clair, sombre). Palette slate. */
+  --color-background: light-dark(#f8fafc, #0f172a);
+  --color-foreground: light-dark(#0f172a, #f1f5f9);
+  --color-card: light-dark(#ffffff, #1e293b);
+  --color-card-foreground: light-dark(#0f172a, #f1f5f9);
+  --color-primary: light-dark(#1d4ed8, #3b82f6);
+  --color-primary-foreground: #ffffff;
+  --color-muted-foreground: light-dark(#64748b, #94a3b8);
+  --color-border: light-dark(#e2e8f0, #334155);
+  --color-input: light-dark(#e2e8f0, #334155);
+  --color-ring: light-dark(#1d4ed8, #3b82f6);
+
+  /* Couleurs métier des scores et priorités. */
+  --color-good: light-dark(#15803d, #4ade80);
+  --color-medium: light-dark(#b45309, #fbbf24);
+  --color-bad: light-dark(#b91c1c, #f87171);
+  --color-hot: light-dark(#ea580c, #fb923c);
+}
+
+@layer base {
+  html {
+    color-scheme: light dark;
   }
 
-  .profile-form__grid {
-    grid-template-columns: 1fr 1fr;
+  body {
+    background: var(--color-background);
+    color: var(--color-foreground);
+    font-family:
+      system-ui,
+      -apple-system,
+      'Segoe UI',
+      Roboto,
+      sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+    /* Respecte l'encoche des téléphones récents. */
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+      env(safe-area-inset-left);
   }
 
-  .detail__scores {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: var(--gap);
+  input,
+  select,
+  textarea {
+    font-family: inherit;
+    font-size: 1rem;
+    padding: 8px;
+    border: 1px solid var(--color-input);
+    border-radius: 8px;
+    background: var(--color-card);
+    color: var(--color-foreground);
+  }
+
+  a {
+    color: var(--color-primary);
   }
 }

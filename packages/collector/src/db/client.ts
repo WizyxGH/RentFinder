@@ -8,9 +8,26 @@
  * (§52).
  */
 
+import { mkdirSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { createClient, type Client } from '@libsql/client';
 
 export type Database = Client;
+
+/**
+ * Base locale par défaut : `<racine du dépôt>/data/local.db`.
+ *
+ * Le chemin est résolu depuis CE fichier et non depuis le répertoire courant :
+ * les CLI des différents packages (collecte, serveur local) doivent tous
+ * tomber sur LE MÊME fichier, quel que soit leur répertoire d'exécution.
+ * `data/` est dans le `.gitignore` : rien de collecté n'atteint le dépôt (§26).
+ */
+export function defaultLocalDatabaseUrl(): string {
+  // dist/db/client.js → ../../../../data = racine du dépôt.
+  const dataDir = fileURLToPath(new URL('../../../../data/', import.meta.url));
+  mkdirSync(dataDir, { recursive: true });
+  return `file:${dataDir}local.db`;
+}
 
 export interface DatabaseOptions {
   readonly url: string;
@@ -52,7 +69,16 @@ export function openDatabaseFromEnv(env: NodeJS.ProcessEnv = process.env): Datab
 
   const url = env['TURSO_DATABASE_URL'];
   if (url === undefined || url === '') {
-    throw new Error('TURSO_DATABASE_URL manquant. Voir .env.example.');
+    // En CI, une URL absente est une erreur de configuration : un fallback
+    // silencieux écrirait dans un fichier éphémère et perdrait la collecte.
+    if (env['CI'] !== undefined) {
+      throw new Error('TURSO_DATABASE_URL manquant. Voir .env.example.');
+    }
+    // En local, le mode zéro-configuration prend le relais : tout fonctionne
+    // sans compte cloud, dans un fichier SQLite du dépôt (ignoré par git).
+    const localUrl = defaultLocalDatabaseUrl();
+    console.error(`TURSO_DATABASE_URL absent — base locale utilisée : ${localUrl}`);
+    return openDatabase({ url: localUrl });
   }
 
   const token = env['TURSO_AUTH_TOKEN'];

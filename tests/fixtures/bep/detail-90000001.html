@@ -1,0 +1,92 @@
+<!doctype html>
+<!--
+  Fixture ANONYMISÉE reproduisant la structure d'une fiche bien de
+  bep-logement.com (plateforme Cello/Apimo) observée le 2026-08-15.
+  Toutes les données sont FICTIVES — voir tests/fixtures/README.md.
+
+  Points structurels reproduits fidèlement :
+  - JSON-LD @graph avec RealEstateAgent (téléphone au format « +33-04… »,
+    e-mail, adresse d'agence) et Apartment (identifier, numberOfRooms,
+    floorSize.value, datePosted, address, offers.price)
+  - DIVERGENCE RÉELLE observée : le prix affiché (« 690 € / Mois (Charges
+    comprises) ») diffère du offers.price JSON (650.00, hors charges) —
+    le parser doit préférer le prix AFFICHÉ, qui porte la mention des charges
+  - bloc HTML module-property-info : h1, Réf., pièces, m², prix
+-->
+<html lang="fr">
+  <head>
+    <title>Location Appartement Nice — studio meublé fictif (fixture)</title>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "RealEstateAgent",
+            "@id": "https://bep-logement.com/fr/propriete/location+appartement+nice+studio-meuble-fictif-centre+90000001#agency",
+            "name": "BEP AGENCE FICTIVE",
+            "url": "https://www.bep-logement.com",
+            "email": "agence@example.invalid",
+            "telephone": "+33-0600000012",
+            "address": {
+              "@type": "PostalAddress",
+              "streetAddress": "1 avenue Fictive",
+              "addressLocality": "Antibes",
+              "postalCode": "06600",
+              "addressCountry": "FR"
+            }
+          },
+          {
+            "@type": "Apartment",
+            "@id": "https://bep-logement.com/fr/propriete/location+appartement+nice+studio-meuble-fictif-centre+90000001#property",
+            "url": "https://bep-logement.com/fr/propriete/location+appartement+nice+studio-meuble-fictif-centre+90000001",
+            "name": "Studio Meublé Fictif Centre",
+            "identifier": "90000001",
+            "sku": "90000001",
+            "description": "NICE CENTRE FICTIF\r\n\r\nStudio meublé fictif de 21 m² au 2ème étage, proche commodités. Disponible immédiatement.",
+            "image": [
+              "https://cdn.example.invalid/fixture-bep/photo-1.jpg",
+              "https://cdn.example.invalid/fixture-bep/photo-2.jpg"
+            ],
+            "numberOfRooms": 1,
+            "floorSize": { "@type": "QuantitativeValue", "value": 21.0, "unitCode": "MTK" },
+            "datePosted": "2026-08-14",
+            "dateModified": "2026-08-14",
+            "address": {
+              "@type": "PostalAddress",
+              "addressLocality": "Nice",
+              "postalCode": "06000",
+              "addressCountry": "FR"
+            },
+            "offers": {
+              "@type": "Offer",
+              "url": "https://bep-logement.com/fr/propriete/location+appartement+nice+studio-meuble-fictif-centre+90000001",
+              "price": "650.00",
+              "priceCurrency": "EUR",
+              "validFrom": "2026-08-14",
+              "seller": {
+                "@id": "https://bep-logement.com/fr/propriete/location+appartement+nice+studio-meuble-fictif-centre+90000001#agency"
+              }
+            }
+          }
+        ]
+      }
+    </script>
+  </head>
+  <body>
+    <div class="module module-property-info" data-property-id="90000001">
+      <h1>Location Appartement<br />Nice Centre</h1>
+      <p>Réf. 90000001</p>
+      <p>1 pièce</p>
+      <p>21 m²</p>
+      <p class="price">690 € / Mois (Charges comprises)</p>
+    </div>
+    <div class="module module-property-info">
+      <h2 class="title">Studio Meublé Fictif Centre</h2>
+      <span class="price">690 € / Mois (Charges comprises)</span>
+      <p class="comment" id="description">
+        NICE CENTRE FICTIF<br /><br />
+        Studio meublé fictif de 21 m² au 2ème étage, proche commodités. Disponible immédiatement.
+      </p>
+    </div>
+  </body>
+</html>

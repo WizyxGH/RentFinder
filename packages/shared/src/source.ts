@@ -172,6 +172,15 @@ export interface ScrapeContext {
 export interface ScrapeResult {
   readonly sourceId: SourceId;
   readonly listings: readonly RawListing[];
+  /**
+   * Références que la source CONFIRME encore publiées sans que leur fiche ait
+   * été re-téléchargée. Cas d'usage : une source à sitemap voit toutes ses
+   * annonces vivantes dans le sitemap (une requête), mais ne re-visite que les
+   * nouvelles (§30). Sans cette confirmation, les annonces connues passeraient
+   * à tort en `possiblyInactive` (§32). Optionnel : les scrapers à pagination
+   * n'en ont pas besoin.
+   */
+  readonly confirmedRefs?: readonly string[];
   /** Nombre de requêtes HTTP réellement émises — sert au suivi du coût (§62). */
   readonly requestCount: number;
   /** Pages parcourues avant arrêt. */

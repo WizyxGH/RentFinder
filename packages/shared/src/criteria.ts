@@ -42,5 +42,6 @@ export interface SearchCriteria {
 export const MVP_CRITERIA: SearchCriteria = {
   cities: ['nice'],
   maxPrice: 700,
-  minArea: 12,
+  // 14 m² depuis le 2026-08-15 (12 m² à l'origine) — décision utilisateur.
+  minArea: 14,
 };
