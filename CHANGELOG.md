@@ -4,6 +4,31 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 Documenter ici : nouvelles sources, changements d'architecture ou de schéma,
 évolutions des scores et du système de contact, corrections importantes (§70).
 
+## [0.3.0] — 2026-08-15
+
+### Ajouté
+
+- **Source Foncia** (`foncia`) : troisième réseau d'agences — Angular SSR,
+  ancrage sur les classes `foncia-card-*`, une requête couvre Nice, et le
+  titre des cartes contient l'**adresse complète** du bien (signal de
+  dédoublonnage très fort, §14). Première collecte réelle : 15 annonces,
+  1 requête, 0 warning.
+- **Source PAP** (`pap`) : scraper complet et testé (pages de liste par ville,
+  déclarées dans le sitemap officiel ; prix à point de milliers, DPE en classe
+  CSS, description avec adresse). **Livrée désactivée** : en collecte réelle,
+  le WAF de pap.fr répond 403 aux clients HTTP non-navigateurs même
+  honnêtement identifiés (curl 200 / fetch Node 403, même UA et IP). Imiter
+  une empreinte de navigateur serait un contournement (§10) — le code reste
+  prêt si la politique du site évolue.
+
+### Décisions
+
+- **Bien'ici écartée** : `/recherche/*` est autorisé par le robots.txt mais la
+  page est une SPA vide — les données ne passent que par une API interne non
+  documentée (§6). Réévaluer si un SSR apparaît.
+- Leboncoin et SeLoger restent écartées (aucune méthode d'accès conforme,
+  §10) — voir docs/sources.md.
+
 ## [0.2.0] — 2026-08-15
 
 ### Modifié

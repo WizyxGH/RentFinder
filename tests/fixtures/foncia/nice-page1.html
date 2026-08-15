@@ -1,0 +1,96 @@
+<!doctype html>
+<!--
+  Fixture ANONYMISÉE reproduisant la structure de
+  /location/nice-06000/appartement (fr.foncia.com, Angular SSR) observée le
+  2026-08-15. Données FICTIVES — voir tests/fixtures/README.md.
+
+  Points structurels reproduits :
+  - cartes app-annonce-card > .foncia-card
+  - prix : h2.foncia-card-price avec <sup>/ mois CC</sup> (charges comprises)
+  - titre .foncia-card-title-small-title incluant l'ADRESSE COMPLÈTE :
+    « Location Appartement 2 pièces 40.1 m² - 260 BOULEVARD FICTIF Nice 06200 »
+  - localisation .foncia-card-place « NICE (06200) »
+  - description .foncia-card-description
+  - DPE : span.dpe-class.dpe-class-C
+  - URL de fiche : /location/nice-06/appartement/{référence}.htm
+-->
+<html lang="fr">
+  <head>
+    <title>Location appartement Nice (fixture Foncia)</title>
+  </head>
+  <body>
+    <app-mosaic-results>
+      <!-- Carte 1 : 2 pièces avec adresse complète, CC explicite, DPE C. -->
+      <app-annonce-card>
+        <div class="foncia-card">
+          <div class="gallery">
+            <a class="gallery-container" href="/location/nice-06/appartement/900100001.htm">
+              <img
+                src="https://cdn.example.invalid/fixture-foncia/photo-1.jpeg"
+                alt="appartement 2 pièces à louer NICE 06200 40.1 m²"
+              />
+            </a>
+          </div>
+          <div class="foncia-card-content">
+            <h2 class="foncia-card-price"><span>795&nbsp;&euro;</span><sup>/ mois CC</sup></h2>
+            <a
+              class="foncia-card-title-small"
+              href="/location/nice-06/appartement/900100001.htm"
+            >
+              <h3>
+                <span class="foncia-card-title-small-title"
+                  >Location Appartement 2 pièces 40.1 m² - 260 BOULEVARD FICTIF Nice 06200</span
+                >
+              </h3>
+              <span class="foncia-card-surface"> 40,1 m² </span>
+            </a>
+            <p class="foncia-card-place">NICE (06200)</p>
+            <p class="foncia-card-description">
+              Quartier fictif, immeuble récent et sécurisé, appartement de type 2 pièces comprenant
+              une entrée, un séjour lumineux …
+            </p>
+            <span class="foncia-card-dpe">
+              <span class="dpe-class dpe-class-C"> C </span>
+            </span>
+          </div>
+        </div>
+      </app-annonce-card>
+
+      <!-- Carte 2 : studio meublé dans le budget, hors charges (« / mois »). -->
+      <app-annonce-card>
+        <div class="foncia-card">
+          <div class="foncia-card-content">
+            <h2 class="foncia-card-price"><span>640&nbsp;&euro;</span><sup>/ mois</sup></h2>
+            <a class="foncia-card-title-small" href="/location/nice-06/appartement/900100002.htm">
+              <h3>
+                <span class="foncia-card-title-small-title"
+                  >Location Studio meublé 1 pièce 15 m² - 3 RUE IMAGINAIRE Nice 06000</span
+                >
+              </h3>
+              <span class="foncia-card-surface"> 15 m² </span>
+            </a>
+            <p class="foncia-card-place">NICE (06000)</p>
+            <p class="foncia-card-description">Studio meublé fictif proche des commerces …</p>
+          </div>
+        </div>
+      </app-annonce-card>
+
+      <!-- Carte 3 : sans prix affiché — champ omis, jamais deviné. -->
+      <app-annonce-card>
+        <div class="foncia-card">
+          <div class="foncia-card-content">
+            <h2 class="foncia-card-price"></h2>
+            <a class="foncia-card-title-small" href="/location/nice-06/appartement/900100003.htm">
+              <h3>
+                <span class="foncia-card-title-small-title"
+                  >Location Appartement 3 pièces - AVENUE FICTIVE Nice 06100</span
+                >
+              </h3>
+            </a>
+            <p class="foncia-card-place">NICE (06100)</p>
+          </div>
+        </div>
+      </app-annonce-card>
+    </app-mosaic-results>
+  </body>
+</html>

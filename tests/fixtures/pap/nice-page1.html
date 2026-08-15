@@ -1,0 +1,96 @@
+<!doctype html>
+<!--
+  Fixture ANONYMISÉE reproduisant la structure de
+  /annonce/locations-nice-06-g8979 (pap.fr) observée le 2026-08-15.
+  Données FICTIVES — voir tests/fixtures/README.md.
+
+  Points structurels reproduits :
+  - cartes avec a.item-title[name=REF] contenant .item-price (« 1.750 € » :
+    POINT séparateur de milliers), .h1 « Nice (06000) », ul.item-tags
+    (pièces / chambres / m²)
+  - DPE porté par une classe CSS : div.item-thumb-dpe.item-thumb-dpe-c
+  - liens de fiche /annonces/{slug}-r{référence}
+  - liens favoris #dialog-… et data-annonce (à ignorer)
+  - description longue .item-description (contient parfois l'adresse)
+  - pagination : lien vers …-g8979-2
+-->
+<html lang="fr">
+  <head>
+    <title>Location Nice (fixture PAP)</title>
+  </head>
+  <body>
+    <!-- Carte 1 : studio dans les critères, DPE C, adresse dans la description. -->
+    <div class="search-list-item">
+      <div class="item-thumb-dpe item-thumb-dpe-c"></div>
+      <div class="item-body">
+        <a
+          class="item-title"
+          href="/annonces/appartement-nice-06000-r900000001"
+          name="900000001"
+        >
+          <div class="item-price-container">
+            <span class="item-price"> 690&nbsp;&euro; </span>
+          </div>
+          <span class="h1"> Nice (06000) </span>
+          <ul class="item-tags">
+            <li>1&nbsp;pièce</li>
+            <li>16&nbsp;m²</li>
+          </ul>
+        </a>
+        <a href="#dialog-enregistrer-email" class="btn-add-favorite" data-annonce="{}">
+          <span class="icon icon-heart"></span>
+        </a>
+        <p class="item-description">
+          Studio meublé fictif — 16m² — 1 rue Imaginaire. 690€/mois charges comprises. Lumineux,
+          proche tramway, disponible immédiatement. Loué par particulier fictif.
+        </p>
+      </div>
+    </div>
+
+    <!-- Carte 2 : 4 pièces hors budget, prix à séparateur de milliers « 1.750 € ». -->
+    <div class="search-list-item">
+      <div class="item-thumb-dpe item-thumb-dpe-d"></div>
+      <div class="item-body">
+        <a
+          class="item-title"
+          href="/annonces/appartement-nice-06100-r900000002"
+          name="900000002"
+        >
+          <div class="item-price-container">
+            <span class="item-price"> 1.750&nbsp;&euro; </span>
+          </div>
+          <span class="h1"> Nice (06100) </span>
+          <ul class="item-tags">
+            <li>4&nbsp;pièces</li>
+            <li>3&nbsp;chambres</li>
+            <li>80&nbsp;m²</li>
+          </ul>
+        </a>
+        <p class="item-description">
+          Appartement familial fictif au calme, étage élevé, cave et balcon.
+        </p>
+      </div>
+    </div>
+
+    <!-- Carte 3 : sans prix (« Nous consulter ») ni surface — champs omis. -->
+    <div class="search-list-item">
+      <div class="item-body">
+        <a class="item-title" href="/annonces/appartement-nice-06300-r900000003" name="900000003">
+          <div class="item-price-container">
+            <span class="item-price"> Nous consulter </span>
+          </div>
+          <span class="h1"> Nice (06300) </span>
+          <ul class="item-tags">
+            <li>2&nbsp;pièces</li>
+          </ul>
+        </a>
+        <p class="item-description">Deux pièces fictif en cours de publication.</p>
+      </div>
+    </div>
+
+    <div class="pagination">
+      <a href="/annonce/locations-nice-06-g8979-2">2</a>
+      <a href="/annonce/locations-nice-06-g8979-2" class="next">Suivant</a>
+    </div>
+  </body>
+</html>

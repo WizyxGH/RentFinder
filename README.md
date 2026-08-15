@@ -135,8 +135,10 @@ Worker, Pages) : [docs/deployment.md](docs/deployment.md).
 
 - Le mode automatique de contact n'a **pas d'envoi implémenté** (garde-fous
   seulement) : il n'arrivera qu'après une collecte éprouvée, comme prévu.
-- Trois sources réelles (Laforêt, Orpi, BEP Logement) pour l'instant —
-  l'[étude des sources](docs/sources.md) liste les suivantes par priorité.
+- Quatre sources actives (Laforêt, Orpi, BEP Logement, Foncia) ; PAP est
+  implémentée mais désactivée (son WAF refuse les clients non-navigateurs,
+  qu'on ne contourne pas) — l'[étude des sources](docs/sources.md) détaille
+  chaque verdict.
 - Distances à vol d'oiseau corrigées (× 1,3), pas des itinéraires.
 - Leboncoin et SeLoger sont **écartés** : pas de méthode d'accès conforme
   identifiée à ce jour.
@@ -144,14 +146,15 @@ Worker, Pages) : [docs/deployment.md](docs/deployment.md).
 
 ## Roadmap
 
-- **MVP (actuel)** : pipeline complet, 3 sources réelles (Laforêt, Orpi — GPS
-  compris —, BEP Logement — première agence locale, méthode sitemap), mode
-  local zéro-cloud, 4 scores, dédoublonnage, contact manuel, frontend mobile
-  (Tailwind CSS + shadcn/ui), CI, docs, 314 tests dont 18 scénarios E2E.
-- **V2** : PAP (sitemap) + Foncia + Bien'ici, adaptateurs génériques d'agences
-  locales (le parser BEP/Apimo est le premier candidat), relances
-  automatisées, statistiques (taux de réponse par source/heure/délai),
-  historique des changements de prix.
+- **MVP (actuel)** : pipeline complet, 4 sources actives (Laforêt, Orpi — GPS
+  —, BEP Logement — agence locale, méthode sitemap —, Foncia — adresses
+  complètes) + PAP prête mais désactivée, mode local zéro-cloud, 4 scores,
+  dédoublonnage, contact manuel, frontend mobile (Tailwind CSS + shadcn/ui),
+  CI, docs, 333 tests dont 18 scénarios E2E.
+- **V2** : adaptateurs génériques d'agences locales (le parser BEP/Apimo est
+  le premier candidat), davantage d'agences niçoises, relances automatisées,
+  statistiques (taux de réponse par source/heure/délai), historique des
+  changements de prix.
 - **V3** : scores calibrés sur les résultats réels, scheduler optimisé
   dynamiquement, automatisation avancée.
 
