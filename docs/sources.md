@@ -67,6 +67,19 @@ Non encore inventoriées individuellement — travail de fond continu. Méthode 
    chemin de recherche, budget `localAgency` (1 page, 4 s de délai, 1-4 h
    d'intervalle — §7).
 
+### Sources demandées mais NON retenues (accès non conforme)
+
+Étudiées à la demande de l'utilisateur ; aucune ne viole le §10 (on ne
+contourne rien), mais aucune n'offre d'accès conforme aux annonces de Nice.
+
+| Source            | Vérifié    | Verdict    | Détail                                                                                                                                                                                                                                                                  |
+| ----------------- | ---------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **manda.fr**      | 2026-08-15 | 🔴 Écartée | Gestion locative / estimation. Le sitemap ne contient que des annonces de **vente** et des pages SaaS ; les locations passent par `/location-immobiliere?…` (paramètres interdits par robots.txt) et sont chargées en AJAX. Pas de liste de locations Nice exploitable. |
+| **123loger.com**  | 2026-08-15 | 🔴 Écartée | Location entre particuliers (WordPress). Sitemap **cassé** : 1127 entrées identiques `/location/` (aucune fiche individuelle) ; la recherche `/search/` est interdite. Inventaire non explorable.                                                                       |
+| **studapart.com** | 2026-08-15 | 🔴 Écartée | Logement étudiant. La page ville rend le compte (« 122 offres ») mais `itemListElement` est **vide** : les annonces sont chargées en AJAX, le sitemap Drupal ne descend qu'au niveau catégorie. Pas d'accès conforme par fiche. Réévaluer si un flux/SSR apparaît.      |
+
+Note studapart : son `robots.txt` autorise le crawler générique (`Content-Signal: search=yes, use=reference`) et n'exclut que les bots d'entraînement d'IA ; l'obstacle est purement technique (AJAX), pas réglementaire.
+
 ## Ordre d'implémentation recommandé
 
 1. **Laforêt** — fait. Sert de source pilote et de référence d'architecture.

@@ -4,6 +4,24 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 Documenter ici : nouvelles sources, changements d'architecture ou de schéma,
 évolutions des scores et du système de contact, corrections importantes (§70).
 
+## [0.5.1] — 2026-08-15
+
+### Ajouté
+
+- **Bandeau de statistiques** en tête de liste (§33) : pertinentes / à
+  contacter / contactées / réponses, d'un coup d'œil, sans page dédiée.
+
+### Vérifié (sources demandées, non retenues faute d'accès conforme)
+
+- **manda.fr** : sitemap = ventes + pages SaaS ; locations en AJAX derrière des
+  paramètres interdits. Écartée.
+- **123loger.com** : sitemap cassé (1127 fois `/location/`), recherche
+  interdite. Écartée.
+- **studapart.com** : annonces chargées en AJAX (`itemListElement` vide en
+  SSR), sitemap au niveau catégorie. Écartée — obstacle technique, pas
+  réglementaire (le robots autorise le crawler générique). Détails dans
+  docs/sources.md.
+
 ## [0.5.0] — 2026-08-15
 
 ### Ajouté

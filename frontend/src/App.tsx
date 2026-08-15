@@ -38,6 +38,46 @@ type View = 'list' | 'detail' | 'profile' | 'sources';
 const HOT_PRIORITY = 85;
 
 /**
+ * Bandeau de synthèse (§33) : de quoi comprendre l'état de la recherche d'un
+ * coup d'œil, sans page dédiée. Calculé depuis les annonces déjà chargées —
+ * aucun appel supplémentaire.
+ */
+function StatsStrip({
+  listings,
+}: {
+  readonly listings: readonly ListingView[];
+}): React.JSX.Element {
+  const hot = listings.filter((l) => l.actionPriority >= HOT_PRIORITY).length;
+  const contacted = listings.filter((l) =>
+    ['contacted', 'replied', 'visitOffered', 'visitScheduled', 'visited'].includes(l.tracking),
+  ).length;
+  const replied = listings.filter((l) =>
+    ['replied', 'visitOffered', 'visitScheduled', 'visited'].includes(l.tracking),
+  ).length;
+
+  const cells: readonly { label: string; value: number; tone?: string }[] = [
+    { label: 'pertinentes', value: listings.length },
+    { label: 'à contacter', value: hot, tone: 'text-hot' },
+    { label: 'contactées', value: contacted },
+    { label: 'réponses', value: replied, tone: 'text-good' },
+  ];
+
+  return (
+    <dl className="my-3 grid grid-cols-4 gap-2">
+      {cells.map((cell) => (
+        <div
+          key={cell.label}
+          className="rounded-xl border border-border bg-card px-2 py-2 text-center"
+        >
+          <dd className={`text-xl font-bold ${cell.tone ?? ''}`}>{cell.value}</dd>
+          <dt className="text-[0.7rem] text-muted-foreground">{cell.label}</dt>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+/**
  * Coquille commune : en-tête persistant + navigation par onglets.
  * L'onglet actif est souligné — l'utilisateur sait toujours où il est.
  */
@@ -315,6 +355,7 @@ export function App(): React.JSX.Element {
         </p>
       ) : (
         <>
+          <StatsStrip listings={listings} />
           {hot.length > 0 && (
             <section aria-labelledby="hot-title" className="mb-6">
               <h2 id="hot-title" className="mb-2 text-lg font-bold">
