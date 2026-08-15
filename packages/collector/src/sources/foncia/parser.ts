@@ -49,14 +49,24 @@ export function parseListingUrl(href: string): ParsedListingUrl | null {
  * Extrait l'adresse du titre Foncia :
  * « Location Appartement 2 pièces 40.1 m² - 260 BOULEVARD X Nice 06200 »
  * → « 260 BOULEVARD X ».
- * La ville et le CP terminent toujours le titre ; le tiret sépare l'adresse.
+ * La ville et le CP terminent toujours le titre ; le premier tiret sépare
+ * l'adresse. On prend TOUT ce qui suit ce premier tiret, car l'adresse peut
+ * elle-même contenir un tiret (« 37 - 39 RUE CLEMENT ROASSAL »).
  */
 export function extractAddress(title: string): string | undefined {
-  const afterDash = title.split(' - ')[1];
-  if (afterDash === undefined) return undefined;
-  // Retire « {Ville} {CP} » en fin de chaîne.
-  const address = cleanText(afterDash.replace(/\s+[A-ZÀ-Ý][\wà-ÿ'-]*\s+\d{5}\s*$/u, ''));
-  return address === '' ? undefined : address;
+  const parts = title.split(' - ');
+  if (parts.length < 2) return undefined;
+  const afterDash = parts.slice(1).join(' - ');
+
+  // Retire « {Ville} {CP} » en fin de chaîne (`\s*` : marche aussi quand il ne
+  // reste QUE la ville et le code postal, qu'on veut alors écarter).
+  const address = cleanText(afterDash.replace(/\s*[A-ZÀ-Ý][\wà-ÿ'’-]*\s+\d{5}\s*$/u, ''));
+
+  // Une vraie adresse contient un numéro ou un type de voie ; à défaut, ce
+  // n'était que la ville (ex. « Nice 06300 ») — on ne garde rien (§17).
+  const hasStreet =
+    /\d|\b(rue|bd|boulevard|av|avenue|chemin|impasse|place|all[ée]e|corniche|quai|route|mont[ée]e|traverse|promenade|square|voie)\b/i;
+  return address !== '' && hasStreet.test(address) ? address : undefined;
 }
 
 /** Résultat du parsing d'une page de résultats. */

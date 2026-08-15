@@ -30,6 +30,21 @@ describe('extractAddress', () => {
     ).toBe('260 BOULEVARD FICTIF');
   });
 
+  it('conserve une adresse contenant un tiret (numéro à intervalle)', () => {
+    // Régression : « 37 - 39 RUE … » était tronqué à « 37 » par split[1].
+    expect(extractAddress('Location Studio 23.8 m² - 37 - 39 RUE CLEMENT ROASSAL Nice 06000')).toBe(
+      '37 - 39 RUE CLEMENT ROASSAL',
+    );
+    expect(extractAddress('Location Studio 18.39 m² - 6-8 RUE ABBE SALVETTI Nice 06300')).toBe(
+      '6-8 RUE ABBE SALVETTI',
+    );
+  });
+
+  it('rend undefined quand le titre n’a que la ville et le code postal', () => {
+    // « Nice 06300 » n'est pas une adresse : à ne pas confondre avec une voie.
+    expect(extractAddress('Location Appartement 45 m² - Nice 06300')).toBeUndefined();
+  });
+
   it('rend undefined sans tiret séparateur', () => {
     expect(extractAddress('Location Appartement 2 pièces')).toBeUndefined();
   });

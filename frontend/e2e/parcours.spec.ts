@@ -85,15 +85,23 @@ test('scénario 4 — le contact manuel n’envoie rien tout seul (§53)', async
 test('les scores exposent leurs raisons et leurs angles morts (§17, §19)', async ({ page }) => {
   await page.getByTestId('listing-card').first().getByRole('button', { name: 'Voir' }).click();
 
-  await expect(page.getByText('Loyer cohérent avec le marché')).toBeVisible();
-  await expect(page.getByText('Agence identifiable')).toBeVisible();
+  // Le détail des scores est repliable : on déplie ceux qu'on veut inspecter,
+  // et on scope les assertions au bloc déplié (le même libellé peut exister
+  // ailleurs, replié).
+  const risk = page.locator('details').filter({ hasText: 'Risque' });
+  await risk.locator('summary').click();
+  await expect(risk.getByText('Loyer cohérent avec le marché')).toBeVisible();
+  await expect(risk.getByText('Agence identifiable')).toBeVisible();
+
+  const visit = page.locator('details').filter({ hasText: 'Probabilité de visite' });
+  await visit.locator('summary').click();
 
   // §17 : ce qui manque est dit, pas comblé.
-  await expect(page.getByText(/Information non fournie par les sources/).first()).toBeVisible();
+  await expect(visit.getByText(/Information non fournie par les sources/)).toBeVisible();
 
   // §18 : aucune prétention à une précision statistique.
   await expect(
-    page.getByText(/fondé sur des règles explicites, pas sur une statistique/),
+    visit.getByText(/fondé sur des règles explicites, pas sur une statistique/),
   ).toBeVisible();
 });
 
@@ -102,8 +110,12 @@ test('une annonce risquée reste visible, avec ses raisons (§19)', async ({ pag
   await expect(risky).toBeVisible();
 
   await risky.getByRole('button', { name: 'Voir' }).click();
-  await expect(page.getByText('Loyer très inférieur au marché (5,8 €/m²)')).toBeVisible();
-  await expect(page.getByText('Le bailleur déclare être à l’étranger')).toBeVisible();
+
+  // Le détail « Risque » est repliable : on le déplie pour lire ses raisons.
+  const risk = page.locator('details').filter({ hasText: 'Risque' });
+  await risk.locator('summary').click();
+  await expect(risk.getByText('Loyer très inférieur au marché (5,8 €/m²)')).toBeVisible();
+  await expect(risk.getByText('Le bailleur déclare être à l’étranger')).toBeVisible();
 });
 
 test('le tri et le changement de statut fonctionnent (§35, §54)', async ({ page }) => {

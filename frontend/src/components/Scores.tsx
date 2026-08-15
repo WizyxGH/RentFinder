@@ -131,7 +131,13 @@ interface ScoreDetailProps {
   readonly caveat?: string;
 }
 
-/** Score détaillé de la fiche : valeur, raisons, angles morts. */
+/**
+ * Score détaillé de la fiche : valeur, raisons, angles morts.
+ *
+ * Repliable (§37 : agir vite) — l'en-tête (titre + score) reste toujours
+ * visible, le détail se déplie à la demande. `<details>` natif : accessible au
+ * clavier, sans JavaScript.
+ */
 export function ScoreDetail({
   title,
   score,
@@ -139,35 +145,51 @@ export function ScoreDetail({
   caveat,
 }: ScoreDetailProps): React.JSX.Element {
   const tone = toneFor(score.value, invert);
+  const incomplete = score.unknownSignals.length > 0;
 
   return (
-    <Card className="mb-3">
-      <header className="flex items-baseline justify-between">
-        <h3 className="text-base font-semibold">{title}</h3>
-        <span className={`font-bold ${TONE_TEXT[tone]}`}>{score.value}/100</span>
-      </header>
-
-      {caveat !== undefined && (
-        <p className="mt-1.5 text-[0.82rem] text-muted-foreground italic">{caveat}</p>
-      )}
-
-      <ul className="mt-2 text-sm">
-        {score.reasons.map((reason, index) => (
-          <li key={`${reason.code}-${index}`} className="flex gap-2 py-0.5">
-            <span aria-hidden="true" className="w-4 shrink-0">
-              {reason.delta > 0 ? (invert ? '⚠' : '✓') : reason.delta < 0 ? '⚠' : '·'}
+    <Card className="mb-3 p-0">
+      <details className="group">
+        <summary className="flex cursor-pointer list-none items-baseline justify-between p-3">
+          <h3 className="text-base font-semibold">
+            {title}
+            <span
+              aria-hidden="true"
+              className="ml-1.5 inline-block text-xs text-muted-foreground transition-transform group-open:rotate-90"
+            >
+              ▸
             </span>
-            <span>{reason.label}</span>
-          </li>
-        ))}
-      </ul>
+          </h3>
+          <span className={`font-bold ${TONE_TEXT[tone]}`}>
+            {score.value}/100
+            {incomplete && <span className="text-[0.7rem] text-muted-foreground">*</span>}
+          </span>
+        </summary>
 
-      {/* §17 : dire explicitement ce qui manquait plutôt que de le taire. */}
-      {score.unknownSignals.length > 0 && (
-        <p className="mt-1.5 text-[0.82rem] text-muted-foreground italic">
-          Information non fournie par les sources : {score.unknownSignals.join(', ')}.
-        </p>
-      )}
+        <div className="px-3 pb-3">
+          {caveat !== undefined && (
+            <p className="text-[0.82rem] text-muted-foreground italic">{caveat}</p>
+          )}
+
+          <ul className="mt-2 text-sm">
+            {score.reasons.map((reason, index) => (
+              <li key={`${reason.code}-${index}`} className="flex gap-2 py-0.5">
+                <span aria-hidden="true" className="w-4 shrink-0">
+                  {reason.delta > 0 ? (invert ? '⚠' : '✓') : reason.delta < 0 ? '⚠' : '·'}
+                </span>
+                <span>{reason.label}</span>
+              </li>
+            ))}
+          </ul>
+
+          {/* §17 : dire explicitement ce qui manquait plutôt que de le taire. */}
+          {score.unknownSignals.length > 0 && (
+            <p className="mt-1.5 text-[0.82rem] text-muted-foreground italic">
+              Information non fournie par les sources : {score.unknownSignals.join(', ')}.
+            </p>
+          )}
+        </div>
+      </details>
     </Card>
   );
 }

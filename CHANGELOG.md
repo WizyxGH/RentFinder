@@ -4,6 +4,22 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 Documenter ici : nouvelles sources, changements d'architecture ou de schéma,
 évolutions des scores et du système de contact, corrections importantes (§70).
 
+## [0.12.0] — 2026-08-15
+
+### Interface
+
+- **Détail des scores repliable** sur la fiche (§37) : l'en-tête (titre +
+  valeur) reste visible, les raisons se déplient à la demande (`<details>`
+  natif, accessible au clavier). Fiche moins chargée, action plus rapide.
+
+### Corrigé
+
+- **Adresse Foncia** : les adresses contenant un tiret (« 37 - 39 RUE CLEMENT
+  ROASSAL ») étaient tronquées au premier segment (« 37 ») par `split[1]`. On
+  prend désormais tout ce qui suit le premier tiret. Un titre réduit à
+  « Ville CP » (sans voie) ne produit plus de fausse adresse. L'adresse exacte
+  est donc géocodée (distance travail) et affichée correctement.
+
 ## [0.11.0] — 2026-08-15
 
 ### Ajouté
