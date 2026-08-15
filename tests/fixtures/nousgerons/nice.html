@@ -1,0 +1,99 @@
+<!doctype html>
+<!--
+  Fixture ANONYMISÉE reproduisant la structure de /location/nice
+  (nousgerons.com) observée le 2026-08-15. Données FICTIVES.
+
+  Le site expose un JSON-LD schema.org CollectionPage > ItemList complet
+  (Product avec additionalProperty pièces/surface/ville et Offer prix) :
+  c'est l'ancrage principal du parser.
+-->
+<html lang="fr">
+  <head>
+    <title>Location Nice (fixture NousGérons)</title>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "CollectionPage",
+            "@id": "https://www.nousgerons.com/location/nice#page",
+            "name": "Locations d'appartements",
+            "url": "https://www.nousgerons.com/location/nice",
+            "mainEntity": {
+              "@type": "ItemList",
+              "name": "Liste des locations",
+              "numberOfItems": 2,
+              "itemListElement": [
+                {
+                  "@type": "ListItem",
+                  "position": 1,
+                  "item": {
+                    "@type": "Product",
+                    "category": "Real Estate",
+                    "name": "T4 en colocation – Bon état – Bd Fictif – Nice (06100) - Quartier fictif",
+                    "url": "https://www.nousgerons.com/logement/location/900200001-nice",
+                    "image": "https://cdn.example.invalid/fixture-ng/photo-1.png",
+                    "sku": "advert-900200001",
+                    "additionalProperty": [
+                      { "@type": "PropertyValue", "name": "Type de bien", "value": "T4" },
+                      { "@type": "PropertyValue", "name": "Nombre de pièces", "value": 4 },
+                      {
+                        "@type": "PropertyValue",
+                        "name": "Surface habitable",
+                        "value": 62,
+                        "unitCode": "MTK",
+                        "unitText": "m²"
+                      },
+                      { "@type": "PropertyValue", "name": "Ville", "value": "Nice" }
+                    ],
+                    "offers": {
+                      "@type": "Offer",
+                      "priceCurrency": "EUR",
+                      "price": "550.00",
+                      "availability": "https://schema.org/LimitedAvailability",
+                      "url": "https://www.nousgerons.com/logement/location/900200001-nice"
+                    }
+                  }
+                },
+                {
+                  "@type": "ListItem",
+                  "position": 2,
+                  "item": {
+                    "@type": "Product",
+                    "category": "Real Estate",
+                    "name": "Studio meublé – Refait à neuf – Rue Imaginaire – Nice (06000)",
+                    "url": "https://www.nousgerons.com/logement/location/900200002-nice",
+                    "image": "https://cdn.example.invalid/fixture-ng/photo-2.png",
+                    "sku": "advert-900200002",
+                    "additionalProperty": [
+                      { "@type": "PropertyValue", "name": "Type de bien", "value": "Studio" },
+                      { "@type": "PropertyValue", "name": "Nombre de pièces", "value": 1 },
+                      {
+                        "@type": "PropertyValue",
+                        "name": "Surface habitable",
+                        "value": 20,
+                        "unitCode": "MTK",
+                        "unitText": "m²"
+                      },
+                      { "@type": "PropertyValue", "name": "Ville", "value": "Nice" }
+                    ],
+                    "offers": {
+                      "@type": "Offer",
+                      "priceCurrency": "EUR",
+                      "price": "620.00",
+                      "availability": "https://schema.org/InStock",
+                      "url": "https://www.nousgerons.com/logement/location/900200002-nice"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    </script>
+  </head>
+  <body>
+    <main>Contenu visuel rendu côté client — le JSON-LD ci-dessus fait foi.</main>
+  </body>
+</html>

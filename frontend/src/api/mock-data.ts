@@ -174,6 +174,7 @@ export const MOCK_LISTINGS: readonly ListingView[] = [
     rooms: field(1),
     propertyType: field('studio'),
     furnished: field(true),
+    flatShare: field(false),
     address: field(null),
     city: field('nice'),
     postalCode: field('06300'),

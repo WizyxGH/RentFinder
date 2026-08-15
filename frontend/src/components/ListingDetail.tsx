@@ -116,6 +116,15 @@ export function ListingDetail({
           {listing.furnished.value === null ? UNKNOWN : listing.furnished.value ? 'Oui' : 'Non'}
         </dd>
 
+        <dt className={FACT_LABEL}>Colocation</dt>
+        <dd>
+          {listing.flatShare?.value == null
+            ? UNKNOWN
+            : listing.flatShare.value
+              ? 'Oui — bien proposé en colocation'
+              : 'Non — logement entier'}
+        </dd>
+
         <dt className={FACT_LABEL}>Localisation</dt>
         <dd>
           {formatCity(listing.city.value)}

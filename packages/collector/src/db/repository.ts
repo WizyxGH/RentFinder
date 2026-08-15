@@ -41,6 +41,7 @@ export function occurrenceHash(listing: NormalizedListing): string {
     listing.rooms,
     listing.propertyType,
     listing.furnished,
+    listing.flatShare,
     listing.address,
     listing.city,
     listing.postalCode,
@@ -201,11 +202,11 @@ export function createRepository(db: Database): Repository {
           sql: `
             INSERT INTO occurrences (
               id, source_id, source_ref, source_url, title, price, charges, charges_included,
-              area, rooms, bedrooms, property_type, furnished, city, postal_code, address,
-              latitude, longitude, contact_phone, contact_email, contact_agency, contact_reference,
-              published_at, available_at, first_seen_at, last_seen_at, scraped_at, lifecycle,
-              payload, content_hash, missing_runs
-            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0)
+              area, rooms, bedrooms, property_type, furnished, flat_share, city, postal_code,
+              address, latitude, longitude, contact_phone, contact_email, contact_agency,
+              contact_reference, published_at, available_at, first_seen_at, last_seen_at,
+              scraped_at, lifecycle, payload, content_hash, missing_runs
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0)
             ON CONFLICT(id) DO UPDATE SET
               source_url = excluded.source_url,
               title = excluded.title,
@@ -217,6 +218,7 @@ export function createRepository(db: Database): Repository {
               bedrooms = excluded.bedrooms,
               property_type = excluded.property_type,
               furnished = excluded.furnished,
+              flat_share = excluded.flat_share,
               city = excluded.city,
               postal_code = excluded.postal_code,
               address = excluded.address,
@@ -249,6 +251,7 @@ export function createRepository(db: Database): Repository {
             listing.bedrooms,
             listing.propertyType,
             boolToInt(listing.furnished),
+            boolToInt(listing.flatShare),
             listing.city,
             listing.postalCode,
             listing.address,
@@ -540,6 +543,7 @@ function serializeListing(listing: ScoredListing): unknown {
     rooms: listing.rooms,
     propertyType: listing.propertyType,
     furnished: listing.furnished,
+    flatShare: listing.flatShare,
     address: listing.address,
     city: listing.city,
     postalCode: listing.postalCode,
@@ -589,6 +593,7 @@ function rowToOccurrence(row: Record<string, unknown>): NormalizedListing {
     bedrooms: num('bedrooms'),
     propertyType: String(row['property_type']) as NormalizedListing['propertyType'],
     furnished: bool('furnished'),
+    flatShare: bool('flat_share'),
     address: text('address'),
     city: text('city'),
     postalCode: text('postal_code'),

@@ -4,6 +4,7 @@ import {
   parseBedrooms,
   parseCharges,
   parseEmail,
+  parseFlatShare,
   parseFurnished,
   parsePhone,
   parsePostalCode,
@@ -236,5 +237,22 @@ describe('parsePublishedAt', () => {
   it('rend null sur un texte non interprétable', () => {
     expect(parsePublishedAt('récemment', now)).toBeNull();
     expect(parsePublishedAt(null, now)).toBeNull();
+  });
+});
+
+describe('parseFlatShare (§17 — colocation)', () => {
+  it('détecte une offre en colocation', () => {
+    expect(parseFlatShare('T4 en colocation – Bd Fictif')).toBe(true);
+    expect(parseFlatShare('Chambre en coloc meublée')).toBe(true);
+  });
+
+  it('distingue « colocation possible » (logement entier)', () => {
+    expect(parseFlatShare('Bail mobilité ou étudiant (Colocation possible)')).toBe(false);
+    expect(parseFlatShare('colocation acceptée')).toBe(false);
+  });
+
+  it('rend null quand le texte ne dit rien', () => {
+    expect(parseFlatShare('Studio meublé centre-ville')).toBeNull();
+    expect(parseFlatShare('')).toBeNull();
   });
 });

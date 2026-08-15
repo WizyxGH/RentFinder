@@ -21,6 +21,7 @@ import {
   parseBedrooms,
   parseCharges,
   parseEmail,
+  parseFlatShare,
   parseFurnished,
   parsePhone,
   parsePostalCode,
@@ -138,6 +139,7 @@ export function normalizeListing(
     bedrooms: parseBedrooms(`${raw.roomsText ?? ''} ${raw.extra?.['features'] ?? ''}`),
     propertyType: parsePropertyType(typeSource),
     furnished: parseFurnished(furnishedSource),
+    flatShare: parseFlatShare(`${typeSource} ${raw.description ?? ''}`),
 
     address: toNull(raw.addressText),
     // La ville est stockée en forme comparable pour que les filtres et le

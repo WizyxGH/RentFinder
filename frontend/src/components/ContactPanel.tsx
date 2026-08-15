@@ -15,7 +15,7 @@
  */
 
 import { useMemo, useState } from 'react';
-import { prepareMessage, type TenantProfile } from '@rentfinder/shared';
+import { FOLLOW_UP_TEMPLATE, prepareMessage, type TenantProfile } from '@rentfinder/shared';
 import type { ListingView } from '../types.js';
 import { Button, ButtonLink } from '@/components/ui/button.js';
 import { Card } from '@/components/ui/card.js';
@@ -51,9 +51,17 @@ export function ContactPanel({
   onRecorded,
   onConfigureProfile,
 }: ContactPanelProps): React.JSX.Element {
+  // §34 : une annonce déjà contactée propose une RELANCE, brève, plutôt que
+  // de regénérer le premier message.
+  const [followUp, setFollowUp] = useState(false);
+  const alreadyContacted = listing.tracking === 'contacted';
+
   const prepared = useMemo(
-    () => (profile === null ? null : prepareMessage(listing, profile)),
-    [listing, profile],
+    () =>
+      profile === null
+        ? null
+        : prepareMessage(listing, profile, followUp ? FOLLOW_UP_TEMPLATE : undefined),
+    [listing, profile, followUp],
   );
 
   const [draft, setDraft] = useState<string | null>(null);
@@ -152,6 +160,24 @@ export function ContactPanel({
         </div>
       ) : (
         <>
+          {/* §34 : déjà contactée et sans réponse → proposer la relance. */}
+          {alreadyContacted && (
+            <div className="mt-2 flex items-center gap-2 rounded-lg border border-medium/50 px-3 py-2 text-sm">
+              <span className="flex-1">
+                Annonce déjà contactée{followUp ? ' — message de relance préparé.' : '.'}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setFollowUp((value) => !value);
+                  setDraft(null);
+                }}
+              >
+                {followUp ? 'Premier message' : 'Relancer'}
+              </Button>
+            </div>
+          )}
           <label
             className="mt-2 block text-[0.85rem] text-muted-foreground"
             htmlFor="contact-message"

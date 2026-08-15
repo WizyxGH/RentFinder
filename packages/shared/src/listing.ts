@@ -133,6 +133,12 @@ export interface ListingOccurrence {
   readonly bedrooms: Maybe<number>;
   readonly propertyType: PropertyType;
   readonly furnished: Maybe<boolean>;
+  /**
+   * `true` : le bien est proposé EN colocation (souvent une chambre dans un
+   * logement partagé). `false` : logement entier (y compris « colocation
+   * possible »). `null` : la source ne le dit pas (§17).
+   */
+  readonly flatShare: Maybe<boolean>;
 
   readonly address: Maybe<string>;
   readonly city: Maybe<string>;
@@ -185,6 +191,7 @@ export interface AggregatedListing {
   readonly rooms: MergedField<Maybe<number>>;
   readonly propertyType: MergedField<PropertyType>;
   readonly furnished: MergedField<Maybe<boolean>>;
+  readonly flatShare: MergedField<Maybe<boolean>>;
 
   readonly address: MergedField<Maybe<string>>;
   readonly city: MergedField<Maybe<string>>;

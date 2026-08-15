@@ -165,6 +165,24 @@ export function parseFurnished(text: string | null | undefined): boolean | null 
   return null;
 }
 
+/**
+ * Détermine si le bien est proposé en colocation.
+ *
+ * « colocation possible/acceptée » décrit un logement ENTIER dont le bailleur
+ * accepte des colocataires → `false`. « en colocation » / « chambre en
+ * colocation » décrit une place dans un logement partagé → `true`.
+ * `null` quand le texte ne dit rien (§17).
+ */
+export function parseFlatShare(text: string | null | undefined): boolean | null {
+  const lower = comparable(text);
+  if (lower === '') return null;
+  if (/colocation (possible|acceptee|envisageable)|possibilite de colocation/.test(lower)) {
+    return false;
+  }
+  if (/\bcolocation\b|\bcoloc\b/.test(lower)) return true;
+  return null;
+}
+
 /** Extrait un code postal français à cinq chiffres. */
 export function parsePostalCode(text: string | null | undefined): string | null {
   const cleaned = cleanText(text);

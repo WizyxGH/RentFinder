@@ -46,6 +46,8 @@ export interface ListingView {
   readonly rooms: MergedField<number | null>;
   readonly propertyType: MergedField<PropertyType>;
   readonly furnished: MergedField<boolean | null>;
+  /** Colocation — absent sur les fiches écrites avant l'ajout du champ. */
+  readonly flatShare?: MergedField<boolean | null>;
   readonly address: MergedField<string | null>;
   readonly city: MergedField<string | null>;
   readonly postalCode: MergedField<string | null>;

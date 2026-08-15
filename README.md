@@ -135,28 +135,43 @@ Worker, Pages) : [docs/deployment.md](docs/deployment.md).
 
 - Le mode automatique de contact n'a **pas d'envoi implémenté** (garde-fous
   seulement) : il n'arrivera qu'après une collecte éprouvée, comme prévu.
-- Quatre sources actives (Laforêt, Orpi, BEP Logement, Foncia) ; PAP est
-  implémentée mais désactivée (son WAF refuse les clients non-navigateurs,
-  qu'on ne contourne pas) — l'[étude des sources](docs/sources.md) détaille
-  chaque verdict.
+- Six sources actives (Laforêt, Orpi, BEP Logement, Foncia, Century 21,
+  NousGérons) ; PAP est implémentée mais désactivée (son WAF refuse les
+  clients non-navigateurs, qu'on ne contourne pas) — l'[étude des
+  sources](docs/sources.md) détaille chaque verdict.
 - Distances à vol d'oiseau corrigées (× 1,3), pas des itinéraires.
-- Leboncoin et SeLoger sont **écartés** : pas de méthode d'accès conforme
-  identifiée à ce jour.
+- Leboncoin, SeLoger et Bien'ici restent **écartés** : pas de méthode d'accès
+  conforme (les scrapers open-source existants contournent DataDome, ce que le
+  projet s'interdit — §10).
 - Les crons GitHub Actions peuvent avoir quelques minutes de retard.
 
 ## Roadmap
 
-- **MVP (actuel)** : pipeline complet, 4 sources actives (Laforêt, Orpi — GPS
-  —, BEP Logement — agence locale, méthode sitemap —, Foncia — adresses
-  complètes) + PAP prête mais désactivée, mode local zéro-cloud, 4 scores,
-  dédoublonnage, contact manuel, frontend mobile (Tailwind CSS + shadcn/ui),
-  CI, docs, 333 tests dont 18 scénarios E2E.
+- **MVP (actuel)** : pipeline complet, 6 sources actives (Laforêt, Orpi — GPS
+  —, BEP Logement — agence locale, sitemap —, Foncia — adresses —, Century 21,
+  NousGérons — colocations) + PAP prête mais désactivée, colocation détectée,
+  mode local zéro-cloud, 4 scores en anneaux, dédoublonnage, contact manuel +
+  relance, frontend mobile (Tailwind CSS + shadcn/ui), CI, docs, 349 tests
+  dont 18 scénarios E2E.
 - **V2** : adaptateurs génériques d'agences locales (le parser BEP/Apimo est
   le premier candidat), davantage d'agences niçoises, relances automatisées,
   statistiques (taux de réponse par source/heure/délai), historique des
   changements de prix.
 - **V3** : scores calibrés sur les résultats réels, scheduler optimisé
   dynamiquement, automatisation avancée.
+
+## Troubleshooting
+
+| Symptôme                                                                       | Cause probable et remède                                                                                                                                               |
+| ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm collect` n'exécute aucune source                                         | Le scheduler estime qu'aucune n'est due (intervalles §7). Vérifier la page Sources ; pour forcer, supprimer `data/local.db` (repart de zéro) ou attendre l'intervalle. |
+| Une source est `blocked`                                                       | Elle a répondu 401/403 : le scraper s'arrête définitivement et ne tentera aucun contournement (§10). Voir son verdict dans [docs/sources.md](docs/sources.md).         |
+| Une source est `cooldown`                                                      | HTTP 429 reçu : repos automatique (durée dans la page Sources), les autres sources continuent.                                                                         |
+| `Le port 8788 est déjà utilisé` au `pnpm local`                                | Un serveur tourne déjà — ouvrir http://127.0.0.1:8788, ou `PORT=8789 pnpm local`.                                                                                      |
+| L'interface locale affiche « Interface non construite »                        | Lancer `pnpm local` (qui construit), pas `pnpm --filter @rentfinder/collector serve` seul.                                                                             |
+| 0 annonce alors que la collecte a réussi                                       | Les annonces sont hors critères (≤ 700 €, ≥ 14 m², Nice). Cocher « Afficher les annonces hors critères ».                                                              |
+| Un parser ne trouve plus de prix (warning « structure probablement modifiée ») | Le site a changé son HTML : suivre la procédure de réparation de [docs/scraping.md](docs/scraping.md#diagnostiquer-un-scraper-cassé-69).                               |
+| `TURSO_DATABASE_URL manquant` en CI                                            | Normal : en CI le fallback local est désactivé — configurer le secret.                                                                                                 |
 
 ## Licence
 

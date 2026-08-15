@@ -31,6 +31,7 @@ function listing(overrides: Partial<NormalizedListing> & { id: string }): Normal
     bedrooms: null,
     propertyType: 'apartment',
     furnished: null,
+    flatShare: null,
     address: null,
     city: 'nice',
     postalCode: '06000',

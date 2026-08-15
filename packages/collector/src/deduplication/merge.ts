@@ -196,6 +196,7 @@ export function mergeGroup(occurrences: readonly NormalizedListing[]): Aggregate
     rooms: mergeField(occurrences, primary, (l) => l.rooms),
     propertyType: mergeField<PropertyType>(occurrences, primary, (l) => l.propertyType),
     furnished: mergeField(occurrences, primary, (l) => l.furnished),
+    flatShare: mergeField(occurrences, primary, (l) => l.flatShare),
 
     address: mergeField(occurrences, primary, (l) => l.address),
     city: mergeField(occurrences, primary, (l) => l.city),

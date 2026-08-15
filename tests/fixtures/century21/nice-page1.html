@@ -1,0 +1,102 @@
+<!doctype html>
+<!--
+  Fixture ANONYMISÉE reproduisant la structure de
+  /annonces/location-appartement/v-nice/ (century21.fr) observée le 2026-08-15.
+  Données FICTIVES — voir tests/fixtures/README.md.
+
+  Points structurels reproduits :
+  - cartes .js-the-list-of-properties-list-property >
+    .c-the-property-thumbnail-with-content[data-uid]
+  - lien fiche /trouver_logement/detail/{uid}/
+  - h3 : « NICE 06 / 78,27 m<sup>2</sup>, 3 pièces / Ref : 16862 /
+    Appartement F3 à louer / 3 000 € par mois charges comprises »
+  - description tronquée .tw-truncate-safe
+-->
+<html lang="fr">
+  <head>
+    <title>Location appartement à Nice (fixture C21)</title>
+  </head>
+  <body>
+    <!-- Carte 1 : F3 hors budget, charges comprises. -->
+    <div class="js-the-list-of-properties-list-property">
+      <div class="c-the-property-thumbnail-with-content" data-uid="16000000001">
+        <div class="c-the-property-thumbnail-with-content__col-left">
+          <a href="/trouver_logement/detail/16000000001/" aria-label="Appartement F3 à louer NICE">
+            <img
+              src="https://cdn.example.invalid/fixture-c21/photo-1.jpg"
+              alt="Appartement F3 à louer NICE"
+            />
+          </a>
+        </div>
+        <div class="c-the-property-thumbnail-with-content__col-right">
+          <h3>
+            <div>
+              NICE&nbsp;06 <br />
+              78,27 m<sup>2</sup>, 3 pièces
+              <div>Ref : 90001</div>
+            </div>
+            <div>
+              <div>Appartement F3 à louer</div>
+              <div>
+                3 000&nbsp;&euro;
+                <p>par mois charges comprises</p>
+              </div>
+            </div>
+          </h3>
+          <div class="tw-truncate-safe">
+            À louer Nice, quartier fictif / proche du Port. Disponible courant octobre 2026 ! Dans
+            un secteur prisé fictif…
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Carte 2 : studio dans les critères. -->
+    <div class="js-the-list-of-properties-list-property">
+      <div class="c-the-property-thumbnail-with-content" data-uid="16000000002">
+        <div class="c-the-property-thumbnail-with-content__col-left">
+          <a href="/trouver_logement/detail/16000000002/" aria-label="Appartement F1 à louer NICE">
+            <img
+              src="https://cdn.example.invalid/fixture-c21/photo-2.jpg"
+              alt="Appartement F1 à louer NICE"
+            />
+          </a>
+        </div>
+        <div class="c-the-property-thumbnail-with-content__col-right">
+          <h3>
+            <div>
+              NICE&nbsp;06 <br />
+              18 m<sup>2</sup>, 1 pièce
+              <div>Ref : 90002</div>
+            </div>
+            <div>
+              <div>Appartement F1 à louer</div>
+              <div>
+                660&nbsp;&euro;
+                <p>par mois charges comprises</p>
+              </div>
+            </div>
+          </h3>
+          <div class="tw-truncate-safe">Studio meublé fictif au calme, cuisine équipée…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Carte 3 : sans prix ni surface — champs omis. -->
+    <div class="js-the-list-of-properties-list-property">
+      <div class="c-the-property-thumbnail-with-content" data-uid="16000000003">
+        <div class="c-the-property-thumbnail-with-content__col-left">
+          <a href="/trouver_logement/detail/16000000003/" aria-label="Appartement à louer NICE">
+            <img src="https://cdn.example.invalid/fixture-c21/photo-3.jpg" alt="Appartement" />
+          </a>
+        </div>
+        <div class="c-the-property-thumbnail-with-content__col-right">
+          <h3>
+            <div>NICE&nbsp;06<div>Ref : 90003</div></div>
+            <div><div>Appartement à louer</div></div>
+          </h3>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

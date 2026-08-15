@@ -4,6 +4,42 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 Documenter ici : nouvelles sources, changements d'architecture ou de schéma,
 évolutions des scores et du système de contact, corrections importantes (§70).
 
+## [0.4.0] — 2026-08-15
+
+### Ajouté
+
+- **Source Century 21** (`century21`) : verdict initial « écartée » corrigé après
+  relecture du robots.txt — seules les recherches par code postal et par agence
+  sont interdites, pas le format par ville (SSR). 19 annonces en 1 requête.
+- **Source NousGérons** (`nousgerons`, demandée) : robots.txt ouvert, données
+  lues dans le JSON-LD ItemList ; beaucoup de colocations.
+- **Champ colocation** (`flatShare`, tri-état §17) de bout en bout : parsing
+  (« en colocation » = oui, « colocation possible » = logement entier),
+  migration `0002_flat_share`, persistance, fusion, badge sur la carte et
+  ligne dans la fiche.
+- **Anneaux de progression circulaires** (SVG inline, zéro dépendance) pour les
+  4 scores, couleur par plage, chiffre au centre.
+- **Refonte UX** : coquille commune avec navigation par onglets persistante
+  (Annonces / Sources / Profil), hiérarchie de titres renforcée, section mise
+  en avant « 🔥 À contacter maintenant » (priorité ≥ 85) séparée du reste.
+- **Relance** dans le panneau de contact (§34) : une annonce déjà contactée
+  propose un message de relance bref (`FOLLOW_UP_TEMPLATE`).
+- **Test de performance** (§56) : dédoublonnage de 2 000 annonces < 3 s,
+  comparaisons bornées bien sous O(n²).
+- **Troubleshooting** dans le README (§44).
+
+### Vérifié (revue exhaustive des sources écartées)
+
+- **Century 21** → réhabilitée (ci-dessus). **Nexity** → 403 hostile aux
+  clients non-navigateurs, écartée (§10). **Guy Hoquet** → repassée en
+  candidate (robots.txt moins hostile qu'estimé), structure à étudier.
+  **Square Habitat** → à réétudier. **Logic-Immo, Figaro, AvendreALouer** →
+  restent écartées (mêmes protections de groupe / 403).
+- **SeLoger / Leboncoin / Bien'ici** restent hors de portée : les scrapers
+  open-source existants (Fluximmo, condowatcher, lbcscraper…) sont soit
+  obsolètes, soit fondés sur le contournement de DataDome — exactement ce que
+  le §10 interdit. Aucune méthode conforme identifiée à ce jour.
+
 ## [0.3.0] — 2026-08-15
 
 ### Ajouté

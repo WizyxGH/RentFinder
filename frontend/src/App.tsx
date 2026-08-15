@@ -4,10 +4,16 @@
  * Pas de routeur, pas de gestionnaire d'état : trois vues et un `useState`
  * suffisent. §39 et §65 demandent explicitement de limiter les dépendances —
  * ajouter react-router ici coûterait 15 ko pour naviguer entre trois écrans.
+ *
+ * STRUCTURE UX : toutes les vues partagent la même coquille (`Shell`) — un
+ * en-tête persistant avec la navigation par onglets — pour que l'utilisateur
+ * sache toujours où il est et comment revenir. La liste met en avant les
+ * annonces à contacter MAINTENANT (§36 : classement par action, pas par prix).
  */
 
 import { useCallback, useEffect, useState } from 'react';
 import type { TenantProfile } from '@rentfinder/shared';
+import { MVP_CRITERIA } from '@rentfinder/shared';
 import type { ListingView, SortMode, SourceStateView, TrackingStatus } from './types.js';
 import {
   ApiError,
@@ -25,9 +31,64 @@ import { ListingCard } from './components/ListingCard.js';
 import { ListingDetail } from './components/ListingDetail.js';
 import { ProfileForm } from './components/ProfileForm.js';
 import { SourcesPanel } from './components/SourcesPanel.js';
-import { MVP_CRITERIA } from '@rentfinder/shared';
 
 type View = 'list' | 'detail' | 'profile' | 'sources';
+
+/** Seuil de mise en avant : au-delà, l'annonce mérite un contact immédiat. */
+const HOT_PRIORITY = 85;
+
+/**
+ * Coquille commune : en-tête persistant + navigation par onglets.
+ * L'onglet actif est souligné — l'utilisateur sait toujours où il est.
+ */
+function Shell({
+  view,
+  onNavigate,
+  children,
+}: {
+  readonly view: View;
+  readonly onNavigate: (view: View) => void;
+  readonly children: React.ReactNode;
+}): React.JSX.Element {
+  const tabs: readonly { key: View; label: string }[] = [
+    { key: 'list', label: 'Annonces' },
+    { key: 'sources', label: 'Sources' },
+    { key: 'profile', label: 'Profil' },
+  ];
+  // La fiche appartient à l'univers « Annonces ».
+  const active = view === 'detail' ? 'list' : view;
+
+  return (
+    <main className="mx-auto max-w-[720px] px-3 py-4 pb-12 sm:px-4 sm:py-6 sm:pb-16">
+      <header className="mb-4">
+        <div className="flex items-baseline justify-between">
+          <h1 className="text-2xl font-bold tracking-tight">Recherche Nice</h1>
+          <p className="text-sm font-medium text-muted-foreground">
+            ≤ {MVP_CRITERIA.maxPrice} € · ≥ {MVP_CRITERIA.minArea} m²
+          </p>
+        </div>
+        <nav className="mt-3 flex gap-1 border-b border-border" aria-label="Navigation principale">
+          {tabs.map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => onNavigate(tab.key)}
+              aria-current={active === tab.key ? 'page' : undefined}
+              className={`-mb-px min-h-11 cursor-pointer border-b-2 px-4 text-[0.95rem] transition-colors ${
+                active === tab.key
+                  ? 'border-primary font-semibold text-primary'
+                  : 'border-transparent font-medium text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </nav>
+      </header>
+      {children}
+    </main>
+  );
+}
 
 export function App(): React.JSX.Element {
   const [listings, setListings] = useState<readonly ListingView[]>([]);
@@ -68,6 +129,15 @@ export function App(): React.JSX.Element {
     void load();
   }, [load]);
 
+  const navigate = (next: View): void => {
+    if (next === 'sources') {
+      void openSources();
+      return;
+    }
+    if (next === 'list') setSelectedId(null);
+    setView(next);
+  };
+
   const openSources = async (): Promise<void> => {
     try {
       const response = await fetchSources();
@@ -82,7 +152,6 @@ export function App(): React.JSX.Element {
 
   const handleTrackingChange = async (status: TrackingStatus): Promise<void> => {
     if (selected === null) return;
-    // Mise à jour optimiste : l'interface reste réactive sur mobile.
     setListings((current) =>
       current.map((listing) =>
         listing.id === selected.id ? { ...listing, tracking: status } : listing,
@@ -114,7 +183,7 @@ export function App(): React.JSX.Element {
   if (needsToken) {
     return (
       <main className="mx-auto max-w-[720px] px-3 py-4 pb-12 sm:px-4 sm:py-6 sm:pb-16">
-        <h1 className="mb-3 text-xl font-bold">RentFinder</h1>
+        <h1 className="mb-3 text-2xl font-bold tracking-tight">RentFinder</h1>
         <form
           className="flex max-w-[380px] flex-col gap-2"
           onSubmit={(event) => {
@@ -140,7 +209,7 @@ export function App(): React.JSX.Element {
 
   if (view === 'profile') {
     return (
-      <main className="mx-auto max-w-[720px] px-3 py-4 pb-12 sm:px-4 sm:py-6 sm:pb-16">
+      <Shell view={view} onNavigate={navigate}>
         <ProfileForm
           initial={profile}
           onSave={(next) => {
@@ -155,21 +224,21 @@ export function App(): React.JSX.Element {
             setView('list');
           }}
         />
-      </main>
+      </Shell>
     );
   }
 
   if (view === 'sources') {
     return (
-      <main className="mx-auto max-w-[720px] px-3 py-4 pb-12 sm:px-4 sm:py-6 sm:pb-16">
+      <Shell view={view} onNavigate={navigate}>
         <SourcesPanel sources={sources} nowMs={nowMs} onBack={() => setView('list')} />
-      </main>
+      </Shell>
     );
   }
 
   if (view === 'detail' && selected !== null) {
     return (
-      <main className="mx-auto max-w-[720px] px-3 py-4 pb-12 sm:px-4 sm:py-6 sm:pb-16">
+      <Shell view={view} onNavigate={navigate}>
         <ListingDetail
           listing={selected}
           profile={profile}
@@ -179,30 +248,23 @@ export function App(): React.JSX.Element {
           onContactRecorded={(channel, message) => void handleContactRecorded(channel, message)}
           onConfigureProfile={() => setView('profile')}
         />
-      </main>
+      </Shell>
     );
   }
 
-  return (
-    <main className="mx-auto max-w-[720px] px-3 py-4 pb-12 sm:px-4 sm:py-6 sm:pb-16">
-      <header className="mb-2 flex items-start justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-bold">Recherche Nice</h1>
-          {/* §36 : rappeler les critères actifs, pour lever toute ambiguïté. */}
-          <p className="mt-0.5 text-sm text-muted-foreground">
-            ≤ {MVP_CRITERIA.maxPrice} € · ≥ {MVP_CRITERIA.minArea} m²
-          </p>
-        </div>
-        <nav className="flex gap-1">
-          <Button variant="ghost" onClick={() => setView('profile')}>
-            Profil
-          </Button>
-          <Button variant="ghost" onClick={() => void openSources()}>
-            Sources
-          </Button>
-        </nav>
-      </header>
+  // §36 : mise en avant — les annonces qui méritent un contact immédiat en
+  // tête, dans leur propre section, uniquement pour le tri par priorité.
+  const hot = sort === 'priority' ? listings.filter((l) => l.actionPriority >= HOT_PRIORITY) : [];
+  const rest =
+    sort === 'priority' ? listings.filter((l) => l.actionPriority < HOT_PRIORITY) : listings;
 
+  const openListing = (id: string): void => {
+    setSelectedId(id);
+    setView('detail');
+  };
+
+  return (
+    <Shell view={view} onNavigate={navigate}>
       {isDemoMode() && (
         <p
           className="my-2 rounded-xl border border-border bg-primary/10 px-3 py-2 text-[0.85rem]"
@@ -213,19 +275,23 @@ export function App(): React.JSX.Element {
         </p>
       )}
 
-      <div className="my-3 flex flex-wrap items-center gap-2 text-sm">
-        <label htmlFor="sort-select">Trier par</label>
-        <select
-          id="sort-select"
-          value={sort}
-          onChange={(event) => setSort(event.target.value as SortMode)}
-        >
-          <option value="priority">Priorité d’action</option>
-          <option value="recent">Plus récentes</option>
-          <option value="price">Loyer croissant</option>
-        </select>
+      <div className="my-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+        <span className="flex items-center gap-2">
+          <label htmlFor="sort-select" className="text-muted-foreground">
+            Trier par
+          </label>
+          <select
+            id="sort-select"
+            value={sort}
+            onChange={(event) => setSort(event.target.value as SortMode)}
+          >
+            <option value="priority">Priorité d’action</option>
+            <option value="recent">Plus récentes</option>
+            <option value="price">Loyer croissant</option>
+          </select>
+        </span>
 
-        <label className="flex items-center gap-1.5">
+        <label className="flex items-center gap-1.5 text-muted-foreground">
           <input
             type="checkbox"
             checked={includeOutOfCriteria}
@@ -248,21 +314,45 @@ export function App(): React.JSX.Element {
           Aucune annonce ne correspond à vos critères pour l’instant.
         </p>
       ) : (
-        <section className="flex flex-col gap-3">
-          {listings.map((listing) => (
-            <ListingCard
-              key={listing.id}
-              listing={listing}
-              nowMs={nowMs}
-              onOpen={(id) => {
-                setSelectedId(id);
-                setView('detail');
-              }}
-            />
-          ))}
-        </section>
+        <>
+          {hot.length > 0 && (
+            <section aria-labelledby="hot-title" className="mb-6">
+              <h2 id="hot-title" className="mb-2 text-lg font-bold">
+                🔥 À contacter maintenant
+              </h2>
+              <div className="flex flex-col gap-3">
+                {hot.map((listing) => (
+                  <ListingCard
+                    key={listing.id}
+                    listing={listing}
+                    nowMs={nowMs}
+                    onOpen={openListing}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
+
+          <section aria-labelledby="all-title">
+            {hot.length > 0 && (
+              <h2 id="all-title" className="mb-2 text-lg font-bold text-muted-foreground">
+                Toutes les annonces <span className="text-sm font-normal">({listings.length})</span>
+              </h2>
+            )}
+            <div className="flex flex-col gap-3">
+              {rest.map((listing) => (
+                <ListingCard
+                  key={listing.id}
+                  listing={listing}
+                  nowMs={nowMs}
+                  onOpen={openListing}
+                />
+              ))}
+            </div>
+          </section>
+        </>
       )}
-    </main>
+    </Shell>
   );
 }
 
