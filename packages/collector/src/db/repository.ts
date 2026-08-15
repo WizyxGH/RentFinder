@@ -23,6 +23,7 @@ import { actionPriority } from '@rentfinder/shared';
 import type { InValue } from '@libsql/client';
 import type { Database } from './client.js';
 import type { CacheEntry, HttpCacheStore } from '../core/http-client.js';
+import type { GeocodeCacheStore } from '../core/geocode.js';
 
 /** Instruction SQL prête pour `db.batch`. */
 type Statement = { sql: string; args: InValue[] };
@@ -51,7 +52,12 @@ function historyStatement(
     change = 'baseline';
   } else {
     const changed: string[] = [];
-    if (previous.price !== listing.price) changed.push('price');
+    if (previous.price !== listing.price) {
+      // Distinguer baisse et hausse : une baisse est un signal d'opportunité
+      // (§17), directement requêtable pour la mise en avant.
+      const bothKnown = previous.price !== null && listing.price !== null;
+      changed.push(bothKnown && listing.price < previous.price ? 'price-drop' : 'price-rise');
+    }
     if (previous.area !== listing.area) changed.push('area');
     if (previous.availableAt !== listing.availableAt) changed.push('availability');
     if (changed.length === 0) return null;
@@ -121,6 +127,11 @@ export function listingHash(listing: ScoredListing): string {
     listing.scores.opportunity.value,
     listing.scores.visitProbability.value,
     listing.scores.risk.value,
+    // Distances et baisse de prix : données dérivées affichées. Les inclure
+    // garantit qu'une fiche est réécrite une fois quand elles apparaissent
+    // (ex. adresse enfin géocodée), sans churn ensuite car elles sont stables.
+    listing.distances.map((d) => `${d.label}:${d.durationMinutes}`).sort(),
+    listing.priceDropped,
   ]);
   return createHash('sha256').update(material).digest('hex').slice(0, 32);
 }
@@ -138,6 +149,8 @@ export interface Repository {
   knownRefs(sourceId: SourceId): Promise<Set<string>>;
   upsertOccurrences(listings: readonly NormalizedListing[]): Promise<UpsertReport>;
   allActiveOccurrences(): Promise<NormalizedListing[]>;
+  /** Ids d'occurrences avec une baisse de loyer depuis `sinceIso` (§17, §31). */
+  recentPriceDropIds(sinceIso: string): Promise<Set<string>>;
   saveListings(listings: readonly ScoredListing[]): Promise<UpsertReport>;
   loadSourceState(sourceId: SourceId): Promise<SourceRuntimeState>;
   saveSourceState(state: SourceRuntimeState): Promise<void>;
@@ -149,6 +162,7 @@ export interface Repository {
     thresholds: LifecycleThresholds,
   ): Promise<void>;
   httpCache(): HttpCacheStore;
+  geocodeCache(): GeocodeCacheStore;
 }
 
 export interface LifecycleThresholds {
@@ -355,6 +369,15 @@ export function createRepository(db: Database): Repository {
         `SELECT * FROM occurrences WHERE lifecycle IN ('active', 'possiblyInactive')`,
       );
       return result.rows.map(rowToOccurrence);
+    },
+
+    async recentPriceDropIds(sinceIso) {
+      const result = await db.execute({
+        sql: `SELECT DISTINCT occurrence_id FROM listing_history
+              WHERE change = 'price-drop' AND recorded_at >= ?`,
+        args: [sinceIso],
+      });
+      return new Set(result.rows.map((row) => String(row['occurrence_id'])));
     },
 
     async saveListings(listings) {
@@ -590,6 +613,33 @@ export function createRepository(db: Database): Repository {
         },
       };
     },
+
+    geocodeCache(): GeocodeCacheStore {
+      return {
+        async get(query) {
+          const result = await db.execute({
+            sql: 'SELECT lat, lon, geocoded_at FROM geocode_cache WHERE query = ?',
+            args: [query],
+          });
+          const row = result.rows[0];
+          if (row === undefined) return null;
+          return {
+            lat: row['lat'] === null ? null : Number(row['lat']),
+            lon: row['lon'] === null ? null : Number(row['lon']),
+            geocodedAt: String(row['geocoded_at']),
+          };
+        },
+        async set(query, entry) {
+          await db.execute({
+            sql: `INSERT INTO geocode_cache (query, lat, lon, geocoded_at)
+                  VALUES (?,?,?,?)
+                  ON CONFLICT(query) DO UPDATE SET
+                    lat = excluded.lat, lon = excluded.lon, geocoded_at = excluded.geocoded_at`,
+            args: [query, entry.lat, entry.lon, entry.geocodedAt],
+          });
+        },
+      };
+    },
   };
 }
 
@@ -616,6 +666,7 @@ function serializeListing(listing: ScoredListing): unknown {
     favorites: listing.favorites,
     scores: listing.scores,
     distances: listing.distances,
+    priceDropped: listing.priceDropped,
     occurrences: listing.occurrences.map((occurrence) => ({
       id: occurrence.id,
       sourceId: occurrence.sourceId,

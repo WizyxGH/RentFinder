@@ -83,7 +83,10 @@ export function ListingDetail({
         <Button variant="ghost" onClick={onBack}>
           ← Retour
         </Button>
-        {!listing.matchesCriteria && <Badge variant="warning">Hors critères de recherche</Badge>}
+        <span className="flex gap-2">
+          {listing.priceDropped === true && <Badge variant="good">Prix en baisse</Badge>}
+          {!listing.matchesCriteria && <Badge variant="warning">Hors critères de recherche</Badge>}
+        </span>
       </header>
 
       <h1 className="mb-1 text-xl font-bold">{listing.title.value ?? 'Annonce sans titre'}</h1>

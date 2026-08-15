@@ -98,6 +98,18 @@ export function scoreMatch(listing: AggregatedListing, criteria: SearchCriteria)
     });
   }
 
+  // --- Parking / box / garage : hors périmètre (bien non résidentiel) -------
+  // L'utilisateur cherche un logement, pas une place de stationnement. On
+  // exclut de la liste principale sans perdre l'annonce (§16, §53).
+  if (listing.propertyType.value === 'parking') {
+    matchesCriteria = false;
+    reasons.push({
+      code: 'type.parking',
+      label: 'Stationnement / box — pas un logement',
+      delta: 0,
+    });
+  }
+
   // --- Colocation : filtre éliminatoire quand l'utilisateur l'exclut --------
   // C'est un filtre binaire (dedans/dehors), pas une dimension notée : il
   // n'entre ni dans `total` ni dans `maxTotal`, et un flatShare inconnu

@@ -62,7 +62,7 @@ describe('collecte de l’historique (§31)', () => {
     ]);
     const rows = await history(db);
     expect(rows).toHaveLength(2);
-    const change = rows.find((r) => r['change'] === 'price');
+    const change = rows.find((r) => r['change'] === 'price-drop');
     expect(change).toBeDefined();
     expect(Number(change?.['price'])).toBe(650);
   });

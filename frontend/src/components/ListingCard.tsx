@@ -57,6 +57,7 @@ export function ListingCard({ listing, nowMs, onOpen }: ListingCardProps): React
 
         <span className="flex flex-col items-end gap-1">
           {listing.tracking !== 'new' && <Badge>{formatTracking(listing.tracking)}</Badge>}
+          {listing.priceDropped === true && <Badge variant="good">Prix en baisse</Badge>}
           {listing.flatShare?.value === true && <Badge variant="warning">Colocation</Badge>}
         </span>
       </header>

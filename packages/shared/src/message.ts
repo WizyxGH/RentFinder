@@ -57,6 +57,7 @@ const TYPE_LABELS: Record<PropertyType, string> = {
   studio: 'le studio',
   room: 'la chambre',
   loft: 'le loft',
+  parking: 'le stationnement',
   other: 'le bien',
   unknown: 'le bien',
 };

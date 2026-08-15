@@ -4,6 +4,31 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 Documenter ici : nouvelles sources, changements d'architecture ou de schéma,
 évolutions des scores et du système de contact, corrections importantes (§70).
 
+## [0.7.0] — 2026-08-15
+
+### Ajouté
+
+- **Distance au lieu de travail par géocodage** (§20) : les annonces sans
+  coordonnées GPS mais avec une adresse (Foncia, NousGérons, D'Azur…) sont
+  géocodées via l'API officielle **Base Adresse Nationale** (gratuite, prévue
+  pour l'automatisation — §6), avec cache persistant (`geocode_cache`,
+  migration `0004`) : une adresse n'est géocodée qu'une fois (§30). Le lieu de
+  travail peut être saisi comme **adresse** (`REFERENCE_WORK_ADDRESS`) ou
+  coordonnées. Validé en réel : 52 annonces avec distance travail.
+- **Baisses de prix mises en avant** (§17) : l'historique distingue `price-drop`
+  de `price-rise`. Une baisse récente (14 j) ajoute un signal d'opportunité
+  (+12) et un **badge « Prix en baisse »** vert. Signal factuel, jamais inventé.
+- **Filtre parkings / box / garages** : nouveau type de bien `parking`, exclu
+  de la liste principale (comme les colocations) — l'utilisateur cherche un
+  logement, pas une place de stationnement. Reste consultable en « hors
+  critères ».
+
+### Corrigé
+
+- L'empreinte d'une fiche inclut désormais distances et baisse de prix : une
+  fiche est réécrite une fois quand ces données dérivées apparaissent (adresse
+  enfin géocodée), au lieu de rester figée sur son ancien contenu (§30).
+
 ## [0.6.0] — 2026-08-15
 
 ### Ajouté

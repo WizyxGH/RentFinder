@@ -145,6 +145,13 @@ export interface ReferencePoint {
   readonly mode: TravelMode;
 }
 
+/** Point de référence pas encore géocodé (adresse au lieu de coordonnées). */
+export interface ReferencePointAddress {
+  readonly label: string;
+  readonly address: string;
+  readonly mode: TravelMode;
+}
+
 /**
  * Charge les points de référence depuis l'environnement.
  *
@@ -173,6 +180,35 @@ export function loadReferencePoints(env: NodeJS.ProcessEnv = process.env): Refer
     });
   }
 
+  return points;
+}
+
+/**
+ * Points de référence fournis sous forme d'ADRESSE (`REFERENCE_WORK_ADDRESS`…)
+ * plutôt que de coordonnées — plus simple pour l'utilisateur. Ils seront
+ * géocodés une fois au démarrage de la collecte (§20). Ces adresses sont
+ * privées : elles vivent dans `.env`/secrets, jamais dans le dépôt (§26).
+ */
+export function loadReferenceAddresses(
+  env: NodeJS.ProcessEnv = process.env,
+): ReferencePointAddress[] {
+  const definitions = [
+    { prefix: 'REFERENCE_WORK', fallbackLabel: 'Travail', mode: 'transit' as TravelMode },
+    { prefix: 'REFERENCE_STATION', fallbackLabel: 'Gare', mode: 'walking' as TravelMode },
+  ];
+
+  const points: ReferencePointAddress[] = [];
+  for (const { prefix, fallbackLabel, mode } of definitions) {
+    // On ne géocode que si l'adresse est fournie ET que les coordonnées ne le
+    // sont pas déjà (les coordonnées explicites priment, elles sont exactes).
+    const address = env[`${prefix}_ADDRESS`];
+    const hasCoords =
+      Number.isFinite(Number.parseFloat(env[`${prefix}_LAT`] ?? '')) &&
+      Number.isFinite(Number.parseFloat(env[`${prefix}_LON`] ?? ''));
+    if (address === undefined || address.trim() === '' || hasCoords) continue;
+
+    points.push({ label: env[`${prefix}_LABEL`] ?? fallbackLabel, address, mode });
+  }
   return points;
 }
 

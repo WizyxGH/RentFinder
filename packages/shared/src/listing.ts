@@ -18,7 +18,17 @@ import type { ListingScores } from './scores.js';
 import type { IsoDateTime, Maybe, MergedField, SourceId } from './provenance.js';
 
 /** Type de bien. `unknown` lorsque la source ne le précise pas (§17). */
-export type PropertyType = 'apartment' | 'house' | 'studio' | 'room' | 'loft' | 'other' | 'unknown';
+export type PropertyType =
+  | 'apartment'
+  | 'house'
+  | 'studio'
+  | 'room'
+  | 'loft'
+  // Bien NON résidentiel (parking, box, garage) : bruit pour ce projet, exclu
+  // de la liste principale (§16).
+  | 'parking'
+  | 'other'
+  | 'unknown';
 
 /**
  * Cycle de vie d'une annonce (§32).
@@ -244,4 +254,9 @@ export interface ScoredListing extends AggregatedListing {
   readonly distances: readonly ReferenceDistance[];
   /** `false` si l'annonce sort des critères de recherche actifs (§16). */
   readonly matchesCriteria: boolean;
+  /**
+   * `true` si le loyer d'au moins une source a baissé récemment (§17 : signal
+   * d'opportunité — agir maintenant). Déduit de `listing_history`.
+   */
+  readonly priceDropped: boolean;
 }

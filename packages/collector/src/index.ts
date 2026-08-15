@@ -22,6 +22,13 @@ export {
 } from './core/http-client.js';
 export { budgetFor, scheduleFor, DEFAULT_BUDGET } from './core/budgets.js';
 export { haversineKm, estimateDurationMinutes, type TravelMode } from './core/geo.js';
+export {
+  createGeocoder,
+  createMemoryGeocodeCache,
+  geocodeCacheKey,
+  type Geocoder,
+  type GeocodeCacheStore,
+} from './core/geocode.js';
 
 export { decideForSource, effectiveInterval, planRun } from './scheduler/scheduler.js';
 

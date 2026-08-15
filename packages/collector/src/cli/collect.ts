@@ -23,8 +23,10 @@ import {
   backfillEnabled,
   collectorUserAgent,
   loadPublicConfig,
+  loadReferenceAddresses,
   loadReferencePoints,
 } from '../config.js';
+import { createGeocoder } from '../core/geocode.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS_DIR = resolve(here, '../../../../database/migrations');
@@ -55,12 +57,39 @@ async function main(): Promise<void> {
 
   try {
     await migrate(db, MIGRATIONS_DIR, logger);
+    const repository = createRepository(db);
+
+    // Points de référence : coordonnées explicites (§20), complétées par les
+    // adresses géocodées une fois (REFERENCE_*_ADDRESS) — l'utilisateur peut
+    // ainsi saisir « 12 rue X, Nice » au lieu de chercher ses coordonnées GPS.
+    const referencePoints = [...loadReferencePoints()];
+    const toGeocode = loadReferenceAddresses();
+    if (toGeocode.length > 0) {
+      const geocoder = createGeocoder({
+        cache: repository.geocodeCache(),
+        nowMs: systemClock.now(),
+        userAgent: collectorUserAgent(),
+      });
+      for (const point of toGeocode) {
+        const coords = await geocoder.geocode(point.address);
+        if (coords === null) {
+          logger.warn('reference.geocode_failed', { label: point.label });
+          continue;
+        }
+        referencePoints.push({
+          label: point.label,
+          latitude: coords.latitude,
+          longitude: coords.longitude,
+          mode: point.mode,
+        });
+      }
+    }
 
     const report = await runPipeline({
       registry: createRegistry(ALL_SCRAPERS),
-      repository: createRepository(db),
+      repository,
       config,
-      referencePoints: loadReferencePoints(),
+      referencePoints,
       userAgent: collectorUserAgent(),
       mode,
       clock: systemClock,

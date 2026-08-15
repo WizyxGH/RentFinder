@@ -144,6 +144,10 @@ export function parsePropertyType(text: string | null | undefined): PropertyType
   const lower = comparable(text);
   if (lower === '') return 'unknown';
 
+  // Non résidentiel d'abord : « Location Stationnement », box, garage…
+  if (/\bstationnement\b|\bparking\b|\bgarage\b|\bbox\b|\bemplacement\b/.test(lower)) {
+    return 'parking';
+  }
   if (/\bstudio\b|\bstudette\b/.test(lower)) return 'studio';
   if (/\bloft\b/.test(lower)) return 'loft';
   if (/\bchambre\b/.test(lower) && !/\bappartement\b/.test(lower)) return 'room';

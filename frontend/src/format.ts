@@ -30,6 +30,7 @@ const PROPERTY_TYPE_LABELS: Record<PropertyType, string> = {
   studio: 'Studio',
   room: 'Chambre',
   loft: 'Loft',
+  parking: 'Stationnement',
   other: 'Autre',
   unknown: 'Type inconnu',
 };

@@ -12,7 +12,7 @@ import type {
   SearchCriteria,
 } from '@rentfinder/shared';
 import type { ReferencePoint } from '../config.js';
-import { estimateDurationMinutes, haversineKm } from '../core/geo.js';
+import { estimateDurationMinutes, haversineKm, type Coordinates } from '../core/geo.js';
 import { scoreMatch } from './match.js';
 import { scoreOpportunity } from './opportunity.js';
 import { scoreRisk } from './risk.js';
@@ -32,6 +32,10 @@ export interface ScoringOptions {
   readonly observedStats?: {
     readonly visitRateBySource?: Readonly<Record<string, number>>;
   };
+  /** Ids d'occurrences dont le loyer a récemment baissé (§17). */
+  readonly priceDroppedIds?: ReadonlySet<string>;
+  /** Coordonnées issues du géocodage de l'adresse, si la source n'a pas de GPS (§20). */
+  readonly resolvedCoordinates?: Coordinates | null;
 }
 
 /**
@@ -43,9 +47,13 @@ export interface ScoringOptions {
 export function computeDistances(
   listing: AggregatedListing,
   points: readonly ReferencePoint[],
+  resolved?: Coordinates | null,
 ): ReferenceDistance[] {
-  const latitude = listing.latitude.value;
-  const longitude = listing.longitude.value;
+  // Coordonnées de l'annonce si la source les fournit, sinon celles issues du
+  // géocodage de l'adresse (§20). Sans ni l'une ni l'autre, aucune distance :
+  // une approximation par le seul nom de ville induirait en erreur.
+  const latitude = listing.latitude.value ?? resolved?.latitude ?? null;
+  const longitude = listing.longitude.value ?? resolved?.longitude ?? null;
   if (latitude === null || longitude === null) return [];
 
   return points.map((point) => {
@@ -62,19 +70,23 @@ export function computeDistances(
 /** Applique les quatre scores et les distances à un logement. */
 export function scoreListing(listing: AggregatedListing, options: ScoringOptions): ScoredListing {
   const match = scoreMatch(listing, options.criteria);
+  const priceDropped =
+    options.priceDroppedIds !== undefined &&
+    listing.occurrences.some((occurrence) => options.priceDroppedIds?.has(occurrence.id));
 
   return {
     ...listing,
     scores: {
       match: match.score,
-      opportunity: scoreOpportunity(listing, { nowMs: options.nowMs }),
+      opportunity: scoreOpportunity(listing, { nowMs: options.nowMs, priceDropped }),
       visitProbability: scoreVisitProbability(listing, {
         nowMs: options.nowMs,
         ...(options.observedStats !== undefined ? { observedStats: options.observedStats } : {}),
       }),
       risk: scoreRisk(listing, { referencePricePerSqm: options.referencePricePerSqm }),
     },
-    distances: computeDistances(listing, options.referencePoints),
+    distances: computeDistances(listing, options.referencePoints, options.resolvedCoordinates),
     matchesCriteria: match.matchesCriteria,
+    priceDropped,
   };
 }

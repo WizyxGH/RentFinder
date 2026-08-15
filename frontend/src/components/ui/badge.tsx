@@ -10,6 +10,7 @@ const badgeVariants = cva(
       variant: {
         default: 'bg-border text-foreground',
         warning: 'border border-medium bg-transparent text-medium',
+        good: 'border border-good/40 bg-good/10 text-good',
       },
     },
     defaultVariants: { variant: 'default' },

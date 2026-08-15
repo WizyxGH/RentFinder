@@ -126,6 +126,12 @@ describe('parsePropertyType', () => {
     expect(parsePropertyType('T3')).toBe('apartment');
   });
 
+  it('reconnaît les biens non résidentiels comme parking', () => {
+    expect(parsePropertyType('Location Stationnement')).toBe('parking');
+    expect(parsePropertyType('Box')).toBe('parking');
+    expect(parsePropertyType('Garage fermé')).toBe('parking');
+  });
+
   it('rend unknown plutôt que de supposer', () => {
     expect(parsePropertyType('')).toBe('unknown');
     expect(parsePropertyType(null)).toBe('unknown');

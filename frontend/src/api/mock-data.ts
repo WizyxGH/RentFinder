@@ -207,6 +207,7 @@ export const MOCK_LISTINGS: readonly ListingView[] = [
       },
     ],
     matchesCriteria: true,
+    priceDropped: true,
     actionPriority: 72,
     tracking: 'new',
     lifecycle: 'active',

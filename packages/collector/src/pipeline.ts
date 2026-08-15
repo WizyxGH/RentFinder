@@ -32,8 +32,27 @@ import { normalizeAll } from './normalization/normalize.js';
 import { dedupe } from './deduplication/dedupe.js';
 import { mergeGroup } from './deduplication/merge.js';
 import { scoreListing } from './scoring/index.js';
+import { createGeocoder, geocodeCacheKey } from './core/geocode.js';
+import type { Coordinates } from './core/geo.js';
+import type { AggregatedListing } from '@rentfinder/shared';
 import type { Repository } from './db/repository.js';
 import type { PublicConfig, ReferencePoint } from './config.js';
+
+/** Plafond d'appels réseau de géocodage par run (les adresses en cache sont gratuites, §30). */
+const GEOCODE_NETWORK_BUDGET = 80;
+
+/**
+ * Construit la requête de géocodage d'un logement : uniquement s'il a une
+ * adresse de rue (numéro/voie), jamais sur la seule ville (§17, §20).
+ */
+function geocodeQuery(listing: AggregatedListing): string | null {
+  const address = listing.address.value;
+  if (address === null || address.trim().length < 4) return null;
+  const parts = [address, listing.postalCode.value, listing.city.value].filter(
+    (part): part is string => part !== null && part.trim() !== '',
+  );
+  return parts.join(' ');
+}
 
 export interface PipelineOptions {
   readonly registry: SourceRegistry;
@@ -269,12 +288,50 @@ export async function runPipeline(options: PipelineOptions): Promise<PipelineRep
   logger.info('pipeline.deduplicated', { groups: groups.length, comparisons: comparisonCount });
 
   // --- 6. Fusion et scoring -------------------------------------------------
-  const scored: ScoredListing[] = groups.map((group) =>
-    scoreListing(mergeGroup(group.occurrences), {
+  // Baisses de loyer des 14 derniers jours : signal d'opportunité (§17).
+  const priceDropSince = new Date(nowMs - 14 * 24 * 60 * 60 * 1000).toISOString();
+  const priceDroppedIds = await repository.recentPriceDropIds(priceDropSince);
+
+  const merged = groups.map((group) => mergeGroup(group.occurrences));
+
+  // Géocodage des adresses pour la distance au travail/gare (§20). Inutile si
+  // aucun point de référence n'est configuré → aucun appel réseau dans ce cas.
+  const geocoded = new Map<string, Coordinates | null>();
+  if (options.referencePoints.length > 0) {
+    const geocoder = createGeocoder({
+      cache: repository.geocodeCache(),
+      nowMs,
+      userAgent: options.userAgent,
+      ...(options.fetchImpl !== undefined ? { fetchImpl: options.fetchImpl } : {}),
+    });
+    let networkBudget = GEOCODE_NETWORK_BUDGET;
+    for (const listing of merged) {
+      // Seulement les annonces sans GPS mais avec une adresse de rue : géocoder
+      // une simple ville donnerait un centre-ville trompeur (§17).
+      if (listing.latitude.value !== null && listing.longitude.value !== null) continue;
+      const query = geocodeQuery(listing);
+      if (query === null) continue;
+
+      const cached = await repository.geocodeCache().get(geocodeCacheKey(query));
+      if (cached === null && networkBudget <= 0) continue; // budget réseau épuisé
+      if (cached === null) networkBudget -= 1;
+
+      geocoded.set(listing.id, await geocoder.geocode(query));
+    }
+    logger.info('pipeline.geocoded', {
+      resolved: [...geocoded.values()].filter((c) => c !== null).length,
+      attempted: geocoded.size,
+    });
+  }
+
+  const scored: ScoredListing[] = merged.map((listing) =>
+    scoreListing(listing, {
       criteria: config.criteria,
       nowMs,
       referencePricePerSqm: config.referencePricePerSqm,
       referencePoints: options.referencePoints,
+      priceDroppedIds,
+      resolvedCoordinates: geocoded.get(listing.id) ?? null,
     }),
   );
 

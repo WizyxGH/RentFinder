@@ -26,6 +26,8 @@ const FRESHNESS_TIERS: readonly { maxMinutes: number; points: number; label: str
 
 export interface OpportunityOptions {
   readonly nowMs: number;
+  /** `true` si le loyer a récemment baissé — signal d'opportunité fort (§17). */
+  readonly priceDropped?: boolean;
 }
 
 /**
@@ -105,6 +107,14 @@ export function scoreOpportunity(
       unknownSignals.push('moyen de contact');
       reasons.push({ code: 'contact.none', label: 'Aucune coordonnée publiée', delta: 0 });
     }
+  }
+
+  // --- Baisse de prix récente (jusqu'à 12 points) --------------------------
+  // Un bailleur qui baisse son loyer cherche activement un locataire : c'est
+  // le moment d'agir (§17). Signal factuel issu de `listing_history`.
+  if (options.priceDropped === true) {
+    total += 12;
+    reasons.push({ code: 'price.dropped', label: 'Loyer récemment en baisse', delta: 12 });
   }
 
   // --- Multi-diffusion (jusqu'à 10 points) ---------------------------------

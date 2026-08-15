@@ -61,6 +61,8 @@ export interface ListingView {
   readonly distances: readonly ReferenceDistance[];
   readonly occurrences: readonly OccurrenceView[];
   readonly matchesCriteria: boolean;
+  /** `true` si le loyer a récemment baissé (§17) — mis en avant dans l'UI. */
+  readonly priceDropped?: boolean;
   readonly actionPriority: number;
   readonly tracking: TrackingStatus;
   readonly lifecycle: 'active' | 'possiblyInactive' | 'inactive';

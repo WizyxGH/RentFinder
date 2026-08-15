@@ -50,6 +50,14 @@ describe('scoreMatch (§16)', () => {
     expect(matchesCriteria).toBe(false);
   });
 
+  it('exclut un stationnement de la liste principale', () => {
+    const { matchesCriteria } = scoreMatch(
+      makeAggregated({ propertyType: 'parking' }),
+      MVP_CRITERIA,
+    );
+    expect(matchesCriteria).toBe(false);
+  });
+
   it('exclut une colocation quand excludeFlatShare est actif', () => {
     const { matchesCriteria } = scoreMatch(makeAggregated({ flatShare: true }), MVP_CRITERIA);
     expect(matchesCriteria).toBe(false);
@@ -151,6 +159,14 @@ describe('scoreOpportunity (§17)', () => {
     );
     expect(deduced.unknownSignals).toContain('date de publication exacte');
     expect(deduced.reasons.some((reason) => reason.code === 'freshness.firstSeen')).toBe(true);
+  });
+
+  it('valorise une baisse de loyer récente (§17)', () => {
+    const base = makeAggregated({ publishedAt: minutesBefore(120) });
+    const dropped = scoreOpportunity(base, { nowMs: TEST_NOW, priceDropped: true });
+    const stable = scoreOpportunity(base, { nowMs: TEST_NOW, priceDropped: false });
+    expect(dropped.value).toBeGreaterThan(stable.value);
+    expect(dropped.reasons.some((reason) => reason.code === 'price.dropped')).toBe(true);
   });
 
   it('tient compte de la diffusion multi-sources', () => {
