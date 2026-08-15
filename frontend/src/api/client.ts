@@ -12,7 +12,14 @@
  *     présent dans le code ni dans le bundle publié sur GitHub Pages (§26).
  */
 
-import type { ListingView, ListingsResponse, SortMode, SourceStateView } from '../types.js';
+import type {
+  FilterConfig,
+  ListingView,
+  ListingsResponse,
+  SortMode,
+  SourceStateView,
+} from '../types.js';
+import { MVP_CRITERIA } from '@rentfinder/shared';
 import { MOCK_LISTINGS, MOCK_SOURCES } from './mock-data.js';
 
 const TOKEN_STORAGE_KEY = 'rentfinder.apiToken';
@@ -162,4 +169,31 @@ export async function recordContact(
 export async function fetchSources(): Promise<{ sources: readonly SourceStateView[] }> {
   if (isDemoMode()) return { sources: MOCK_SOURCES };
   return request<{ sources: readonly SourceStateView[] }>('/api/sources');
+}
+
+/** Filtres par défaut, pour le mode démo (pas de fichier de config). */
+function demoFilters(): FilterConfig {
+  return {
+    cities: [...MVP_CRITERIA.cities],
+    maxPrice: MVP_CRITERIA.maxPrice,
+    minArea: MVP_CRITERIA.minArea,
+    ...(MVP_CRITERIA.minPrice !== undefined ? { minPrice: MVP_CRITERIA.minPrice } : {}),
+    ...(MVP_CRITERIA.excludeFlatShare !== undefined
+      ? { excludeFlatShare: MVP_CRITERIA.excludeFlatShare }
+      : {}),
+    ...(MVP_CRITERIA.excludeStudent !== undefined
+      ? { excludeStudent: MVP_CRITERIA.excludeStudent }
+      : {}),
+  };
+}
+
+export async function fetchFilters(): Promise<FilterConfig> {
+  if (isDemoMode()) return demoFilters();
+  return request<FilterConfig>('/api/config');
+}
+
+/** Enregistre les filtres (§66). En démo, no-op qui renvoie l'entrée. */
+export async function saveFilters(filters: FilterConfig): Promise<FilterConfig> {
+  if (isDemoMode()) return filters;
+  return request<FilterConfig>('/api/config', { method: 'PUT', body: JSON.stringify(filters) });
 }

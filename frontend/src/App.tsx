@@ -31,8 +31,9 @@ import { ListingCard } from './components/ListingCard.js';
 import { ListingDetail } from './components/ListingDetail.js';
 import { ProfileForm } from './components/ProfileForm.js';
 import { SourcesPanel } from './components/SourcesPanel.js';
+import { FiltersPanel } from './components/FiltersPanel.js';
 
-type View = 'list' | 'detail' | 'profile' | 'sources';
+type View = 'list' | 'detail' | 'filters' | 'profile' | 'sources';
 
 /** Seuil de mise en avant : au-delà, l'annonce mérite un contact immédiat. */
 const HOT_PRIORITY = 85;
@@ -92,6 +93,7 @@ function Shell({
 }): React.JSX.Element {
   const tabs: readonly { key: View; label: string }[] = [
     { key: 'list', label: 'Annonces' },
+    { key: 'filters', label: 'Filtres' },
     { key: 'profile', label: 'Profil' },
     { key: 'sources', label: 'Sources' },
   ];
@@ -272,6 +274,18 @@ export function App(): React.JSX.Element {
     return (
       <Shell view={view} onNavigate={navigate}>
         <SourcesPanel sources={sources} nowMs={nowMs} onBack={() => setView('list')} />
+      </Shell>
+    );
+  }
+
+  if (view === 'filters') {
+    return (
+      <Shell view={view} onNavigate={navigate}>
+        <FiltersPanel
+          onSaved={() => {
+            void load();
+          }}
+        />
       </Shell>
     );
   }

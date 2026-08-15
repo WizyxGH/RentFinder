@@ -4,6 +4,19 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 Documenter ici : nouvelles sources, changements d'architecture ou de schéma,
 évolutions des scores et du système de contact, corrections importantes (§70).
 
+## [0.10.0] — 2026-08-15
+
+### Ajouté
+
+- **Filtres réglables depuis l'interface** (§66) : nouvel onglet « Filtres »
+  (budget, loyer minimum, surface, exclusions coloc/étudiant). API locale
+  `GET`/`PUT /api/config` qui lit/écrit `config/search.json`. Le budget et la
+  surface s'appliquent **immédiatement** (filtrage SQL en direct) ; les
+  exclusions prennent effet au prochain `pnpm collect`.
+- **Filtres prix plancher et location étudiante** : `minPrice` (défaut 250 €,
+  écarte les parkings/box mal étiquetés « appartement ») et `excludeStudent`
+  (résidences étudiantes / Erasmus / CROUS, sur signaux forts).
+
 ## [0.9.0] — 2026-08-15
 
 ### Changé — projet désormais 100% local

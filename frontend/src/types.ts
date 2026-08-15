@@ -94,3 +94,13 @@ export interface SourceStateView {
 }
 
 export type SortMode = 'priority' | 'recent' | 'price';
+
+/** Filtres de recherche éditables depuis l'interface (§66). */
+export interface FilterConfig {
+  cities: string[];
+  maxPrice: number;
+  minPrice?: number;
+  minArea: number;
+  excludeFlatShare?: boolean;
+  excludeStudent?: boolean;
+}

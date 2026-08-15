@@ -16,6 +16,7 @@
  */
 
 import type { Client } from '@libsql/client';
+import { readSearchFilters, writeSearchFilters } from '../config.js';
 
 /** Statuts de suivi acceptés par l'API (§35). */
 const TRACKING_STATUSES = new Set([
@@ -84,14 +85,38 @@ async function listListings(db: Client, url: URL): Promise<unknown> {
 
   // §53 scénario 3 : les annonces hors critères ne remontent pas par défaut.
   const includeAll = url.searchParams.get('all') === 'true';
-  const filter = includeAll ? '' : "WHERE matches_criteria = 1 AND lifecycle != 'inactive'";
+  const conditions: string[] = [];
+  const filterArgs: Array<string | number> = [];
+
+  if (!includeAll) {
+    conditions.push('matches_criteria = 1', "lifecycle != 'inactive'");
+
+    // Filtres NUMÉRIQUES appliqués en direct : ajuster le budget ou la surface
+    // depuis l'interface se répercute immédiatement, sans re-collecter. Un
+    // champ NULL n'exclut jamais (§17). Les exclusions coloc/étudiant, elles,
+    // sont figées à la collecte (matches_criteria) et changent au prochain run.
+    const f = readSearchFilters();
+    conditions.push('(price IS NULL OR price <= ?)');
+    filterArgs.push(f.maxPrice);
+    if (f.minPrice !== undefined) {
+      conditions.push('(price IS NULL OR price >= ?)');
+      filterArgs.push(f.minPrice);
+    }
+    conditions.push('(area IS NULL OR area >= ?)');
+    filterArgs.push(f.minArea);
+  }
+
+  const filter = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
   const result = await db.execute({
     sql: `SELECT * FROM listings ${filter} ORDER BY ${orderBy} LIMIT ? OFFSET ?`,
-    args: [limit, offset],
+    args: [...filterArgs, limit, offset],
   });
 
-  const total = await db.execute(`SELECT COUNT(*) AS n FROM listings ${filter}`);
+  const total = await db.execute({
+    sql: `SELECT COUNT(*) AS n FROM listings ${filter}`,
+    args: filterArgs,
+  });
 
   return {
     listings: result.rows.map((row) => rowToListing(row as Record<string, unknown>)),
@@ -258,6 +283,20 @@ export async function route(
   const resource = segments[1];
   const id = segments[2];
   const action = segments[3];
+
+  // Filtres de recherche éditables depuis l'interface (§66).
+  if (resource === 'config') {
+    if (method === 'GET') return json(readSearchFilters(), cors);
+    if (method === 'PUT') {
+      const body = await request.json().catch(() => null);
+      try {
+        return json(writeSearchFilters(body), cors);
+      } catch (error) {
+        return jsonError(400, error instanceof Error ? error.message : 'Filtres invalides');
+      }
+    }
+    return json({ error: 'Route inconnue' }, cors, 404);
+  }
 
   if (resource === 'sources' && method === 'GET') {
     return json(await listSources(db), cors);

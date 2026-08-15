@@ -14,7 +14,7 @@
  * public.
  */
 
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import type { AutoContactLimits, SearchCriteria, TenantProfile } from '@rentfinder/shared';
 import { MVP_CRITERIA } from '@rentfinder/shared';
@@ -69,6 +69,78 @@ export const PUBLIC_CONFIG: PublicConfig = {
  * répertoire d'exécution du CLI.
  */
 const SEARCH_CONFIG_URL = new URL('../../../config/search.json', import.meta.url);
+
+/** Filtres éditables depuis l'interface (sous-ensemble de SearchCriteria). */
+export interface EditableFilters {
+  readonly cities: readonly string[];
+  readonly maxPrice: number;
+  readonly minPrice?: number;
+  readonly minArea: number;
+  readonly excludeFlatShare?: boolean;
+  readonly excludeStudent?: boolean;
+}
+
+/** Lit les filtres courants (fichier + défauts) pour les présenter à l'UI. */
+export function readSearchFilters(): EditableFilters {
+  const c = loadPublicConfig().criteria;
+  return {
+    cities: c.cities,
+    maxPrice: c.maxPrice,
+    minArea: c.minArea,
+    ...(c.minPrice !== undefined ? { minPrice: c.minPrice } : {}),
+    ...(c.excludeFlatShare !== undefined ? { excludeFlatShare: c.excludeFlatShare } : {}),
+    ...(c.excludeStudent !== undefined ? { excludeStudent: c.excludeStudent } : {}),
+  };
+}
+
+/**
+ * Écrit les filtres dans `config/search.json`, en préservant les clés non
+ * éditables du fichier (ex. `referencePricePerSqm`, `_commentaire`). Valide les
+ * types ; lève sur entrée aberrante. Écriture atomique-ish (une seule passe).
+ */
+export function writeSearchFilters(input: unknown): EditableFilters {
+  const filters = validateFilters(input);
+
+  // Repartir du fichier existant pour ne pas perdre les autres réglages.
+  let existing: Record<string, unknown> = {};
+  try {
+    existing = JSON.parse(readFileSync(fileURLToPath(SEARCH_CONFIG_URL), 'utf8')) as Record<
+      string,
+      unknown
+    >;
+  } catch {
+    /* fichier absent ou illisible : on repart de zéro */
+  }
+
+  const merged = { ...existing, ...filters };
+  writeFileSync(fileURLToPath(SEARCH_CONFIG_URL), `${JSON.stringify(merged, null, 2)}\n`, 'utf8');
+  return filters;
+}
+
+/** Valide et normalise les filtres reçus de l'interface. */
+function validateFilters(input: unknown): EditableFilters {
+  if (typeof input !== 'object' || input === null) throw new Error('Filtres invalides');
+  const o = input as Record<string, unknown>;
+
+  const cities = Array.isArray(o['cities'])
+    ? o['cities'].filter((c): c is string => typeof c === 'string' && c.trim() !== '')
+    : MVP_CRITERIA.cities;
+  const num = (v: unknown, fallback: number): number =>
+    typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : fallback;
+
+  const maxPrice = num(o['maxPrice'], MVP_CRITERIA.maxPrice);
+  const minPrice = num(o['minPrice'], MVP_CRITERIA.minPrice ?? 0);
+  if (minPrice > maxPrice) throw new Error('Le loyer minimum dépasse le maximum');
+
+  return {
+    cities: cities.length > 0 ? cities : MVP_CRITERIA.cities,
+    maxPrice,
+    minPrice,
+    minArea: num(o['minArea'], MVP_CRITERIA.minArea),
+    excludeFlatShare: o['excludeFlatShare'] === true,
+    excludeStudent: o['excludeStudent'] === true,
+  };
+}
 
 /**
  * Charge la configuration publique en fusionnant `config/search.json` (s'il

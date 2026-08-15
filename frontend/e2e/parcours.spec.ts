@@ -129,3 +129,15 @@ test('l’interface est utilisable sur mobile sans défilement horizontal (§39)
   );
   expect(overflow).toBe(false);
 });
+
+test('les filtres sont réglables depuis le site (§66)', async ({ page }) => {
+  await page.getByRole('button', { name: 'Filtres' }).click();
+
+  await expect(page.getByRole('heading', { name: 'Filtres de recherche' })).toBeVisible();
+  const budget = page.getByLabel('Budget maximum (€/mois)');
+  await expect(budget).toBeVisible();
+  await budget.fill('600');
+
+  await page.getByRole('button', { name: 'Enregistrer' }).click();
+  await expect(page.getByText(/Filtres enregistrés/)).toBeVisible();
+});

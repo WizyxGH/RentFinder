@@ -1,5 +1,5 @@
 {
-  "_commentaire": "Filtres de recherche — éditez ce fichier puis relancez `pnpm collect`. Voir config/README.md pour le détail de chaque champ. Ces réglages sont publics (aucune donnée personnelle) ; les points de référence privés (travail, gare) vont dans .env, pas ici.",
+  "_commentaire": "Filtres de recherche. Éditez ce fichier OU réglez-les depuis l'interface (bouton Filtres). Voir config/README.md. Réglages publics ; les points de référence privés (travail, gare) vont dans .env.",
   "cities": ["nice"],
   "maxPrice": 700,
   "minPrice": 250,
