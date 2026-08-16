@@ -53,7 +53,7 @@ function listing(over: Partial<ListingView> & { id: string }): ListingView {
     lifecycle: 'active',
     firstSeenAt: '2026-08-16T00:00:00.000Z',
     lastSeenAt: '2026-08-16T00:00:00.000Z',
-  } as ListingView;
+  } as unknown as ListingView;
 }
 
 describe('computeAffinity', () => {
