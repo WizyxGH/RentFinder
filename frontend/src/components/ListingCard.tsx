@@ -18,6 +18,7 @@ import {
   formatSourceName,
   formatTracking,
 } from '../format.js';
+import { AFFINITY_BADGE_THRESHOLD } from '../affinity.js';
 import { ScoreRow } from './Scores.js';
 import { Badge } from '@/components/ui/badge.js';
 import { Button } from '@/components/ui/button.js';
@@ -29,6 +30,8 @@ interface ListingCardProps {
   readonly onOpen: (id: string) => void;
   /** Archive (`true`) ou désarchive (`false`) l'annonce. */
   readonly onArchive?: (archived: boolean) => void;
+  /** Score d'affinité [0,1] avec vos préférences, si assez de signal (§33). */
+  readonly affinity?: number;
 }
 
 /**
@@ -47,6 +50,7 @@ export function ListingCard({
   nowMs,
   onOpen,
   onArchive,
+  affinity,
 }: ListingCardProps): React.JSX.Element {
   const sources = [...new Set(listing.occurrences.map((occurrence) => occurrence.sourceId))];
   const isHot = listing.actionPriority >= 85;
@@ -95,6 +99,9 @@ export function ListingCard({
 
         <span className="flex shrink-0 flex-col items-end gap-1">
           {archived && <Badge variant="warning">Archivée</Badge>}
+          {affinity !== undefined && affinity >= AFFINITY_BADGE_THRESHOLD && !archived && (
+            <Badge variant="good">Vos préférences</Badge>
+          )}
           {listing.viewed === true && !archived && <Badge>Déjà consultée</Badge>}
           {listing.tracking !== 'new' && <Badge>{formatTracking(listing.tracking)}</Badge>}
           {listing.priceDropped === true && <Badge variant="good">Prix en baisse</Badge>}

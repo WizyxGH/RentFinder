@@ -180,27 +180,47 @@ async function listSources(db: Client): Promise<unknown> {
 
 async function getStats(db: Client): Promise<unknown> {
   // §33 : statistiques simples pour commencer, pas de modèle complexe.
-  const [listings, contacts, outcomes] = await Promise.all([
+  const [listings, engagement, contacts, outcomes, byTracking, bySource] = await Promise.all([
     db.execute(`
       SELECT COUNT(*) AS total,
              SUM(CASE WHEN matches_criteria = 1 THEN 1 ELSE 0 END) AS matching,
              SUM(CASE WHEN lifecycle = 'active' THEN 1 ELSE 0 END) AS active
       FROM listings
     `),
+    db.execute(
+      'SELECT SUM(viewed) AS viewed, SUM(archived) AS archived FROM listings WHERE matches_criteria = 1',
+    ),
     db.execute('SELECT COUNT(*) AS total FROM contact_attempts'),
     db.execute('SELECT outcome, COUNT(*) AS n FROM contact_attempts GROUP BY outcome'),
+    db.execute(
+      'SELECT tracking, COUNT(*) AS n FROM listings WHERE matches_criteria = 1 GROUP BY tracking',
+    ),
+    db.execute(`
+      SELECT source_id, COUNT(*) AS n FROM occurrences
+      WHERE lifecycle IN ('active', 'possiblyInactive') GROUP BY source_id ORDER BY n DESC
+    `),
   ]);
 
-  const byOutcome: Record<string, number> = {};
-  for (const row of outcomes.rows) byOutcome[String(row['outcome'])] = Number(row['n']);
+  const toMap = (rows: readonly Record<string, unknown>[], key: string): Record<string, number> => {
+    const map: Record<string, number> = {};
+    for (const row of rows) map[String(row[key])] = Number(row['n']);
+    return map;
+  };
 
   return {
     listings: {
       total: Number(listings.rows[0]?.['total'] ?? 0),
       matching: Number(listings.rows[0]?.['matching'] ?? 0),
       active: Number(listings.rows[0]?.['active'] ?? 0),
+      viewed: Number(engagement.rows[0]?.['viewed'] ?? 0),
+      archived: Number(engagement.rows[0]?.['archived'] ?? 0),
     },
-    contacts: { total: Number(contacts.rows[0]?.['total'] ?? 0), byOutcome },
+    byTracking: toMap(byTracking.rows as Record<string, unknown>[], 'tracking'),
+    bySource: toMap(bySource.rows as Record<string, unknown>[], 'source_id'),
+    contacts: {
+      total: Number(contacts.rows[0]?.['total'] ?? 0),
+      byOutcome: toMap(outcomes.rows as Record<string, unknown>[], 'outcome'),
+    },
   };
 }
 

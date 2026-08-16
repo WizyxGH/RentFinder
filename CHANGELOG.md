@@ -4,6 +4,21 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 Documenter ici : nouvelles sources, changements d'architecture ou de schéma,
 évolutions des scores et du système de contact, corrections importantes (§70).
 
+## [0.14.0] — 2026-08-16
+
+### Ajouté
+
+- **Classement par affinité** (§33) : le classement par priorité tient compte
+  de vos interactions — les annonces qui ressemblent à celles que vous avez
+  consultées/suivies remontent, celles proches des archivées descendent. Badge
+  « Vos préférences ». Transparent (profil de caractéristiques : type, gamme de
+  prix, pièces, DPE, atouts), et **inactif tant que le signal est insuffisant**
+  (< 2 annonces appréciées) pour ne pas sur-interpréter un clic isolé.
+- **Page Stats** (§33) : onglet dédié — annonces (pertinentes/actives/consultées/
+  archivées), contacts et **taux de réponse / de visite** (affichés dès les
+  premiers contacts), répartition par statut de suivi et **couverture par
+  source**. API `/api/stats` étendue (par source, par statut, engagement).
+
 ## [0.13.0] — 2026-08-16
 
 ### Ajouté

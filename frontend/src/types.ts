@@ -99,6 +99,23 @@ export interface SourceStateView {
 
 export type SortMode = 'priority' | 'recent' | 'price';
 
+/** Statistiques de suivi (§33). */
+export interface StatsData {
+  readonly listings: {
+    readonly total: number;
+    readonly matching: number;
+    readonly active: number;
+    readonly viewed: number;
+    readonly archived: number;
+  };
+  readonly byTracking: Readonly<Record<string, number>>;
+  readonly bySource: Readonly<Record<string, number>>;
+  readonly contacts: {
+    readonly total: number;
+    readonly byOutcome: Readonly<Record<string, number>>;
+  };
+}
+
 /** Filtres de recherche éditables depuis l'interface (§66). */
 export interface FilterConfig {
   cities: string[];

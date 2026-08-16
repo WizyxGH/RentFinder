@@ -167,3 +167,10 @@ test('on peut archiver une annonce et elle quitte la liste', async ({ page }) =>
   await cards.first().getByRole('button', { name: 'Archiver' }).click();
   await expect(cards).toHaveCount(before - 1);
 });
+
+test('la page Stats présente les compteurs et la couverture par source (§33)', async ({ page }) => {
+  await page.getByRole('button', { name: 'Stats' }).click();
+  await expect(page.getByRole('heading', { name: 'Statistiques' })).toBeVisible();
+  await expect(page.getByText('Couverture par source')).toBeVisible();
+  await expect(page.getByText(/Taux de réponse/)).toBeVisible();
+});

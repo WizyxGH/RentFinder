@@ -11,7 +11,7 @@
  * annonces à contacter MAINTENANT (§36 : classement par action, pas par prix).
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { TenantProfile } from '@rentfinder/shared';
 import { MVP_CRITERIA } from '@rentfinder/shared';
 import type { ListingView, SortMode, SourceStateView, TrackingStatus } from './types.js';
@@ -28,14 +28,16 @@ import {
   writeToken,
 } from './api/client.js';
 import { clearProfile, loadProfile, saveProfile } from './profile.js';
+import { AFFINITY_BOOST, computeAffinity } from './affinity.js';
 import { Button } from '@/components/ui/button.js';
 import { ListingCard } from './components/ListingCard.js';
 import { ListingDetail } from './components/ListingDetail.js';
 import { ProfileForm } from './components/ProfileForm.js';
 import { SourcesPanel } from './components/SourcesPanel.js';
 import { FiltersPanel } from './components/FiltersPanel.js';
+import { StatsPanel } from './components/StatsPanel.js';
 
-type View = 'list' | 'detail' | 'filters' | 'profile' | 'sources';
+type View = 'list' | 'detail' | 'filters' | 'stats' | 'profile' | 'sources';
 
 /** Seuil de mise en avant : au-delà, l'annonce mérite un contact immédiat. */
 const HOT_PRIORITY = 85;
@@ -96,6 +98,7 @@ function Shell({
   const tabs: readonly { key: View; label: string }[] = [
     { key: 'list', label: 'Annonces' },
     { key: 'filters', label: 'Filtres' },
+    { key: 'stats', label: 'Stats' },
     { key: 'profile', label: 'Profil' },
     { key: 'sources', label: 'Sources' },
   ];
@@ -150,6 +153,11 @@ export function App(): React.JSX.Element {
   // Instant de rendu, figé par chargement : évite que chaque carte recalcule
   // « il y a X min » à partir d'une horloge légèrement différente.
   const [nowMs, setNowMs] = useState(() => Date.now());
+
+  // Affinité : apprend de vos consultations/suivis/archivages pour remonter les
+  // annonces qui vous ressemblent (§33). Hook placé AVANT tout return
+  // conditionnel (règle des hooks). Recalculée quand la liste change.
+  const affinity = useMemo(() => computeAffinity(listings), [listings]);
 
   const load = useCallback(async (): Promise<void> => {
     setLoading(true);
@@ -297,6 +305,14 @@ export function App(): React.JSX.Element {
     );
   }
 
+  if (view === 'stats') {
+    return (
+      <Shell view={view} onNavigate={navigate}>
+        <StatsPanel />
+      </Shell>
+    );
+  }
+
   if (view === 'detail' && selected !== null) {
     return (
       <Shell view={view} onNavigate={navigate}>
@@ -313,11 +329,21 @@ export function App(): React.JSX.Element {
     );
   }
 
-  // §36 : mise en avant — les annonces qui méritent un contact immédiat en
-  // tête, dans leur propre section, uniquement pour le tri par priorité.
-  const hot = sort === 'priority' ? listings.filter((l) => l.actionPriority >= HOT_PRIORITY) : [];
-  const rest =
-    sort === 'priority' ? listings.filter((l) => l.actionPriority < HOT_PRIORITY) : listings;
+  // §36 : en tri par priorité, on classe par priorité d'action AJUSTÉE de
+  // l'affinité — les annonces proches de vos préférences remontent.
+  const ranked =
+    sort === 'priority'
+      ? [...listings].sort(
+          (a, b) =>
+            b.actionPriority +
+            (affinity.scores.get(b.id) ?? 0) * AFFINITY_BOOST -
+            (a.actionPriority + (affinity.scores.get(a.id) ?? 0) * AFFINITY_BOOST),
+        )
+      : listings;
+
+  // La section « à contacter maintenant » reste fondée sur l'urgence réelle.
+  const hot = sort === 'priority' ? ranked.filter((l) => l.actionPriority >= HOT_PRIORITY) : [];
+  const rest = sort === 'priority' ? ranked.filter((l) => l.actionPriority < HOT_PRIORITY) : ranked;
 
   const openListing = (id: string): void => {
     setSelectedId(id);
@@ -423,6 +449,7 @@ export function App(): React.JSX.Element {
                     nowMs={nowMs}
                     onOpen={openListing}
                     onArchive={(archived) => void handleArchive(listing.id, archived)}
+                    affinity={affinity.active ? affinity.scores.get(listing.id) : undefined}
                   />
                 ))}
               </div>

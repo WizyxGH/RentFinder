@@ -18,6 +18,7 @@ import type {
   ListingsResponse,
   SortMode,
   SourceStateView,
+  StatsData,
 } from '../types.js';
 import { MVP_CRITERIA } from '@rentfinder/shared';
 import { MOCK_LISTINGS, MOCK_SOURCES } from './mock-data.js';
@@ -185,6 +186,34 @@ export async function recordContact(
 export async function fetchSources(): Promise<{ sources: readonly SourceStateView[] }> {
   if (isDemoMode()) return { sources: MOCK_SOURCES };
   return request<{ sources: readonly SourceStateView[] }>('/api/sources');
+}
+
+/** Statistiques, calculées localement en démo depuis les données fictives. */
+export async function fetchStats(): Promise<StatsData> {
+  if (isDemoMode()) {
+    const matching = MOCK_LISTINGS.filter((l) => l.matchesCriteria);
+    const byTracking: Record<string, number> = {};
+    const bySource: Record<string, number> = {};
+    for (const l of matching) byTracking[l.tracking] = (byTracking[l.tracking] ?? 0) + 1;
+    for (const l of MOCK_LISTINGS) {
+      for (const source of new Set(l.occurrences.map((o) => o.sourceId))) {
+        bySource[source] = (bySource[source] ?? 0) + 1;
+      }
+    }
+    return {
+      listings: {
+        total: MOCK_LISTINGS.length,
+        matching: matching.length,
+        active: MOCK_LISTINGS.filter((l) => l.lifecycle === 'active').length,
+        viewed: matching.filter((l) => l.viewed === true).length,
+        archived: MOCK_LISTINGS.filter((l) => l.archived === true).length,
+      },
+      byTracking,
+      bySource,
+      contacts: { total: 0, byOutcome: {} },
+    };
+  }
+  return request<StatsData>('/api/stats');
 }
 
 /** Filtres par défaut, pour le mode démo (pas de fichier de config). */
