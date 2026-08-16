@@ -20,8 +20,10 @@ import {
   fetchListings,
   fetchSources,
   isDemoMode,
+  markViewed,
   readToken,
   recordContact,
+  setArchived,
   updateTracking,
   writeToken,
 } from './api/client.js';
@@ -139,6 +141,7 @@ export function App(): React.JSX.Element {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sort, setSort] = useState<SortMode>('priority');
   const [includeOutOfCriteria, setIncludeOutOfCriteria] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
   const [profile, setProfile] = useState<TenantProfile | null>(() => loadProfile());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -152,7 +155,11 @@ export function App(): React.JSX.Element {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetchListings({ sort, includeOutOfCriteria });
+      const response = await fetchListings({
+        sort,
+        includeOutOfCriteria,
+        includeArchived: showArchived,
+      });
       setListings(response.listings);
       setNowMs(Date.now());
       setNeedsToken(false);
@@ -165,7 +172,7 @@ export function App(): React.JSX.Element {
     } finally {
       setLoading(false);
     }
-  }, [sort, includeOutOfCriteria]);
+  }, [sort, includeOutOfCriteria, showArchived]);
 
   useEffect(() => {
     void load();
@@ -315,6 +322,30 @@ export function App(): React.JSX.Element {
   const openListing = (id: string): void => {
     setSelectedId(id);
     setView('detail');
+    // §37 : marque « consultée » automatiquement à l'ouverture. Optimiste :
+    // on met à jour l'affichage tout de suite, l'API suit.
+    setListings((current) =>
+      current.map((listing) => (listing.id === id ? { ...listing, viewed: true } : listing)),
+    );
+    void markViewed(id).catch(() => {
+      /* l'échec réseau n'empêche pas de consulter la fiche */
+    });
+  };
+
+  const handleArchive = async (id: string, archived: boolean): Promise<void> => {
+    // Optimiste : si on archive et qu'on ne montre pas les archivées, l'annonce
+    // disparaît de la liste ; sinon on met simplement à jour son état.
+    setListings((current) =>
+      archived && !showArchived
+        ? current.filter((listing) => listing.id !== id)
+        : current.map((listing) => (listing.id === id ? { ...listing, archived } : listing)),
+    );
+    if (view === 'detail' && archived) setView('list');
+    try {
+      await setArchived(id, archived);
+    } catch {
+      setError('L’archivage n’a pas pu être enregistré');
+    }
   };
 
   return (
@@ -353,6 +384,15 @@ export function App(): React.JSX.Element {
           />
           Afficher les annonces hors critères
         </label>
+
+        <label className="flex items-center gap-1.5 text-muted-foreground">
+          <input
+            type="checkbox"
+            checked={showArchived}
+            onChange={(event) => setShowArchived(event.target.checked)}
+          />
+          Afficher les archivées
+        </label>
       </div>
 
       {error !== null && (
@@ -382,6 +422,7 @@ export function App(): React.JSX.Element {
                     listing={listing}
                     nowMs={nowMs}
                     onOpen={openListing}
+                    onArchive={(archived) => void handleArchive(listing.id, archived)}
                   />
                 ))}
               </div>

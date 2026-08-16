@@ -67,6 +67,10 @@ export interface ListingView {
   readonly matchesCriteria: boolean;
   /** `true` si le loyer a récemment baissé (§17) — mis en avant dans l'UI. */
   readonly priceDropped?: boolean;
+  /** `true` dès que la fiche a été ouverte au moins une fois (posé automatiquement). */
+  readonly viewed?: boolean;
+  /** `true` si l'utilisateur a archivé l'annonce (retirée de la liste par défaut). */
+  readonly archived?: boolean;
   readonly actionPriority: number;
   readonly tracking: TrackingStatus;
   readonly lifecycle: 'active' | 'possiblyInactive' | 'inactive';

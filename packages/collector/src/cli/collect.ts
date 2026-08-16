@@ -15,7 +15,7 @@ import { openDatabaseFromEnv } from '../db/client.js';
 import { migrate } from '../db/migrate.js';
 import { createRepository } from '../db/repository.js';
 import { createRegistry } from '../core/registry.js';
-import { createLogger } from '../core/logger.js';
+import { createLogger, prettySink } from '../core/logger.js';
 import { systemClock } from '../core/clock.js';
 import { ALL_SCRAPERS } from '../sources/index.js';
 import { runPipeline } from '../pipeline.js';
@@ -36,7 +36,11 @@ async function main(): Promise<void> {
   // Charge la configuration privée locale (.env) avant toute lecture d'env.
   loadDotEnv();
   const args = new Set(process.argv.slice(2));
-  const logger = createLogger({ minLevel: args.has('--verbose') ? 'debug' : 'info' });
+  // Sortie lisible par défaut ; `LOG_FORMAT=json` pour la sortie structurée.
+  const logger = createLogger({
+    minLevel: args.has('--verbose') ? 'debug' : 'info',
+    ...(process.env['LOG_FORMAT'] === 'json' ? {} : { sink: prettySink }),
+  });
 
   // §8 : le backfill exige une intention explicite, en argument ET en
   // configuration. Une seule des deux ne suffit pas.

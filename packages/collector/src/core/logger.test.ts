@@ -6,7 +6,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { createLogger, redact, type LogEvent } from './logger.js';
+import { createLogger, formatPretty, redact, type LogEvent } from './logger.js';
 
 describe('redact', () => {
   it('masque les clés sensibles quel que soit leur nommage', () => {
@@ -122,5 +122,32 @@ describe('createLogger', () => {
     logger.info('page.parsed', { found: 3 });
 
     expect(events[0]?.fields).toEqual({ source: 'laforet', found: 3 });
+  });
+});
+
+describe('formatPretty', () => {
+  const event: LogEvent = {
+    level: 'info',
+    event: 'source.completed',
+    at: '2026-08-16T06:43:12.000Z',
+    fields: { source: 'foncia', listings: 15 },
+  };
+
+  it('rend une ligne lisible « HH:MM:SS NIVEAU event · clés=valeurs » (sans couleur)', () => {
+    expect(formatPretty(event, false)).toBe(
+      '06:43:12 INFO source.completed · source=foncia listings=15',
+    );
+  });
+
+  it('n’ajoute pas de séparateur quand il n’y a aucun champ', () => {
+    expect(formatPretty({ ...event, fields: {} }, false)).toBe('06:43:12 INFO source.completed');
+  });
+
+  it('sérialise les valeurs imbriquées de façon compacte', () => {
+    const line = formatPretty(
+      { ...event, fields: { written: { inserted: 2, updated: 1 } } },
+      false,
+    );
+    expect(line).toContain('written={"inserted":2,"updated":1}');
   });
 });

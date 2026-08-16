@@ -63,6 +63,8 @@ function rowToListing(row: Record<string, unknown>): Record<string, unknown> {
     lastSeenAt: row['last_seen_at'],
     matchesCriteria: Number(row['matches_criteria']) === 1,
     actionPriority: Number(row['action_priority'] ?? 0),
+    viewed: Number(row['viewed'] ?? 0) === 1,
+    archived: Number(row['archived'] ?? 0) === 1,
     ...payload,
   };
 }
@@ -104,6 +106,11 @@ async function listListings(db: Client, url: URL): Promise<unknown> {
     }
     conditions.push('(area IS NULL OR area >= ?)');
     filterArgs.push(f.minArea);
+  }
+
+  // Les annonces archivées sont masquées, sauf demande explicite (§ archivage).
+  if (url.searchParams.get('archived') !== 'true') {
+    conditions.push('archived = 0');
   }
 
   const filter = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -197,25 +204,53 @@ async function getStats(db: Client): Promise<unknown> {
   };
 }
 
-async function updateTracking(
+/**
+ * Met à jour l'état d'une fiche : statut de suivi (§35), « consultée » (§37)
+ * et/ou « archivée ». Chaque champ est optionnel ; on ne touche que ceux
+ * fournis. Ces colonnes ne sont jamais écrasées par la collecte, donc l'état
+ * survit aux re-collectes et aux redémarrages.
+ */
+async function updateListing(
   db: Client,
   id: string,
   request: Request,
 ): Promise<Response | unknown> {
-  const body = (await request.json().catch(() => null)) as { tracking?: string } | null;
-  const tracking = body?.tracking;
+  const body = (await request.json().catch(() => null)) as {
+    tracking?: string;
+    viewed?: boolean;
+    archived?: boolean;
+  } | null;
+  if (body === null) return jsonError(400, 'Corps de requête invalide');
 
-  if (tracking === undefined || !TRACKING_STATUSES.has(tracking)) {
-    return jsonError(400, 'Statut de suivi invalide');
+  const sets: string[] = [];
+  const args: Array<string | number> = [];
+
+  if (body.tracking !== undefined) {
+    if (!TRACKING_STATUSES.has(body.tracking)) return jsonError(400, 'Statut de suivi invalide');
+    sets.push('tracking = ?');
+    args.push(body.tracking);
+  }
+  if (typeof body.viewed === 'boolean') {
+    sets.push('viewed = ?');
+    args.push(body.viewed ? 1 : 0);
+  }
+  if (typeof body.archived === 'boolean') {
+    sets.push('archived = ?');
+    args.push(body.archived ? 1 : 0);
   }
 
+  if (sets.length === 0) return jsonError(400, 'Aucun champ à mettre à jour');
+
+  sets.push('updated_at = ?');
+  args.push(new Date().toISOString(), id);
+
   const result = await db.execute({
-    sql: 'UPDATE listings SET tracking = ?, updated_at = ? WHERE id = ?',
-    args: [tracking, new Date().toISOString(), id],
+    sql: `UPDATE listings SET ${sets.join(', ')} WHERE id = ?`,
+    args,
   });
 
   if (result.rowsAffected === 0) return jsonError(404, 'Annonce introuvable');
-  return { id, tracking };
+  return { id, ...body };
 }
 
 /**
@@ -336,7 +371,7 @@ export async function route(
       : json(listing, cors);
   }
   if (method === 'PATCH') {
-    const result = await updateTracking(db, id, request);
+    const result = await updateListing(db, id, request);
     return result instanceof Response ? result : json(result, cors);
   }
 

@@ -27,6 +27,8 @@ interface ListingCardProps {
   readonly listing: ListingView;
   readonly nowMs: number;
   readonly onOpen: (id: string) => void;
+  /** Archive (`true`) ou désarchive (`false`) l'annonce. */
+  readonly onArchive?: (archived: boolean) => void;
 }
 
 /**
@@ -40,9 +42,15 @@ function priorityTier(priority: number): { className: string; label: string } {
   return { className: 'text-muted-foreground bg-muted-foreground/10', label: 'priorité' };
 }
 
-export function ListingCard({ listing, nowMs, onOpen }: ListingCardProps): React.JSX.Element {
+export function ListingCard({
+  listing,
+  nowMs,
+  onOpen,
+  onArchive,
+}: ListingCardProps): React.JSX.Element {
   const sources = [...new Set(listing.occurrences.map((occurrence) => occurrence.sourceId))];
   const isHot = listing.actionPriority >= 85;
+  const archived = listing.archived === true;
   const tier = priorityTier(listing.actionPriority);
   const publishedAt = listing.publishedAt.value;
   const neighborhood = listing.address.value;
@@ -53,7 +61,9 @@ export function ListingCard({ listing, nowMs, onOpen }: ListingCardProps): React
 
   return (
     <Card
-      className={`transition-shadow hover:shadow-md ${isHot ? 'border-2 border-hot' : ''}`}
+      className={`transition-shadow hover:shadow-md ${isHot ? 'border-2 border-hot' : ''} ${
+        archived ? 'opacity-60' : ''
+      }`}
       data-testid="listing-card"
     >
       <header className="flex items-start gap-3">
@@ -84,6 +94,8 @@ export function ListingCard({ listing, nowMs, onOpen }: ListingCardProps): React
         </div>
 
         <span className="flex shrink-0 flex-col items-end gap-1">
+          {archived && <Badge variant="warning">Archivée</Badge>}
+          {listing.viewed === true && !archived && <Badge>Déjà consultée</Badge>}
           {listing.tracking !== 'new' && <Badge>{formatTracking(listing.tracking)}</Badge>}
           {listing.priceDropped === true && <Badge variant="good">Prix en baisse</Badge>}
           {listing.flatShare?.value === true && <Badge variant="warning">Colocation</Badge>}
@@ -134,6 +146,16 @@ export function ListingCard({ listing, nowMs, onOpen }: ListingCardProps): React
         <Button className="flex-1" onClick={() => onOpen(listing.id)}>
           Contacter
         </Button>
+        {onArchive !== undefined && (
+          <Button
+            variant="ghost"
+            onClick={() => onArchive(!archived)}
+            title={archived ? 'Désarchiver' : 'Archiver'}
+            aria-label={archived ? 'Désarchiver' : 'Archiver'}
+          >
+            {archived ? '↩' : '🗄'}
+          </Button>
+        )}
       </div>
     </Card>
   );

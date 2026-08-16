@@ -23,7 +23,7 @@ import { route } from '../server/routes.js';
 import { loadDotEnv } from '../config.js';
 import { openDatabaseFromEnv } from '../db/client.js';
 import { migrate } from '../db/migrate.js';
-import { createLogger } from '../core/logger.js';
+import { createLogger, prettySink } from '../core/logger.js';
 
 const HOST = '127.0.0.1';
 const PORT = Number.parseInt(process.env['PORT'] ?? '8788', 10);
@@ -105,7 +105,10 @@ async function serveStatic(pathname: string, res: ServerResponse): Promise<void>
 
 async function main(): Promise<void> {
   loadDotEnv();
-  const logger = createLogger({ minLevel: 'info' });
+  const logger = createLogger({
+    minLevel: 'info',
+    ...(process.env['LOG_FORMAT'] === 'json' ? {} : { sink: prettySink }),
+  });
   const db = openDatabaseFromEnv();
 
   // §68 : le schéma est toujours à jour avant de servir quoi que ce soit.

@@ -4,6 +4,21 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 Documenter ici : nouvelles sources, changements d'architecture ou de schéma,
 évolutions des scores et du système de contact, corrections importantes (§70).
 
+## [0.13.0] — 2026-08-16
+
+### Ajouté
+
+- **Annonces consultées et archivées** (persistantes) : ouvrir une fiche la
+  marque automatiquement « déjà consultée » ; un bouton archive/désarchive
+  retire l'annonce de la liste sans la perdre (case « Afficher les archivées »).
+  Stocké en base (colonnes `viewed`/`archived`, migration `0005`), jamais
+  écrasé par la collecte : l'état survit aux redémarrages et re-collectes.
+- **Ouvrir dans Maps** : la localisation de la fiche est un lien direct vers
+  Google Maps (adresse exacte si connue, sinon ville + code postal).
+- **Logs terminal lisibles** : sortie `HH:MM:SS NIVEAU event · clés=valeurs`
+  colorée par niveau, au lieu du JSON brut. `LOG_FORMAT=json` pour l'ancien
+  format structuré.
+
 ## [0.12.0] — 2026-08-15
 
 ### Interface

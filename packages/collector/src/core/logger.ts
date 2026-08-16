@@ -124,3 +124,58 @@ export function createLogger(options: LoggerOptions = {}): Logger {
 
 /** Logger silencieux, pratique dans les tests. */
 export const silentLogger: Logger = createLogger({ minLevel: 'error', sink: () => {} });
+
+// ---------------------------------------------------------------------------
+// Sortie humaine (terminal)
+// ---------------------------------------------------------------------------
+
+const LEVEL_LABEL: Record<LogLevel, string> = {
+  debug: 'DBG ',
+  info: 'INFO',
+  warn: 'WARN',
+  error: 'ERR ',
+};
+const LEVEL_COLOR: Record<LogLevel, string> = {
+  debug: '[90m',
+  info: '[36m',
+  warn: '[33m',
+  error: '[31m',
+};
+const DIM = '[90m';
+const RESET = '[0m';
+
+function formatValue(value: unknown): string {
+  if (value === null || value === undefined) return String(value);
+  if (typeof value === 'object') return JSON.stringify(value);
+  return String(value);
+}
+
+/**
+ * Formate un événement pour un humain : `HH:MM:SS NIVEAU event · clé=valeur…`.
+ * Les valeurs sont déjà expurgées en amont (§62). `color` ajoute des couleurs
+ * ANSI (désactivées hors terminal).
+ */
+export function formatPretty(event: LogEvent, color: boolean): string {
+  const time = event.at.slice(11, 19); // HH:MM:SS de l'ISO
+  const label = LEVEL_LABEL[event.level];
+  const fields = Object.entries(event.fields)
+    .map(([key, value]) => `${key}=${formatValue(value)}`)
+    .join(' ');
+
+  if (!color) {
+    return `${time} ${label} ${event.event}${fields === '' ? '' : ` · ${fields}`}`;
+  }
+  const c = LEVEL_COLOR[event.level];
+  const sep = fields === '' ? '' : ` ${DIM}·${RESET} ${fields}`;
+  return `${DIM}${time}${RESET} ${c}${label}${RESET} ${event.event}${sep}`;
+}
+
+/**
+ * Sink lisible pour le terminal. Couleurs activées si la sortie est un TTY.
+ * Les erreurs partent sur stderr.
+ */
+export function prettySink(event: LogEvent): void {
+  const line = formatPretty(event, process.stdout.isTTY === true);
+  if (event.level === 'error') console.error(line);
+  else console.log(line);
+}

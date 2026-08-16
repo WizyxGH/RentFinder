@@ -77,6 +77,16 @@ export function ListingDetail({
 }: ListingDetailProps): React.JSX.Element {
   const charges = listing.charges.value;
 
+  // Requête Maps : la localisation la plus précise disponible (§20). Adresse de
+  // rue si connue, sinon ville + code postal.
+  const mapsQuery = [
+    listing.address.value,
+    listing.postalCode.value,
+    formatCity(listing.city.value),
+  ]
+    .filter((part): part is string => part !== null && part !== '' && part !== UNKNOWN)
+    .join(', ');
+
   return (
     <div>
       <header className="mb-2 flex items-center justify-between">
@@ -136,6 +146,19 @@ export function ListingDetail({
           {formatCity(listing.city.value)}
           {listing.postalCode.value !== null && ` (${listing.postalCode.value})`}
           {listing.address.value !== null && ` — ${listing.address.value}`}
+          {mapsQuery !== '' && (
+            <>
+              {' '}
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapsQuery)}`}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="whitespace-nowrap text-primary underline"
+              >
+                📍 Ouvrir dans Maps
+              </a>
+            </>
+          )}
         </dd>
 
         <dt className={FACT_LABEL}>Publiée</dt>

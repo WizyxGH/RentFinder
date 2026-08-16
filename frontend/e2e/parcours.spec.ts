@@ -78,7 +78,7 @@ test('scénario 4 — le contact manuel n’envoie rien tout seul (§53)', async
   // Les quatre actions restent à la main de l'utilisateur.
   await expect(page.getByRole('button', { name: 'Modifier' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Copier' })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Ouvrir' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Ouvrir', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'J’ai envoyé' })).toBeVisible();
 });
 
@@ -152,4 +152,18 @@ test('les filtres sont réglables depuis le site (§66)', async ({ page }) => {
 
   await page.getByRole('button', { name: 'Enregistrer' }).click();
   await expect(page.getByText(/Filtres enregistrés/)).toBeVisible();
+});
+
+test('la localisation ouvre Maps facilement (§20)', async ({ page }) => {
+  await page.getByTestId('listing-card').first().getByRole('button', { name: 'Voir' }).click();
+  const maps = page.getByRole('link', { name: /Ouvrir dans Maps/ });
+  await expect(maps).toBeVisible();
+  await expect(maps).toHaveAttribute('href', /google\.com\/maps/);
+});
+
+test('on peut archiver une annonce et elle quitte la liste', async ({ page }) => {
+  const cards = page.getByTestId('listing-card');
+  const before = await cards.count();
+  await cards.first().getByRole('button', { name: 'Archiver' }).click();
+  await expect(cards).toHaveCount(before - 1);
 });
