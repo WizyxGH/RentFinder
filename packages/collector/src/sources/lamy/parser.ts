@@ -104,6 +104,13 @@ export function parseDetailPage(html: string, pageUrl: string): ParsedDetail {
     if (feature !== '') features.push(feature);
   });
 
+  // Photos du carrousel (URLs publiques Cloudinary — jamais téléchargées, §11).
+  const imageUrls: string[] = [];
+  $('img.estate__img').each((_i, el) => {
+    const src = $(el).attr('src') ?? '';
+    if (src.startsWith('https://') && !imageUrls.includes(src)) imageUrls.push(src);
+  });
+
   // DPE : la lettre active de l'échelle (« estate__score-dpe--e ») ; le texte
   // « DPE : E - 314 kWh/m².an » sert de secours.
   const dpeClass = $('.estate__score-dpe--active').attr('class') ?? '';
@@ -134,6 +141,7 @@ export function parseDetailPage(html: string, pageUrl: string): ParsedDetail {
     // §23 : le formulaire de la fiche est le canal de contact prévu.
     contactFormUrl: parsedUrl.canonicalUrl,
     ...(availability !== '' ? { availableAtText: availability } : {}),
+    ...(imageUrls.length > 0 ? { imageUrls } : {}),
     extra: {
       reference: parsedUrl.reference,
       citySlug: parsedUrl.citySlug,

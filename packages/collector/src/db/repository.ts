@@ -134,6 +134,15 @@ export function listingHash(listing: ScoredListing): string {
     // (ex. adresse enfin géocodée), sans churn ensuite car elles sont stables.
     listing.distances.map((d) => `${d.label}:${d.durationMinutes}`).sort(),
     listing.priceDropped,
+    // Contenu du payload affiché : sans ces champs dans le hash, une fiche
+    // dont les photos, le DPE ou la description apparaissent après coup ne
+    // serait JAMAIS réécrite (l'économie d'écriture § 30 deviendrait une perte
+    // de données). Champs stables entre deux collectes → pas de churn.
+    listing.imageUrls.length,
+    listing.imageUrls[0] ?? null,
+    listing.dpe.value,
+    listing.features,
+    listing.description.value,
   ]);
   return createHash('sha256').update(material).digest('hex').slice(0, 32);
 }

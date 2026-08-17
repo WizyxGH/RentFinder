@@ -8,7 +8,8 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils.js';
 
 const buttonVariants = cva(
-  'inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-lg text-[0.95rem] font-medium whitespace-nowrap no-underline transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50',
+  // Pilule arrondie, à la SeLoger — la forme signature des CTA du site.
+  'inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-full text-[0.95rem] font-medium whitespace-nowrap no-underline transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50',
   {
     variants: {
       variant: {

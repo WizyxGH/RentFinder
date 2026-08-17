@@ -18,8 +18,16 @@ Documenter ici : nouvelles sources, changements d'architecture ou de schéma,
   fiche. Aucune infrastructure : 100 % local, API Notifications du navigateur.
 
 - **Source Lamy Immobilier** (lamy-immobilier.fr) : méthode sitemap (CMS
-  Ibexa, fiches server-rendered `estate__*`), communes 06 ciblées, DPE et
-  caractéristiques extraits. Première collecte : 8 annonces, 0 warning.
+  Ibexa, fiches server-rendered `estate__*`), communes 06 ciblées, DPE,
+  caractéristiques et photos extraits. Première collecte : 8 annonces,
+  0 warning.
+- **5 nouvelles agences Apimo** (inventaire du 2026-08-17 via les pages
+  `agence-apimo` de Bien'ici, signature robots/sitemap revérifiée par site) :
+  Agence de la Victoire, Foch Immobilier, Personal Immo, leprince realty,
+  DG Immo — ~75 locations en zone, 37 annonces à la première collecte.
+- **Refonte UI inspirée de SeLoger** sur la base shadcn : accent rouge
+  signature, cartes photo pleine largeur (affichées depuis le site d'origine,
+  §11), galerie défilante sur la fiche, CTA en pilules, prix renforcé.
 
 ### Corrigé
 
@@ -29,6 +37,12 @@ Documenter ici : nouvelles sources, changements d'architecture ou de schéma,
   publiées EN MAJUSCULES ou en minuscules sont recapitalisées (particules
   minuscules, chiffres romains en capitales, « Bd/BLD » déplié en
   « Boulevard »), sans jamais inventer d'accents absents (§17).
+- **Hash de contenu incomplet** : photos, DPE, description et atouts n'entraient
+  pas dans le hash des fiches — une fiche dont les photos apparaissaient après
+  coup n'était jamais réécrite (réécriture de rattrapage unique, puis retour à
+  l'économie §30).
+- **Parser Apimo** : les fiches retirées (redirection vers « not found ») ne
+  produisent plus d'occurrence vide.
 
 ## [0.14.0] — 2026-08-16
 

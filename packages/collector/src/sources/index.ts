@@ -14,14 +14,19 @@
  */
 
 import type { Scraper } from '@rentfinder/shared';
+import { agenceVictoireScraper } from './agence-victoire/index.js';
 import { bepScraper } from './bep/index.js';
 import { bepAbonnesScraper } from './bep-abonnes/index.js';
 import { century21Scraper } from './century21/index.js';
 import { dazurScraper } from './dazur/index.js';
+import { dgimmoScraper } from './dgimmo/index.js';
 import { gestionCassiniScraper } from './gestion-cassini/index.js';
+import { groupeFochScraper } from './groupe-foch/index.js';
 import { fonciaScraper } from './foncia/index.js';
 import { laforetScraper } from './laforet/index.js';
 import { lamyScraper } from './lamy/index.js';
+import { leprinceRealtyScraper } from './leprince-realty/index.js';
+import { personalimmoScraper } from './personalimmo/index.js';
 import { nousgeronsScraper } from './nousgerons/index.js';
 import { orpiScraper } from './orpi/index.js';
 import { papScraper } from './pap/index.js';
@@ -38,6 +43,11 @@ export const ALL_SCRAPERS: readonly Scraper[] = [
   gestionCassiniScraper,
   bepAbonnesScraper,
   lamyScraper,
+  agenceVictoireScraper,
+  groupeFochScraper,
+  personalimmoScraper,
+  leprinceRealtyScraper,
+  dgimmoScraper,
 ];
 
 export { laforetScraper } from './laforet/index.js';

@@ -246,6 +246,15 @@ export function parseDetailPage(
       ? `${jsonLd.rooms} pièces`
       : (infoText.match(/\d+\s*pièces?/i)?.[0] ?? undefined);
 
+  // Fiche retirée : certains sites Apimo redirigent vers une page « not found »
+  // sans JSON-LD ni contenu. Mieux vaut ne rien produire qu'une fiche vide.
+  if (jsonLd === null && (title === undefined || title === '') && priceText === undefined) {
+    return {
+      listing: null,
+      warnings: [...warnings, `Fiche vide ou retirée (redirection probable) : ${pageUrl}`],
+    };
+  }
+
   if (priceText === undefined) {
     warnings.push(`Fiche sans prix : ${pageUrl}`);
   }

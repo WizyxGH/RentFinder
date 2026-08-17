@@ -68,13 +68,30 @@ export function ListingCard({
   const dpe = listing.dpe?.value ?? null;
   const chips = [...(dpe !== null ? [`DPE ${dpe}`] : []), ...(listing.features ?? []).slice(0, 3)];
 
+  // Photo d'illustration, affichée directement depuis le site d'origine (§11 :
+  // jamais téléchargée ni stockée). Sans photo, la carte reste purement textuelle.
+  const photo = listing.imageUrls?.[0] ?? null;
+
   return (
     <Card
-      className={`transition-shadow hover:shadow-md ${isHot ? 'border-2 border-hot' : ''} ${
-        archived ? 'opacity-60' : ''
-      }`}
+      className={`overflow-hidden transition-shadow hover:shadow-md ${
+        isHot ? 'border-2 border-hot' : ''
+      } ${archived ? 'opacity-60' : ''}`}
       data-testid="listing-card"
     >
+      {photo !== null && (
+        <img
+          src={photo}
+          alt=""
+          loading="lazy"
+          referrerPolicy="no-referrer"
+          className="-mx-3 -mt-3 mb-3 block h-44 w-[calc(100%+1.5rem)] max-w-none object-cover"
+          onError={(event) => {
+            // Photo retirée côté source : on efface le cadre cassé.
+            event.currentTarget.style.display = 'none';
+          }}
+        />
+      )}
       <header className="flex items-start gap-3">
         {/* Indicateur de priorité : pastille teintée par palier (§36 : tri par action). */}
         <div
@@ -95,7 +112,9 @@ export function ListingCard({
             <p className="truncate text-[0.8rem] text-muted-foreground">{neighborhood}</p>
           )}
           <p className="mt-1 flex items-baseline gap-1.5">
-            <strong className="text-lg font-bold">{formatPrice(listing.price.value)}</strong>
+            <strong className="text-xl font-extrabold tracking-tight">
+              {formatPrice(listing.price.value)}
+            </strong>
             <span className="text-[0.9rem] text-muted-foreground">
               {formatArea(listing.area.value)} · {formatRooms(listing.rooms.value)}
             </span>

@@ -100,6 +100,26 @@ export function ListingDetail({
         </span>
       </header>
 
+      {/* Photos : affichées directement depuis le site d'origine (§11 : jamais
+          téléchargées ni stockées), en bandeau défilant façon galerie. */}
+      {listing.imageUrls.length > 0 && (
+        <div className="mb-3 flex snap-x gap-2 overflow-x-auto">
+          {listing.imageUrls.slice(0, 8).map((url) => (
+            <img
+              key={url}
+              src={url}
+              alt=""
+              loading="lazy"
+              referrerPolicy="no-referrer"
+              className="h-48 w-auto shrink-0 snap-start rounded-xl object-cover"
+              onError={(event) => {
+                event.currentTarget.style.display = 'none';
+              }}
+            />
+          ))}
+        </div>
+      )}
+
       <h1 className="mb-1 text-xl font-bold">{listing.title.value ?? 'Annonce sans titre'}</h1>
 
       <p className="mb-3 text-[1.05rem]">

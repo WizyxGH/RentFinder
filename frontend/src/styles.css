@@ -18,17 +18,19 @@
 @import 'tailwindcss';
 
 @theme {
-  /* Tokens shadcn/ui — ordre : light-dark(clair, sombre). Palette slate. */
-  --color-background: light-dark(#f8fafc, #0f172a);
-  --color-foreground: light-dark(#0f172a, #f1f5f9);
-  --color-card: light-dark(#ffffff, #1e293b);
-  --color-card-foreground: light-dark(#0f172a, #f1f5f9);
-  --color-primary: light-dark(#1d4ed8, #3b82f6);
+  /* Tokens shadcn/ui — ordre : light-dark(clair, sombre).
+     Palette inspirée de SeLoger : accent rouge signature, texte marine
+     profond, fond gris très clair qui fait ressortir les cartes blanches. */
+  --color-background: light-dark(#f4f5f8, #14141f);
+  --color-foreground: light-dark(#1a1a2e, #f1f2f6);
+  --color-card: light-dark(#ffffff, #1f1f2e);
+  --color-card-foreground: light-dark(#1a1a2e, #f1f2f6);
+  --color-primary: light-dark(#e00034, #ff4d6d);
   --color-primary-foreground: #ffffff;
-  --color-muted-foreground: light-dark(#64748b, #94a3b8);
-  --color-border: light-dark(#e2e8f0, #334155);
-  --color-input: light-dark(#e2e8f0, #334155);
-  --color-ring: light-dark(#1d4ed8, #3b82f6);
+  --color-muted-foreground: light-dark(#63637a, #9c9cb0);
+  --color-border: light-dark(#e6e6ee, #34344a);
+  --color-input: light-dark(#dcdce6, #34344a);
+  --color-ring: light-dark(#e00034, #ff4d6d);
 
   /* Couleurs métier des scores et priorités. */
   --color-good: light-dark(#15803d, #4ade80);

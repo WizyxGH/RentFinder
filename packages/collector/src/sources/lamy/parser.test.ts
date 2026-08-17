@@ -74,6 +74,8 @@ describe('parseDetailPage', () => {
     expect(listing?.postalCodeText).toBe('06200');
     expect(listing?.extra?.['dpe']).toBe('E');
     expect(listing?.description).toContain('meublé');
+    expect(listing?.imageUrls).toHaveLength(2);
+    expect(listing?.imageUrls?.[0]).toContain('photo-1.jpg');
   });
 
   it('se normalise en annonce exploitable', () => {

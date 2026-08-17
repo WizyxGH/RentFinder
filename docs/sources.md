@@ -55,7 +55,32 @@ et noter la date de vérification dans le descripteur de la source
 
 ### Autres agences locales de Nice
 
-Non encore inventoriées individuellement — travail de fond continu. Méthode :
+Inventaire Apimo du **2026-08-17** (découverte via les pages `agence-apimo-{id}`
+de Bien'ici, qui listent les agences alimentées par la plateforme — méthode
+réutilisable). Signature vérifiée individuellement le même jour (robots.txt
+n'interdisant que `/app_dev.php`, sitemap déclaré, fiches
+`/fr/propriete/location+…`) :
+
+| Source                                               | Vérifié    | Verdict            | Détail                                                                                                                             |
+| ---------------------------------------------------- | ---------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| **Agence de la Victoire** (agence-victoire-nice.com) | 2026-08-17 | ✅ **Implémentée** | ~25 locations à Nice. Première collecte : 8 fiches, 0 warning.                                                                     |
+| **Foch Immobilier** (groupe-foch.com)                | 2026-08-17 | ✅ **Implémentée** | Nice port, gestion locative depuis 1989. ~25 locations Nice + Cagnes.                                                              |
+| **Personal Immo** (personalimmo.fr)                  | 2026-08-17 | ✅ **Implémentée** | ~16 locations à Nice. Sitemap contenant des fiches retirées (301 → not-found) : le parser Apimo ignore désormais les fiches vides. |
+| **leprince realty** (leprincerealty.com)             | 2026-08-17 | ✅ **Implémentée** | ~6 locations Nice + Beaulieu-sur-Mer.                                                                                              |
+| **DG Immo** (dgimmo.fr)                              | 2026-08-17 | ✅ **Implémentée** | ~4 locations Nice + Saint-Laurent-du-Var.                                                                                          |
+| rivolimmo.fr                                         | 2026-08-17 | ⚪ Apimo confirmé  | Sitemap quasi vide (1 fiche) — à activer si le stock apparaît.                                                                     |
+
+**Piste suivante — plateforme « La Boîte Immo / Hektor »** (même logique qu'un
+adaptateur Apimo, 6 sites identifiés le 2026-08-17, robots permissifs +
+sitemaps) : giletta-properties.com (~32 locations Nice, meilleur volume
+unitaire trouvé), lt-immobilier.com (**La Trinité/Drap**, communes mal
+couvertes), immobiliere-pelou.com (Villeneuve-Loubet), agenceducentrenice.com,
+aagestion.net, agencedesdomaines.com (Cagnes). Écartés notables : portissim,
+renoirimmobilier, alpesazur, portimmo, atrioimmobilier, riviera-bay,
+azur-mediterranee (hébergeur coupant les clients non-navigateur — on ne
+contourne pas, §10) ; nicolaspisani.com (robots interdit les annonces).
+
+Méthode pour la suite :
 
 1. Recenser les agences niçoises indépendantes (annuaire FNAIM, cartes, pages
    « agences » des réseaux) et noter l'URL de leur site.
