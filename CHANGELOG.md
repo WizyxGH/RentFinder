@@ -27,7 +27,20 @@ Documenter ici : nouvelles sources, changements d'architecture ou de schéma,
   DG Immo — ~75 locations en zone, 37 annonces à la première collecte.
 - **Refonte UI inspirée de SeLoger** sur la base shadcn : accent rouge
   signature, cartes photo pleine largeur (affichées depuis le site d'origine,
-  §11), galerie défilante sur la fiche, CTA en pilules, prix renforcé.
+  §11), galerie défilante sur la fiche, CTA en pilules, prix renforcé. Les
+  photos défilent directement sur la carte (bandeau à ancrage).
+- **Documents de candidature** (§25) : dépôt unique depuis l'onglet Profil
+  (PDF/images/DOC, 20 Mo max). Stockés dans `data/documents/` — hors du dépôt
+  public (gitignoré), servis uniquement par le serveur local 127.0.0.1, jamais
+  envoyés automatiquement (§24). Noms assainis contre la traversée de chemin,
+  extensions exécutables refusées. API `/api/documents` (liste, dépôt,
+  consultation, suppression).
+- **Date de disponibilité** (§17) : nouveau parseur (« immédiatement »,
+  « 1er septembre 2027 », dates sans année → prochaine occurrence), repérée
+  aussi dans le titre/la description (« Disponible le… »). Badge « Dispo … »
+  sur la carte.
+- **Localisation cliquable** : l'adresse elle-même ouvre Maps (plus de lien
+  « Ouvrir dans Maps » séparé).
 
 ### Corrigé
 
@@ -43,6 +56,8 @@ Documenter ici : nouvelles sources, changements d'architecture ou de schéma,
   l'économie §30).
 - **Parser Apimo** : les fiches retirées (redirection vers « not found ») ne
   produisent plus d'occurrence vide.
+- **Filtre étudiant-exclusif** : l'ordre inversé « LOCATION ÉTUDIANTE
+  UNIQUEMENT » est maintenant détecté.
 
 ## [0.14.0] — 2026-08-16
 

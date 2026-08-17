@@ -156,7 +156,8 @@ test('les filtres sont réglables depuis le site (§66)', async ({ page }) => {
 
 test('la localisation ouvre Maps facilement (§20)', async ({ page }) => {
   await page.getByTestId('listing-card').first().getByRole('button', { name: 'Voir' }).click();
-  const maps = page.getByRole('link', { name: /Ouvrir dans Maps/ });
+  // La localisation elle-même est le lien : « 📍 Nice (06000) — … » → Maps.
+  const maps = page.getByRole('link', { name: /📍/ });
   await expect(maps).toBeVisible();
   await expect(maps).toHaveAttribute('href', /google\.com\/maps/);
 });

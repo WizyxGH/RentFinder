@@ -40,6 +40,7 @@ import {
   writeSeen,
 } from './notifications.js';
 import { Button } from '@/components/ui/button.js';
+import { DocumentsSection } from './components/DocumentsSection.js';
 import { ListingCard } from './components/ListingCard.js';
 import { NotificationBell } from './components/NotificationBell.js';
 import { ListingDetail } from './components/ListingDetail.js';
@@ -343,6 +344,7 @@ export function App(): React.JSX.Element {
             setView('list');
           }}
         />
+        <DocumentsSection />
       </Shell>
     );
   }

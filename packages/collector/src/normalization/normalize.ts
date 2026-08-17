@@ -25,6 +25,7 @@ import {
   parseFlatShare,
   parseFurnished,
   extractFeatures,
+  parseAvailableAt,
   parsePhone,
   parsePostalCode,
   parsePrice,
@@ -163,7 +164,14 @@ export function normalizeListing(
     contact: buildContact(raw, options.sourceId),
 
     publishedAt: parsePublishedAt(raw.publishedAtText, options.nowMs),
-    availableAt: parsePublishedAt(raw.availableAtText, options.nowMs),
+    // Disponibilité : champ dédié si la source le publie, sinon repérée dans le
+    // titre ou la description (« Disponible le 1er septembre » — fréquent).
+    availableAt:
+      parseAvailableAt(raw.availableAtText, options.nowMs) ??
+      parseAvailableAt(
+        `${raw.title ?? ''} ${raw.description ?? ''}`.match(/disponi\w+[^.;!]{0,60}/i)?.[0],
+        options.nowMs,
+      ),
 
     // §11 : uniquement des URLs distantes, jamais de téléchargement.
     imageUrls: [...(raw.imageUrls ?? [])].filter((url) => url.startsWith('http')),

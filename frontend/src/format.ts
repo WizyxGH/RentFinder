@@ -142,6 +142,26 @@ export function formatAddress(address: string | null): string {
 }
 
 /**
+ * Disponibilité lisible : « Dispo maintenant » si la date est passée ou
+ * imminente, sinon « Dispo 1 sept. 2027 ». `null` si inconnue (§17 : on
+ * n'affiche rien plutôt qu'une invention).
+ */
+export function formatAvailability(iso: string | null, nowMs: number): string | null {
+  if (iso === null) return null;
+  const timestamp = Date.parse(iso);
+  if (!Number.isFinite(timestamp)) return null;
+  if (timestamp <= nowMs + 3 * 86_400_000) return 'Dispo maintenant';
+  const date = new Date(timestamp);
+  const formatted = date.toLocaleDateString('fr-FR', {
+    day: 'numeric',
+    month: 'short',
+    year: date.getUTCFullYear() === new Date(nowMs).getUTCFullYear() ? undefined : 'numeric',
+    timeZone: 'UTC',
+  });
+  return `Dispo ${formatted}`;
+}
+
+/**
  * Ancienneté lisible : « il y a 4 min », « il y a 2 h », « il y a 3 j ».
  * `nowMs` est un paramètre pour garder les tests déterministes (§59).
  */

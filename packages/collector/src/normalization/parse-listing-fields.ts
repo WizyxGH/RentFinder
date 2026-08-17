@@ -360,3 +360,62 @@ export function parsePublishedAt(text: string | null | undefined, nowMs: number)
 
   return null;
 }
+
+/** Mois français (forme comparable, sans accent) → numéro 1-12. */
+const FRENCH_MONTHS: Readonly<Record<string, number>> = {
+  janvier: 1,
+  fevrier: 2,
+  mars: 3,
+  avril: 4,
+  mai: 5,
+  juin: 6,
+  juillet: 7,
+  aout: 8,
+  septembre: 9,
+  octobre: 10,
+  novembre: 11,
+  decembre: 12,
+};
+
+/**
+ * Date de disponibilité d'un logement (§17).
+ *
+ * Comprend, en plus des formats de `parsePublishedAt` :
+ *   - « immédiatement », « de suite », « disponible » seul → maintenant ;
+ *   - les dates textuelles françaises « 1er septembre 2027 », « 15 mars » —
+ *     sans année, on prend la PROCHAINE occurrence (une disponibilité est
+ *     toujours dans le futur, contrairement à une date de publication).
+ */
+export function parseAvailableAt(text: string | null | undefined, nowMs: number): string | null {
+  const cleaned = cleanText(text);
+  if (cleaned === '') return null;
+  const lower = comparable(cleaned);
+
+  if (/\b(immediat\w*|de suite|des maintenant|libre)\b/.test(lower)) {
+    return new Date(nowMs).toISOString();
+  }
+
+  const textual = lower.match(
+    /\b(\d{1,2})(?:er)?\s+(janvier|fevrier|mars|avril|mai|juin|juillet|aout|septembre|octobre|novembre|decembre)(?:\s+(\d{4}))?\b/,
+  );
+  if (textual?.[1] !== undefined && textual[2] !== undefined) {
+    const day = Number.parseInt(textual[1], 10);
+    const month = FRENCH_MONTHS[textual[2]];
+    if (month !== undefined && day >= 1 && day <= 31) {
+      let year =
+        textual[3] !== undefined
+          ? Number.parseInt(textual[3], 10)
+          : new Date(nowMs).getUTCFullYear();
+      let date = new Date(Date.UTC(year, month - 1, day));
+      // Sans année explicite, une date déjà passée désigne l'année prochaine.
+      if (textual[3] === undefined && date.getTime() < nowMs - 86_400_000) {
+        year += 1;
+        date = new Date(Date.UTC(year, month - 1, day));
+      }
+      if (!Number.isNaN(date.getTime())) return date.toISOString();
+    }
+  }
+
+  // Formats numériques et relatifs communs avec la date de publication.
+  return parsePublishedAt(text, nowMs);
+}

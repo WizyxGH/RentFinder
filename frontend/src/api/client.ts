@@ -226,6 +226,42 @@ export async function fetchStats(): Promise<StatsData> {
   return request<StatsData>('/api/stats');
 }
 
+// ---------------------------------------------------------------------------
+// Documents de candidature (§25) — mode local uniquement. Les pièces sont
+// stockées dans data/ (hors dépôt) et ne quittent jamais 127.0.0.1 (§26).
+// ---------------------------------------------------------------------------
+
+export interface DocumentInfo {
+  readonly name: string;
+  readonly size: number;
+  readonly uploadedAt: string;
+}
+
+export async function fetchDocuments(): Promise<readonly DocumentInfo[]> {
+  if (isDemoMode()) return [];
+  const response = await request<{ documents: readonly DocumentInfo[] }>('/api/documents');
+  return response.documents;
+}
+
+export async function uploadDocument(file: File): Promise<DocumentInfo> {
+  if (isDemoMode()) throw new ApiError('Indisponible en mode démonstration', 400);
+  return request<DocumentInfo>(`/api/documents?name=${encodeURIComponent(file.name)}`, {
+    method: 'POST',
+    body: file,
+    headers: { 'content-type': 'application/octet-stream' },
+  });
+}
+
+export async function deleteDocument(name: string): Promise<void> {
+  if (isDemoMode()) return;
+  await request(`/api/documents/${encodeURIComponent(name)}`, { method: 'DELETE' });
+}
+
+/** URL locale de consultation d'une pièce (ouvre dans le navigateur). */
+export function documentUrl(name: string): string {
+  return `${isLocalMode() ? '' : API_URL}/api/documents/${encodeURIComponent(name)}`;
+}
+
 /** Filtres par défaut, pour le mode démo (pas de fichier de config). */
 function demoFilters(): FilterConfig {
   return {

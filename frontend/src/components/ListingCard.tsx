@@ -11,6 +11,7 @@ import {
   formatAddress,
   formatAge,
   formatArea,
+  formatAvailability,
   formatCity,
   formatDuration,
   formatPrice,
@@ -64,13 +65,20 @@ export function ListingCard({
   const publishedAt = listing.publishedAt.value;
   const neighborhood = listing.address.value !== null ? formatAddress(listing.address.value) : null;
 
-  // Atouts compacts pour la carte : DPE puis les premiers atouts, sans saturer.
+  // Atouts compacts pour la carte : disponibilité, DPE puis les premiers
+  // atouts, sans saturer.
   const dpe = listing.dpe?.value ?? null;
-  const chips = [...(dpe !== null ? [`DPE ${dpe}`] : []), ...(listing.features ?? []).slice(0, 3)];
+  const availability = formatAvailability(listing.availableAt.value, nowMs);
+  const chips = [
+    ...(availability !== null ? [availability] : []),
+    ...(dpe !== null ? [`DPE ${dpe}`] : []),
+    ...(listing.features ?? []).slice(0, 3),
+  ];
 
-  // Photo d'illustration, affichée directement depuis le site d'origine (§11 :
-  // jamais téléchargée ni stockée). Sans photo, la carte reste purement textuelle.
-  const photo = listing.imageUrls?.[0] ?? null;
+  // Photos, affichées directement depuis le site d'origine (§11 : jamais
+  // téléchargées ni stockées) et défilables sur la carte même. Sans photo, la
+  // carte reste purement textuelle.
+  const photos = (listing.imageUrls ?? []).slice(0, 6);
 
   return (
     <Card
@@ -79,18 +87,25 @@ export function ListingCard({
       } ${archived ? 'opacity-60' : ''}`}
       data-testid="listing-card"
     >
-      {photo !== null && (
-        <img
-          src={photo}
-          alt=""
-          loading="lazy"
-          referrerPolicy="no-referrer"
-          className="-mx-3 -mt-3 mb-3 block h-44 w-[calc(100%+1.5rem)] max-w-none object-cover"
-          onError={(event) => {
-            // Photo retirée côté source : on efface le cadre cassé.
-            event.currentTarget.style.display = 'none';
-          }}
-        />
+      {photos.length > 0 && (
+        <div className="-mx-3 -mt-3 mb-3 flex w-[calc(100%+1.5rem)] snap-x snap-mandatory gap-0.5 overflow-x-auto">
+          {photos.map((url) => (
+            <img
+              key={url}
+              src={url}
+              alt=""
+              loading="lazy"
+              referrerPolicy="no-referrer"
+              className={`h-44 shrink-0 snap-center object-cover ${
+                photos.length === 1 ? 'w-full' : 'w-[92%]'
+              }`}
+              onError={(event) => {
+                // Photo retirée côté source : on efface le cadre cassé.
+                event.currentTarget.style.display = 'none';
+              }}
+            />
+          ))}
+        </div>
       )}
       <header className="flex items-start gap-3">
         {/* Indicateur de priorité : pastille teintée par palier (§36 : tri par action). */}

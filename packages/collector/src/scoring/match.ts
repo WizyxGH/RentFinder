@@ -32,7 +32,7 @@ export interface MatchOutcome {
  * étudiants (« idéal étudiant », « étudiants acceptés ») est conservé.
  */
 const STUDENT_EXCLUSIVE =
-  /residence etudiante|reserv\w+ aux etudiant|exclusivement (aux |pour )?etudiant|uniquement (pour |aux )?etudiant|\bcrous\b/;
+  /residence etudiante|reserv\w+ aux etudiant|exclusivement (aux |pour )?etudiant|uniquement (pour |aux )?etudiant|(location |bail )?etudiant\w{0,2} uniquement|\bcrous\b/;
 
 function isStudentHousing(listing: AggregatedListing): boolean {
   const text = comparable(`${listing.title.value ?? ''} ${listing.description.value ?? ''}`);

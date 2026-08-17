@@ -8,6 +8,7 @@ import {
   parseFurnished,
   parseDpe,
   extractFeatures,
+  parseAvailableAt,
   parsePhone,
   parsePostalCode,
   parsePrice,
@@ -287,6 +288,37 @@ describe('parsePublishedAt', () => {
   it('rend null sur un texte non interprétable', () => {
     expect(parsePublishedAt('récemment', now)).toBeNull();
     expect(parsePublishedAt(null, now)).toBeNull();
+  });
+});
+
+describe('parseAvailableAt (§17 — disponibilité)', () => {
+  const now = Date.parse('2026-08-14T12:00:00.000Z');
+
+  it('interprète « immédiatement » et équivalents', () => {
+    expect(parseAvailableAt('Disponible immédiatement', now)).toBe('2026-08-14T12:00:00.000Z');
+    expect(parseAvailableAt('libre de suite', now)).toBe('2026-08-14T12:00:00.000Z');
+  });
+
+  it('interprète les dates textuelles françaises avec année', () => {
+    expect(parseAvailableAt('DISPONIBLE LE 1ER SEPTEMBRE 2027', now)).toBe(
+      '2027-09-01T00:00:00.000Z',
+    );
+    expect(parseAvailableAt('disponible le 15 mars 2027', now)).toBe('2027-03-15T00:00:00.000Z');
+  });
+
+  it('sans année, choisit la prochaine occurrence', () => {
+    // Octobre est devant nous (2026), février est derrière (→ 2027).
+    expect(parseAvailableAt('disponible le 1er octobre', now)).toBe('2026-10-01T00:00:00.000Z');
+    expect(parseAvailableAt('disponible le 15 février', now)).toBe('2027-02-15T00:00:00.000Z');
+  });
+
+  it('garde les formats numériques', () => {
+    expect(parseAvailableAt('01/09/2026', now)).toBe('2026-09-01T00:00:00.000Z');
+  });
+
+  it('rend null sans indication exploitable', () => {
+    expect(parseAvailableAt('nous consulter', now)).toBeNull();
+    expect(parseAvailableAt(null, now)).toBeNull();
   });
 });
 

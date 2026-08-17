@@ -164,20 +164,24 @@ export function ListingDetail({
 
         <dt className={FACT_LABEL}>Localisation</dt>
         <dd>
-          {formatCity(listing.city.value)}
-          {listing.postalCode.value !== null && ` (${listing.postalCode.value})`}
-          {listing.address.value !== null && ` — ${formatAddress(listing.address.value)}`}
-          {mapsQuery !== '' && (
+          {/* §20 : la localisation elle-même est le lien vers Maps — pas de
+              lien « Ouvrir » séparé. */}
+          {mapsQuery !== '' ? (
+            <a
+              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapsQuery)}`}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="text-primary underline"
+              title="Ouvrir dans Maps"
+            >
+              📍 {formatCity(listing.city.value)}
+              {listing.postalCode.value !== null && ` (${listing.postalCode.value})`}
+              {listing.address.value !== null && ` — ${formatAddress(listing.address.value)}`}
+            </a>
+          ) : (
             <>
-              {' '}
-              <a
-                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapsQuery)}`}
-                target="_blank"
-                rel="noreferrer noopener"
-                className="whitespace-nowrap text-primary underline"
-              >
-                📍 Ouvrir dans Maps
-              </a>
+              {formatCity(listing.city.value)}
+              {listing.postalCode.value !== null && ` (${listing.postalCode.value})`}
             </>
           )}
         </dd>

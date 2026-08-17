@@ -13,10 +13,15 @@
  *   POST  /api/listings/:id/contact  enregistrement d'un contact manuel (§22)
  *   GET   /api/sources               état des sources (§63)
  *   GET   /api/stats                 statistiques de suivi (§33)
+ *   GET   /api/documents             pièces du dossier de candidature (§25)
+ *   POST  /api/documents?name=…      dépôt d'une pièce (corps = octets)
+ *   GET   /api/documents/:name       restitution locale d'une pièce
+ *   DELETE /api/documents/:name      suppression d'une pièce
  */
 
 import type { Client } from '@libsql/client';
 import { readSearchFilters, writeSearchFilters } from '../config.js';
+import { deleteDocument, listDocuments, readDocument, saveDocument } from './documents.js';
 
 /** Statuts de suivi acceptés par l'API (§35). */
 const TRACKING_STATUSES = new Set([
@@ -359,6 +364,36 @@ export async function route(
       } catch (error) {
         return jsonError(400, error instanceof Error ? error.message : 'Filtres invalides');
       }
+    }
+    return json({ error: 'Route inconnue' }, cors, 404);
+  }
+
+  // Documents de candidature (§25) : stockés dans data/ (gitignoré), servis
+  // uniquement en local. Aucun envoi automatique, jamais (§24).
+  if (resource === 'documents') {
+    if (id === undefined && method === 'GET') return json({ documents: listDocuments() }, cors);
+    if (id === undefined && method === 'POST') {
+      const name = url.searchParams.get('name') ?? '';
+      const bytes = new Uint8Array(await request.arrayBuffer());
+      const result = saveDocument(name, bytes);
+      return result.ok ? json(result.document, cors, 201) : jsonError(400, result.error);
+    }
+    if (id !== undefined && method === 'GET') {
+      const document = readDocument(decodeURIComponent(id));
+      if (document === null) return jsonError(404, 'Document introuvable');
+      return new Response(new Uint8Array(document.bytes), {
+        headers: {
+          'content-type': document.contentType,
+          'content-disposition': 'inline',
+          'cache-control': 'private, no-store',
+          ...cors,
+        },
+      });
+    }
+    if (id !== undefined && method === 'DELETE') {
+      return deleteDocument(decodeURIComponent(id))
+        ? json({ deleted: true }, cors)
+        : jsonError(404, 'Document introuvable');
     }
     return json({ error: 'Route inconnue' }, cors, 404);
   }
