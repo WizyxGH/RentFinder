@@ -175,6 +175,22 @@ test('la page Stats présente les compteurs et la couverture par source (§33)',
   await expect(page.getByText(/Taux de réponse/)).toBeVisible();
 });
 
+test('l’interrupteur de notifications est proposé (§29)', async ({ page }) => {
+  // Chromium headless refuse les notifications quoi qu'il arrive : selon
+  // l'environnement, la cloche est activable ou honnêtement marquée bloquée.
+  // Dans les deux cas elle est visible et inactive : rien ne sonne sans opt-in.
+  const bell = page.getByRole('button', { name: /[Nn]otifications/ });
+  await expect(bell).toBeVisible();
+  await expect(bell).toHaveAttribute('aria-pressed', 'false');
+
+  if (await bell.isEnabled()) {
+    await bell.click();
+    await expect(
+      page.getByRole('button', { name: 'Désactiver les notifications de nouvelles annonces' }),
+    ).toHaveAttribute('aria-pressed', 'true');
+  }
+});
+
 test('on peut mettre une annonce en favori', async ({ page }) => {
   const first = page.getByTestId('listing-card').first();
   const star = first.getByRole('button', { name: 'Ajouter aux favoris' });

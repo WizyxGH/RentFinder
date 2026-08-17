@@ -30,8 +30,18 @@ import {
 } from './api/client.js';
 import { clearProfile, loadProfile, saveProfile } from './profile.js';
 import { AFFINITY_BOOST, computeAffinity } from './affinity.js';
+import {
+  diffForNotification,
+  fireNotifications,
+  NOTIFY_POLL_MS,
+  notificationPermission,
+  readOptIn,
+  readSeen,
+  writeSeen,
+} from './notifications.js';
 import { Button } from '@/components/ui/button.js';
 import { ListingCard } from './components/ListingCard.js';
+import { NotificationBell } from './components/NotificationBell.js';
 import { ListingDetail } from './components/ListingDetail.js';
 import { ProfileForm } from './components/ProfileForm.js';
 import { SourcesPanel } from './components/SourcesPanel.js';
@@ -109,11 +119,14 @@ function Shell({
   return (
     <main className="mx-auto max-w-[720px] px-3 py-4 pb-12 sm:px-4 sm:py-6 sm:pb-16">
       <header className="mb-4">
-        <div className="flex items-baseline justify-between">
+        <div className="flex items-baseline justify-between gap-2">
           <h1 className="text-2xl font-bold tracking-tight">Recherche Nice</h1>
-          <p className="text-sm font-medium text-muted-foreground">
-            ≤ {MVP_CRITERIA.maxPrice} € · ≥ {MVP_CRITERIA.minArea} m²
-          </p>
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-medium text-muted-foreground">
+              ≤ {MVP_CRITERIA.maxPrice} € · ≥ {MVP_CRITERIA.minArea} m²
+            </p>
+            <NotificationBell />
+          </div>
         </div>
         <nav
           className="mt-3 flex gap-1 overflow-x-auto border-b border-border"
@@ -191,6 +204,49 @@ export function App(): React.JSX.Element {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // Ouvre une fiche et la marque « consultée » (§37). En `useCallback` car
+  // partagée par le rendu ET le sondage de notifications (hook ci-dessous).
+  const openListing = useCallback((id: string): void => {
+    setSelectedId(id);
+    setView('detail');
+    // Optimiste : on met à jour l'affichage tout de suite, l'API suit.
+    setListings((current) =>
+      current.map((listing) => (listing.id === id ? { ...listing, viewed: true } : listing)),
+    );
+    void markViewed(id).catch(() => {
+      /* l'échec réseau n'empêche pas de consulter la fiche */
+    });
+  }, []);
+
+  // Notifications navigateur des nouvelles annonces, site ouvert (§29). Sonde
+  // périodiquement, indépendamment des filtres d'affichage, et ne notifie que
+  // si l'utilisateur a donné sa permission ET activé la cloche. Le premier
+  // sondage amorce la mémoire sans sonner (voir `diffForNotification`).
+  useEffect(() => {
+    if (isDemoMode()) return; // pas de vraies données à surveiller
+
+    let cancelled = false;
+    const tick = async (): Promise<void> => {
+      if (!readOptIn() || notificationPermission() !== 'granted') return;
+      try {
+        const response = await fetchListings({ sort: 'recent' });
+        if (cancelled) return;
+        const { fresh, nextSeen } = diffForNotification(response.listings, readSeen());
+        writeSeen(nextSeen);
+        fireNotifications(fresh, openListing);
+      } catch {
+        /* réseau indisponible : nouveau sondage au prochain tick */
+      }
+    };
+
+    void tick();
+    const timer = window.setInterval(() => void tick(), NOTIFY_POLL_MS);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [openListing]);
 
   const navigate = (next: View): void => {
     if (next === 'sources') {
@@ -350,19 +406,6 @@ export function App(): React.JSX.Element {
   // La section « à contacter maintenant » reste fondée sur l'urgence réelle.
   const hot = sort === 'priority' ? ranked.filter((l) => l.actionPriority >= HOT_PRIORITY) : [];
   const rest = sort === 'priority' ? ranked.filter((l) => l.actionPriority < HOT_PRIORITY) : ranked;
-
-  const openListing = (id: string): void => {
-    setSelectedId(id);
-    setView('detail');
-    // §37 : marque « consultée » automatiquement à l'ouverture. Optimiste :
-    // on met à jour l'affichage tout de suite, l'API suit.
-    setListings((current) =>
-      current.map((listing) => (listing.id === id ? { ...listing, viewed: true } : listing)),
-    );
-    void markViewed(id).catch(() => {
-      /* l'échec réseau n'empêche pas de consulter la fiche */
-    });
-  };
 
   const handleFavorite = async (id: string, favorite: boolean): Promise<void> => {
     // Optimiste ; si on n'affiche que les favoris, retirer un favori le fait

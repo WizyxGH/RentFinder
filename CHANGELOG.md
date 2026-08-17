@@ -4,6 +4,24 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 Documenter ici : nouvelles sources, changements d'architecture ou de schéma,
 évolutions des scores et du système de contact, corrections importantes (§70).
 
+## [0.15.0] — 2026-08-17
+
+### Ajouté
+
+- **Favoris** : étoile sur chaque annonce, filtre « Favoris uniquement »,
+  persistant entre les relances (colonne dédiée, jamais écrasée par la
+  collecte). Le favori est le signal d'appréciation le plus fort de l'affinité.
+- **Notifications navigateur** (§29) : cloche dans l'en-tête pour activer les
+  notifications de nouvelles annonces dans les critères, site ouvert. Sondage
+  toutes les 60 s, anti-spam (3 notifications max puis un résumé), premier
+  sondage silencieux (pas de rafale sur le stock existant), clic → ouvre la
+  fiche. Aucune infrastructure : 100 % local, API Notifications du navigateur.
+
+### Corrigé
+
+- **Barre d'onglets** : scrollable horizontalement sur mobile (5 onglets
+  débordaient sur 393 px).
+
 ## [0.14.0] — 2026-08-16
 
 ### Ajouté
