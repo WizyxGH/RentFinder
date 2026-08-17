@@ -8,6 +8,7 @@
 import type { TenantProfile } from '@rentfinder/shared';
 import type { ListingView, TrackingStatus } from '../types.js';
 import {
+  formatAddress,
   formatAge,
   formatArea,
   formatCity,
@@ -145,7 +146,7 @@ export function ListingDetail({
         <dd>
           {formatCity(listing.city.value)}
           {listing.postalCode.value !== null && ` (${listing.postalCode.value})`}
-          {listing.address.value !== null && ` — ${listing.address.value}`}
+          {listing.address.value !== null && ` — ${formatAddress(listing.address.value)}`}
           {mapsQuery !== '' && (
             <>
               {' '}

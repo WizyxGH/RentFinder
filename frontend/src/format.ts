@@ -47,6 +47,100 @@ export function formatCity(city: string | null): string {
     .join(' ');
 }
 
+/** Particules françaises laissées en minuscules dans une adresse. */
+const ADDRESS_PARTICLES = new Set([
+  'de',
+  'du',
+  'des',
+  'la',
+  'le',
+  'les',
+  'l',
+  'd',
+  'et',
+  'au',
+  'aux',
+  'sur',
+  'sous',
+  'en',
+  'à',
+  'a',
+  'bis',
+  'ter',
+]);
+
+/** Abréviations de voies, dépliées pour un affichage homogène. */
+const ADDRESS_ABBREVIATIONS: Record<string, string> = {
+  bd: 'boulevard',
+  bld: 'boulevard',
+  blvd: 'boulevard',
+  av: 'avenue',
+  ave: 'avenue',
+  imp: 'impasse',
+  chem: 'chemin',
+  prom: 'promenade',
+  bat: 'bât.',
+};
+
+/** Chiffres romains (Napoléon III, Albert 1er…) gardés en capitales. */
+const ROMAN_NUMERAL = /^[ivx]{1,4}$/i;
+
+/** Capitalise un mot d'adresse en respectant traits d'union et apostrophes. */
+function capitalizeAddressWord(word: string, isFirst: boolean): string {
+  // Segments séparés par un trait d'union : chacun est capitalisé.
+  if (word.includes('-')) {
+    return word
+      .split('-')
+      .map((part, index) => capitalizeAddressWord(part, isFirst && index === 0))
+      .join('-');
+  }
+  // « l'hermitage » → « l'Hermitage » : la particule élidée reste minuscule.
+  const elision = /^([ld])['’](.+)$/i.exec(word);
+  if (elision !== null) {
+    return `${elision[1]!.toLowerCase()}’${capitalizeAddressWord(elision[2]!, false)}`;
+  }
+  if (word === '') return word;
+  // « 77bis », « 26/30 », « 1er » : les jetons commençant par un chiffre
+  // restent en minuscules après le chiffre.
+  if (/^\d/.test(word)) return word.toLowerCase();
+  if (ROMAN_NUMERAL.test(word)) return word.toUpperCase();
+  const lower = word.toLowerCase();
+  if (!isFirst && ADDRESS_PARTICLES.has(lower)) return lower;
+  return lower[0]!.toUpperCase() + lower.slice(1);
+}
+
+/**
+ * Adresse lisible, quelle que soit la forme publiée par la source :
+ * « 260 BOULEVARD DE LA MADELEINE » → « 260 Boulevard de la Madeleine »,
+ * « 26/30 BLD NAPOLEON III » → « 26/30 Boulevard Napoleon III », « 144 rue
+ * France » → « 144 Rue France ». Les particules restent minuscules, les
+ * chiffres romains en capitales, les abréviations de voies sont dépliées. Les
+ * accents absents ne sont PAS restaurés — on n'invente pas de donnée (§17).
+ */
+export function formatAddress(address: string | null): string {
+  if (address === null || address.trim() === '') return UNKNOWN;
+
+  const words = address
+    .replace(/\s+/g, ' ')
+    // « 37 - 39 » → « 37-39 » : plage de numéros recollée.
+    .replace(/(\d)\s*-\s*(\d)/g, '$1-$2')
+    .trim()
+    .split(' ')
+    .map((word) => {
+      const stripped = word.toLowerCase().replace(/\.$/, '');
+      return ADDRESS_ABBREVIATIONS[stripped] ?? word;
+    });
+
+  let seenAlpha = false;
+  return words
+    .map((word) => {
+      const isFirst = !seenAlpha;
+      if (/[a-zà-ÿ]/i.test(word)) seenAlpha = true;
+      return capitalizeAddressWord(word, isFirst);
+    })
+    .join(' ');
+}
+
 /**
  * Ancienneté lisible : « il y a 4 min », « il y a 2 h », « il y a 3 j ».
  * `nowMs` est un paramètre pour garder les tests déterministes (§59).

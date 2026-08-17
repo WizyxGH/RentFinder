@@ -17,10 +17,18 @@ Documenter ici : nouvelles sources, changements d'architecture ou de schéma,
   sondage silencieux (pas de rafale sur le stock existant), clic → ouvre la
   fiche. Aucune infrastructure : 100 % local, API Notifications du navigateur.
 
+- **Source Lamy Immobilier** (lamy-immobilier.fr) : méthode sitemap (CMS
+  Ibexa, fiches server-rendered `estate__*`), communes 06 ciblées, DPE et
+  caractéristiques extraits. Première collecte : 8 annonces, 0 warning.
+
 ### Corrigé
 
 - **Barre d'onglets** : scrollable horizontalement sur mobile (5 onglets
   débordaient sur 393 px).
+- **Adresses affichées** : formatage homogène (`formatAddress`) — les adresses
+  publiées EN MAJUSCULES ou en minuscules sont recapitalisées (particules
+  minuscules, chiffres romains en capitales, « Bd/BLD » déplié en
+  « Boulevard »), sans jamais inventer d'accents absents (§17).
 
 ## [0.14.0] — 2026-08-16
 

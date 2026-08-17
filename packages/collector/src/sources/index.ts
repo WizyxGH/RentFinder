@@ -21,6 +21,7 @@ import { dazurScraper } from './dazur/index.js';
 import { gestionCassiniScraper } from './gestion-cassini/index.js';
 import { fonciaScraper } from './foncia/index.js';
 import { laforetScraper } from './laforet/index.js';
+import { lamyScraper } from './lamy/index.js';
 import { nousgeronsScraper } from './nousgerons/index.js';
 import { orpiScraper } from './orpi/index.js';
 import { papScraper } from './pap/index.js';
@@ -36,6 +37,7 @@ export const ALL_SCRAPERS: readonly Scraper[] = [
   dazurScraper,
   gestionCassiniScraper,
   bepAbonnesScraper,
+  lamyScraper,
 ];
 
 export { laforetScraper } from './laforet/index.js';

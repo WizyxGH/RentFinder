@@ -8,6 +8,7 @@
 
 import type { ListingView } from '../types.js';
 import {
+  formatAddress,
   formatAge,
   formatArea,
   formatCity,
@@ -61,7 +62,7 @@ export function ListingCard({
   const favorite = listing.favorite === true;
   const tier = priorityTier(listing.actionPriority);
   const publishedAt = listing.publishedAt.value;
-  const neighborhood = listing.address.value;
+  const neighborhood = listing.address.value !== null ? formatAddress(listing.address.value) : null;
 
   // Atouts compacts pour la carte : DPE puis les premiers atouts, sans saturer.
   const dpe = listing.dpe?.value ?? null;

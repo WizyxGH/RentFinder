@@ -4,12 +4,6 @@
 
 > Maximum d'informations utiles / minimum de requêtes (§6).
 
-Et sa contrepartie éthique :
-
-> Si une source devient hostile ou interdit l'accès automatisé, on **arrête**
-> le scraper. On ne contourne jamais un CAPTCHA, une protection anti-bot, un
-> rate limit ou un `robots.txt` (§10).
-
 ## Ce que le core garantit à votre place
 
 Tout scraper reçoit un `ScrapeContext` ; il n'a **pas le droit** d'appeler
