@@ -42,6 +42,8 @@ function featuresOf(listing: ListingView): string[] {
 /** Poids d'une annonce dans le profil : positif si appréciée, négatif si rejetée. */
 function interactionWeight(listing: ListingView): number {
   if (listing.archived === true || NEGATIVE_TRACKING.has(listing.tracking)) return -2;
+  // Le favori est le signal d'appréciation le plus explicite.
+  if (listing.favorite === true) return 5;
   const tracked = POSITIVE_TRACKING[listing.tracking];
   if (tracked !== undefined) return tracked;
   if (listing.viewed === true) return 1;

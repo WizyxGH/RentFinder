@@ -24,6 +24,7 @@ import {
   readToken,
   recordContact,
   setArchived,
+  setFavorite,
   updateTracking,
   writeToken,
 } from './api/client.js';
@@ -114,14 +115,17 @@ function Shell({
             ≤ {MVP_CRITERIA.maxPrice} € · ≥ {MVP_CRITERIA.minArea} m²
           </p>
         </div>
-        <nav className="mt-3 flex gap-1 border-b border-border" aria-label="Navigation principale">
+        <nav
+          className="mt-3 flex gap-1 overflow-x-auto border-b border-border"
+          aria-label="Navigation principale"
+        >
           {tabs.map((tab) => (
             <button
               key={tab.key}
               type="button"
               onClick={() => onNavigate(tab.key)}
               aria-current={active === tab.key ? 'page' : undefined}
-              className={`-mb-px min-h-11 cursor-pointer border-b-2 px-4 text-[0.95rem] transition-colors ${
+              className={`-mb-px min-h-11 shrink-0 cursor-pointer border-b-2 px-3 text-[0.95rem] whitespace-nowrap transition-colors ${
                 active === tab.key
                   ? 'border-primary font-semibold text-primary'
                   : 'border-transparent font-medium text-muted-foreground hover:text-foreground'
@@ -145,6 +149,7 @@ export function App(): React.JSX.Element {
   const [sort, setSort] = useState<SortMode>('priority');
   const [includeOutOfCriteria, setIncludeOutOfCriteria] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [profile, setProfile] = useState<TenantProfile | null>(() => loadProfile());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -167,6 +172,7 @@ export function App(): React.JSX.Element {
         sort,
         includeOutOfCriteria,
         includeArchived: showArchived,
+        favoritesOnly,
       });
       setListings(response.listings);
       setNowMs(Date.now());
@@ -180,7 +186,7 @@ export function App(): React.JSX.Element {
     } finally {
       setLoading(false);
     }
-  }, [sort, includeOutOfCriteria, showArchived]);
+  }, [sort, includeOutOfCriteria, showArchived, favoritesOnly]);
 
   useEffect(() => {
     void load();
@@ -358,6 +364,21 @@ export function App(): React.JSX.Element {
     });
   };
 
+  const handleFavorite = async (id: string, favorite: boolean): Promise<void> => {
+    // Optimiste ; si on n'affiche que les favoris, retirer un favori le fait
+    // disparaître de la liste.
+    setListings((current) =>
+      !favorite && favoritesOnly
+        ? current.filter((listing) => listing.id !== id)
+        : current.map((listing) => (listing.id === id ? { ...listing, favorite } : listing)),
+    );
+    try {
+      await setFavorite(id, favorite);
+    } catch {
+      setError('Le favori n’a pas pu être enregistré');
+    }
+  };
+
   const handleArchive = async (id: string, archived: boolean): Promise<void> => {
     // Optimiste : si on archive et qu'on ne montre pas les archivées, l'annonce
     // disparaît de la liste ; sinon on met simplement à jour son état.
@@ -419,6 +440,15 @@ export function App(): React.JSX.Element {
           />
           Afficher les archivées
         </label>
+
+        <label className="flex items-center gap-1.5 text-muted-foreground">
+          <input
+            type="checkbox"
+            checked={favoritesOnly}
+            onChange={(event) => setFavoritesOnly(event.target.checked)}
+          />
+          Favoris uniquement
+        </label>
       </div>
 
       {error !== null && (
@@ -449,6 +479,7 @@ export function App(): React.JSX.Element {
                     nowMs={nowMs}
                     onOpen={openListing}
                     onArchive={(archived) => void handleArchive(listing.id, archived)}
+                    onFavorite={(favorite) => void handleFavorite(listing.id, favorite)}
                     affinity={affinity.active ? affinity.scores.get(listing.id) : undefined}
                   />
                 ))}

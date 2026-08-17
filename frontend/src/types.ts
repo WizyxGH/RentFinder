@@ -71,6 +71,8 @@ export interface ListingView {
   readonly viewed?: boolean;
   /** `true` si l'utilisateur a archivé l'annonce (retirée de la liste par défaut). */
   readonly archived?: boolean;
+  /** `true` si l'utilisateur a mis l'annonce en favori. */
+  readonly favorite?: boolean;
   readonly actionPriority: number;
   readonly tracking: TrackingStatus;
   readonly lifecycle: 'active' | 'possiblyInactive' | 'inactive';

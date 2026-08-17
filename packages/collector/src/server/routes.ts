@@ -65,6 +65,7 @@ function rowToListing(row: Record<string, unknown>): Record<string, unknown> {
     actionPriority: Number(row['action_priority'] ?? 0),
     viewed: Number(row['viewed'] ?? 0) === 1,
     archived: Number(row['archived'] ?? 0) === 1,
+    favorite: Number(row['favorite'] ?? 0) === 1,
     ...payload,
   };
 }
@@ -111,6 +112,10 @@ async function listListings(db: Client, url: URL): Promise<unknown> {
   // Les annonces archivées sont masquées, sauf demande explicite (§ archivage).
   if (url.searchParams.get('archived') !== 'true') {
     conditions.push('archived = 0');
+  }
+  // Vue « favoris uniquement » sur demande.
+  if (url.searchParams.get('favorite') === 'true') {
+    conditions.push('favorite = 1');
   }
 
   const filter = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -239,6 +244,7 @@ async function updateListing(
     tracking?: string;
     viewed?: boolean;
     archived?: boolean;
+    favorite?: boolean;
   } | null;
   if (body === null) return jsonError(400, 'Corps de requête invalide');
 
@@ -257,6 +263,10 @@ async function updateListing(
   if (typeof body.archived === 'boolean') {
     sets.push('archived = ?');
     args.push(body.archived ? 1 : 0);
+  }
+  if (typeof body.favorite === 'boolean') {
+    sets.push('favorite = ?');
+    args.push(body.favorite ? 1 : 0);
   }
 
   if (sets.length === 0) return jsonError(400, 'Aucun champ à mettre à jour');

@@ -30,6 +30,8 @@ interface ListingCardProps {
   readonly onOpen: (id: string) => void;
   /** Archive (`true`) ou désarchive (`false`) l'annonce. */
   readonly onArchive?: (archived: boolean) => void;
+  /** Met (`true`) ou retire (`false`) l'annonce des favoris. */
+  readonly onFavorite?: (favorite: boolean) => void;
   /** Score d'affinité [0,1] avec vos préférences, si assez de signal (§33). */
   readonly affinity?: number;
 }
@@ -50,11 +52,13 @@ export function ListingCard({
   nowMs,
   onOpen,
   onArchive,
+  onFavorite,
   affinity,
 }: ListingCardProps): React.JSX.Element {
   const sources = [...new Set(listing.occurrences.map((occurrence) => occurrence.sourceId))];
   const isHot = listing.actionPriority >= 85;
   const archived = listing.archived === true;
+  const favorite = listing.favorite === true;
   const tier = priorityTier(listing.actionPriority);
   const publishedAt = listing.publishedAt.value;
   const neighborhood = listing.address.value;
@@ -98,6 +102,20 @@ export function ListingCard({
         </div>
 
         <span className="flex shrink-0 flex-col items-end gap-1">
+          {onFavorite !== undefined && (
+            <button
+              type="button"
+              onClick={() => onFavorite(!favorite)}
+              title={favorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+              aria-label={favorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+              aria-pressed={favorite}
+              className={`-mt-1 cursor-pointer text-xl leading-none transition-colors ${
+                favorite ? 'text-hot' : 'text-muted-foreground hover:text-hot'
+              }`}
+            >
+              {favorite ? '★' : '☆'}
+            </button>
+          )}
           {archived && <Badge variant="warning">Archivée</Badge>}
           {affinity !== undefined && affinity >= AFFINITY_BADGE_THRESHOLD && !archived && (
             <Badge variant="good">Vos préférences</Badge>

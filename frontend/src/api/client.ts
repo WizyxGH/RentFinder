@@ -115,18 +115,21 @@ export interface FetchListingsOptions {
   readonly sort?: SortMode;
   readonly includeOutOfCriteria?: boolean;
   readonly includeArchived?: boolean;
+  readonly favoritesOnly?: boolean;
 }
 
 export async function fetchListings(options: FetchListingsOptions = {}): Promise<ListingsResponse> {
   const sort = options.sort ?? 'priority';
   const includeAll = options.includeOutOfCriteria ?? false;
   const includeArchived = options.includeArchived ?? false;
+  const favoritesOnly = options.favoritesOnly ?? false;
 
   if (isDemoMode()) {
     let filtered = includeAll
       ? MOCK_LISTINGS
       : MOCK_LISTINGS.filter((listing) => listing.matchesCriteria);
     if (!includeArchived) filtered = filtered.filter((listing) => listing.archived !== true);
+    if (favoritesOnly) filtered = filtered.filter((listing) => listing.favorite === true);
     const listings = sortMock(filtered, sort);
     return { listings, total: listings.length, limit: listings.length, offset: 0 };
   }
@@ -134,6 +137,7 @@ export async function fetchListings(options: FetchListingsOptions = {}): Promise
   const params = new URLSearchParams({ sort });
   if (includeAll) params.set('all', 'true');
   if (includeArchived) params.set('archived', 'true');
+  if (favoritesOnly) params.set('favorite', 'true');
   return request<ListingsResponse>(`/api/listings?${params.toString()}`);
 }
 
@@ -147,6 +151,12 @@ export async function markViewed(id: string): Promise<void> {
 export async function setArchived(id: string, archived: boolean): Promise<void> {
   if (isDemoMode()) return;
   await request(`/api/listings/${id}`, { method: 'PATCH', body: JSON.stringify({ archived }) });
+}
+
+/** Met ou retire une annonce des favoris. */
+export async function setFavorite(id: string, favorite: boolean): Promise<void> {
+  if (isDemoMode()) return;
+  await request(`/api/listings/${id}`, { method: 'PATCH', body: JSON.stringify({ favorite }) });
 }
 
 export async function fetchListing(id: string): Promise<ListingView> {

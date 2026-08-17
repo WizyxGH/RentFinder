@@ -174,3 +174,12 @@ test('la page Stats présente les compteurs et la couverture par source (§33)',
   await expect(page.getByText('Couverture par source')).toBeVisible();
   await expect(page.getByText(/Taux de réponse/)).toBeVisible();
 });
+
+test('on peut mettre une annonce en favori', async ({ page }) => {
+  const first = page.getByTestId('listing-card').first();
+  const star = first.getByRole('button', { name: 'Ajouter aux favoris' });
+  await expect(star).toBeVisible();
+  await star.click();
+  // L'étoile devient « pleine » : le bouton bascule vers « Retirer des favoris ».
+  await expect(first.getByRole('button', { name: 'Retirer des favoris' })).toBeVisible();
+});
