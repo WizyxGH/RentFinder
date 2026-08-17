@@ -70,15 +70,25 @@ n'interdisant que `/app_dev.php`, sitemap déclaré, fiches
 | **DG Immo** (dgimmo.fr)                              | 2026-08-17 | ✅ **Implémentée** | ~4 locations Nice + Saint-Laurent-du-Var.                                                                                          |
 | rivolimmo.fr                                         | 2026-08-17 | ⚪ Apimo confirmé  | Sitemap quasi vide (1 fiche) — à activer si le stock apparaît.                                                                     |
 
-**Piste suivante — plateforme « La Boîte Immo / Hektor »** (même logique qu'un
-adaptateur Apimo, 6 sites identifiés le 2026-08-17, robots permissifs +
-sitemaps) : giletta-properties.com (~32 locations Nice, meilleur volume
-unitaire trouvé), lt-immobilier.com (**La Trinité/Drap**, communes mal
-couvertes), immobiliere-pelou.com (Villeneuve-Loubet), agenceducentrenice.com,
-aagestion.net, agencedesdomaines.com (Cagnes). Écartés notables : portissim,
-renoirimmobilier, alpesazur, portimmo, atrioimmobilier, riviera-bay,
-azur-mediterranee (hébergeur coupant les clients non-navigateur — on ne
-contourne pas, §10) ; nicolaspisani.com (robots interdit les annonces).
+**Plateforme « La Boîte Immo / Hektor »** — adaptateur générique implémenté le
+2026-08-17 (`sources/hektor`, même logique que l'adaptateur Apimo) : listes
+SSR → fiches nouvelles uniquement ; table clé/valeur `table-aria` (CP, pièces,
+meublé, loyer CC, charges), photos `staticlbi.com` ; DPE non extrait (image
+générée sous /admin, interdit par robots → laissé inconnu, §17).
+
+| Source                                          | Vérifié    | Verdict            | Détail                                                                                                                                                                                |
+| ----------------------------------------------- | ---------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Giletta Immobilier** (giletta-properties.com) | 2026-08-17 | ✅ **Implémentée** | ~47 fiches location à Nice, majoritairement étudiantes exclusives (écartées par le filtre) — le reste est le meilleur volume unitaire trouvé. Dates de disponibilité dans les titres. |
+| **LT Immobilier** (lt-immobilier.com)           | 2026-08-17 | ✅ **Implémentée** | Seule couverture **La Trinité/Drap/Paillon**. Stock faible mais stratégique ; sitemap sans fiches → collecte par la liste `/a-louer/1`.                                               |
+| **Agence du Centre** (agenceducentrenice.com)   | 2026-08-17 | ✅ **Implémentée** | ~5 locations Nice.                                                                                                                                                                    |
+| immobiliere-pelou.com                           | 2026-08-17 | ⚪ Hektor confirmé | Liste `/a-louer/1` vide au moment de l'étude — à activer quand le stock (longue durée) apparaît.                                                                                      |
+| aagestion.net                                   | 2026-08-17 | ⚪ Hektor confirmé | Liste `/location/1` sans fiche au moment de l'étude.                                                                                                                                  |
+| agencedesdomaines.com (Cagnes)                  | 2026-08-17 | ⚪ Hektor confirmé | Liste `/a-louer/1` sans fiche au moment de l'étude.                                                                                                                                   |
+
+Écartés notables : portissim, renoirimmobilier, alpesazur, portimmo,
+atrioimmobilier, riviera-bay, azur-mediterranee (hébergeur coupant les clients
+non-navigateur — on ne contourne pas, §10) ; nicolaspisani.com (robots
+interdit les annonces).
 
 Méthode pour la suite :
 

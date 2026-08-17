@@ -41,6 +41,11 @@ Documenter ici : nouvelles sources, changements d'architecture ou de schéma,
   sur la carte.
 - **Localisation cliquable** : l'adresse elle-même ouvre Maps (plus de lien
   « Ouvrir dans Maps » séparé).
+- **Adaptateur « La Boîte Immo / Hektor »** (`sources/hektor`, §47) + 3 agences :
+  Giletta Immobilier (~47 fiches Nice), LT Immobilier (seule couverture
+  La Trinité/Drap) et Agence du Centre. 14 annonces à la première collecte ;
+  3 autres sites Hektor confirmés mais sans stock, documentés pour activation
+  future.
 
 ### Corrigé
 
