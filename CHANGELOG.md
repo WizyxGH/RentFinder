@@ -24,7 +24,7 @@ Documenter ici : nouvelles sources, changements d'architecture ou de schéma,
 ### Ajouté
 
 - **Annonces consultées et archivées** (persistantes) : ouvrir une fiche la
-  marque automatiquement « déjà consultée » ; un bouton archive/désarchive
+  marque automatiquement « consultée » ; un bouton archive/désarchive
   retire l'annonce de la liste sans la perdre (case « Afficher les archivées »).
   Stocké en base (colonnes `viewed`/`archived`, migration `0005`), jamais
   écrasé par la collecte : l'état survit aux redémarrages et re-collectes.

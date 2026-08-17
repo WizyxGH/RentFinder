@@ -56,15 +56,26 @@ describe('scoreMatch (§16)', () => {
     expect(scoreMatch(makeAggregated({ price: 400 }), MVP_CRITERIA).matchesCriteria).toBe(true);
   });
 
-  it('exclut une location étudiante (signal fort), pas un studio « idéal étudiant »', () => {
+  it('exclut une location EXCLUSIVEMENT étudiante, pas celles qui acceptent des étudiants', () => {
+    // Exclusivement étudiant → exclu.
     expect(
       scoreMatch(makeAggregated({ title: 'T1 en résidence étudiante' }), MVP_CRITERIA)
         .matchesCriteria,
     ).toBe(false);
-    // « idéal étudiant » est un studio classique : NON exclu (§17).
+    expect(
+      scoreMatch(makeAggregated({ description: 'Studio réservé aux étudiants' }), MVP_CRITERIA)
+        .matchesCriteria,
+    ).toBe(false);
+    // Accepte des étudiants MAIS pas uniquement → conservé (décision 2026-08-16).
     expect(
       scoreMatch(
         makeAggregated({ description: 'Joli studio idéal pour un étudiant, proche fac' }),
+        MVP_CRITERIA,
+      ).matchesCriteria,
+    ).toBe(true);
+    expect(
+      scoreMatch(
+        makeAggregated({ description: 'Bel appartement, étudiants acceptés' }),
         MVP_CRITERIA,
       ).matchesCriteria,
     ).toBe(true);

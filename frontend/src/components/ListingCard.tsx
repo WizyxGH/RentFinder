@@ -102,7 +102,7 @@ export function ListingCard({
           {affinity !== undefined && affinity >= AFFINITY_BADGE_THRESHOLD && !archived && (
             <Badge variant="good">Vos préférences</Badge>
           )}
-          {listing.viewed === true && !archived && <Badge>Déjà consultée</Badge>}
+          {listing.viewed === true && !archived && <Badge>Consultée</Badge>}
           {listing.tracking !== 'new' && <Badge>{formatTracking(listing.tracking)}</Badge>}
           {listing.priceDropped === true && <Badge variant="good">Prix en baisse</Badge>}
           {listing.flatShare?.value === true && <Badge variant="warning">Colocation</Badge>}

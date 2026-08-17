@@ -238,4 +238,19 @@ describe('surveillance des sources (§61)', () => {
     const page = parseSearchPage(html, PAGE_URL);
     expect(page.warnings.join(' ')).toMatch(/parsing dégradé/);
   });
+
+  it('ne laisse pas fuiter les attributs de tracking dans le titre (régression)', () => {
+    // Laforêt porte des attributs `data-gtm-*` et un « > » dans l'URL, qui
+    // cassaient l'ancien strip de balises par regex et polluaient le titre.
+    const html = `<a
+        href="https://www.laforet.com/agence-immobiliere/nice/louer/nice/appartement-1-piece-52444935?a=b>c#gtm#push"
+        data-gtm-click-block-param="list-biens"
+        data-gtm-click-name-param="Appartement">
+        Appartement 620 €/mois NICE (06100) 22 m² 1 pièce Meublé
+      </a>`;
+    const page = parseSearchPage(html, PAGE_URL);
+    const listing = page.listings.find((l) => l.sourceRef === '52444935');
+    expect(listing?.title).toBe('Appartement 620 €/mois NICE (06100) 22 m² 1 pièce Meublé');
+    expect(listing?.title).not.toMatch(/gtm|data-/);
+  });
 });

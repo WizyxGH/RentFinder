@@ -25,18 +25,22 @@ export interface MatchOutcome {
 }
 
 /**
- * Signaux FORTS de location étudiante — volontairement stricts pour ne pas
- * exclure un studio classique simplement « idéal pour un étudiant ». On vise
- * les résidences/locations dédiées et Erasmus/CROUS.
+ * Détection d'une location EXCLUSIVEMENT étudiante (décision utilisateur du
+ * 2026-08-16) : on n'exclut QUE les offres réservées aux étudiants — résidences
+ * étudiantes, biens « réservés/exclusivement étudiants », CROUS, ou offre
+ * dédiée dans l'URL (`location-etudiants`). Un bien qui SEULEMENT accepte des
+ * étudiants (« idéal étudiant », « étudiants acceptés ») est conservé.
  */
-const STUDENT_PATTERN =
-  /residence etudiante|logement etudiant|location etudiant|\berasmus\b|\bcrous\b/;
+const STUDENT_EXCLUSIVE =
+  /residence etudiante|reserv\w+ aux etudiant|exclusivement (aux |pour )?etudiant|uniquement (pour |aux )?etudiant|\bcrous\b/;
 
 function isStudentHousing(listing: AggregatedListing): boolean {
   const text = comparable(`${listing.title.value ?? ''} ${listing.description.value ?? ''}`);
-  if (STUDENT_PATTERN.test(text)) return true;
-  // Signal d'URL : segment « etudiant » (ex. /location-etudiants/).
-  return listing.occurrences.some((occurrence) => /etudiant/i.test(occurrence.sourceUrl));
+  if (STUDENT_EXCLUSIVE.test(text)) return true;
+  // Offre dédiée aux étudiants dans l'URL (ex. /…location-etudiants…/).
+  return listing.occurrences.some((occurrence) =>
+    /location-etudiant|logement-etudiant/i.test(occurrence.sourceUrl),
+  );
 }
 
 /** Évalue la correspondance d'un logement aux critères de recherche. */

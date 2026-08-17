@@ -155,11 +155,14 @@ export function parseSearchPage(html: string, pageUrl: string): ParsedPage {
     const parsed = parseListingUrl(absolute);
     if (parsed === null) return;
 
-    // `cheerio.text()` concatène les nœuds sans séparateur : « …€/moisNICE ».
-    // On remplace donc les balises par un espace pour garantir que deux
-    // fragments voisins restent des mots distincts, quelle que soit
-    // l'indentation du HTML servi.
-    const text = cleanText($.html($(element)).replace(/<[^>]*>/g, ' '));
+    // Extraction du texte via cheerio : `.text()` ne rend QUE les nœuds texte,
+    // sans jamais laisser fuiter d'attribut (les cartes portent des attributs
+    // de tracking `data-gtm-*`, et un « > » dans une URL cassait l'ancien
+    // strip de balises par regex, polluant le titre). On remplace les <br> par
+    // un espace pour ne pas coller deux fragments voisins (« …€/moisNICE »).
+    const node = $(element).clone();
+    node.find('br').replaceWith(' ');
+    const text = cleanText(node.text().replace(/\s+/g, ' '));
 
     // Plusieurs liens pointent vers la même annonce (photo, titre, ancre vidéo).
     // Seul l'un d'eux porte le texte complet de la carte ; on garde le plus riche.
