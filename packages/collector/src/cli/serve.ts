@@ -85,7 +85,13 @@ async function serveStatic(pathname: string, res: ServerResponse): Promise<void>
   try {
     const content = await readFile(filePath);
     const mime = MIME_TYPES[extname(filePath).toLowerCase()] ?? 'application/octet-stream';
-    res.writeHead(200, { 'content-type': mime });
+    // Les assets construits portent leur empreinte dans le nom (index-XXXX.js) :
+    // cache immuable → rechargements instantanés. L'index, lui, ne doit jamais
+    // être mis en cache (il référence les empreintes du moment).
+    const cacheControl = /^assets[/\\]/.test(relative)
+      ? 'public, max-age=31536000, immutable'
+      : 'no-cache';
+    res.writeHead(200, { 'content-type': mime, 'cache-control': cacheControl });
     res.end(content);
   } catch {
     // SPA : toute route inconnue retombe sur l'index.

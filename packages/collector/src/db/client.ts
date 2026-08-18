@@ -35,7 +35,16 @@ export interface DatabaseOptions {
 
 /** Ouvre une connexion vers un fichier SQLite local (ou `:memory:` en test). */
 export function openDatabase(options: DatabaseOptions): Database {
-  return createClient({ url: options.url });
+  const client = createClient({ url: options.url });
+  // WAL : lectures et écritures simultanées sans blocage — le serveur local
+  // peut servir l'interface PENDANT qu'une collecte écrit (sinon, risque de
+  // « database is locked »). Sans effet en mémoire ; best-effort ailleurs.
+  if (options.url.startsWith('file:')) {
+    client.execute('PRAGMA journal_mode = WAL').catch(() => {
+      /* pragma non supporté : on garde le mode par défaut */
+    });
+  }
+  return client;
 }
 
 /**

@@ -124,7 +124,8 @@ Sans ces variables, le notifieur reste silencieusement désactivé.
 | Commande                      | Effet                                                                           |
 | ----------------------------- | ------------------------------------------------------------------------------- |
 | `pnpm dev`                    | frontend en mode démo                                                           |
-| `pnpm local`                  | mode local complet : interface + API sur `data/local.db`                        |
+| `pnpm local`                  | mode local complet : (re)construit l'interface puis sert sur `data/local.db`    |
+| `pnpm serve`                  | démarrage **instantané** (sans reconstruire — si l'interface n'a pas changé)    |
 | `pnpm collect`                | un cycle de collecte (`-- --backfill`, `-- --verbose`) + notif Telegram         |
 | `schedule-collect.ps1`        | planifie `pnpm collect` (Windows) pour des notifs automatiques (voir ci-dessus) |
 | `pnpm db:migrate`             | applique les migrations                                                         |
