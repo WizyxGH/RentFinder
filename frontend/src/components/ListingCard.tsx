@@ -65,20 +65,25 @@ export function ListingCard({
   const publishedAt = listing.publishedAt.value;
   const neighborhood = listing.address.value !== null ? formatAddress(listing.address.value) : null;
 
-  // Atouts compacts pour la carte : disponibilité, DPE puis les premiers
-  // atouts, sans saturer.
-  const dpe = listing.dpe?.value ?? null;
+  // La carte reste épurée : pas de pastilles DPE/atouts (réservées à la
+  // fiche) ; seule la disponibilité, décisive pour agir, est affichée.
   const availability = formatAvailability(listing.availableAt.value, nowMs);
-  const chips = [
-    ...(availability !== null ? [availability] : []),
-    ...(dpe !== null ? [`DPE ${dpe}`] : []),
-    ...(listing.features ?? []).slice(0, 3),
-  ];
 
   // Photos, affichées directement depuis le site d'origine (§11 : jamais
-  // téléchargées ni stockées) et défilables sur la carte même. Sans photo, la
-  // carte reste purement textuelle.
-  const photos = (listing.imageUrls ?? []).slice(0, 6);
+  // téléchargées ni stockées) et défilables sur la carte même. Certaines
+  // sources listent la même photo en plusieurs tailles (/original/,
+  // /1600xauto/, /640x480/…) : on dédoublonne sur l'URL débarrassée de son
+  // segment de taille pour ne pas montrer deux fois la même image. Sans photo,
+  // la carte reste purement textuelle.
+  const seenPhotoKeys = new Set<string>();
+  const photos = (listing.imageUrls ?? [])
+    .filter((url) => {
+      const key = url.replace(/\/(original|\d+x(?:auto|\d+)|auto x\d+|thumb\w*)\//i, '/');
+      if (seenPhotoKeys.has(key)) return false;
+      seenPhotoKeys.add(key);
+      return true;
+    })
+    .slice(0, 6);
 
   return (
     <Card
@@ -88,23 +93,30 @@ export function ListingCard({
       data-testid="listing-card"
     >
       {photos.length > 0 && (
-        <div className="-mx-3 -mt-3 mb-3 flex w-[calc(100%+1.5rem)] snap-x snap-mandatory gap-0.5 overflow-x-auto">
-          {photos.map((url) => (
-            <img
-              key={url}
-              src={url}
-              alt=""
-              loading="lazy"
-              referrerPolicy="no-referrer"
-              className={`h-44 shrink-0 snap-center object-cover ${
-                photos.length === 1 ? 'w-full' : 'w-[92%]'
-              }`}
-              onError={(event) => {
-                // Photo retirée côté source : on efface le cadre cassé.
-                event.currentTarget.style.display = 'none';
-              }}
-            />
-          ))}
+        <div className="relative -mx-3 -mt-3 mb-3 w-[calc(100%+1.5rem)]">
+          {/* Défilement page par page : chaque photo occupe toute la largeur et
+              s'ancre au début — jamais de vue partielle ni de trou en bout. */}
+          <div className="flex snap-x snap-mandatory overflow-x-auto">
+            {photos.map((url) => (
+              <img
+                key={url}
+                src={url}
+                alt=""
+                loading="lazy"
+                referrerPolicy="no-referrer"
+                className="h-44 w-full shrink-0 snap-start object-cover"
+                onError={(event) => {
+                  // Photo retirée côté source : on efface le cadre cassé.
+                  event.currentTarget.style.display = 'none';
+                }}
+              />
+            ))}
+          </div>
+          {photos.length > 1 && (
+            <span className="pointer-events-none absolute right-2 bottom-2 rounded-full bg-black/55 px-2 py-0.5 text-[0.7rem] text-white">
+              {photos.length} photos ›
+            </span>
+          )}
         </div>
       )}
       <header className="flex items-start gap-3">
@@ -164,26 +176,13 @@ export function ListingCard({
 
       <ScoreRow scores={listing.scores} />
 
-      {/* Atouts : DPE + premières caractéristiques, uniquement si publiés (§17). */}
-      {chips.length > 0 && (
-        <ul className="mt-2 flex flex-wrap gap-1.5">
-          {chips.map((chip) => (
-            <li
-              key={chip}
-              className="rounded-full border border-border px-2 py-0.5 text-[0.75rem] text-muted-foreground"
-            >
-              {chip}
-            </li>
-          ))}
-        </ul>
-      )}
-
       <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[0.85rem] text-muted-foreground">
         <span>
           {publishedAt === null
             ? `Découverte ${formatAge(listing.firstSeenAt, nowMs)}`
             : `Publiée ${formatAge(publishedAt, nowMs)}`}
         </span>
+        {availability !== null && <span className="text-foreground">{availability}</span>}
         {/* §20 : distances vers des points de référence privés, libellés neutres. */}
         {listing.distances.map((distance) => (
           <span key={distance.label} className="text-foreground">

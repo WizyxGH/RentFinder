@@ -41,6 +41,16 @@ Documenter ici : nouvelles sources, changements d'architecture ou de schéma,
   sur la carte.
 - **Localisation cliquable** : l'adresse elle-même ouvre Maps (plus de lien
   « Ouvrir dans Maps » séparé).
+- **Source Saint Roch Immobilier** (site ASP maison SSR, demandée
+  explicitement) : liste + fiches conformes au robots, loyer CC, provision de
+  charges, DPE/GES en toutes lettres, photos. Filtrage des biens hors zone
+  (le site publie aussi St-Dié-des-Vosges). 3 annonces Nice à la première
+  collecte. Studapart re-vérifiée à la même occasion : toujours inaccessible
+  en conforme (AJAX derrière compte), documentée.
+- **Carte épurée** : les pastilles DPE/atouts quittent la carte (réservées à
+  la fiche) ; la disponibilité rejoint la ligne d'infos. Carrousel photo
+  corrigé : défilement page par page (plus de vues partielles), badge
+  « N photos », déduplication des tailles multiples d'une même image.
 - **Adaptateur « La Boîte Immo / Hektor »** (`sources/hektor`, §47) + 3 agences :
   Giletta Immobilier (~47 fiches Nice), LT Immobilier (seule couverture
   La Trinité/Drap) et Agence du Centre. 14 annonces à la première collecte ;
