@@ -153,6 +153,17 @@ async function getListing(db: Client, id: string): Promise<unknown | null> {
     args: [id],
   });
 
+  /** Relit la liste JSON des pièces jointes, tolérante aux valeurs anciennes. */
+  function parseDocumentsList(raw: unknown): string[] {
+    if (typeof raw !== 'string' || raw === '') return [];
+    try {
+      const parsed: unknown = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === 'string') : [];
+    } catch {
+      return [];
+    }
+  }
+
   return {
     ...rowToListing(row as Record<string, unknown>),
     contactAttempts: attempts.rows.map((attempt) => ({
@@ -162,6 +173,7 @@ async function getListing(db: Client, id: string): Promise<unknown | null> {
       sentAt: attempt['sent_at'],
       followUpIndex: Number(attempt['follow_up_index']),
       outcome: attempt['outcome'],
+      documents: parseDocumentsList(attempt['documents']),
     })),
   };
 }
@@ -303,10 +315,17 @@ async function recordContact(
     channel?: string;
     message?: string;
     sourceId?: string;
+    documents?: unknown;
   } | null;
 
   const channel = body?.channel ?? 'manual';
   const now = new Date().toISOString();
+
+  // §25 : trace locale des pièces déclarées jointes. On ne conserve que des
+  // noms (chaînes), jamais le contenu — les fichiers vivent dans data/.
+  const documents = Array.isArray(body?.documents)
+    ? body.documents.filter((name): name is string => typeof name === 'string')
+    : [];
 
   const previous = await db.execute({
     sql: 'SELECT COUNT(*) AS n FROM contact_attempts WHERE listing_id = ?',
@@ -316,8 +335,8 @@ async function recordContact(
 
   await db.execute({
     sql: `INSERT INTO contact_attempts
-            (id, listing_id, source_id, channel, trigger, sent_at, message, follow_up_index, outcome, updated_at)
-          VALUES (?,?,?,?,'manual',?,?,?, 'pending', ?)`,
+            (id, listing_id, source_id, channel, trigger, sent_at, message, follow_up_index, outcome, documents, updated_at)
+          VALUES (?,?,?,?,'manual',?,?,?, 'pending', ?, ?)`,
     args: [
       crypto.randomUUID(),
       id,
@@ -326,6 +345,7 @@ async function recordContact(
       now,
       body?.message ?? '',
       followUpIndex,
+      JSON.stringify(documents),
       now,
     ],
   });
@@ -335,7 +355,7 @@ async function recordContact(
     args: ['contacted', now, id],
   });
 
-  return { id, followUpIndex, sentAt: now };
+  return { id, followUpIndex, sentAt: now, documents };
 }
 
 /**
@@ -351,7 +371,10 @@ export async function route(
 ): Promise<Response> {
   const method = request.method;
   const resource = segments[1];
-  const id = segments[2];
+  // Le chemin n'est pas décodé par le transport : un id d'annonce contient un
+  // « : » (`source:référence`), encodé `%3A` par certains appels du client.
+  // On décode ici une fois pour toutes, sinon la fiche ne correspond plus.
+  const id = segments[2] !== undefined ? decodeURIComponent(segments[2]) : undefined;
   const action = segments[3];
 
   // Filtres de recherche éditables depuis l'interface (§66).
@@ -379,7 +402,7 @@ export async function route(
       return result.ok ? json(result.document, cors, 201) : jsonError(400, result.error);
     }
     if (id !== undefined && method === 'GET') {
-      const document = readDocument(decodeURIComponent(id));
+      const document = readDocument(id);
       if (document === null) return jsonError(404, 'Document introuvable');
       return new Response(new Uint8Array(document.bytes), {
         headers: {
@@ -391,7 +414,7 @@ export async function route(
       });
     }
     if (id !== undefined && method === 'DELETE') {
-      return deleteDocument(decodeURIComponent(id))
+      return deleteDocument(id)
         ? json({ deleted: true }, cors)
         : jsonError(404, 'Document introuvable');
     }

@@ -284,7 +284,11 @@ export function App(): React.JSX.Element {
     }
   };
 
-  const handleContactRecorded = async (channel: string, message: string): Promise<void> => {
+  const handleContactRecorded = async (
+    channel: string,
+    message: string,
+    documents: readonly string[],
+  ): Promise<void> => {
     if (selected === null) return;
     const sourceId = selected.occurrences[0]?.sourceId ?? 'unknown';
     setListings((current) =>
@@ -293,7 +297,7 @@ export function App(): React.JSX.Element {
       ),
     );
     try {
-      await recordContact(selected.id, { channel, message, sourceId });
+      await recordContact(selected.id, { channel, message, sourceId, documents });
     } catch {
       setError('Le contact n’a pas pu être enregistré');
     }
@@ -386,7 +390,9 @@ export function App(): React.JSX.Element {
           nowMs={nowMs}
           onBack={() => setView('list')}
           onTrackingChange={(status) => void handleTrackingChange(status)}
-          onContactRecorded={(channel, message) => void handleContactRecorded(channel, message)}
+          onContactRecorded={(channel, message, documents) =>
+            void handleContactRecorded(channel, message, documents)
+          }
           onConfigureProfile={() => setView('profile')}
         />
       </Shell>

@@ -32,7 +32,11 @@ interface ListingDetailProps {
   readonly nowMs: number;
   readonly onBack: () => void;
   readonly onTrackingChange: (status: TrackingStatus) => void;
-  readonly onContactRecorded: (channel: string, message: string) => void;
+  readonly onContactRecorded: (
+    channel: string,
+    message: string,
+    documents: readonly string[],
+  ) => void;
   readonly onConfigureProfile: () => void;
 }
 

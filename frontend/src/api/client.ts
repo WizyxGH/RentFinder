@@ -184,7 +184,13 @@ export async function updateTracking(id: string, tracking: string): Promise<void
  */
 export async function recordContact(
   id: string,
-  payload: { channel: string; message: string; sourceId: string },
+  payload: {
+    channel: string;
+    message: string;
+    sourceId: string;
+    /** Noms des pièces que l'utilisateur déclare avoir jointes (§25). */
+    documents?: readonly string[];
+  },
 ): Promise<void> {
   if (isDemoMode()) return;
   await request(`/api/listings/${encodeURIComponent(id)}/contact`, {

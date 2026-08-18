@@ -41,6 +41,13 @@ Documenter ici : nouvelles sources, changements d'architecture ou de schéma,
   sur la carte.
 - **Localisation cliquable** : l'adresse elle-même ouvre Maps (plus de lien
   « Ouvrir dans Maps » séparé).
+- **Trace locale des pièces envoyées** (§25) : au moment de consigner un
+  contact (« J'ai envoyé »), on coche les pièces jointes transmises ; elles
+  sont mémorisées avec la tentative de contact (colonne `documents`,
+  migration 0007). Rien n'est envoyé par l'app (§24) — c'est un simple
+  registre de ce que vous avez joint. Étude Studapart : accès conforme trouvé
+  (API de recherche publique) et documenté avec la recette exacte, câblage à
+  faire (POST dans le client HTTP).
 - **Source Saint Roch Immobilier** (site ASP maison SSR, demandée
   explicitement) : liste + fiches conformes au robots, loyer CC, provision de
   charges, DPE/GES en toutes lettres, photos. Filtrage des biens hors zone
@@ -73,6 +80,10 @@ Documenter ici : nouvelles sources, changements d'architecture ou de schéma,
   produisent plus d'occurrence vide.
 - **Filtre étudiant-exclusif** : l'ordre inversé « LOCATION ÉTUDIANTE
   UNIQUEMENT » est maintenant détecté.
+- **Décodage de l'id d'annonce dans l'API** : les routes recevant un id encodé
+  (`%3A` pour le `:` de `source:référence`) le décodent désormais — le contact
+  et le changement de statut fonctionnent sur toutes les annonces, pas
+  seulement celles à id sans deux-points.
 
 ## [0.14.0] — 2026-08-16
 

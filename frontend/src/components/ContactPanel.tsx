@@ -14,16 +14,17 @@
  * l'utilisateur a agi, pour le suivi et les statistiques.
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { FOLLOW_UP_TEMPLATE, prepareMessage, type TenantProfile } from '@rentfinder/shared';
 import type { ListingView } from '../types.js';
+import { fetchDocuments, isDemoMode, type DocumentInfo } from '../api/client.js';
 import { Button, ButtonLink } from '@/components/ui/button.js';
 import { Card } from '@/components/ui/card.js';
 
 interface ContactPanelProps {
   readonly listing: ListingView;
   readonly profile: TenantProfile | null;
-  readonly onRecorded: (channel: string, message: string) => void;
+  readonly onRecorded: (channel: string, message: string, documents: readonly string[]) => void;
   readonly onConfigureProfile: () => void;
 }
 
@@ -67,6 +68,31 @@ export function ContactPanel({
   const [draft, setDraft] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  // §25 : pièces disponibles à joindre. On les coche toutes par défaut — un
+  // dossier se transmet en entier — et on consigne celles réellement envoyées.
+  const [documents, setDocuments] = useState<readonly DocumentInfo[]>([]);
+  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+  useEffect(() => {
+    if (isDemoMode()) return;
+    void fetchDocuments()
+      .then((docs) => {
+        setDocuments(docs);
+        setSelected(new Set(docs.map((doc) => doc.name)));
+      })
+      .catch(() => {
+        /* API locale indisponible : pas de pièces proposées */
+      });
+  }, []);
+
+  const toggleDocument = (name: string): void => {
+    setSelected((current) => {
+      const next = new Set(current);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  };
 
   const { phone, email, formUrl, name, agencyName } = listing.contact;
   const hasAnyContact = phone !== null || email !== null || formUrl !== null;
@@ -197,6 +223,30 @@ export function ContactPanel({
             Rien n’est envoyé automatiquement. Vous déclenchez l’envoi vous-même.
           </p>
 
+          {/* §25 : pièces à joindre. Cocher n'envoie rien — c'est une trace
+              locale de ce que vous déclarez avoir transmis avec ce contact. */}
+          {documents.length > 0 && (
+            <fieldset className="mt-3 rounded-lg border border-border px-3 py-2">
+              <legend className="px-1 text-[0.82rem] text-muted-foreground">
+                Pièces jointes envoyées
+              </legend>
+              <ul className="flex flex-col gap-1">
+                {documents.map((doc) => (
+                  <li key={doc.name}>
+                    <label className="flex items-center gap-2 text-[0.9rem]">
+                      <input
+                        type="checkbox"
+                        checked={selected.has(doc.name)}
+                        onChange={() => toggleDocument(doc.name)}
+                      />
+                      <span className="truncate">{doc.name}</span>
+                    </label>
+                  </li>
+                ))}
+              </ul>
+            </fieldset>
+          )}
+
           <div className="mt-2.5 flex flex-wrap gap-2">
             <Button variant="outline" onClick={() => setEditing((value) => !value)}>
               {editing ? 'Terminer' : 'Modifier'}
@@ -217,7 +267,7 @@ export function ContactPanel({
               </ButtonLink>
             )}
 
-            <Button onClick={() => onRecorded(channel, message)}>J’ai envoyé</Button>
+            <Button onClick={() => onRecorded(channel, message, [...selected])}>J’ai envoyé</Button>
           </div>
         </>
       )}
