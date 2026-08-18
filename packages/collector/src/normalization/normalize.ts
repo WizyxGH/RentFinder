@@ -25,6 +25,7 @@ import {
   parseFlatShare,
   parseFurnished,
   extractFeatures,
+  extractStreetAddress,
   parseAvailableAt,
   parsePhone,
   parsePostalCode,
@@ -153,7 +154,11 @@ export function normalizeListing(
       raw.extra,
     ),
 
-    address: toNull(raw.addressText),
+    // Adresse : champ dédié si la source le publie, sinon repérée en tête de
+    // description (« 22-24 Avenue de la Californie… » — beaucoup d'agences
+    // l'y mettent en première ligne). Décisif pour la distance (§20) et le
+    // dédoublonnage (§14).
+    address: toNull(raw.addressText) ?? extractStreetAddress(raw.description),
     // La ville est stockée en forme comparable pour que les filtres et le
     // dédoublonnage n'aient jamais à se soucier de la casse ni des accents.
     city: raw.cityText !== undefined ? comparable(raw.cityText) || null : null,

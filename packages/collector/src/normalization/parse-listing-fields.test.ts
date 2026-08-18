@@ -8,6 +8,7 @@ import {
   parseFurnished,
   parseDpe,
   extractFeatures,
+  extractStreetAddress,
   parseAvailableAt,
   parsePhone,
   parsePostalCode,
@@ -288,6 +289,30 @@ describe('parsePublishedAt', () => {
   it('rend null sur un texte non interprétable', () => {
     expect(parsePublishedAt('récemment', now)).toBeNull();
     expect(parsePublishedAt(null, now)).toBeNull();
+  });
+});
+
+describe('extractStreetAddress (§20 — adresse en tête de description)', () => {
+  it('extrait une adresse de rue en début de description', () => {
+    expect(extractStreetAddress('22-24 Avenue de la Californie 06200 NICE. Studio…')).toBe(
+      '22-24 Avenue de la Californie',
+    );
+    expect(extractStreetAddress('Situé 11 boulevard Gambetta, bel appartement')).toBe(
+      '11 boulevard Gambetta',
+    );
+  });
+
+  it('n’extrait RIEN d’une adresse citée loin dans le texte (voisinage, agence)', () => {
+    expect(
+      extractStreetAddress(
+        'Bel appartement lumineux au calme, traversant, refait à neuf, très proche de l’avenue Jean Médecin',
+      ),
+    ).toBeNull();
+  });
+
+  it('rend null sans adresse', () => {
+    expect(extractStreetAddress('Appartement 3 pièces au 2e étage')).toBeNull();
+    expect(extractStreetAddress(null)).toBeNull();
   });
 });
 

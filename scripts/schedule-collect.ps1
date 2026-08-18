@@ -44,14 +44,22 @@ if ($Remove) {
   return
 }
 
-# `pnpm` doit être résolvable ; on le localise pour un chemin absolu robuste.
-$Pnpm = (Get-Command pnpm -ErrorAction SilentlyContinue).Source
-if (-not $Pnpm) {
+# `pnpm` doit être résolvable. ATTENTION : Get-Command peut rendre le wrapper
+# PowerShell (pnpm.ps1), que le Planificateur ne sait PAS exécuter — on cherche
+# le shim .cmd/.exe, exécutable partout.
+$PnpmCommand = Get-Command pnpm -ErrorAction SilentlyContinue
+if (-not $PnpmCommand) {
   throw "pnpm introuvable dans le PATH. Installez pnpm, puis relancez ce script."
 }
+$PnpmDir = Split-Path -Parent $PnpmCommand.Source
+$Pnpm = @("$PnpmDir\pnpm.cmd", "$PnpmDir\pnpm.exe", $PnpmCommand.Source) |
+  Where-Object { Test-Path $_ } | Select-Object -First 1
 
-# La tâche lance `pnpm collect` depuis la racine du dépôt.
-$Action = New-ScheduledTaskAction -Execute $Pnpm -Argument 'collect' -WorkingDirectory $RepoRoot
+# La tâche lance `pnpm collect` via cmd.exe (fiable pour les shims .cmd), en
+# journalisant dans data\collect.log (gitignoré) pour pouvoir diagnostiquer.
+$Action = New-ScheduledTaskAction -Execute 'cmd.exe' `
+  -Argument "/c `"`"$Pnpm`" collect >> data\collect.log 2>&1`"" `
+  -WorkingDirectory $RepoRoot
 
 # Déclencheur : maintenant, puis toutes les N minutes, indéfiniment.
 $Trigger = New-ScheduledTaskTrigger -Once -At (Get-Date) `

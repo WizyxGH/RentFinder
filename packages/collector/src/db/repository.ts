@@ -195,6 +195,8 @@ export interface NotifiableListing {
   readonly actionPriority: number;
   /** URL de la fiche d'origine (première occurrence), si disponible. */
   readonly url: string | null;
+  /** URL de la première photo (affichée depuis le site d'origine, §11). */
+  readonly photoUrl: string | null;
 }
 
 export interface LifecycleThresholds {
@@ -633,12 +635,16 @@ export function createRepository(db: Database): Repository {
 
       return result.rows.map((row) => {
         let url: string | null = null;
+        let photoUrl: string | null = null;
         try {
           const payload = JSON.parse(String(row['payload'] ?? '{}')) as {
             occurrences?: { sourceUrl?: unknown }[];
+            imageUrls?: unknown[];
           };
           const first = payload.occurrences?.[0]?.sourceUrl;
           if (typeof first === 'string') url = first;
+          const photo = payload.imageUrls?.[0];
+          if (typeof photo === 'string' && photo.startsWith('http')) photoUrl = photo;
         } catch {
           /* payload illisible : pas d'URL, le reste suffit */
         }
@@ -652,6 +658,7 @@ export function createRepository(db: Database): Repository {
           postalCode: row['postal_code'] === null ? null : String(row['postal_code']),
           actionPriority: Number(row['action_priority'] ?? 0),
           url,
+          photoUrl,
         };
       });
     },

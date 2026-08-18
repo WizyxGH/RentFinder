@@ -361,6 +361,34 @@ export function parsePublishedAt(text: string | null | undefined, nowMs: number)
   return null;
 }
 
+/**
+ * Voies françaises reconnues pour l'extraction d'adresse depuis un texte libre.
+ */
+const STREET_KINDS =
+  'avenue|av\\.?|boulevard|bd\\.?|rue|place|chemin|impasse|all[ée]e|promenade|quai|route|mont[ée]e|traverse|square|passage|corniche';
+
+const STREET_ADDRESS = new RegExp(
+  `\\b(\\d{1,4}(?:[-/]\\d{1,4})?\\s*(?:bis|ter)?[,]?\\s+(?:${STREET_KINDS})\\s+[^,;.:()!?0-9]{2,45})`,
+  'i',
+);
+
+/**
+ * Extrait une adresse de rue (« 22-24 Avenue de la Californie ») du DÉBUT d'une
+ * description — beaucoup d'agences l'y placent en première ligne.
+ *
+ * Volontairement restreint aux ~80 premiers caractères : plus loin dans le
+ * texte, une adresse est souvent celle d'un commerce voisin ou de l'agence
+ * (« proche de l'avenue Jean Médecin ») — mieux vaut rien qu'une adresse
+ * fausse (§17, §20).
+ */
+export function extractStreetAddress(text: string | null | undefined): string | null {
+  const cleaned = cleanText(text);
+  if (cleaned === '') return null;
+  const match = STREET_ADDRESS.exec(cleaned.slice(0, 80));
+  if (match?.[1] === undefined) return null;
+  return cleanText(match[1]);
+}
+
 /** Mois français (forme comparable, sans accent) → numéro 1-12. */
 const FRENCH_MONTHS: Readonly<Record<string, number>> = {
   janvier: 1,

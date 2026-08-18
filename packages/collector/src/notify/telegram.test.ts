@@ -2,7 +2,12 @@ import { describe, expect, it, vi } from 'vitest';
 import type { NotifiableListing, Repository } from '../db/repository.js';
 import type { TelegramConfig } from '../config.js';
 import { createLogger } from '../core/logger.js';
-import { formatListingMessage, notifyNewListings, sendTelegramMessage } from './telegram.js';
+import {
+  formatListingMessage,
+  notifyNewListings,
+  sendTelegramListing,
+  sendTelegramMessage,
+} from './telegram.js';
 
 const CONFIG: TelegramConfig = {
   botToken: 'test-token',
@@ -28,6 +33,7 @@ function listing(over: Partial<NotifiableListing> & { id: string }): NotifiableL
     postalCode: pick('postalCode', '06000'),
     actionPriority: pick('actionPriority', 80),
     url: pick('url', 'https://exemple.fr/annonce/1'),
+    photoUrl: pick('photoUrl', null),
   };
 }
 
@@ -71,6 +77,48 @@ describe('sendTelegramMessage', () => {
 
     const failing = vi.fn(async () => new Response('', { status: 429 })) as unknown as typeof fetch;
     await expect(sendTelegramMessage(CONFIG, 'x', failing)).rejects.toThrow(/429/);
+  });
+});
+
+describe('sendTelegramListing', () => {
+  it('joint la photo quand l’annonce en a une (sendPhoto)', async () => {
+    const fetchImpl = okFetch();
+    await sendTelegramListing(
+      CONFIG,
+      listing({ id: 'a', photoUrl: 'https://img.exemple/1.jpg' }),
+      fetchImpl,
+    );
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(fetchImpl).toHaveBeenCalledWith(
+      'https://api.telegram.org/bottest-token/sendPhoto',
+      expect.objectContaining({ method: 'POST' }),
+    );
+  });
+
+  it('sans photo, envoie un message texte', async () => {
+    const fetchImpl = okFetch();
+    await sendTelegramListing(CONFIG, listing({ id: 'a', photoUrl: null }), fetchImpl);
+    expect(fetchImpl).toHaveBeenCalledWith(
+      'https://api.telegram.org/bottest-token/sendMessage',
+      expect.anything(),
+    );
+  });
+
+  it('si Telegram ne charge pas la photo, se replie sur le texte', async () => {
+    // sendPhoto échoue (400), sendMessage réussit — le texte doit passer.
+    const calls: string[] = [];
+    const fetchImpl = vi.fn(async (url: string) => {
+      calls.push(String(url));
+      return new Response('', { status: String(url).includes('sendPhoto') ? 400 : 200 });
+    }) as unknown as typeof fetch;
+
+    await sendTelegramListing(
+      CONFIG,
+      listing({ id: 'a', photoUrl: 'https://img.exemple/morte.jpg' }),
+      fetchImpl,
+    );
+    expect(calls.some((u) => u.includes('sendPhoto'))).toBe(true);
+    expect(calls.some((u) => u.includes('sendMessage'))).toBe(true);
   });
 });
 

@@ -81,6 +81,39 @@ export async function sendTelegramMessage(
   }
 }
 
+/**
+ * Envoie une annonce AVEC sa photo (`sendPhoto`, la photo vient du site
+ * d'origine — §11, rien n'est téléchargé par nous : Telegram la charge depuis
+ * son URL). Si Telegram n'y arrive pas (URL expirée, hôte récalcitrant), on se
+ * replie sur le message texte — l'information prime sur l'image.
+ */
+export async function sendTelegramListing(
+  config: TelegramConfig,
+  listing: NotifiableListing,
+  fetchImpl: typeof fetch = fetch,
+): Promise<void> {
+  const text = formatListingMessage(listing);
+  if (listing.photoUrl === null) {
+    await sendTelegramMessage(config, text, fetchImpl);
+    return;
+  }
+
+  const response = await fetchImpl(`${TELEGRAM_API}/bot${config.botToken}/sendPhoto`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      chat_id: config.chatId,
+      photo: listing.photoUrl,
+      caption: text,
+      parse_mode: 'HTML',
+    }),
+  });
+  if (response.ok) return;
+
+  // 4xx typique : Telegram n'a pas pu charger l'image. Le texte, lui, doit passer.
+  await sendTelegramMessage(config, text, fetchImpl);
+}
+
 export interface NotifyDeps {
   readonly repository: Repository;
   readonly config: TelegramConfig;
@@ -116,7 +149,7 @@ export async function notifyNewListings(deps: NotifyDeps): Promise<NotifyReport>
 
   try {
     for (const listing of individual) {
-      await sendTelegramMessage(config, formatListingMessage(listing), fetchImpl);
+      await sendTelegramListing(config, listing, fetchImpl);
       notified.push(listing.id);
     }
     if (overflow.length > 0) {
