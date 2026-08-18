@@ -1,0 +1,11 @@
+import { chromium } from '@playwright/test';
+const b = await chromium.launch();
+const p = await b.newPage({ viewport: { width: 420, height: 800 } });
+await p.goto('http://127.0.0.1:4173/');
+await p.waitForSelector('[data-testid="listing-card"]', { timeout: 15000 });
+await p.getByRole('button', { name: /Carte/ }).click();
+await p.waitForSelector('[data-testid="map-view"]');
+await p.waitForTimeout(3000);
+await p.screenshot({ path: 'map-shot.png' });
+await b.close();
+console.log('ok');

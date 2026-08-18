@@ -135,6 +135,17 @@ test('la page d’état des sources est consultable (§63)', async ({ page }) =>
   await expect(page.getByText(/Aucune requête n’est émise/)).toBeVisible();
 });
 
+test('on peut basculer entre la vue Liste et la vue Carte (§36)', async ({ page }) => {
+  await expect(page.getByTestId('listing-card').first()).toBeVisible();
+
+  await page.getByRole('button', { name: /Carte/ }).click();
+  // La carte s'affiche ; les cartes-annonces cèdent la place.
+  await expect(page.getByTestId('map-view')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Liste' }).click();
+  await expect(page.getByTestId('listing-card').first()).toBeVisible();
+});
+
 test('l’interface est utilisable sur mobile sans défilement horizontal (§39)', async ({ page }) => {
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth > document.documentElement.clientWidth,

@@ -324,16 +324,38 @@ export async function runPipeline(options: PipelineOptions): Promise<PipelineRep
     });
   }
 
-  const scored: ScoredListing[] = merged.map((listing) =>
-    scoreListing(listing, {
+  const scored: ScoredListing[] = merged.map((listing) => {
+    const coords = geocoded.get(listing.id) ?? null;
+    // Coordonnées géocodées PERSISTÉES sur la fiche quand la source n'en
+    // publie pas : la vue carte et le dédoublonnage en profitent. La
+    // provenance « geocode » dit honnêtement d'où vient la valeur (§15).
+    const enriched =
+      coords !== null && listing.latitude.value === null
+        ? {
+            ...listing,
+            latitude: {
+              value: coords.latitude,
+              sourceId: 'geocode',
+              observedAt: new Date(nowMs).toISOString(),
+              conflicts: [],
+            },
+            longitude: {
+              value: coords.longitude,
+              sourceId: 'geocode',
+              observedAt: new Date(nowMs).toISOString(),
+              conflicts: [],
+            },
+          }
+        : listing;
+    return scoreListing(enriched, {
       criteria: config.criteria,
       nowMs,
       referencePricePerSqm: config.referencePricePerSqm,
       referencePoints: options.referencePoints,
       priceDroppedIds,
-      resolvedCoordinates: geocoded.get(listing.id) ?? null,
-    }),
-  );
+      resolvedCoordinates: coords,
+    });
+  });
 
   const listingReport = await repository.saveListings(scored);
   logger.info('pipeline.listings_written', { ...listingReport });

@@ -143,6 +143,11 @@ export function listingHash(listing: ScoredListing): string {
     listing.dpe.value,
     listing.features,
     listing.description.value,
+    // Coordonnées : sans elles dans le hash, une fiche enfin géocodée ne serait
+    // jamais réécrite → absente de la vue carte (§ 30 vs perte de données).
+    listing.latitude.value,
+    listing.longitude.value,
+    listing.address.value,
   ]);
   return createHash('sha256').update(material).digest('hex').slice(0, 32);
 }
@@ -748,6 +753,8 @@ function serializeListing(listing: ScoredListing): unknown {
     address: listing.address,
     city: listing.city,
     postalCode: listing.postalCode,
+    latitude: listing.latitude,
+    longitude: listing.longitude,
     contact: listing.contact,
     publishedAt: listing.publishedAt,
     availableAt: listing.availableAt,

@@ -11,7 +11,7 @@
  * annonces à contacter MAINTENANT (§36 : classement par action, pas par prix).
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import type { TenantProfile } from '@rentfinder/shared';
 import { MVP_CRITERIA } from '@rentfinder/shared';
 import type { ListingView, SortMode, SourceStateView, TrackingStatus } from './types.js';
@@ -48,6 +48,9 @@ import { ProfileForm } from './components/ProfileForm.js';
 import { SourcesPanel } from './components/SourcesPanel.js';
 import { FiltersPanel } from './components/FiltersPanel.js';
 import { StatsPanel } from './components/StatsPanel.js';
+
+// Leaflet n'entre dans le bundle que si la vue carte est ouverte (§65).
+const MapView = lazy(() => import('./components/MapView.js'));
 
 type View = 'list' | 'detail' | 'filters' | 'stats' | 'profile' | 'sources';
 
@@ -164,6 +167,8 @@ export function App(): React.JSX.Element {
   const [includeOutOfCriteria, setIncludeOutOfCriteria] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [favoritesOnly, setFavoritesOnly] = useState(false);
+  // Liste ⇄ Carte : deux façons de parcourir les mêmes annonces (§36, §39).
+  const [displayMode, setDisplayMode] = useState<'list' | 'map'>('list');
   const [profile, setProfile] = useState<TenantProfile | null>(() => loadProfile());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -458,6 +463,34 @@ export function App(): React.JSX.Element {
         </p>
       )}
 
+      {/* Bascule Liste ⇄ Carte : deux vues des mêmes annonces (§36). */}
+      <div className="my-3 inline-flex rounded-lg border border-border p-0.5" role="group">
+        <button
+          type="button"
+          onClick={() => setDisplayMode('list')}
+          aria-pressed={displayMode === 'list'}
+          className={`min-h-9 cursor-pointer rounded-md px-3 text-sm font-medium transition-colors ${
+            displayMode === 'list'
+              ? 'bg-primary text-primary-foreground'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          Liste
+        </button>
+        <button
+          type="button"
+          onClick={() => setDisplayMode('map')}
+          aria-pressed={displayMode === 'map'}
+          className={`min-h-9 cursor-pointer rounded-md px-3 text-sm font-medium transition-colors ${
+            displayMode === 'map'
+              ? 'bg-primary text-primary-foreground'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          🗺️ Carte
+        </button>
+      </div>
+
       <div className="my-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
         <span className="flex items-center gap-2">
           <label htmlFor="sort-select" className="text-muted-foreground">
@@ -514,6 +547,17 @@ export function App(): React.JSX.Element {
         <p className="py-8 text-center text-muted-foreground">
           Aucune annonce ne correspond à vos critères pour l’instant.
         </p>
+      ) : displayMode === 'map' ? (
+        <>
+          <StatsStrip listings={listings} />
+          <Suspense
+            fallback={
+              <p className="py-8 text-center text-muted-foreground">Chargement de la carte…</p>
+            }
+          >
+            <MapView listings={ranked} onOpen={openListing} />
+          </Suspense>
+        </>
       ) : (
         <>
           <StatsStrip listings={listings} />

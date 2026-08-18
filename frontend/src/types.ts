@@ -55,6 +55,9 @@ export interface ListingView {
   readonly address: MergedField<string | null>;
   readonly city: MergedField<string | null>;
   readonly postalCode: MergedField<string | null>;
+  /** Coordonnées (source ou géocodage) — absentes si non localisable. */
+  readonly latitude?: MergedField<number | null>;
+  readonly longitude?: MergedField<number | null>;
   readonly publishedAt: MergedField<string | null>;
   readonly availableAt: MergedField<string | null>;
   readonly views: MergedField<number | null>;
