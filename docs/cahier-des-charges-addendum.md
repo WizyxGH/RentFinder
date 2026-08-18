@@ -29,13 +29,17 @@ cohérent avec l'objectif « ne pas dépendre uniquement des grands portails ».
 
 ## Autres sources demandées et écartées
 
-| Source        | Constat                                                                                                                                                                                                                                              |
-| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **PAP**       | Pages autorisées et déclarées au sitemap, mais WAF renvoyant 403 aux clients HTTP non-navigateurs. Scraper écrit, livré **désactivé** (réactivable si la politique change).                                                                          |
-| **Nexity**    | 403 hostile aux non-navigateurs.                                                                                                                                                                                                                     |
-| **manda.fr**  | Sitemap = ventes + pages SaaS ; locations en AJAX derrière paramètres interdits.                                                                                                                                                                     |
-| **123loger**  | Sitemap cassé (1127× `/location/`) ; WordPress sans type de contenu « annonce » ; recherche interdite. Aucun inventaire accessible.                                                                                                                  |
-| **studapart** | Annonces servies uniquement via une **API Elasticsearch interne non documentée** (`search-api.studapart.com`, POST en ES-DSL). Techniquement atteignable mais fragile et non prévue pour l'automatisation (§6, §75) → **différée**, non implémentée. |
+| Source       | Constat                                                                                                                                                                     |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **PAP**      | Pages autorisées et déclarées au sitemap, mais WAF renvoyant 403 aux clients HTTP non-navigateurs. Scraper écrit, livré **désactivé** (réactivable si la politique change). |
+| **Nexity**   | 403 hostile aux non-navigateurs.                                                                                                                                            |
+| **manda.fr** | Sitemap = ventes + pages SaaS ; locations en AJAX derrière paramètres interdits.                                                                                            |
+| **123loger** | Sitemap cassé (1127× `/location/`) ; WordPress sans type de contenu « annonce » ; recherche interdite. Aucun inventaire accessible.                                         |
+
+**Studapart** (initialement différée) a finalement été **implémentée** le
+2026-08-18 : son API de recherche est publique et son usage conforme
+(`Content-Signal: search=yes, use=reference`, hôte sans robots). Voir
+[sources.md](sources.md).
 
 Détail complet et daté : [sources.md](sources.md).
 

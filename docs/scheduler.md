@@ -5,22 +5,27 @@
 Le §7 l'interdit explicitement, et pour de bonnes raisons : les sources n'ont
 ni le même rythme de publication, ni la même tolérance à la charge. Un site
 d'agence locale qui publie deux annonces par semaine n'a aucune raison d'être
-interrogé toutes les 10 minutes — cela gaspille des minutes GitHub Actions et
-use la bienveillance de la source.
+interrogé toutes les 10 minutes — cela use la bienveillance de la source pour
+rien.
 
 ## Architecture en deux étages
 
 ```
-GitHub Actions (cron */20 min)          ← réveil, PAS décision
+lancement de `pnpm collect`             ← réveil, PAS décision
+  (manuel, ou tâche planifiée locale
+   — voir scripts/schedule-collect.ps1)
         ↓
 planRun()                               ← décision, par source
         ↓
 sources sélectionnées (max 6 par run)
 ```
 
-Le cron GitHub ne décide de rien : il réveille le scheduler interne, qui
-examine chaque source et rend une décision **motivée** (`ScheduleDecision.reason`,
-journalisée puis visible dans la page Sources).
+Le déclencheur (une exécution de `pnpm collect`, à la main ou via une tâche
+planifiée Windows/cron sur votre machine) ne décide de rien : il réveille le
+scheduler interne, qui examine chaque source et rend une décision **motivée**
+(`ScheduleDecision.reason`, journalisée puis visible dans la page Sources).
+Ainsi, même en lançant la collecte souvent, chaque source garde son propre
+rythme.
 
 ## Calcul de l'intervalle effectif
 
@@ -57,7 +62,7 @@ Dans l'ordre :
 
 ## Quota par run et équité
 
-`maxSourcesPerRun` (6 par défaut) borne la durée du job GitHub Actions (§29,
+`maxSourcesPerRun` (6 par défaut) borne la durée d'un run de collecte (§29,
 §30). Les sources éligibles sont triées par priorité croissante **puis par
 ancienneté d'exécution** : une source de priorité 3 finit toujours par passer,
 même si des priorités 1 sont éligibles à chaque tick. Les reportées reçoivent

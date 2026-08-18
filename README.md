@@ -23,8 +23,8 @@ Ouvert sur un téléphone, il répond à une seule question :
   textes) : une seule fiche par logement, **toutes** les occurrences et URLs
   d'origine conservées. Les cas ambigus ne sont pas fusionnés — un doublon
   visible vaut mieux qu'un logement disparu.
-- **Fusion avec provenance** : téléphone de Leboncoin + référence du site
-  d'agence + DPE de SeLoger sur la même fiche ; les valeurs divergentes sont
+- **Fusion avec provenance** : téléphone du site d'agence + adresse exacte de
+  Foncia + DPE de Saint Roch sur la même fiche ; les valeurs divergentes sont
   affichées, jamais écrasées en silence.
 - **Quatre scores expliqués** — Match, Opportunité, Probabilité de visite,
   Risque — chacun avec ses raisons ligne à ligne et ses angles morts déclarés
@@ -39,8 +39,14 @@ Ouvert sur un téléphone, il répond à une seule question :
   ([Modifier] [Copier] [Ouvrir] [J'ai envoyé]) — rien ne part sans votre geste.
   Un mode automatique optionnel existe sous garde-fous stricts, **désactivé par
   défaut**.
-- **Suivi** : statuts (Nouveau → Contacté → … → Loué), journal des contacts,
-  événements conservés pour les statistiques futures.
+- **Suivi** : statuts (Nouveau → Contacté → … → Loué), journal des contacts
+  (avec les pièces déclarées jointes), consulté/archivé/favori persistants,
+  classement affiné par vos préférences (affinité transparente), page Stats.
+- **Notifications** : Telegram après chaque collecte (téléphone, app fermée) et
+  notifications navigateur site ouvert — chaque annonce signalée une seule fois.
+- **Documents de candidature** : pièces déposées une fois (onglet Profil),
+  stockées uniquement en local (`data/`, hors dépôt), jamais envoyées
+  automatiquement.
 - **Coût : 0 €, et 100% local** — tout tourne sur votre machine (fichier SQLite
   - serveur local). Aucun compte, aucun quota, aucun secret cloud à gérer, et
     vos données ne quittent jamais l'appareil.
@@ -160,43 +166,47 @@ Sans ces variables, le notifieur reste silencieusement désactivé.
 
 - Le mode automatique de contact n'a **pas d'envoi implémenté** (garde-fous
   seulement) : il n'arrivera qu'après une collecte éprouvée, comme prévu.
-- Six sources actives (Laforêt, Orpi, BEP Logement, Foncia, Century 21,
-  NousGérons) ; PAP est implémentée mais désactivée (son WAF refuse les
-  clients non-navigateurs, qu'on ne contourne pas) — l'[étude des
+- 20 sources actives (portails, réseaux et agences niçoises — dont les
+  adaptateurs génériques Apimo et La Boîte Immo/Hektor, et Studapart par API) ;
+  PAP est implémentée mais désactivée (son WAF refuse les clients
+  non-navigateurs, qu'on ne contourne pas) — l'[étude des
   sources](docs/sources.md) détaille chaque verdict.
 - Distances à vol d'oiseau corrigées (× 1,3), pas des itinéraires.
-- Leboncoin, SeLoger et Bien'ici restent **écartés** : pas de méthode d'accès
-  conforme (les scrapers open-source existants contournent DataDome, ce que le
-  projet s'interdit — §10).
-- Les crons GitHub Actions peuvent avoir quelques minutes de retard.
+- Leboncoin, SeLoger et Bien'ici restent **écartés** : DataDome + interdiction
+  explicite de l'accès automatisé (Leboncoin), qu'on ne contourne pas (§10).
+  Seule voie restante : l'import d'alertes e-mail, non construite à ce jour.
+- Les notifications ne sont pas de l'instantané : elles partent au rythme des
+  collectes (tâche planifiée + intervalles adaptatifs par source, §7).
+- La collecte tourne sur votre machine : ordinateur éteint, pas de collecte ni
+  de notification (limite assumée du choix 100 % local).
 
 ## Roadmap
 
-- **MVP (actuel)** : pipeline complet, 6 sources actives (Laforêt, Orpi — GPS
-  —, BEP Logement — agence locale, sitemap —, Foncia — adresses —, Century 21,
-  NousGérons — colocations) + PAP prête mais désactivée, colocation détectée,
-  mode local zéro-cloud, 4 scores en anneaux, dédoublonnage, contact manuel +
-  relance, frontend mobile (Tailwind CSS + shadcn/ui), CI, docs, 349 tests
-  dont 18 scénarios E2E.
-- **V2** : adaptateurs génériques d'agences locales (le parser BEP/Apimo est
-  le premier candidat), davantage d'agences niçoises, relances automatisées,
-  statistiques (taux de réponse par source/heure/délai), historique des
-  changements de prix.
-- **V3** : scores calibrés sur les résultats réels, scheduler optimisé
-  dynamiquement, automatisation avancée.
+- **Actuel** : pipeline complet, 20 sources actives (portails + réseaux +
+  agences niçoises via les adaptateurs génériques Apimo et Hektor, Studapart
+  par API publique) + PAP prête mais désactivée ; mode local zéro-cloud ;
+  4 scores en anneaux ; dédoublonnage multi-signaux ; contact manuel + relance
+  - trace des pièces envoyées ; affinité et page Stats ; notifications Telegram
+    et navigateur ; documents de candidature locaux ; frontend mobile
+    (Tailwind CSS + shadcn/ui) ; docs et suite Vitest + Playwright.
+- **Ensuite** : import d'alertes e-mail (seule voie conforme pour
+  Leboncoin/SeLoger/Bien'ici), davantage d'agences, relances automatisées,
+  historique des prix enrichi.
+- **Plus tard** : scores calibrés sur les résultats réels, scheduler optimisé
+  dynamiquement.
 
 ## Troubleshooting
 
-| Symptôme                                                                       | Cause probable et remède                                                                                                                                               |
-| ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `pnpm collect` n'exécute aucune source                                         | Le scheduler estime qu'aucune n'est due (intervalles §7). Vérifier la page Sources ; pour forcer, supprimer `data/local.db` (repart de zéro) ou attendre l'intervalle. |
-| Une source est `blocked`                                                       | Elle a répondu 401/403 : le scraper s'arrête définitivement et ne tentera aucun contournement (§10). Voir son verdict dans [docs/sources.md](docs/sources.md).         |
-| Une source est `cooldown`                                                      | HTTP 429 reçu : repos automatique (durée dans la page Sources), les autres sources continuent.                                                                         |
-| `Le port 8788 est déjà utilisé` au `pnpm local`                                | Un serveur tourne déjà — ouvrir http://127.0.0.1:8788, ou `PORT=8789 pnpm local`.                                                                                      |
-| L'interface locale affiche « Interface non construite »                        | Lancer `pnpm local` (qui construit), pas `pnpm --filter @rentfinder/collector serve` seul.                                                                             |
-| 0 annonce alors que la collecte a réussi                                       | Les annonces sont hors critères (≤ 700 €, ≥ 14 m², Nice). Cocher « Afficher les annonces hors critères ».                                                              |
-| Un parser ne trouve plus de prix (warning « structure probablement modifiée ») | Le site a changé son HTML : suivre la procédure de réparation de [docs/scraping.md](docs/scraping.md#diagnostiquer-un-scraper-cassé-69).                               |
-| `TURSO_DATABASE_URL manquant` en CI                                            | Normal : en CI le fallback local est désactivé — configurer le secret.                                                                                                 |
+| Symptôme                                                                       | Cause probable et remède                                                                                                                                                        |
+| ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm collect` n'exécute aucune source                                         | Le scheduler estime qu'aucune n'est due (intervalles §7). Vérifier la page Sources ; pour forcer, supprimer `data/local.db` (repart de zéro) ou attendre l'intervalle.          |
+| Une source est `blocked`                                                       | Elle a répondu 401/403 : le scraper s'arrête définitivement et ne tentera aucun contournement (§10). Voir son verdict dans [docs/sources.md](docs/sources.md).                  |
+| Une source est `cooldown`                                                      | HTTP 429 reçu : repos automatique (durée dans la page Sources), les autres sources continuent.                                                                                  |
+| `Le port 8788 est déjà utilisé` au `pnpm local`                                | Un serveur tourne déjà — ouvrir http://127.0.0.1:8788, ou `PORT=8789 pnpm local`.                                                                                               |
+| L'interface locale affiche « Interface non construite »                        | Lancer `pnpm local` (qui construit), pas `pnpm --filter @rentfinder/collector serve` seul.                                                                                      |
+| 0 annonce alors que la collecte a réussi                                       | Les annonces sont hors critères (≤ 700 €, ≥ 14 m², Nice). Cocher « Afficher les annonces hors critères ».                                                                       |
+| Un parser ne trouve plus de prix (warning « structure probablement modifiée ») | Le site a changé son HTML : suivre la procédure de réparation de [docs/scraping.md](docs/scraping.md#diagnostiquer-un-scraper-cassé-69).                                        |
+| Pas de notification Telegram                                                   | Vérifier `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` dans `.env` (voir le script d'installation) ; le notifieur ne signale que les annonces découvertes **après** son activation. |
 
 ## Licence
 

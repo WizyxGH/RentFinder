@@ -26,16 +26,46 @@ Copiez `.env.example` vers `.env` (ignoré par git) et renseignez ce qui vous
 concerne. Tout est optionnel — sans `.env`, la collecte fonctionne, simplement
 sans distances ni message pré-rempli.
 
-| Variable                                       | Rôle                                                              |
-| ---------------------------------------------- | ----------------------------------------------------------------- |
-| `REFERENCE_WORK_ADDRESS` (ou `_LAT`/`_LON`)    | Lieu de travail — géocodé pour afficher le temps de trajet (§20). |
-| `REFERENCE_STATION_ADDRESS` (ou `_LAT`/`_LON`) | Gare de référence.                                                |
-| `TENANT_*`                                     | Profil locataire pour composer les messages de contact (§25).     |
-| `BEP_SUBSCRIBER_USER` / `_PASSWORD`            | Accès abonné BEP payé, si vous en avez un (§6).                   |
-| `COLLECTOR_USER_AGENT`                         | User-Agent du collecteur (identifiable, honnête — §10).           |
-| `BACKFILL_ENABLED`                             | Mode backfill, `false` par défaut (§8).                           |
+| Variable                                       | Rôle                                                                  |
+| ---------------------------------------------- | --------------------------------------------------------------------- |
+| `REFERENCE_WORK_ADDRESS` (ou `_LAT`/`_LON`)    | Lieu de travail — géocodé pour afficher le temps de trajet (§20).     |
+| `REFERENCE_STATION_ADDRESS` (ou `_LAT`/`_LON`) | Gare de référence.                                                    |
+| `TENANT_*`                                     | Profil locataire pour composer les messages de contact (§25).         |
+| `BEP_SUBSCRIBER_USER` / `_PASSWORD`            | Accès abonné BEP payé, si vous en avez un (§6).                       |
+| `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID`      | Notifications Telegram des nouvelles annonces (§29, voir ci-dessous). |
+| `COLLECTOR_USER_AGENT`                         | User-Agent du collecteur (identifiable, honnête — §10).               |
+| `BACKFILL_ENABLED`                             | Mode backfill, `false` par défaut (§8).                               |
 
-`.env` est chargé automatiquement par `pnpm collect` et `pnpm local`.
+`.env` est chargé automatiquement par `pnpm collect` et `pnpm local`. Ces
+valeurs sont privées : jamais committées, jamais journalisées (§26).
+
+## Notifications Telegram + collecte automatique (§29)
+
+Pour être prévenu **sur votre téléphone** dès qu'une annonce entre dans vos
+critères :
+
+1. **Créer le bot** dans Telegram : `@BotFather` → `/newbot` → copier le jeton.
+2. **Configurer** en une commande — le script vérifie le jeton, trouve votre
+   `chat_id` (écrivez un message à votre bot quand il le demande), remplit
+   `.env` et envoie un message de test :
+   ```bash
+   node scripts/setup-telegram.mjs <JETON>
+   ```
+3. **Planifier la collecte** pour que les notifications arrivent sans rien
+   lancer à la main :
+   ```powershell
+   # Windows
+   powershell -ExecutionPolicy Bypass -File scripts\schedule-collect.ps1
+   ```
+   ```bash
+   # macOS/Linux (cron, toutes les 30 min)
+   */30 * * * * cd <dépôt> && pnpm collect
+   ```
+
+Sans `TELEGRAM_*`, le notifieur reste silencieusement désactivé. La collecte
+tourne sur votre machine : ordinateur éteint, pas de notification (limite
+assumée du 100 % local). Le notifieur ne signale que les annonces découvertes
+**après** son activation, chacune une seule fois.
 
 ## Régler les filtres de recherche
 
