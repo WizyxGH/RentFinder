@@ -88,11 +88,17 @@ privée (`.env`) : [docs/deployment.md](docs/deployment.md).
 Pour être prévenu **sur votre téléphone** dès qu'une annonce entre dans vos
 critères, sans lancer la collecte à la main :
 
-1. **Créer le bot** : sur Telegram, écrire à `@BotFather` → `/newbot` →
-   récupérer le jeton. Écrire un message à votre bot, puis ouvrir
-   `https://api.telegram.org/bot<JETON>/getUpdates` pour lire votre `chat.id`.
-   Renseigner `TELEGRAM_BOT_TOKEN` et `TELEGRAM_CHAT_ID` dans `.env` (privé,
-   jamais committé). Détails et options dans `.env.example`.
+1. **Créer le bot** (90 s, la seule étape manuelle — un bot appartient à votre
+   compte Telegram) : écrire à `@BotFather` → `/newbot` → copier le jeton, puis :
+
+   ```bash
+   node scripts/setup-telegram.mjs <JETON>
+   ```
+
+   Le script vérifie le jeton, trouve votre `chat_id` tout seul (écrivez
+   n'importe quoi à votre bot quand il vous le demande), remplit `.env` (privé,
+   jamais committé) et envoie un message de test. Options dans `.env.example`.
+
 2. **Planifier la collecte** (Windows) :
 
    ```powershell
