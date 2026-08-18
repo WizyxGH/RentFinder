@@ -90,11 +90,57 @@ prochaine collecte.
 - La page « Sources » montre l'état et le dernier passage de chaque source.
 - Si le port 8788 est occupé : `PORT=8789 pnpm local`.
 
-## Pourquoi plus de cloud ?
+## Mode cloud optionnel — hébergement gratuit 24/7 (§28)
 
-Les versions antérieures déployaient sur GitHub Pages + Cloudflare Workers +
-Turso. Le projet est désormais **volontairement 100% local** : plus simple, sans
-quota, sans secret à gérer, et vos données (annonces suivies, statuts, adresses)
-ne quittent jamais votre machine — ce qui est le mieux du point de vue de la
-confidentialité (§26). L'historique Git conserve l'ancienne architecture cloud
-si vous souhaitez y revenir.
+Le mode local reste le défaut. Le mode cloud s'y AJOUTE pour deux besoins que
+le local ne peut pas couvrir : **collecter et notifier PC éteint**, et
+**consulter le site depuis le téléphone, partout**. Coût : 0 € (paliers
+gratuits). Vos données vivent alors dans une base Turso **privée** (jeton) —
+jamais dans le dépôt public ; les documents de candidature, eux, restent
+STRICTEMENT locaux (§25 : l'API cloud répond 501 sur ces routes).
+
+```
+GitHub Actions (cron 30 min)  →  collecte + notifs Telegram, 24/7
+        ↓
+Turso (base SQLite cloud privée)
+        ↓
+Cloudflare Worker (API, jeton obligatoire)
+        ↓
+GitHub Pages (le site, accessible partout)
+```
+
+### Mise en place (une fois, ~20 min)
+
+1. **Turso** ([turso.tech](https://turso.tech), palier gratuit) :
+   `turso db create rentfinder` puis `turso db show rentfinder --url` et
+   `turso db tokens create rentfinder`. Notez l'URL (`libsql://…`) et le jeton.
+2. **Secrets GitHub** (Dépôt → Settings → Secrets and variables → Actions) :
+   - Secrets : `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`, `TELEGRAM_BOT_TOKEN`,
+     `TELEGRAM_CHAT_ID`, `BEP_SUBSCRIBER_USER`/`_PASSWORD` (optionnel),
+     `REFERENCE_WORK_LAT`/`_LON` (ou `_ADDRESS`), `REFERENCE_STATION_*`.
+   - Variables : `CLOUD_COLLECT_ENABLED=true` (l'interrupteur général),
+     `COLLECTOR_USER_AGENT`, `API_URL` (l'URL du Worker, étape 3).
+3. **Worker Cloudflare** (compte gratuit) :
+   ```bash
+   cd packages/api
+   npx wrangler secret put TURSO_DATABASE_URL
+   npx wrangler secret put TURSO_AUTH_TOKEN
+   npx wrangler secret put API_ACCESS_TOKEN   # inventez un jeton fort
+   npx wrangler deploy
+   ```
+   Renseignez `API_ALLOWED_ORIGIN` (votre URL GitHub Pages) dans
+   `packages/api/wrangler.toml`, et l'URL du Worker dans la variable GitHub
+   `API_URL`.
+4. **GitHub Pages** : Settings → Pages → Source « GitHub Actions ». Le workflow
+   `deploy-frontend.yml` publie l'interface à chaque push.
+5. Ouvrez le site → il demande votre **jeton d'accès** (`API_ACCESS_TOKEN`) —
+   saisi une fois, conservé dans le navigateur, jamais dans le dépôt (§26).
+
+Sans `CLOUD_COLLECT_ENABLED=true`, les workflows ne consomment RIEN : un fork
+du dépôt reste purement local.
+
+### Historique
+
+Les premières versions utilisaient déjà cette architecture ; elle avait été
+retirée en v0.9.0 au profit du 100% local, puis réintroduite en OPTION pour
+les notifications 24/7 et l'accès mobile — les deux modes coexistent.

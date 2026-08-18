@@ -31,14 +31,31 @@ export function defaultLocalDatabaseUrl(): string {
 
 export interface DatabaseOptions {
   readonly url: string;
+  readonly authToken?: string;
 }
 
-/** Ouvre une connexion vers un fichier SQLite local (ou `:memory:` en test). */
+/**
+ * Ouvre une connexion : fichier SQLite local, `:memory:` (tests), ou base
+ * Turso distante (mode cloud optionnel, §28).
+ *
+ * @throws si l'URL pointe vers une base distante sans jeton — mieux vaut
+ *         échouer immédiatement qu'écrire dans le vide.
+ */
 export function openDatabase(options: DatabaseOptions): Database {
-  const client = createClient({ url: options.url });
+  const isRemote = options.url.startsWith('libsql://') || options.url.startsWith('https://');
+  if (isRemote && (options.authToken === undefined || options.authToken === '')) {
+    throw new Error('TURSO_AUTH_TOKEN est requis pour une base distante (voir .env.example).');
+  }
+
+  const client = createClient({
+    url: options.url,
+    ...(options.authToken !== undefined && options.authToken !== ''
+      ? { authToken: options.authToken }
+      : {}),
+  });
   // WAL : lectures et écritures simultanées sans blocage — le serveur local
   // peut servir l'interface PENDANT qu'une collecte écrit (sinon, risque de
-  // « database is locked »). Sans effet en mémoire ; best-effort ailleurs.
+  // « database is locked »). Fichier local uniquement ; best-effort.
   if (options.url.startsWith('file:')) {
     client.execute('PRAGMA journal_mode = WAL').catch(() => {
       /* pragma non supporté : on garde le mode par défaut */
@@ -50,13 +67,18 @@ export function openDatabase(options: DatabaseOptions): Database {
 /**
  * Ouvre la base à partir de l'environnement.
  *
- * `TEST_DATABASE_URL` a priorité : c'est la garantie qu'un test ne touchera
- * jamais la base locale de travail (§52). `DATABASE_URL` permet éventuellement
- * de pointer vers un autre fichier local ; sinon, la base locale par défaut.
+ * Priorités : `TEST_DATABASE_URL` (tests, §52) → `TURSO_DATABASE_URL` (mode
+ * cloud optionnel — c'est la variable que renseignent GitHub Actions et le
+ * Worker) → `DATABASE_URL` (autre fichier local) → base locale par défaut.
  */
 export function openDatabaseFromEnv(env: NodeJS.ProcessEnv = process.env): Database {
   if (env['NODE_ENV'] === 'test' || env['VITEST'] === 'true') {
     return openDatabase({ url: env['TEST_DATABASE_URL'] ?? ':memory:' });
+  }
+
+  const turso = env['TURSO_DATABASE_URL'];
+  if (turso !== undefined && turso !== '') {
+    return openDatabase({ url: turso, authToken: env['TURSO_AUTH_TOKEN'] });
   }
 
   const url = env['DATABASE_URL'];

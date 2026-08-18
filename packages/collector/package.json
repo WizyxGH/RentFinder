@@ -8,6 +8,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./server/routes": {
+      "types": "./dist/server/routes.d.ts",
+      "default": "./dist/server/routes.js"
     }
   },
   "main": "./dist/index.js",

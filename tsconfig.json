@@ -1,8 +1,17 @@
 {
   "files": [],
   "references": [
-    { "path": "./packages/shared" },
-    { "path": "./packages/collector" },
-    { "path": "./frontend" }
+    {
+      "path": "./packages/shared"
+    },
+    {
+      "path": "./packages/collector"
+    },
+    {
+      "path": "./packages/api"
+    },
+    {
+      "path": "./frontend"
+    }
   ]
 }

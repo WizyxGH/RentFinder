@@ -1,0 +1,89 @@
+# Déploiement du frontend sur GitHub Pages (§28) — mode cloud OPTIONNEL.
+#
+# Seule l'APPLICATION est publiée — aucune donnée. Les annonces, statuts de
+# contact et distances restent derrière l'API (Worker) protégée par jeton
+# (§26). Les documents de candidature n'existent qu'en mode local (§25).
+#
+# `VITE_API_URL` n'est pas un secret : c'est l'URL publique du Worker. Le
+# jeton d'accès, lui, est saisi par l'utilisateur dans l'interface et n'entre
+# jamais dans le bundle.
+#
+# Ne fait RIEN tant que la variable de dépôt CLOUD_COLLECT_ENABLED n'est pas
+# à `true` : un fork reste 100% local sans effort.
+
+name: Déploiement du frontend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/**'
+      - 'packages/shared/**'
+      - '.github/workflows/deploy-frontend.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: ${{ vars.CLOUD_COLLECT_ENABLED == 'true' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Installer les dépendances
+        run: pnpm install --frozen-lockfile
+
+      - name: Construire l'application
+        run: pnpm --filter @rentfinder/frontend run build
+        env:
+          # GitHub Pages sert le site depuis /<nom-du-depot>/.
+          BASE_PATH: /${{ github.event.repository.name }}/
+          VITE_API_URL: ${{ vars.API_URL }}
+
+      - name: Vérifier qu'aucun secret n'a été embarqué
+        # Garde-fou de dernière minute : si un jeton s'était glissé dans le
+        # bundle, il serait publié définitivement (§26, §55).
+        run: |
+          if grep -rIlE 'eyJ[A-Za-z0-9_-]{20,}\.|libsql://[a-z0-9-]+\.turso\.io|[0-9]{9,10}:AA[A-Za-z0-9_-]{30,}' frontend/dist; then
+            echo "::error::Un secret potentiel a été détecté dans le bundle — déploiement annulé."
+            exit 1
+          fi
+          echo "Aucun secret détecté dans le bundle."
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: frontend/dist
+
+  deploy:
+    name: Déploiement
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

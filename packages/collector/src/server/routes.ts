@@ -1,10 +1,13 @@
 /**
- * Routes de l'API locale (§36, §37, §35, §33, §63).
+ * Routes de l'API (§36, §37, §35, §33, §63).
  *
- * Le projet est 100% local : ce module est consommé par le serveur local
- * (`cli/serve.ts`, mode zéro-cloud, fichier SQLite, limité à 127.0.0.1). Il ne
- * dépend que des standards Web (`Request`, `Response`, `URL`) et de l'interface
- * `Client` de libsql.
+ * Consommé par DEUX transports : le serveur local (`cli/serve.ts`, fichier
+ * SQLite, 127.0.0.1) et le Worker Cloudflare du mode cloud optionnel
+ * (`packages/api`, Turso, jeton). Il ne dépend que des standards Web
+ * (`Request`, `Response`, `URL`) et de l'interface `Client` de libsql — JAMAIS
+ * de `node:fs` : les fonctionnalités liées au disque (filtres éditables,
+ * documents de candidature) sont INJECTÉES par le serveur local via
+ * `LocalFeatures`, et répondent 501 quand elles sont absentes (mode cloud).
  *
  * Routes :
  *   GET   /api/listings              liste triée par priorité d'action (§36)
@@ -13,15 +16,35 @@
  *   POST  /api/listings/:id/contact  enregistrement d'un contact manuel (§22)
  *   GET   /api/sources               état des sources (§63)
  *   GET   /api/stats                 statistiques de suivi (§33)
- *   GET   /api/documents             pièces du dossier de candidature (§25)
- *   POST  /api/documents?name=…      dépôt d'une pièce (corps = octets)
- *   GET   /api/documents/:name       restitution locale d'une pièce
- *   DELETE /api/documents/:name      suppression d'une pièce
+ *   GET/PUT /api/config              filtres de recherche (§66 — local seulement)
+ *   /api/documents…                  pièces de candidature (§25 — local seulement)
  */
 
 import type { Client } from '@libsql/client';
-import { readSearchFilters, writeSearchFilters } from '../config.js';
-import { deleteDocument, listDocuments, readDocument, saveDocument } from './documents.js';
+
+/**
+ * Fonctionnalités disponibles uniquement en mode local (elles touchent le
+ * disque de l'utilisateur). Le Worker cloud ne les fournit pas : les pièces de
+ * candidature et le fichier de filtres ne quittent jamais la machine (§25, §26).
+ */
+/** Sous-ensemble des filtres utilisé pour le raffinage « live » des listes. */
+export interface LiveFilters {
+  readonly maxPrice: number;
+  readonly minPrice?: number;
+  readonly minArea: number;
+}
+
+export interface LocalFeatures {
+  readonly readSearchFilters: () => LiveFilters;
+  readonly writeSearchFilters: (input: unknown) => unknown;
+  readonly listDocuments: () => unknown;
+  readonly saveDocument: (
+    name: string,
+    bytes: Uint8Array,
+  ) => { ok: true; document: unknown } | { ok: false; error: string };
+  readonly readDocument: (name: string) => { bytes: Uint8Array; contentType: string } | null;
+  readonly deleteDocument: (name: string) => boolean;
+}
 
 /** Statuts de suivi acceptés par l'API (§35). */
 const TRACKING_STATUSES = new Set([
@@ -75,7 +98,7 @@ function rowToListing(row: Record<string, unknown>): Record<string, unknown> {
   };
 }
 
-async function listListings(db: Client, url: URL): Promise<unknown> {
+async function listListings(db: Client, url: URL, filters?: LiveFilters): Promise<unknown> {
   const limit = Math.min(
     100,
     Math.max(1, Number.parseInt(url.searchParams.get('limit') ?? '30', 10)),
@@ -103,15 +126,18 @@ async function listListings(db: Client, url: URL): Promise<unknown> {
     // depuis l'interface se répercute immédiatement, sans re-collecter. Un
     // champ NULL n'exclut jamais (§17). Les exclusions coloc/étudiant, elles,
     // sont figées à la collecte (matches_criteria) et changent au prochain run.
-    const f = readSearchFilters();
-    conditions.push('(price IS NULL OR price <= ?)');
-    filterArgs.push(f.maxPrice);
-    if (f.minPrice !== undefined) {
-      conditions.push('(price IS NULL OR price >= ?)');
-      filterArgs.push(f.minPrice);
+    // En mode cloud (pas d'accès au fichier de filtres), `matches_criteria`
+    // calculé à la collecte fait seul autorité.
+    if (filters !== undefined) {
+      conditions.push('(price IS NULL OR price <= ?)');
+      filterArgs.push(filters.maxPrice);
+      if (filters.minPrice !== undefined) {
+        conditions.push('(price IS NULL OR price >= ?)');
+        filterArgs.push(filters.minPrice);
+      }
+      conditions.push('(area IS NULL OR area >= ?)');
+      filterArgs.push(filters.minArea);
     }
-    conditions.push('(area IS NULL OR area >= ?)');
-    filterArgs.push(f.minArea);
   }
 
   // Les annonces archivées sont masquées, sauf demande explicite (§ archivage).
@@ -368,6 +394,7 @@ export async function route(
   url: URL,
   segments: readonly string[],
   cors: Record<string, string>,
+  local?: LocalFeatures,
 ): Promise<Response> {
   const method = request.method;
   const resource = segments[1];
@@ -377,13 +404,19 @@ export async function route(
   const id = segments[2] !== undefined ? decodeURIComponent(segments[2]) : undefined;
   const action = segments[3];
 
+  // Filtres et documents touchent le DISQUE de l'utilisateur : disponibles
+  // uniquement quand le transport les fournit (mode local, §25/§66).
+  if ((resource === 'config' || resource === 'documents') && local === undefined) {
+    return jsonError(501, 'Disponible uniquement en mode local (pnpm local)');
+  }
+
   // Filtres de recherche éditables depuis l'interface (§66).
-  if (resource === 'config') {
-    if (method === 'GET') return json(readSearchFilters(), cors);
+  if (resource === 'config' && local !== undefined) {
+    if (method === 'GET') return json(local.readSearchFilters(), cors);
     if (method === 'PUT') {
       const body = await request.json().catch(() => null);
       try {
-        return json(writeSearchFilters(body), cors);
+        return json(local.writeSearchFilters(body), cors);
       } catch (error) {
         return jsonError(400, error instanceof Error ? error.message : 'Filtres invalides');
       }
@@ -393,16 +426,18 @@ export async function route(
 
   // Documents de candidature (§25) : stockés dans data/ (gitignoré), servis
   // uniquement en local. Aucun envoi automatique, jamais (§24).
-  if (resource === 'documents') {
-    if (id === undefined && method === 'GET') return json({ documents: listDocuments() }, cors);
+  if (resource === 'documents' && local !== undefined) {
+    if (id === undefined && method === 'GET') {
+      return json({ documents: local.listDocuments() }, cors);
+    }
     if (id === undefined && method === 'POST') {
       const name = url.searchParams.get('name') ?? '';
       const bytes = new Uint8Array(await request.arrayBuffer());
-      const result = saveDocument(name, bytes);
+      const result = local.saveDocument(name, bytes);
       return result.ok ? json(result.document, cors, 201) : jsonError(400, result.error);
     }
     if (id !== undefined && method === 'GET') {
-      const document = readDocument(id);
+      const document = local.readDocument(id);
       if (document === null) return jsonError(404, 'Document introuvable');
       return new Response(new Uint8Array(document.bytes), {
         headers: {
@@ -414,7 +449,7 @@ export async function route(
       });
     }
     if (id !== undefined && method === 'DELETE') {
-      return deleteDocument(id)
+      return local.deleteDocument(id)
         ? json({ deleted: true }, cors)
         : jsonError(404, 'Document introuvable');
     }
@@ -435,7 +470,7 @@ export async function route(
 
   // Collection : GET /api/listings
   if (id === undefined && method === 'GET') {
-    return json(await listListings(db, url), cors);
+    return json(await listListings(db, url, local?.readSearchFilters()), cors);
   }
   if (id === undefined) {
     return json({ error: 'Route inconnue' }, cors, 404);
