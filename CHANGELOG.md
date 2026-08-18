@@ -41,6 +41,17 @@ Documenter ici : nouvelles sources, changements d'architecture ou de schéma,
   sur la carte.
 - **Localisation cliquable** : l'adresse elle-même ouvre Maps (plus de lien
   « Ouvrir dans Maps » séparé).
+- **Source Studapart** (logement étudiant) via son **API de recherche publique**
+  (`POST search-api.studapart.com/property`, proxy Elasticsearch) : une requête
+  ramène ~200 biens à Nice dédoublonnés, avec adresse exacte, loyer charges
+  comprises, GPS, meublé et photos. Accès conforme (hôte sans robots, usage
+  « search/reference » autorisé, UA honnête, §6/§10). Les colocations
+  (`rentedByRoom`, majoritaires) sont marquées pour que le filtre perso les
+  écarte. A nécessité le **support du POST** dans le client HTTP (jusqu'ici
+  GET + cache) — sans cache conditionnel pour les requêtes POST.
+- **Carrousel de photos sur les cartes** : vrai carrousel (flèches ‹ ›, points
+  cliquables, une photo à la fois) au lieu d'une barre de défilement ; une image
+  cassée est retirée du carrousel.
 - **Notifications Telegram** (§29) : après chaque collecte, le collecteur pousse
   sur Telegram les annonces qui viennent d'entrer dans vos critères — le canal
   « site fermé », qui prévient sur le téléphone sans que l'app soit ouverte.

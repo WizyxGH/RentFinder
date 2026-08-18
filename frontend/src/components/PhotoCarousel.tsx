@@ -1,0 +1,92 @@
+/**
+ * Carrousel de photos d'une carte d'annonce (§36).
+ *
+ * Un vrai carrousel — flèches et points —, pas une barre de défilement : une
+ * photo à la fois, navigation explicite. Les images sont affichées directement
+ * depuis le site d'origine (§11 : jamais téléchargées ni stockées). Une image
+ * cassée (retirée côté source) est retirée du carrousel plutôt que d'afficher
+ * un cadre vide.
+ */
+
+import { useState } from 'react';
+
+export function PhotoCarousel({ urls }: { readonly urls: readonly string[] }): React.JSX.Element {
+  const [index, setIndex] = useState(0);
+  // Les URLs dont le chargement échoue sont retirées : le carrousel ne montre
+  // que des photos réellement disponibles.
+  const [broken, setBroken] = useState<ReadonlySet<string>>(new Set());
+  const photos = urls.filter((url) => !broken.has(url));
+
+  if (photos.length === 0) return <></>;
+
+  const clamped = Math.min(index, photos.length - 1);
+  const go = (next: number): void => setIndex((next + photos.length) % photos.length);
+
+  return (
+    <div className="relative -mx-3 -mt-3 mb-3 h-44 w-[calc(100%+1.5rem)] overflow-hidden bg-muted">
+      {/* Piste : toutes les photos côte à côte, décalée par transformation. */}
+      <div
+        className="flex h-full transition-transform duration-300 ease-out"
+        style={{ transform: `translateX(-${clamped * 100}%)` }}
+      >
+        {photos.map((url) => (
+          <img
+            key={url}
+            src={url}
+            alt=""
+            loading="lazy"
+            referrerPolicy="no-referrer"
+            className="h-44 w-full shrink-0 object-cover"
+            onError={() => setBroken((current) => new Set(current).add(url))}
+          />
+        ))}
+      </div>
+
+      {photos.length > 1 && (
+        <>
+          <button
+            type="button"
+            aria-label="Photo précédente"
+            onClick={(event) => {
+              event.stopPropagation();
+              go(clamped - 1);
+            }}
+            className="absolute top-1/2 left-1.5 flex size-7 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-black/45 text-white transition-colors hover:bg-black/65"
+          >
+            ‹
+          </button>
+          <button
+            type="button"
+            aria-label="Photo suivante"
+            onClick={(event) => {
+              event.stopPropagation();
+              go(clamped + 1);
+            }}
+            className="absolute top-1/2 right-1.5 flex size-7 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-black/45 text-white transition-colors hover:bg-black/65"
+          >
+            ›
+          </button>
+
+          {/* Points de position, cliquables. */}
+          <div className="absolute right-0 bottom-1.5 left-0 flex justify-center gap-1">
+            {photos.map((url, dot) => (
+              <button
+                key={url}
+                type="button"
+                aria-label={`Aller à la photo ${dot + 1}`}
+                aria-current={dot === clamped}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setIndex(dot);
+                }}
+                className={`size-1.5 cursor-pointer rounded-full transition-colors ${
+                  dot === clamped ? 'bg-white' : 'bg-white/50'
+                }`}
+              />
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}

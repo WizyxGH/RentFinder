@@ -21,6 +21,7 @@ import {
   formatTracking,
 } from '../format.js';
 import { AFFINITY_BADGE_THRESHOLD } from '../affinity.js';
+import { PhotoCarousel } from './PhotoCarousel.js';
 import { ScoreRow } from './Scores.js';
 import { Badge } from '@/components/ui/badge.js';
 import { Button } from '@/components/ui/button.js';
@@ -92,33 +93,7 @@ export function ListingCard({
       } ${archived ? 'opacity-60' : ''}`}
       data-testid="listing-card"
     >
-      {photos.length > 0 && (
-        <div className="relative -mx-3 -mt-3 mb-3 w-[calc(100%+1.5rem)]">
-          {/* Défilement page par page : chaque photo occupe toute la largeur et
-              s'ancre au début — jamais de vue partielle ni de trou en bout. */}
-          <div className="flex snap-x snap-mandatory overflow-x-auto">
-            {photos.map((url) => (
-              <img
-                key={url}
-                src={url}
-                alt=""
-                loading="lazy"
-                referrerPolicy="no-referrer"
-                className="h-44 w-full shrink-0 snap-start object-cover"
-                onError={(event) => {
-                  // Photo retirée côté source : on efface le cadre cassé.
-                  event.currentTarget.style.display = 'none';
-                }}
-              />
-            ))}
-          </div>
-          {photos.length > 1 && (
-            <span className="pointer-events-none absolute right-2 bottom-2 rounded-full bg-black/55 px-2 py-0.5 text-[0.7rem] text-white">
-              {photos.length} photos ›
-            </span>
-          )}
-        </div>
-      )}
+      {photos.length > 0 && <PhotoCarousel urls={photos} />}
       <header className="flex items-start gap-3">
         {/* Indicateur de priorité : pastille teintée par palier (§36 : tri par action). */}
         <div

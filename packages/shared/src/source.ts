@@ -149,10 +149,21 @@ export interface ScrapeContext {
   /** Mode `live` (nouveautés) ou `backfill` (historique, bridé) — §8. */
   readonly mode: 'live' | 'backfill';
 
-  /** Émet une requête sous contrôle du budget de la source. */
+  /**
+   * Émet une requête sous contrôle du budget de la source.
+   *
+   * GET par défaut (avec cache conditionnel ETag). Un `method`/`body` permet
+   * d'interroger une API JSON (§6 : une API publique prime sur le HTML) —
+   * dans ce cas, pas de cache conditionnel (une réponse POST n'est pas
+   * revalidable par ETag).
+   */
   readonly fetch: (
     url: string,
-    init?: { readonly headers?: Record<string, string> },
+    init?: {
+      readonly headers?: Record<string, string>;
+      readonly method?: 'GET' | 'POST';
+      readonly body?: string;
+    },
   ) => Promise<FetchResult>;
 
   /**

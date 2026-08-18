@@ -117,7 +117,7 @@ async function runSource(
     mode: options.mode,
     fetch: async (url, init) => {
       requestsUsed += 1;
-      return http.get(url, init);
+      return http.get(url, init ?? {});
     },
     isKnown: (ref) => knownRefs.has(ref),
     log: (event, fields) => logger.debug(event, fields),

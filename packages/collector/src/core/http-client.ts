@@ -78,8 +78,14 @@ export interface HttpClientOptions {
   readonly timeoutMs?: number;
 }
 
+export interface RequestInitLite {
+  readonly headers?: Record<string, string>;
+  readonly method?: 'GET' | 'POST';
+  readonly body?: string;
+}
+
 export interface HttpClient {
-  get(url: string, init?: { readonly headers?: Record<string, string> }): Promise<FetchResult>;
+  get(url: string, init?: RequestInitLite): Promise<FetchResult>;
   readonly limiter: RateLimiter;
 }
 
@@ -102,14 +108,21 @@ export function createHttpClient(options: HttpClientOptions): HttpClient {
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const limiter = createRateLimiter(budget, clock);
 
-  async function attempt(url: string, headers: Record<string, string>): Promise<FetchResult> {
+  async function attempt(
+    url: string,
+    headers: Record<string, string>,
+    method: 'GET' | 'POST',
+    body: string | undefined,
+  ): Promise<FetchResult> {
     await limiter.acquire();
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
       const response = await doFetch(url, {
+        method,
         headers,
+        ...(body !== undefined ? { body } : {}),
         signal: controller.signal,
         redirect: 'follow',
       });
@@ -136,12 +149,13 @@ export function createHttpClient(options: HttpClientOptions): HttpClient {
         throw new Error(`HTTP ${response.status} temporaire sur ${url}`);
       }
 
-      const body = await response.text();
+      const responseBody = await response.text();
 
-      // Mémorisation des validateurs pour la prochaine exécution.
+      // Mémorisation des validateurs pour la prochaine exécution (GET seulement :
+      // une réponse POST n'est pas revalidable par ETag, §30).
       const etag = responseHeaders['etag'] ?? null;
       const lastModified = responseHeaders['last-modified'] ?? null;
-      if (etag !== null || lastModified !== null) {
+      if (method === 'GET' && (etag !== null || lastModified !== null)) {
         await cache.set(url, {
           etag,
           lastModified,
@@ -149,7 +163,12 @@ export function createHttpClient(options: HttpClientOptions): HttpClient {
         });
       }
 
-      return { status: response.status, body, headers: responseHeaders, notModified: false };
+      return {
+        status: response.status,
+        body: responseBody,
+        headers: responseHeaders,
+        notModified: false,
+      };
     } finally {
       clearTimeout(timer);
     }
@@ -159,21 +178,26 @@ export function createHttpClient(options: HttpClientOptions): HttpClient {
     limiter,
 
     async get(url, init) {
-      const cached = await cache.get(url);
+      const method = init?.method ?? 'GET';
       const headers: Record<string, string> = {
         'user-agent': userAgent,
         accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'accept-language': 'fr-FR,fr;q=0.9',
         ...init?.headers,
       };
-      // En-têtes conditionnels : le serveur répond 304 si rien n'a bougé (§30).
-      if (cached?.etag) headers['if-none-match'] = cached.etag;
-      if (cached?.lastModified) headers['if-modified-since'] = cached.lastModified;
+
+      // Le cache conditionnel (ETag/If-Modified-Since) ne vaut que pour GET :
+      // une réponse POST n'est pas revalidable ainsi (§30).
+      if (method === 'GET') {
+        const cached = await cache.get(url);
+        if (cached?.etag) headers['if-none-match'] = cached.etag;
+        if (cached?.lastModified) headers['if-modified-since'] = cached.lastModified;
+      }
 
       let lastError: unknown;
       for (let tryIndex = 0; tryIndex <= budget.retryLimit; tryIndex += 1) {
         try {
-          return await attempt(url, headers);
+          return await attempt(url, headers, method, init?.body);
         } catch (error) {
           // 429 et blocage ne sont jamais réessayés : ce sont des refus, pas
           // des incidents passagers (§10).

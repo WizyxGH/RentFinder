@@ -30,6 +30,7 @@ import { lamyScraper } from './lamy/index.js';
 import { leprinceRealtyScraper } from './leprince-realty/index.js';
 import { ltImmobilierScraper } from './lt-immobilier/index.js';
 import { saintRochScraper } from './saint-roch/index.js';
+import { studapartScraper } from './studapart/index.js';
 import { personalimmoScraper } from './personalimmo/index.js';
 import { nousgeronsScraper } from './nousgerons/index.js';
 import { orpiScraper } from './orpi/index.js';
@@ -56,6 +57,7 @@ export const ALL_SCRAPERS: readonly Scraper[] = [
   ltImmobilierScraper,
   agenceDuCentreScraper,
   saintRochScraper,
+  studapartScraper,
 ];
 
 export { laforetScraper } from './laforet/index.js';
