@@ -358,6 +358,12 @@ export interface TelegramConfig {
    * `TELEGRAM_MAX_PER_RUN` permet de rétablir un plafond si ça devient trop.
    */
   readonly maxPerRun: number;
+  /**
+   * Photos max par annonce (album). Chaque photo d'un album compte comme UN
+   * message sur le téléphone : 10 photos = 10 notifications. 4 par défaut —
+   * `TELEGRAM_MAX_PHOTOS` pour régler (1 = une seule photo par annonce).
+   */
+  readonly maxPhotos: number;
 }
 
 /**
@@ -381,12 +387,14 @@ export function loadTelegramConfig(env: NodeJS.ProcessEnv = process.env): Telegr
   }
   const minPriority = Number.parseInt(env['TELEGRAM_MIN_PRIORITY'] ?? '', 10);
   const maxPerRun = Number.parseInt(env['TELEGRAM_MAX_PER_RUN'] ?? '', 10);
+  const maxPhotos = Number.parseInt(env['TELEGRAM_MAX_PHOTOS'] ?? '', 10);
   return {
     botToken,
     chatId,
     minPriority: Number.isFinite(minPriority) ? minPriority : 0,
     // Sans réglage : pas de limite — une notification par annonce.
     maxPerRun: Number.isFinite(maxPerRun) && maxPerRun > 0 ? maxPerRun : Infinity,
+    maxPhotos: Number.isFinite(maxPhotos) && maxPhotos > 0 ? Math.min(maxPhotos, 10) : 4,
   };
 }
 

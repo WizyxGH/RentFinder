@@ -96,9 +96,12 @@ export async function sendTelegramListing(
   config: TelegramConfig,
   listing: NotifiableListing,
   fetchImpl: typeof fetch = fetch,
+  maxPhotosOverride?: number,
 ): Promise<void> {
   const text = formatListingMessage(listing);
-  const photos = listing.photoUrls;
+  // Chaque photo d'un album = UN message côté téléphone : on borne pour que
+  // les notifications restent vivables (réglable, TELEGRAM_MAX_PHOTOS).
+  const photos = listing.photoUrls.slice(0, maxPhotosOverride ?? config.maxPhotos);
   if (photos.length === 0) {
     await sendTelegramMessage(config, text, fetchImpl);
     return;
@@ -162,9 +165,14 @@ export async function notifyNewListings(deps: NotifyDeps): Promise<NotifyReport>
   const overflow = pending.slice(config.maxPerRun);
   const notified: string[] = [];
 
+  // Garde anti-avalanche : un GROS lot (rattrapage, nouvelle source) passe à
+  // UNE photo par annonce — sinon 30 annonces × 10 photos = 300 notifications
+  // sur le téléphone. Le volume normal (quelques nouveautés) garde ses albums.
+  const maxPhotos = individual.length > 10 ? 1 : config.maxPhotos;
+
   try {
     for (const listing of individual) {
-      await sendTelegramListing(config, listing, fetchImpl);
+      await sendTelegramListing(config, listing, fetchImpl, maxPhotos);
       notified.push(listing.id);
     }
     if (overflow.length > 0) {

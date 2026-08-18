@@ -14,6 +14,7 @@ const CONFIG: TelegramConfig = {
   chatId: '123',
   minPriority: 0,
   maxPerRun: 2,
+  maxPhotos: 4,
 };
 
 function listing(over: Partial<NotifiableListing> & { id: string }): NotifiableListing {
@@ -114,6 +115,16 @@ describe('sendTelegramListing', () => {
     expect(body.media[1]?.caption).toBeUndefined();
   });
 
+  it('borne l’album à maxPhotos — chaque photo compte comme une notification', async () => {
+    const fetchImpl = okFetch();
+    const urls = Array.from({ length: 9 }, (_, i) => `https://img.exemple/${i}.jpg`);
+    await sendTelegramListing(CONFIG, listing({ id: 'a', photoUrls: urls }), fetchImpl);
+    const body = JSON.parse(
+      (fetchImpl as unknown as ReturnType<typeof vi.fn>).mock.calls[0]?.[1]?.body as string,
+    ) as { media: unknown[] };
+    expect(body.media).toHaveLength(4); // CONFIG.maxPhotos
+  });
+
   it('sans photo, envoie un message texte', async () => {
     const fetchImpl = okFetch();
     await sendTelegramListing(CONFIG, listing({ id: 'a', photoUrls: [] }), fetchImpl);
@@ -168,6 +179,29 @@ describe('notifyNewListings', () => {
   }
 
   const logger = createLogger({ minLevel: 'error' });
+
+  it('gros lot (> 10) → une seule photo par annonce (anti-avalanche)', async () => {
+    const pending = Array.from({ length: 12 }, (_, i) =>
+      listing({
+        id: `l${i}`,
+        photoUrls: ['https://img.exemple/1.jpg', 'https://img.exemple/2.jpg'],
+      }),
+    );
+    const { repo } = fakeRepo(pending);
+    const fetchImpl = okFetch();
+    await notifyNewListings({
+      repository: repo,
+      config: { ...CONFIG, maxPerRun: Infinity },
+      logger,
+      fetchImpl,
+    });
+    // 2 photos chacune, mais lot > 10 → sendPhoto (1 photo), jamais d'album.
+    const urls = (fetchImpl as unknown as ReturnType<typeof vi.fn>).mock.calls.map((c) =>
+      String(c[0]),
+    );
+    expect(urls.some((u) => u.includes('sendMediaGroup'))).toBe(false);
+    expect(urls.filter((u) => u.includes('sendPhoto'))).toHaveLength(12);
+  });
 
   it('envoie individuellement puis résume le surplus, et marque tout notifié', async () => {
     const pending = [
