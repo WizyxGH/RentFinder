@@ -4,6 +4,44 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 Documenter ici : nouvelles sources, changements d'architecture ou de schéma,
 évolutions des scores et du système de contact, corrections importantes (§70).
 
+## [0.16.0] — 2026-08-18
+
+### Ajouté
+
+- **Vue Carte** (§36) : bouton de bascule Liste ⇄ Carte au-dessus des annonces.
+  Leaflet + tuiles OpenStreetMap (gratuit) ; chaque annonce géolocalisée est une
+  pastille de prix teintée par priorité, clic → aperçu + « Voir l'annonce ».
+  Chargée paresseusement (Leaflet hors du bundle initial). Les annonces sans
+  coordonnées sont comptées, jamais placées au hasard (§17).
+- **Source Studapart** (logement étudiant) via son API de recherche publique
+  (proxy Elasticsearch) : ~200 biens Nice par requête, adresse exacte, loyer CC,
+  GPS, photos. Colocations marquées pour le filtre perso. A nécessité le support
+  du POST dans le client HTTP.
+- **Notifications Telegram** (§29) : après chaque collecte, push sur le téléphone
+  des nouvelles annonces (canal « site fermé »). Photos jointes (une = `sendPhoto`,
+  plusieurs = **album** `sendMediaGroup`, 10 max), sans limite de notifications par
+  défaut. Script d'installation guidée (`setup-telegram.mjs`) et collecte planifiée
+  Windows (`schedule-collect.ps1`).
+- **Hébergement cloud gratuit optionnel** (§28) : GitHub Actions (collecte +
+  notifs 24/7) + Turso (base privée) + Cloudflare Worker (API à jeton) + GitHub
+  Pages (site accessible du téléphone). Interrupteur `CLOUD_COLLECT_ENABLED` ;
+  sans lui le projet reste 100 % local. Les routes API sont devenues worker-safe
+  (fonctionnalités disque injectées) ; les documents de candidature restent
+  strictement locaux.
+- **Documents de candidature envoyés** : trace locale des pièces jointes à un
+  contact (§25).
+
+### Corrigé / amélioré
+
+- **Adresse précise** extraite du début des descriptions quand la source ne
+  publie pas de champ dédié (« 22-24 Avenue de la Californie… ») — nourrit la
+  distance (§20), la carte et le dédoublonnage (§14). Coordonnées géocodées
+  désormais persistées sur la fiche.
+- **Décodage de l'id** dans l'API (le `:` de `source:référence`) — contact et
+  changement de statut fonctionnent sur toutes les annonces.
+- **Perf** : `pnpm serve` (démarrage sans reconstruire), cache immuable des
+  assets, SQLite en mode WAL.
+
 ## [0.15.0] — 2026-08-17
 
 ### Ajouté
