@@ -83,17 +83,42 @@ pnpm dev          # → http://localhost:5173, interface sur données fictives
 C'est aussi l'environnement des tests. Installation détaillée et configuration
 privée (`.env`) : [docs/deployment.md](docs/deployment.md).
 
+### Notifications Telegram + collecte automatique (§29)
+
+Pour être prévenu **sur votre téléphone** dès qu'une annonce entre dans vos
+critères, sans lancer la collecte à la main :
+
+1. **Créer le bot** : sur Telegram, écrire à `@BotFather` → `/newbot` →
+   récupérer le jeton. Écrire un message à votre bot, puis ouvrir
+   `https://api.telegram.org/bot<JETON>/getUpdates` pour lire votre `chat.id`.
+   Renseigner `TELEGRAM_BOT_TOKEN` et `TELEGRAM_CHAT_ID` dans `.env` (privé,
+   jamais committé). Détails et options dans `.env.example`.
+2. **Planifier la collecte** (Windows) :
+
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File scripts\schedule-collect.ps1
+   # toutes les 30 min par défaut ; -IntervalMinutes 15 pour changer,
+   # -Remove pour désinstaller.
+   ```
+
+   Chaque collecte pousse alors les nouveautés sur Telegram. La tâche tourne en
+   local, tant que l'ordinateur est allumé (limite assumée du choix zéro-cloud).
+   Sur macOS/Linux, un `cron` équivalent : `*/30 * * * * cd <dépôt> && pnpm collect`.
+
+Sans ces variables, le notifieur reste silencieusement désactivé.
+
 ## Commandes
 
-| Commande                      | Effet                                                                       |
-| ----------------------------- | --------------------------------------------------------------------------- |
-| `pnpm dev`                    | frontend en mode démo                                                       |
-| `pnpm local`                  | mode local complet : interface + API sur `data/local.db`                    |
-| `pnpm collect`                | un cycle de collecte (`-- --backfill`, `-- --verbose`)                      |
-| `pnpm db:migrate`             | applique les migrations                                                     |
-| `pnpm test` / `pnpm test:e2e` | tests Node / scénarios Playwright                                           |
-| `pnpm verify`                 | **tout** : format, lint, types, tests, secrets — à lancer avant tout commit |
-| `pnpm check:secrets`          | scanner de secrets seul                                                     |
+| Commande                      | Effet                                                                           |
+| ----------------------------- | ------------------------------------------------------------------------------- |
+| `pnpm dev`                    | frontend en mode démo                                                           |
+| `pnpm local`                  | mode local complet : interface + API sur `data/local.db`                        |
+| `pnpm collect`                | un cycle de collecte (`-- --backfill`, `-- --verbose`) + notif Telegram         |
+| `schedule-collect.ps1`        | planifie `pnpm collect` (Windows) pour des notifs automatiques (voir ci-dessus) |
+| `pnpm db:migrate`             | applique les migrations                                                         |
+| `pnpm test` / `pnpm test:e2e` | tests Node / scénarios Playwright                                               |
+| `pnpm verify`                 | **tout** : format, lint, types, tests, secrets — à lancer avant tout commit     |
+| `pnpm check:secrets`          | scanner de secrets seul                                                         |
 
 ## Documentation
 
