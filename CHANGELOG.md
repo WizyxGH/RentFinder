@@ -41,6 +41,15 @@ Documenter ici : nouvelles sources, changements d'architecture ou de schéma,
   sur la carte.
 - **Localisation cliquable** : l'adresse elle-même ouvre Maps (plus de lien
   « Ouvrir dans Maps » séparé).
+- **Notifications Telegram** (§29) : après chaque collecte, le collecteur pousse
+  sur Telegram les annonces qui viennent d'entrer dans vos critères — le canal
+  « site fermé », qui prévient sur le téléphone sans que l'app soit ouverte.
+  Envoi via `sendMessage` (jeton du bot + chat id dans `.env`, jamais
+  committés) ; chaque annonce n'est notifiée qu'une fois (colonne `notified`,
+  migration 0008, tout le stock existant marqué déjà-notifié pour éviter le
+  flot au premier run). Au-delà de `TELEGRAM_MAX_PER_RUN` messages, le surplus
+  est résumé. Absent de `.env` → notifieur silencieusement désactivé (la CI et
+  le mode démo tournent sans). Mise en place documentée dans `.env.example`.
 - **Trace locale des pièces envoyées** (§25) : au moment de consigner un
   contact (« J'ai envoyé »), on coche les pièces jointes transmises ; elles
   sont mémorisées avec la tentative de contact (colonne `documents`,

@@ -172,8 +172,29 @@ export interface Repository {
     seenRefs: ReadonlySet<string>,
     thresholds: LifecycleThresholds,
   ): Promise<void>;
+  /**
+   * Annonces à signaler : dans les critères, actives, jamais notifiées, et de
+   * priorité suffisante (§29). Triées par priorité décroissante.
+   */
+  pendingNotifications(minPriority: number): Promise<NotifiableListing[]>;
+  /** Marque des annonces comme notifiées, pour ne jamais les re-signaler. */
+  markNotified(ids: readonly string[]): Promise<void>;
   httpCache(): HttpCacheStore;
   geocodeCache(): GeocodeCacheStore;
+}
+
+/** Vue légère d'une annonce pour composer une notification. */
+export interface NotifiableListing {
+  readonly id: string;
+  readonly title: string | null;
+  readonly price: number | null;
+  readonly area: number | null;
+  readonly rooms: number | null;
+  readonly city: string | null;
+  readonly postalCode: string | null;
+  readonly actionPriority: number;
+  /** URL de la fiche d'origine (première occurrence), si disponible. */
+  readonly url: string | null;
 }
 
 export interface LifecycleThresholds {
@@ -596,6 +617,52 @@ export function createRepository(db: Database): Repository {
         ],
         'write',
       );
+    },
+
+    async pendingNotifications(minPriority) {
+      const result = await db.execute({
+        sql: `SELECT id, title, price, area, rooms, city, postal_code, action_priority, payload
+              FROM listings
+              WHERE matches_criteria = 1
+                AND notified = 0
+                AND lifecycle = 'active'
+                AND COALESCE(action_priority, 0) >= ?
+              ORDER BY action_priority DESC`,
+        args: [minPriority],
+      });
+
+      return result.rows.map((row) => {
+        let url: string | null = null;
+        try {
+          const payload = JSON.parse(String(row['payload'] ?? '{}')) as {
+            occurrences?: { sourceUrl?: unknown }[];
+          };
+          const first = payload.occurrences?.[0]?.sourceUrl;
+          if (typeof first === 'string') url = first;
+        } catch {
+          /* payload illisible : pas d'URL, le reste suffit */
+        }
+        return {
+          id: String(row['id']),
+          title: row['title'] === null ? null : String(row['title']),
+          price: row['price'] === null ? null : Number(row['price']),
+          area: row['area'] === null ? null : Number(row['area']),
+          rooms: row['rooms'] === null ? null : Number(row['rooms']),
+          city: row['city'] === null ? null : String(row['city']),
+          postalCode: row['postal_code'] === null ? null : String(row['postal_code']),
+          actionPriority: Number(row['action_priority'] ?? 0),
+          url,
+        };
+      });
+    },
+
+    async markNotified(ids) {
+      if (ids.length === 0) return;
+      const placeholders = ids.map(() => '?').join(',');
+      await db.execute({
+        sql: `UPDATE listings SET notified = 1 WHERE id IN (${placeholders})`,
+        args: [...ids],
+      });
     },
 
     httpCache(): HttpCacheStore {

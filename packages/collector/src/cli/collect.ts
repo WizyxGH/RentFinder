@@ -26,8 +26,10 @@ import {
   loadPublicConfig,
   loadReferenceAddresses,
   loadReferencePoints,
+  loadTelegramConfig,
 } from '../config.js';
 import { createGeocoder } from '../core/geocode.js';
+import { notifyNewListings } from '../notify/telegram.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS_DIR = resolve(here, '../../../../database/migrations');
@@ -119,6 +121,21 @@ async function main(): Promise<void> {
       logger.warn('pipeline.partial_failure', {
         sources: failed.map((outcome) => outcome.sourceId),
       });
+    }
+
+    // §29 : pousse les nouvelles annonces sur Telegram, si configuré. Absent →
+    // silencieusement désactivé (le collecteur et la CI tournent sans).
+    const telegram = loadTelegramConfig();
+    if (telegram !== null) {
+      try {
+        const notice = await notifyNewListings({ repository, config: telegram, logger });
+        logger.info('notify.done', { ...notice });
+      } catch (error) {
+        // Le notifieur ne doit jamais faire échouer la collecte (§69).
+        logger.warn('notify.failed', {
+          error: error instanceof Error ? error.message : 'erreur inconnue',
+        });
+      }
     }
   } finally {
     db.close();

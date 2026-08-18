@@ -346,6 +346,45 @@ export function loadBepCredentials(
   return { user, password };
 }
 
+/** Réglages du notifieur Telegram (§29) — PRIVÉ. */
+export interface TelegramConfig {
+  readonly botToken: string;
+  readonly chatId: string;
+  /** Ne notifier qu'au-delà de cette priorité d'action (0 = toutes). */
+  readonly minPriority: number;
+  /** Nb max de notifications individuelles par run avant de résumer. */
+  readonly maxPerRun: number;
+}
+
+/**
+ * Charge la configuration Telegram depuis l'environnement.
+ *
+ * Le jeton du bot et l'identifiant de conversation sont PRIVÉS : ils vivent
+ * dans `.env`/secrets, jamais dans le dépôt, jamais dans les logs (§26, §66).
+ * `null` si non configuré → le notifieur est simplement désactivé (le
+ * collecteur tourne sans, la CI aussi).
+ */
+export function loadTelegramConfig(env: NodeJS.ProcessEnv = process.env): TelegramConfig | null {
+  const botToken = env['TELEGRAM_BOT_TOKEN'];
+  const chatId = env['TELEGRAM_CHAT_ID'];
+  if (
+    botToken === undefined ||
+    botToken.trim() === '' ||
+    chatId === undefined ||
+    chatId.trim() === ''
+  ) {
+    return null;
+  }
+  const minPriority = Number.parseInt(env['TELEGRAM_MIN_PRIORITY'] ?? '', 10);
+  const maxPerRun = Number.parseInt(env['TELEGRAM_MAX_PER_RUN'] ?? '', 10);
+  return {
+    botToken,
+    chatId,
+    minPriority: Number.isFinite(minPriority) ? minPriority : 0,
+    maxPerRun: Number.isFinite(maxPerRun) && maxPerRun > 0 ? maxPerRun : 5,
+  };
+}
+
 /** User-Agent du collecteur — honnête et identifiable, jamais un faux navigateur (§10). */
 export function collectorUserAgent(env: NodeJS.ProcessEnv = process.env): string {
   return env['COLLECTOR_USER_AGENT'] ?? 'RentFinderBot/0.1 (+https://github.com/)';
