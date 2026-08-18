@@ -82,10 +82,15 @@ export async function sendTelegramMessage(
 }
 
 /**
- * Envoie une annonce AVEC sa photo (`sendPhoto`, la photo vient du site
- * d'origine — §11, rien n'est téléchargé par nous : Telegram la charge depuis
- * son URL). Si Telegram n'y arrive pas (URL expirée, hôte récalcitrant), on se
- * replie sur le message texte — l'information prime sur l'image.
+ * Envoie une annonce AVEC ses photos (les images viennent du site d'origine —
+ * §11, rien n'est téléchargé par nous : Telegram les charge depuis leurs URLs).
+ *
+ *   - 0 photo  → message texte ;
+ *   - 1 photo  → `sendPhoto`, fiche en légende ;
+ *   - 2+       → `sendMediaGroup` (album, 10 max), fiche en légende de la 1re.
+ *
+ * Si Telegram ne parvient pas à charger les images (URL expirée, hôte
+ * récalcitrant), on se replie sur le texte — l'information prime sur l'image.
  */
 export async function sendTelegramListing(
   config: TelegramConfig,
@@ -93,24 +98,34 @@ export async function sendTelegramListing(
   fetchImpl: typeof fetch = fetch,
 ): Promise<void> {
   const text = formatListingMessage(listing);
-  if (listing.photoUrl === null) {
+  const photos = listing.photoUrls;
+  if (photos.length === 0) {
     await sendTelegramMessage(config, text, fetchImpl);
     return;
   }
 
-  const response = await fetchImpl(`${TELEGRAM_API}/bot${config.botToken}/sendPhoto`, {
+  const endpoint = photos.length === 1 ? 'sendPhoto' : 'sendMediaGroup';
+  const payload =
+    photos.length === 1
+      ? { chat_id: config.chatId, photo: photos[0], caption: text, parse_mode: 'HTML' }
+      : {
+          chat_id: config.chatId,
+          media: photos.map((url, index) => ({
+            type: 'photo',
+            media: url,
+            // La légende de l'album vit sur son premier élément.
+            ...(index === 0 ? { caption: text, parse_mode: 'HTML' } : {}),
+          })),
+        };
+
+  const response = await fetchImpl(`${TELEGRAM_API}/bot${config.botToken}/${endpoint}`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({
-      chat_id: config.chatId,
-      photo: listing.photoUrl,
-      caption: text,
-      parse_mode: 'HTML',
-    }),
+    body: JSON.stringify(payload),
   });
   if (response.ok) return;
 
-  // 4xx typique : Telegram n'a pas pu charger l'image. Le texte, lui, doit passer.
+  // 4xx typique : Telegram n'a pas pu charger une image. Le texte, lui, doit passer.
   await sendTelegramMessage(config, text, fetchImpl);
 }
 

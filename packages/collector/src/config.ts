@@ -352,7 +352,11 @@ export interface TelegramConfig {
   readonly chatId: string;
   /** Ne notifier qu'au-delà de cette priorité d'action (0 = toutes). */
   readonly minPriority: number;
-  /** Nb max de notifications individuelles par run avant de résumer. */
+  /**
+   * Nb max de notifications individuelles par run avant de résumer.
+   * `Infinity` par défaut : chaque annonce a sa propre notification —
+   * `TELEGRAM_MAX_PER_RUN` permet de rétablir un plafond si ça devient trop.
+   */
   readonly maxPerRun: number;
 }
 
@@ -381,7 +385,8 @@ export function loadTelegramConfig(env: NodeJS.ProcessEnv = process.env): Telegr
     botToken,
     chatId,
     minPriority: Number.isFinite(minPriority) ? minPriority : 0,
-    maxPerRun: Number.isFinite(maxPerRun) && maxPerRun > 0 ? maxPerRun : 5,
+    // Sans réglage : pas de limite — une notification par annonce.
+    maxPerRun: Number.isFinite(maxPerRun) && maxPerRun > 0 ? maxPerRun : Infinity,
   };
 }
 

@@ -195,8 +195,8 @@ export interface NotifiableListing {
   readonly actionPriority: number;
   /** URL de la fiche d'origine (première occurrence), si disponible. */
   readonly url: string | null;
-  /** URL de la première photo (affichée depuis le site d'origine, §11). */
-  readonly photoUrl: string | null;
+  /** Photos (URLs du site d'origine, §11) — 10 max, la limite d'un album Telegram. */
+  readonly photoUrls: readonly string[];
 }
 
 export interface LifecycleThresholds {
@@ -635,7 +635,7 @@ export function createRepository(db: Database): Repository {
 
       return result.rows.map((row) => {
         let url: string | null = null;
-        let photoUrl: string | null = null;
+        let photoUrls: string[] = [];
         try {
           const payload = JSON.parse(String(row['payload'] ?? '{}')) as {
             occurrences?: { sourceUrl?: unknown }[];
@@ -643,8 +643,9 @@ export function createRepository(db: Database): Repository {
           };
           const first = payload.occurrences?.[0]?.sourceUrl;
           if (typeof first === 'string') url = first;
-          const photo = payload.imageUrls?.[0];
-          if (typeof photo === 'string' && photo.startsWith('http')) photoUrl = photo;
+          photoUrls = (payload.imageUrls ?? [])
+            .filter((u): u is string => typeof u === 'string' && u.startsWith('http'))
+            .slice(0, 10);
         } catch {
           /* payload illisible : pas d'URL, le reste suffit */
         }
@@ -658,7 +659,7 @@ export function createRepository(db: Database): Repository {
           postalCode: row['postal_code'] === null ? null : String(row['postal_code']),
           actionPriority: Number(row['action_priority'] ?? 0),
           url,
-          photoUrl,
+          photoUrls,
         };
       });
     },

@@ -33,7 +33,7 @@ function listing(over: Partial<NotifiableListing> & { id: string }): NotifiableL
     postalCode: pick('postalCode', '06000'),
     actionPriority: pick('actionPriority', 80),
     url: pick('url', 'https://exemple.fr/annonce/1'),
-    photoUrl: pick('photoUrl', null),
+    photoUrls: pick('photoUrls', []),
   };
 }
 
@@ -81,11 +81,11 @@ describe('sendTelegramMessage', () => {
 });
 
 describe('sendTelegramListing', () => {
-  it('joint la photo quand l’annonce en a une (sendPhoto)', async () => {
+  it('une seule photo → sendPhoto avec légende', async () => {
     const fetchImpl = okFetch();
     await sendTelegramListing(
       CONFIG,
-      listing({ id: 'a', photoUrl: 'https://img.exemple/1.jpg' }),
+      listing({ id: 'a', photoUrls: ['https://img.exemple/1.jpg'] }),
       fetchImpl,
     );
     expect(fetchImpl).toHaveBeenCalledTimes(1);
@@ -95,30 +95,60 @@ describe('sendTelegramListing', () => {
     );
   });
 
+  it('plusieurs photos → album sendMediaGroup, légende sur la première', async () => {
+    const fetchImpl = okFetch();
+    await sendTelegramListing(
+      CONFIG,
+      listing({ id: 'a', photoUrls: ['https://img.exemple/1.jpg', 'https://img.exemple/2.jpg'] }),
+      fetchImpl,
+    );
+    expect(fetchImpl).toHaveBeenCalledWith(
+      'https://api.telegram.org/bottest-token/sendMediaGroup',
+      expect.objectContaining({ method: 'POST' }),
+    );
+    const body = JSON.parse(
+      (fetchImpl as unknown as ReturnType<typeof vi.fn>).mock.calls[0]?.[1]?.body as string,
+    ) as { media: { caption?: string }[] };
+    expect(body.media).toHaveLength(2);
+    expect(body.media[0]?.caption).toContain('Bel appartement');
+    expect(body.media[1]?.caption).toBeUndefined();
+  });
+
   it('sans photo, envoie un message texte', async () => {
     const fetchImpl = okFetch();
-    await sendTelegramListing(CONFIG, listing({ id: 'a', photoUrl: null }), fetchImpl);
+    await sendTelegramListing(CONFIG, listing({ id: 'a', photoUrls: [] }), fetchImpl);
     expect(fetchImpl).toHaveBeenCalledWith(
       'https://api.telegram.org/bottest-token/sendMessage',
       expect.anything(),
     );
   });
 
-  it('si Telegram ne charge pas la photo, se replie sur le texte', async () => {
-    // sendPhoto échoue (400), sendMessage réussit — le texte doit passer.
+  it('si Telegram ne charge pas les images, se replie sur le texte', async () => {
+    // sendMediaGroup échoue (400), sendMessage réussit — le texte doit passer.
     const calls: string[] = [];
     const fetchImpl = vi.fn(async (url: string) => {
       calls.push(String(url));
-      return new Response('', { status: String(url).includes('sendPhoto') ? 400 : 200 });
+      return new Response('', { status: String(url).includes('sendMediaGroup') ? 400 : 200 });
     }) as unknown as typeof fetch;
 
     await sendTelegramListing(
       CONFIG,
-      listing({ id: 'a', photoUrl: 'https://img.exemple/morte.jpg' }),
+      listing({ id: 'a', photoUrls: ['https://img.exemple/a.jpg', 'https://img.exemple/b.jpg'] }),
       fetchImpl,
     );
-    expect(calls.some((u) => u.includes('sendPhoto'))).toBe(true);
+    expect(calls.some((u) => u.includes('sendMediaGroup'))).toBe(true);
     expect(calls.some((u) => u.includes('sendMessage'))).toBe(true);
+  });
+});
+
+describe('loadTelegramConfig — pas de limite par défaut', () => {
+  it('maxPerRun vaut Infinity sans TELEGRAM_MAX_PER_RUN', async () => {
+    const { loadTelegramConfig } = await import('../config.js');
+    const config = loadTelegramConfig({
+      TELEGRAM_BOT_TOKEN: 'x',
+      TELEGRAM_CHAT_ID: '1',
+    } as NodeJS.ProcessEnv);
+    expect(config?.maxPerRun).toBe(Infinity);
   });
 });
 
