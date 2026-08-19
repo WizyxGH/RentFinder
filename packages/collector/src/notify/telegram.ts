@@ -70,16 +70,48 @@ export function formatListingMessage(listing: NotifiableListing): string {
     const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
     lines.push(`📍 <a href="${escapeHtml(mapsUrl)}">${escapeHtml(label)}</a>`);
   }
+
+  // Une seule photo tient dans le message ; on signale les autres, visibles sur
+  // la fiche (le titre est le lien).
+  const photoCount = listing.photoUrls.length;
+  if (photoCount > 1) lines.push(`📷 ${photoCount} photos sur la fiche`);
+
   lines.push(`⭐ Priorité ${listing.actionPriority}/100`);
   return lines.join('\n');
 }
 
-/** Envoie un message via l'API Bot Telegram. Lève en cas d'échec. */
+/** Extrait le `message_id` d'une réponse Telegram (message seul ou album). */
+async function firstMessageId(response: Response): Promise<number | null> {
+  try {
+    const data = (await response.clone().json()) as {
+      result?: { message_id?: number } | { message_id?: number }[];
+    };
+    const result = Array.isArray(data.result) ? data.result[0] : data.result;
+    return typeof result?.message_id === 'number' ? result.message_id : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Donnée du bouton « favori » (résolue par mapping message→annonce). */
+export const FAVORITE_CALLBACK = 'fav';
+
+/** Clavier en ligne : un bouton pour mettre l'annonce en favori d'un tap. */
+function favoriteKeyboard(): Record<string, unknown> {
+  return { inline_keyboard: [[{ text: '⭐ Mettre en favori', callback_data: FAVORITE_CALLBACK }]] };
+}
+
+/**
+ * Envoie un message via l'API Bot Telegram. Lève en cas d'échec.
+ * @param withButton attache le bouton « ⭐ Favori » (un tap → favori).
+ * @returns le `message_id` du message envoyé (pour lier le bouton à l'annonce).
+ */
 export async function sendTelegramMessage(
   config: TelegramConfig,
   text: string,
   fetchImpl: typeof fetch = fetch,
-): Promise<void> {
+  withButton = false,
+): Promise<number | null> {
   const response = await fetchImpl(`${TELEGRAM_API}/bot${config.botToken}/sendMessage`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -89,63 +121,55 @@ export async function sendTelegramMessage(
       parse_mode: 'HTML',
       // Pas d'aperçu de lien : le message reste compact sur le téléphone.
       disable_web_page_preview: true,
+      ...(withButton ? { reply_markup: favoriteKeyboard() } : {}),
     }),
   });
   if (!response.ok) {
     // On ne journalise jamais le corps (il peut contenir des détails du jeton).
     throw new Error(`Telegram a répondu ${response.status}`);
   }
+  return firstMessageId(response);
 }
 
 /**
- * Envoie une annonce AVEC ses photos (les images viennent du site d'origine —
- * §11, rien n'est téléchargé par nous : Telegram les charge depuis leurs URLs).
+ * Envoie une annonce en UN SEUL message (§29) : la photo principale + la fiche
+ * en légende + le bouton « ⭐ Favori ».
  *
- *   - 0 photo  → message texte ;
- *   - 1 photo  → `sendPhoto`, fiche en légende ;
- *   - 2+       → `sendMediaGroup` (album, 10 max), fiche en légende de la 1re.
+ * Pourquoi une seule photo : Telegram ne permet pas « plusieurs images + bouton
+ * dans un seul message » (un album serait plusieurs messages et sans bouton).
+ * La priorité utilisateur est UN message par annonce ; le message indique le
+ * nombre de photos et le titre pointe vers la fiche pour toutes les voir.
  *
- * Si Telegram ne parvient pas à charger les images (URL expirée, hôte
- * récalcitrant), on se replie sur le texte — l'information prime sur l'image.
+ * @returns le `message_id` (celui que le tap « ⭐ Favori » identifiera).
+ *
+ * Si Telegram ne charge pas la photo, on se replie sur le texte seul (toujours
+ * un message, toujours le bouton) — l'information prime sur l'image.
  */
 export async function sendTelegramListing(
   config: TelegramConfig,
   listing: NotifiableListing,
   fetchImpl: typeof fetch = fetch,
-  maxPhotosOverride?: number,
-): Promise<void> {
+): Promise<number | null> {
   const text = formatListingMessage(listing);
-  // Chaque photo d'un album = UN message côté téléphone : on borne pour que
-  // les notifications restent vivables (réglable, TELEGRAM_MAX_PHOTOS).
-  const photos = listing.photoUrls.slice(0, maxPhotosOverride ?? config.maxPhotos);
-  if (photos.length === 0) {
-    await sendTelegramMessage(config, text, fetchImpl);
-    return;
+  const cover = listing.photoUrls[0];
+  if (cover === undefined) {
+    return sendTelegramMessage(config, text, fetchImpl, true);
   }
 
-  const endpoint = photos.length === 1 ? 'sendPhoto' : 'sendMediaGroup';
-  const payload =
-    photos.length === 1
-      ? { chat_id: config.chatId, photo: photos[0], caption: text, parse_mode: 'HTML' }
-      : {
-          chat_id: config.chatId,
-          media: photos.map((url, index) => ({
-            type: 'photo',
-            media: url,
-            // La légende de l'album vit sur son premier élément.
-            ...(index === 0 ? { caption: text, parse_mode: 'HTML' } : {}),
-          })),
-        };
-
-  const response = await fetchImpl(`${TELEGRAM_API}/bot${config.botToken}/${endpoint}`, {
+  const response = await fetchImpl(`${TELEGRAM_API}/bot${config.botToken}/sendPhoto`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({
+      chat_id: config.chatId,
+      photo: cover,
+      caption: text,
+      parse_mode: 'HTML',
+      reply_markup: favoriteKeyboard(),
+    }),
   });
-  if (response.ok) return;
-
-  // 4xx typique : Telegram n'a pas pu charger une image. Le texte, lui, doit passer.
-  await sendTelegramMessage(config, text, fetchImpl);
+  if (response.ok) return firstMessageId(response);
+  // Photo refusée : le texte seul, avec le bouton.
+  return sendTelegramMessage(config, text, fetchImpl, true);
 }
 
 export interface NotifyDeps {
@@ -181,15 +205,15 @@ export async function notifyNewListings(deps: NotifyDeps): Promise<NotifyReport>
   const overflow = pending.slice(config.maxPerRun);
   const notified: string[] = [];
 
-  // Garde anti-avalanche : un GROS lot (rattrapage, nouvelle source) passe à
-  // UNE photo par annonce — sinon 30 annonces × 10 photos = 300 notifications
-  // sur le téléphone. Le volume normal (quelques nouveautés) garde ses albums.
-  const maxPhotos = individual.length > 10 ? 1 : config.maxPhotos;
-
   try {
     for (const listing of individual) {
-      await sendTelegramListing(config, listing, fetchImpl, maxPhotos);
+      // Un seul message par annonce (photo principale + bouton favori).
+      const messageId = await sendTelegramListing(config, listing, fetchImpl);
       notified.push(listing.id);
+      // Lie le message à l'annonce pour que le bouton ⭐ la mette en favori.
+      if (messageId !== null) {
+        await repository.recordTelegramMessage(config.chatId, messageId, listing.id);
+      }
     }
     if (overflow.length > 0) {
       const extra = overflow.length;

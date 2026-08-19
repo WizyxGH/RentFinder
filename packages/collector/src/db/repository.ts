@@ -184,6 +184,15 @@ export interface Repository {
   pendingNotifications(minPriority: number): Promise<NotifiableListing[]>;
   /** Marque des annonces comme notifiées, pour ne jamais les re-signaler. */
   markNotified(ids: readonly string[]): Promise<void>;
+  /** Retient qu'un message Telegram correspond à une annonce (§29). */
+  recordTelegramMessage(chatId: string, messageId: number, listingId: string): Promise<void>;
+  /** Retrouve l'annonce liée à un message Telegram. `null` si inconnu. */
+  listingForTelegramMessage(chatId: string, messageId: number): Promise<string | null>;
+  /** Bascule le favori d'une annonce (réaction ❤️ Telegram → favori). */
+  setListingFavorite(listingId: string, favorite: boolean): Promise<void>;
+  /** Lit une valeur d'état Telegram (ex. offset getUpdates). */
+  getTelegramState(key: string): Promise<string | null>;
+  setTelegramState(key: string, value: string): Promise<void>;
   httpCache(): HttpCacheStore;
   geocodeCache(): GeocodeCacheStore;
 }
@@ -681,6 +690,48 @@ export function createRepository(db: Database): Repository {
       await db.execute({
         sql: `UPDATE listings SET notified = 1 WHERE id IN (${placeholders})`,
         args: [...ids],
+      });
+    },
+
+    async recordTelegramMessage(chatId, messageId, listingId) {
+      await db.execute({
+        sql: `INSERT INTO telegram_notifications (chat_id, message_id, listing_id, sent_at)
+              VALUES (?,?,?,?)
+              ON CONFLICT(chat_id, message_id) DO UPDATE SET listing_id = excluded.listing_id`,
+        args: [chatId, messageId, listingId, new Date().toISOString()],
+      });
+    },
+
+    async listingForTelegramMessage(chatId, messageId) {
+      const result = await db.execute({
+        sql: 'SELECT listing_id FROM telegram_notifications WHERE chat_id = ? AND message_id = ?',
+        args: [chatId, messageId],
+      });
+      const row = result.rows[0];
+      return row === undefined ? null : String(row['listing_id']);
+    },
+
+    async setListingFavorite(listingId, favorite) {
+      await db.execute({
+        sql: 'UPDATE listings SET favorite = ?, updated_at = ? WHERE id = ?',
+        args: [favorite ? 1 : 0, new Date().toISOString(), listingId],
+      });
+    },
+
+    async getTelegramState(key) {
+      const result = await db.execute({
+        sql: 'SELECT value FROM telegram_state WHERE key = ?',
+        args: [key],
+      });
+      const row = result.rows[0];
+      return row === undefined ? null : String(row['value']);
+    },
+
+    async setTelegramState(key, value) {
+      await db.execute({
+        sql: `INSERT INTO telegram_state (key, value) VALUES (?,?)
+              ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+        args: [key, value],
       });
     },
 

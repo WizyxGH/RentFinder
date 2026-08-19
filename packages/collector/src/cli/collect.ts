@@ -30,6 +30,7 @@ import {
 } from '../config.js';
 import { createGeocoder } from '../core/geocode.js';
 import { notifyNewListings } from '../notify/telegram.js';
+import { pollTelegramReactions } from '../notify/reactions.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS_DIR = resolve(here, '../../../../database/migrations');
@@ -135,6 +136,11 @@ async function main(): Promise<void> {
         logger.warn('notify.failed', {
           error: error instanceof Error ? error.message : 'erreur inconnue',
         });
+      }
+      // §29 : un ❤️ posé sur une annonce reçue la bascule en favori.
+      const reactions = await pollTelegramReactions({ repository, config: telegram, logger });
+      if (reactions.favorited > 0 || reactions.unfavorited > 0) {
+        logger.info('reactions.done', { ...reactions });
       }
     }
   } finally {

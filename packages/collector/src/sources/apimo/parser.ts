@@ -246,12 +246,19 @@ export function parseDetailPage(
       ? `${jsonLd.rooms} pièces`
       : (infoText.match(/\d+\s*pièces?/i)?.[0] ?? undefined);
 
-  // Fiche retirée : certains sites Apimo redirigent vers une page « not found »
-  // sans JSON-LD ni contenu. Mieux vaut ne rien produire qu'une fiche vide.
-  if (jsonLd === null && (title === undefined || title === '') && priceText === undefined) {
+  // Fiche retirée : certains sites Apimo redirigent une annonce délistée vers
+  // une page « not found ». Deux signatures :
+  //   - l'URL canonique / og:url de la page pointe vers /not-found ;
+  //   - la page n'a NI JSON-LD de bien NI prix (une vraie location a un loyer).
+  // Dans les deux cas on ne produit rien, plutôt qu'une fiche fantôme dont le
+  // lien mène à une page morte (§17).
+  const canonical =
+    $('link[rel="canonical"]').attr('href') ?? $('meta[property="og:url"]').attr('content') ?? '';
+  const isNotFoundPage = /\/(not-?found|introuvable|404)\b/i.test(canonical);
+  if (isNotFoundPage || (jsonLd === null && priceText === undefined)) {
     return {
       listing: null,
-      warnings: [...warnings, `Fiche vide ou retirée (redirection probable) : ${pageUrl}`],
+      warnings: [...warnings, `Fiche retirée ou introuvable (ignorée) : ${pageUrl}`],
     };
   }
 
