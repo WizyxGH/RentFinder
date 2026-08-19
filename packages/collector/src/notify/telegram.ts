@@ -71,10 +71,9 @@ export function formatListingMessage(listing: NotifiableListing): string {
     lines.push(`📍 <a href="${escapeHtml(mapsUrl)}">${escapeHtml(label)}</a>`);
   }
 
-  // Une seule photo tient dans le message ; on signale les autres, visibles sur
-  // la fiche (le titre est le lien).
+  // L'album montre jusqu'à 10 photos ; au-delà, on signale le reste (fiche).
   const photoCount = listing.photoUrls.length;
-  if (photoCount > 1) lines.push(`📷 ${photoCount} photos sur la fiche`);
+  if (photoCount > 10) lines.push(`📷 ${photoCount} photos (10 ici, toutes sur la fiche)`);
 
   lines.push(`⭐ Priorité ${listing.actionPriority}/100`);
   return lines.join('\n');
@@ -131,19 +130,23 @@ export async function sendTelegramMessage(
   return firstMessageId(response);
 }
 
+/** Limite d'un album Telegram. */
+const ALBUM_MAX = 10;
+
 /**
- * Envoie une annonce en UN SEUL message (§29) : la photo principale + la fiche
- * en légende + le bouton « ⭐ Favori ».
+ * Envoie une annonce avec le MAXIMUM de photos (§29).
  *
- * Pourquoi une seule photo : Telegram ne permet pas « plusieurs images + bouton
- * dans un seul message » (un album serait plusieurs messages et sans bouton).
- * La priorité utilisateur est UN message par annonce ; le message indique le
- * nombre de photos et le titre pointe vers la fiche pour toutes les voir.
+ *   - 0 photo  → message texte + bouton « ⭐ Favori » ;
+ *   - 1 photo  → `sendPhoto` (photo + fiche en légende + bouton) ;
+ *   - 2+       → `sendMediaGroup` (album de toutes les photos, 10 max) PUIS un
+ *     message « détails » qui porte le bouton (Telegram interdit un bouton sur
+ *     un album).
  *
- * @returns le `message_id` (celui que le tap « ⭐ Favori » identifiera).
+ * @returns le `message_id` du message PORTANT LE BOUTON — celui que le tap
+ *          « ⭐ Favori » identifiera pour basculer l'annonce en favori.
  *
- * Si Telegram ne charge pas la photo, on se replie sur le texte seul (toujours
- * un message, toujours le bouton) — l'information prime sur l'image.
+ * Si Telegram ne charge pas les photos, on se replie sur le texte + bouton —
+ * l'information prime sur l'image.
  */
 export async function sendTelegramListing(
   config: TelegramConfig,
@@ -151,24 +154,40 @@ export async function sendTelegramListing(
   fetchImpl: typeof fetch = fetch,
 ): Promise<number | null> {
   const text = formatListingMessage(listing);
-  const cover = listing.photoUrls[0];
-  if (cover === undefined) {
+  const photos = listing.photoUrls.slice(0, ALBUM_MAX);
+
+  if (photos.length === 0) {
     return sendTelegramMessage(config, text, fetchImpl, true);
   }
 
-  const response = await fetchImpl(`${TELEGRAM_API}/bot${config.botToken}/sendPhoto`, {
+  // Une seule photo : photo + légende + bouton sur le même message.
+  if (photos.length === 1) {
+    const response = await fetchImpl(`${TELEGRAM_API}/bot${config.botToken}/sendPhoto`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: config.chatId,
+        photo: photos[0],
+        caption: text,
+        parse_mode: 'HTML',
+        reply_markup: favoriteKeyboard(),
+      }),
+    });
+    if (response.ok) return firstMessageId(response);
+    return sendTelegramMessage(config, text, fetchImpl, true);
+  }
+
+  // Album : toutes les photos (sans légende), puis un message détails qui porte
+  // le bouton. C'est ce dernier qu'on lie à l'annonce pour la mise en favori.
+  await fetchImpl(`${TELEGRAM_API}/bot${config.botToken}/sendMediaGroup`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
       chat_id: config.chatId,
-      photo: cover,
-      caption: text,
-      parse_mode: 'HTML',
-      reply_markup: favoriteKeyboard(),
+      media: photos.map((url) => ({ type: 'photo', media: url })),
     }),
   });
-  if (response.ok) return firstMessageId(response);
-  // Photo refusée : le texte seul, avec le bouton.
+  // Que l'album passe ou non, le message détails (avec bouton) doit partir.
   return sendTelegramMessage(config, text, fetchImpl, true);
 }
 
