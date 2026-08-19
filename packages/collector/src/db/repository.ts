@@ -197,6 +197,8 @@ export interface NotifiableListing {
   readonly rooms: number | null;
   readonly city: string | null;
   readonly postalCode: string | null;
+  /** Adresse de rue si publiée (numéro + voie) — pour un lien Maps précis (§20). */
+  readonly address: string | null;
   readonly actionPriority: number;
   /** URL de la fiche d'origine (première occurrence), si disponible. */
   readonly url: string | null;
@@ -641,16 +643,19 @@ export function createRepository(db: Database): Repository {
       return result.rows.map((row) => {
         let url: string | null = null;
         let photoUrls: string[] = [];
+        let address: string | null = null;
         try {
           const payload = JSON.parse(String(row['payload'] ?? '{}')) as {
             occurrences?: { sourceUrl?: unknown }[];
             imageUrls?: unknown[];
+            address?: { value?: unknown };
           };
           const first = payload.occurrences?.[0]?.sourceUrl;
           if (typeof first === 'string') url = first;
           photoUrls = (payload.imageUrls ?? [])
             .filter((u): u is string => typeof u === 'string' && u.startsWith('http'))
             .slice(0, 10);
+          if (typeof payload.address?.value === 'string') address = payload.address.value;
         } catch {
           /* payload illisible : pas d'URL, le reste suffit */
         }
@@ -662,6 +667,7 @@ export function createRepository(db: Database): Repository {
           rooms: row['rooms'] === null ? null : Number(row['rooms']),
           city: row['city'] === null ? null : String(row['city']),
           postalCode: row['postal_code'] === null ? null : String(row['postal_code']),
+          address,
           actionPriority: Number(row['action_priority'] ?? 0),
           url,
           photoUrls,

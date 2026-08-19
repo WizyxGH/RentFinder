@@ -50,6 +50,30 @@ describe('scoreMatch (§16)', () => {
     expect(matchesCriteria).toBe(false);
   });
 
+  it('recoupe la ville par le code postal quand elle n’est pas nommée', () => {
+    // Ville nulle mais CP de Saint-Laurent-du-Var → éliminée d'une recherche Nice.
+    expect(
+      scoreMatch(
+        makeAggregated({ city: null, postalCode: '06700', price: 650, area: 20 }),
+        MVP_CRITERIA,
+      ).matchesCriteria,
+    ).toBe(false);
+    // Ville nulle mais CP niçois → conservée.
+    expect(
+      scoreMatch(
+        makeAggregated({ city: null, postalCode: '06200', price: 650, area: 20 }),
+        MVP_CRITERIA,
+      ).matchesCriteria,
+    ).toBe(true);
+    // Ni ville ni CP : on n'élimine pas (§17).
+    expect(
+      scoreMatch(
+        makeAggregated({ city: null, postalCode: null, price: 650, area: 20 }),
+        MVP_CRITERIA,
+      ).matchesCriteria,
+    ).toBe(true);
+  });
+
   it('exclut un bien sous le plancher de prix (parking mal étiqueté)', () => {
     expect(scoreMatch(makeAggregated({ price: 115 }), MVP_CRITERIA).matchesCriteria).toBe(false);
     // Un vrai logement au-dessus du plancher passe.

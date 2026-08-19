@@ -32,6 +32,7 @@ function listing(over: Partial<NotifiableListing> & { id: string }): NotifiableL
     rooms: pick('rooms', 2),
     city: pick('city', 'nice'),
     postalCode: pick('postalCode', '06000'),
+    address: pick('address', null),
     actionPriority: pick('actionPriority', 80),
     url: pick('url', 'https://exemple.fr/annonce/1'),
     photoUrls: pick('photoUrls', []),
@@ -47,8 +48,20 @@ describe('formatListingMessage', () => {
     const msg = formatListingMessage(listing({ id: 'a' }));
     expect(msg).toContain('<a href="https://exemple.fr/annonce/1">Bel appartement</a>');
     expect(msg).toContain('640 € · 28 m² · 2 pièces');
-    expect(msg).toContain('📍 nice 06000');
+    // Sans adresse de rue, le lieu (ville + CP) est un lien Maps.
+    expect(msg).toContain('google.com/maps');
+    expect(msg).toContain('nice 06000');
     expect(msg).toContain('Priorité 80');
+  });
+
+  it('affiche l’adresse de rue précise et un lien Maps quand elle existe (§20)', () => {
+    const msg = formatListingMessage(
+      listing({ id: 'a', address: '22-24 Avenue de la Californie' }),
+    );
+    expect(msg).toContain('22-24 Avenue de la Californie, nice 06000');
+    expect(msg).toContain('google.com/maps');
+    // La requête Maps contient l'adresse précise, encodée.
+    expect(msg).toContain(encodeURIComponent('22-24 Avenue de la Californie, nice 06000'));
   });
 
   it('échappe le HTML du titre (§62)', () => {
@@ -59,9 +72,19 @@ describe('formatListingMessage', () => {
 
   it('omet les champs inconnus plutôt que d’inventer (§17)', () => {
     const msg = formatListingMessage(
-      listing({ id: 'a', price: null, area: null, rooms: null, url: null, postalCode: null }),
+      listing({
+        id: 'a',
+        price: null,
+        area: null,
+        rooms: null,
+        url: null,
+        city: null,
+        postalCode: null,
+        address: null,
+      }),
     );
     expect(msg).not.toContain('€');
+    // Ni fiche ni localisation connues → aucun lien du tout.
     expect(msg).not.toContain('<a ');
     expect(msg).toContain('🏠 Bel appartement');
   });

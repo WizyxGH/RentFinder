@@ -25,6 +25,19 @@ export interface MatchOutcome {
 }
 
 /**
+ * Codes postaux des communes cibles connues.
+ *
+ * Sert à trancher la ville quand la source ne la NOMME pas mais publie un code
+ * postal (§17 : on ne devine rien, on recoupe une donnée réellement publiée).
+ * Sans cette table, une annonce à Saint-Laurent-du-Var (06700) dont le champ
+ * « ville » est vide passait le filtre « Nice ». Étendre si de nouvelles villes
+ * cibles sont ajoutées aux critères.
+ */
+const CITY_POSTAL_CODES: Readonly<Record<string, readonly string[]>> = {
+  nice: ['06000', '06100', '06200', '06300'],
+};
+
+/**
  * Détection d'une location EXCLUSIVEMENT étudiante (décision utilisateur du
  * 2026-08-16) : on n'exclut QUE les offres réservées aux étudiants — résidences
  * étudiantes, biens « réservés/exclusivement étudiants », CROUS, ou offre
@@ -44,6 +57,77 @@ function isStudentHousing(listing: AggregatedListing): boolean {
 }
 
 /** Évalue la correspondance d'un logement aux critères de recherche. */
+interface CityOutcome {
+  /** `false` si la ville est éliminatoire (hors zone). */
+  readonly matches: boolean;
+  /** `true` si la ville n'a pas pu être déterminée (§17). */
+  readonly unknown: boolean;
+  readonly points: number;
+  readonly reason: ScoreReason;
+}
+
+/**
+ * Détermine si la ville de l'annonce est dans la zone recherchée.
+ *
+ * Ordre : nom de ville quand il est publié ; sinon recoupement par CODE POSTAL
+ * (écarte Saint-Laurent-du-Var 06700 d'une recherche « Nice » même si le champ
+ * ville est vide) ; sinon on n'élimine pas, faute de signal (§17).
+ */
+function evaluateCity(listing: AggregatedListing, criteria: SearchCriteria): CityOutcome {
+  const city = listing.city.value;
+
+  if (city !== null) {
+    const inZone = criteria.cities.some((wanted) => city.includes(comparable(wanted)));
+    return inZone
+      ? {
+          matches: true,
+          unknown: false,
+          points: 30,
+          reason: cityReason('match', `Située à ${city}`),
+        }
+      : {
+          matches: false,
+          unknown: false,
+          points: 0,
+          reason: cityReason('mismatch', `Hors zone recherchée (${city})`),
+        };
+  }
+
+  const postalCode = listing.postalCode.value;
+  const targetPostalCodes = criteria.cities.flatMap(
+    (wanted) => CITY_POSTAL_CODES[comparable(wanted)] ?? [],
+  );
+  if (postalCode !== null && targetPostalCodes.length > 0) {
+    return targetPostalCodes.includes(postalCode)
+      ? {
+          matches: true,
+          unknown: false,
+          points: 30,
+          reason: cityReason('match', `Code postal ${postalCode}`),
+        }
+      : {
+          matches: false,
+          unknown: false,
+          points: 0,
+          reason: cityReason('mismatch', `Hors zone (code postal ${postalCode})`),
+        };
+  }
+
+  // Ni ville ni code postal exploitable : on n'élimine pas (§17).
+  return {
+    matches: true,
+    unknown: true,
+    points: 0,
+    reason: cityReason('unknown', 'Ville non précisée par la source'),
+  };
+}
+
+const cityReason = (suffix: string, label: string): ScoreReason => ({
+  code: `city.${suffix}`,
+  label,
+  delta: suffix === 'match' ? 30 : 0,
+});
+
 export function scoreMatch(listing: AggregatedListing, criteria: SearchCriteria): MatchOutcome {
   const reasons: ScoreReason[] = [];
   const unknownSignals: string[] = [];
@@ -53,18 +137,11 @@ export function scoreMatch(listing: AggregatedListing, criteria: SearchCriteria)
 
   // --- Ville : critère éliminatoire ----------------------------------------
   maxTotal += 30;
-  const city = listing.city.value;
-  if (city === null) {
-    unknownSignals.push('ville');
-    // Ville inconnue : on n'élimine pas, mais on n'accorde aucun point.
-    reasons.push({ code: 'city.unknown', label: 'Ville non précisée par la source', delta: 0 });
-  } else if (criteria.cities.some((wanted) => city.includes(comparable(wanted)))) {
-    total += 30;
-    reasons.push({ code: 'city.match', label: `Située à ${city}`, delta: 30 });
-  } else {
-    matchesCriteria = false;
-    reasons.push({ code: 'city.mismatch', label: `Hors zone recherchée (${city})`, delta: 0 });
-  }
+  const cityOutcome = evaluateCity(listing, criteria);
+  total += cityOutcome.points;
+  if (!cityOutcome.matches) matchesCriteria = false;
+  if (cityOutcome.unknown) unknownSignals.push('ville');
+  reasons.push(cityOutcome.reason);
 
   // --- Loyer : critère éliminatoire ----------------------------------------
   maxTotal += 40;

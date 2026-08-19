@@ -41,9 +41,12 @@ function summarize(listing: NotifiableListing): string {
 /**
  * Compose le message HTML d'une annonce (PUR, testable).
  * Le titre devient un lien vers la fiche d'origine quand elle est connue.
+ *
+ * La localisation affiche l'adresse la PLUS PRÉCISE disponible (rue si publiée,
+ * sinon ville + code postal) et devient un lien Google Maps dès qu'on a de quoi
+ * localiser — l'adresse de rue quand elle existe, la ville sinon (§20).
  */
 export function formatListingMessage(listing: NotifiableListing): string {
-  const place = [listing.city, listing.postalCode].filter((v) => v !== null && v !== '').join(' ');
   const heading = escapeHtml(listing.title ?? 'Nouvelle annonce');
   const titleLine =
     listing.url !== null
@@ -53,7 +56,20 @@ export function formatListingMessage(listing: NotifiableListing): string {
   const lines = [titleLine];
   const summary = summarize(listing);
   if (summary !== '') lines.push(escapeHtml(summary));
-  if (place !== '') lines.push(`📍 ${escapeHtml(place)}`);
+
+  // Libellé affiché : adresse de rue si connue, complétée de la ville/CP.
+  const cityPart = [listing.city, listing.postalCode]
+    .filter((v) => v !== null && v !== '')
+    .join(' ');
+  const label = [listing.address, cityPart].filter((v) => v !== null && v !== '').join(', ');
+
+  if (label !== '') {
+    // Requête Maps : l'adresse de rue prime (précise), sinon la ville. Une rue
+    // sans ville serait ambiguë → on ajoute toujours la ville à la requête.
+    const query = [listing.address, cityPart].filter((v) => v !== null && v !== '').join(', ');
+    const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+    lines.push(`📍 <a href="${escapeHtml(mapsUrl)}">${escapeHtml(label)}</a>`);
+  }
   lines.push(`⭐ Priorité ${listing.actionPriority}/100`);
   return lines.join('\n');
 }
