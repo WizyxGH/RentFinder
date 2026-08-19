@@ -26,6 +26,7 @@ const SKIP_DIRS = new Set([
   'node_modules',
   '.git',
   'dist',
+  'dist-local',
   'build',
   'coverage',
   '.wrangler',
