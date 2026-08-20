@@ -131,22 +131,25 @@ export async function sendTelegramMessage(
 }
 
 /** Limite d'un album Telegram. */
+/** Limite d'un album Telegram. */
 const ALBUM_MAX = 10;
 
 /**
- * Envoie une annonce avec le MAXIMUM de photos (§29).
+ * Envoie une annonce en DEUX messages groupés (§29) :
  *
- *   - 0 photo  → message texte + bouton « ⭐ Favori » ;
- *   - 1 photo  → `sendPhoto` (photo + fiche en légende + bouton) ;
- *   - 2+       → `sendMediaGroup` (album de toutes les photos, 10 max) PUIS un
- *     message « détails » qui porte le bouton (Telegram interdit un bouton sur
- *     un album).
+ *   - 0 photo  → un seul message texte + bouton « ⭐ Favori » ;
+ *   - 1 photo  → `sendPhoto` : photo + fiche en légende + bouton (un message) ;
+ *   - 2+       → `sendMediaGroup` (album de toutes les photos, groupé en UN
+ *     bloc = en général une seule notification) PUIS un message détail qui
+ *     porte le bouton (Telegram interdit un bouton sur un album).
+ *
+ * Ainsi : toutes les photos, et au plus 2 notifications par annonce — jamais
+ * une notification par photo.
  *
  * @returns le `message_id` du message PORTANT LE BOUTON — celui que le tap
- *          « ⭐ Favori » identifiera pour basculer l'annonce en favori.
+ *          « ⭐ Favori » identifiera.
  *
- * Si Telegram ne charge pas les photos, on se replie sur le texte + bouton —
- * l'information prime sur l'image.
+ * Si Telegram ne charge pas les photos, on se replie sur le texte + bouton.
  */
 export async function sendTelegramListing(
   config: TelegramConfig,
@@ -160,7 +163,7 @@ export async function sendTelegramListing(
     return sendTelegramMessage(config, text, fetchImpl, true);
   }
 
-  // Une seule photo : photo + légende + bouton sur le même message.
+  // Une seule photo : photo + légende + bouton sur le même message (1 notif).
   if (photos.length === 1) {
     const response = await fetchImpl(`${TELEGRAM_API}/bot${config.botToken}/sendPhoto`, {
       method: 'POST',
@@ -177,8 +180,7 @@ export async function sendTelegramListing(
     return sendTelegramMessage(config, text, fetchImpl, true);
   }
 
-  // Album : toutes les photos (sans légende), puis un message détails qui porte
-  // le bouton. C'est ce dernier qu'on lie à l'annonce pour la mise en favori.
+  // Album des photos (bloc groupé), puis le message détail qui porte le bouton.
   await fetchImpl(`${TELEGRAM_API}/bot${config.botToken}/sendMediaGroup`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -187,7 +189,7 @@ export async function sendTelegramListing(
       media: photos.map((url) => ({ type: 'photo', media: url })),
     }),
   });
-  // Que l'album passe ou non, le message détails (avec bouton) doit partir.
+  // Que l'album passe ou non, le message détail (avec bouton) doit partir.
   return sendTelegramMessage(config, text, fetchImpl, true);
 }
 

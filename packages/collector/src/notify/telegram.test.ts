@@ -122,13 +122,14 @@ describe('sendTelegramListing', () => {
     expect(body.reply_markup).toBeDefined();
   });
 
-  it('plusieurs photos → album de TOUTES les photos + message détails avec bouton', async () => {
+  it('plusieurs photos → album (bloc groupé) + message détail avec bouton', async () => {
     const fetchImpl = okFetch();
     const urls = Array.from({ length: 5 }, (_, i) => `https://img.exemple/${i}.jpg`);
     await sendTelegramListing(CONFIG, listing({ id: 'a', photoUrls: urls }), fetchImpl);
 
     const calls = (fetchImpl as unknown as ReturnType<typeof vi.fn>).mock.calls;
-    // 1) album avec les 5 photos, 2) message détails avec bouton.
+    // 1) album des 5 photos (un bloc), 2) message détail avec bouton.
+    expect(calls).toHaveLength(2);
     expect(String(calls[0]?.[0])).toContain('sendMediaGroup');
     const album = JSON.parse(calls[0]?.[1]?.body as string) as { media: unknown[] };
     expect(album.media).toHaveLength(5);
@@ -137,7 +138,7 @@ describe('sendTelegramListing', () => {
     expect(details.reply_markup).toBeDefined();
   });
 
-  it('borne l’album à 10 photos et signale le surplus', async () => {
+  it('borne l’album à 10 photos et signale le surplus dans le détail', async () => {
     const fetchImpl = okFetch();
     const urls = Array.from({ length: 14 }, (_, i) => `https://img.exemple/${i}.jpg`);
     await sendTelegramListing(CONFIG, listing({ id: 'a', photoUrls: urls }), fetchImpl);
@@ -190,7 +191,7 @@ describe('notifyNewListings', () => {
 
   const logger = createLogger({ minLevel: 'error' });
 
-  it('chaque annonce multi-photos → un album + un message détails', async () => {
+  it('chaque annonce multi-photos → un album + un message détail', async () => {
     const pending = Array.from({ length: 3 }, (_, i) =>
       listing({
         id: `l${i}`,
@@ -208,7 +209,7 @@ describe('notifyNewListings', () => {
     const urls = (fetchImpl as unknown as ReturnType<typeof vi.fn>).mock.calls.map((c) =>
       String(c[0]),
     );
-    // 3 annonces → 3 albums + 3 messages détails.
+    // 3 annonces → 3 albums + 3 messages détail (2 messages par annonce).
     expect(urls.filter((u) => u.includes('sendMediaGroup'))).toHaveLength(3);
     expect(urls.filter((u) => u.includes('sendMessage'))).toHaveLength(3);
   });

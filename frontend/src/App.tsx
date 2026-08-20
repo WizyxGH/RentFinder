@@ -49,6 +49,7 @@ import { ProfileForm } from './components/ProfileForm.js';
 import { SourcesPanel } from './components/SourcesPanel.js';
 import { FiltersPanel } from './components/FiltersPanel.js';
 import { StatsPanel } from './components/StatsPanel.js';
+import { SourceFilter } from './components/SourceFilter.js';
 
 // Leaflet n'entre dans le bundle que si la vue carte est ouverte (§65).
 const MapView = lazy(() => import('./components/MapView.js'));
@@ -559,37 +560,15 @@ export function App(): React.JSX.Element {
         </label>
       </div>
 
-      {/* Filtre par source : n'afficher que les agences/sites sélectionnés. */}
+      {/* Filtre par source : menu déroulant multi-sélection (§13). */}
       {availableSources.length > 1 && (
-        <div className="my-2 flex flex-wrap items-center gap-1.5">
-          <span className="text-[0.8rem] text-muted-foreground">Sources :</span>
-          {availableSources.map((sourceId) => {
-            const active = selectedSources.has(sourceId);
-            return (
-              <button
-                key={sourceId}
-                type="button"
-                onClick={() => toggleSource(sourceId)}
-                aria-pressed={active}
-                className={`cursor-pointer rounded-full border px-2.5 py-0.5 text-[0.8rem] transition-colors ${
-                  active
-                    ? 'border-primary bg-primary/10 font-medium text-primary'
-                    : 'border-border text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                {formatSourceName(sourceId)}
-              </button>
-            );
-          })}
-          {selectedSources.size > 0 && (
-            <button
-              type="button"
-              onClick={() => setSelectedSources(new Set())}
-              className="cursor-pointer text-[0.8rem] text-muted-foreground underline hover:text-foreground"
-            >
-              tout afficher
-            </button>
-          )}
+        <div className="my-2">
+          <SourceFilter
+            sources={availableSources}
+            selected={selectedSources}
+            onToggle={toggleSource}
+            onClear={() => setSelectedSources(new Set())}
+          />
         </div>
       )}
 

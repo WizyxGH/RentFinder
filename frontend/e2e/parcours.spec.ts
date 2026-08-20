@@ -128,7 +128,8 @@ test('le tri et le changement de statut fonctionnent (§35, §54)', async ({ pag
 });
 
 test('la page d’état des sources est consultable (§63)', async ({ page }) => {
-  await page.getByRole('button', { name: 'Sources' }).click();
+  // `exact` : distinguer l'onglet « Sources » du filtre « Sources : … ».
+  await page.getByRole('button', { name: 'Sources', exact: true }).click();
 
   await expect(page.getByRole('heading', { name: 'État des sources' })).toBeVisible();
   await expect(page.getByText('En repos (429)')).toBeVisible();
@@ -212,22 +213,21 @@ test('on peut mettre une annonce en favori', async ({ page }) => {
   await expect(first.getByRole('button', { name: 'Retirer des favoris' })).toBeVisible();
 });
 
-test('on peut filtrer la liste par source', async ({ page }) => {
+test('on peut filtrer la liste par source (menu déroulant)', async ({ page }) => {
   const cards = page.getByTestId('listing-card');
   const before = await cards.count();
   expect(before).toBeGreaterThan(1);
 
-  // Sélectionner une source restreint la liste (chip → aria-pressed).
-  const chip = page.getByRole('button', { name: 'Demo Agence' });
-  await expect(chip).toBeVisible();
-  await chip.click();
-  await expect(chip).toHaveAttribute('aria-pressed', 'true');
+  // Ouvrir le menu déroulant des sources.
+  await page.getByRole('button', { name: /Sources :/ }).click();
 
+  // Cocher une source restreint la liste.
+  await page.getByRole('checkbox', { name: 'Demo Agence' }).check();
   const filtered = await cards.count();
   expect(filtered).toBeGreaterThan(0);
   expect(filtered).toBeLessThanOrEqual(before);
 
-  // « tout afficher » réinitialise.
-  await page.getByRole('button', { name: 'tout afficher' }).click();
+  // « Tout afficher » réinitialise.
+  await page.getByRole('button', { name: 'Tout afficher' }).click();
   await expect(cards).toHaveCount(before);
 });
