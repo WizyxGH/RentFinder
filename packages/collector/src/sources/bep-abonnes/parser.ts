@@ -19,8 +19,17 @@
 import type { RawListing } from '@rentfinder/shared';
 import { cleanText } from '../../normalization/text.js';
 
-const REF_URL = (ref: string): string =>
-  `http://abonnes.beplogement.com/w_classeurs_references.php?references=${ref}`;
+/**
+ * URL vers laquelle pointe une annonce du bulletin abonné.
+ *
+ * Les références du bulletin sont ÉPHÉMÈRES : elles changent à chaque nouveau
+ * bulletin, si bien qu'un lien `?references=<ref>` d'hier renvoie « référence
+ * inconnue » aujourd'hui. Il n'existe donc AUCUN lien stable par annonce — on
+ * pointe vers le bulletin lui-même (page d'accueil abonné), où l'utilisateur,
+ * une fois connecté, retrouve l'annonce par sa référence (affichée sur la
+ * fiche RentFinder). Voir `docs/sources.md`.
+ */
+const BULLETIN_URL = 'http://abonnes.beplogement.com/w_index_abonnes.php';
 
 /** Décode les entités HTML utiles et retire les balises. */
 function toText(html: string): string {
@@ -89,7 +98,7 @@ export function parseBulletin(html: string): ParsedBulletin {
 
     const listing: RawListing = {
       sourceRef: reference,
-      sourceUrl: REF_URL(reference),
+      sourceUrl: BULLETIN_URL,
       title: `${propertyTypeText ?? ''} — ${location}`.trim(),
       description,
       ...(priceText !== undefined ? { priceText } : {}),
@@ -102,7 +111,7 @@ export function parseBulletin(html: string): ParsedBulletin {
       cityText: location,
       ...(dpeMatch?.[1] !== undefined ? { extra: { dpe: dpeMatch[1].toUpperCase() } } : {}),
       agencyName: 'BEP Logement',
-      contactFormUrl: REF_URL(reference),
+      contactFormUrl: BULLETIN_URL,
       ...(publishedAtText !== undefined ? { publishedAtText } : {}),
       ...(imageUrls.length > 0 ? { imageUrls } : {}),
     };
