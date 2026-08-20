@@ -14,7 +14,7 @@ import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import type { ListingView } from '../types.js';
-import { formatArea, formatPrice, formatPropertyType } from '../format.js';
+import { formatAddress, formatArea, formatPrice, formatPropertyType } from '../format.js';
 
 /** Centre par défaut : Nice. Utilisé quand aucune annonce n'est géolocalisée. */
 const NICE_CENTER: [number, number] = [43.7009, 7.2683];
@@ -96,9 +96,35 @@ export default function MapView({ listings, onOpen }: MapViewProps): React.JSX.E
       ].join(' · ');
 
       const popup = document.createElement('div');
-      popup.style.font = '13px system-ui, sans-serif';
+      popup.style.cssText = 'font:13px system-ui, sans-serif;max-width:220px';
+
+      // Photo de couverture (depuis le site d'origine, §11 : jamais stockée).
+      const photoUrl = listing.imageUrls?.[0];
+      if (photoUrl !== undefined) {
+        const img = document.createElement('img');
+        img.src = photoUrl;
+        img.alt = '';
+        img.referrerPolicy = 'no-referrer';
+        img.loading = 'lazy';
+        img.style.cssText =
+          'display:block;width:100%;height:110px;object-fit:cover;border-radius:8px;margin-bottom:6px';
+        img.addEventListener('error', () => img.remove());
+        popup.append(img);
+      }
+
       const title = document.createElement('strong');
       title.textContent = summary;
+      popup.append(title);
+
+      // §20 : adresse exacte quand elle est publiée.
+      const address = listing.address.value !== null ? formatAddress(listing.address.value) : null;
+      if (address !== null) {
+        const addr = document.createElement('div');
+        addr.textContent = `📍 ${address}`;
+        addr.style.cssText = 'margin-top:2px;color:#52525b;font-size:12px';
+        popup.append(addr);
+      }
+
       const button = document.createElement('button');
       button.type = 'button';
       button.textContent = 'Voir l’annonce';
@@ -106,7 +132,7 @@ export default function MapView({ listings, onOpen }: MapViewProps): React.JSX.E
         'display:block;margin-top:6px;padding:4px 10px;border-radius:8px;' +
         'border:1px solid #d4d4d8;background:#fff;cursor:pointer;font:600 12px system-ui';
       button.addEventListener('click', () => onOpenRef.current(listing.id));
-      popup.append(title, button);
+      popup.append(button);
 
       marker.bindPopup(popup);
       layer.addLayer(marker);
