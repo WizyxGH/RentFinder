@@ -179,3 +179,118 @@ export function prettySink(event: LogEvent): void {
   if (event.level === 'error') console.error(line);
   else console.log(line);
 }
+
+// ---------------------------------------------------------------------------
+// Narration humaine de la collecte (`pnpm collect`)
+// ---------------------------------------------------------------------------
+
+const BOLD = '[1m';
+const GREEN = '[32m';
+const CYAN = '[36m';
+
+function paint(text: string, code: string, color: boolean): string {
+  return color ? `${code}${text}${RESET}` : text;
+}
+
+/** Rend une liste courte : « a, b, c » ; tronquée au-delà de 8 éléments. */
+function shortList(value: unknown): string {
+  if (!Array.isArray(value)) return formatValue(value);
+  const items = value.map(String);
+  if (items.length <= 8) return items.join(', ');
+  return `${items.slice(0, 8).join(', ')} +${items.length - 8}`;
+}
+
+const num = (value: unknown): number => (typeof value === 'number' ? value : Number(value) || 0);
+
+/**
+ * Traductions humaines des événements de collecte. Chaque entrée rend une
+ * phrase claire (avec icône) ; `null` = laisser le format technique par défaut.
+ * `f` sont les champs déjà expurgés de l'événement.
+ */
+const NARRATION: Record<string, (f: Record<string, unknown>, c: boolean) => string | null> = {
+  'config.loaded': (f) =>
+    `⚙️  Critères : ${shortList(f['cities'])} · ≤ ${f['maxPrice']} € · ≥ ${f['minArea']} m²` +
+    (f['excludeFlatShare'] ? ' · sans colocation' : ''),
+  'scheduler.plan': (f, c) => {
+    const selected = Array.isArray(f['selected']) ? f['selected'] : [];
+    const skipped = num(f['skipped']);
+    return `🗓️  ${paint(String(selected.length), BOLD, c)} source(s) ce cycle : ${shortList(
+      f['selected'],
+    )}${skipped > 0 ? ` ${paint(`(${skipped} en attente)`, DIM, c)}` : ''}`;
+  },
+  'source.completed': (f, c) => {
+    const src = paint(String(f['source'] ?? '?'), BOLD, c);
+    const listings = num(f['listings']);
+    const warn = num(f['warnings']);
+    const badge = paint('✓', GREEN, c);
+    return (
+      `  ${badge} ${src} — ${listings} annonce(s) ` +
+      paint(`(${num(f['requests'])} req, ${f['stopReason']})`, DIM, c) +
+      (warn > 0 ? paint(` ⚠ ${warn}`, LEVEL_COLOR.warn, c) : '')
+    );
+  },
+  'source.failed': (f, c) =>
+    `  ${paint('✗', LEVEL_COLOR.error, c)} ${paint(String(f['source'] ?? '?'), BOLD, c)} — ` +
+    `échec : ${f['error']}`,
+  'pipeline.normalized': (f) => `🔧 ${num(f['count'])} annonce(s) collectée(s), normalisées`,
+  'pipeline.occurrences_written': (f) =>
+    `   occurrences → +${num(f['inserted'])} nouvelles · ~${num(f['updated'])} maj · =${num(
+      f['unchanged'],
+    )} inchangées`,
+  'pipeline.deduplicated': (f) =>
+    `🔗 ${num(f['groups'])} fiche(s) après dédoublonnage ` +
+    `(${num(f['comparisons'])} comparaisons)`,
+  'pipeline.geocoded': (f) =>
+    `📍 ${num(f['resolved'])}/${num(f['attempted'])} adresse(s) géocodée(s)`,
+  'pipeline.listings_written': (f, c) =>
+    `💾 Fiches → ${paint(`+${num(f['inserted'])} nouvelles`, GREEN, c)} · ~${num(
+      f['updated'],
+    )} maj · =${num(f['unchanged'])} inchangées`,
+  'pipeline.done': (f, c) => {
+    const written = (f['written'] ?? {}) as Record<string, unknown>;
+    const secs = (num(f['durationMs']) / 1000).toFixed(0);
+    return (
+      `\n${paint('━━━ Collecte terminée ━━━', BOLD, c)}\n` +
+      `   ${paint(String(num(written['inserted'])), BOLD, c)} nouvelle(s) annonce(s) · ` +
+      `${num(written['updated'])} mise(s) à jour · ${num(f['groups'])} fiches au total\n` +
+      `   ${paint(`${secs} s`, CYAN, c)} · sources : ${shortList(f['sourcesRun'])}`
+    );
+  },
+  'notify.done': (f, c) => {
+    const sent = num(f['sent']);
+    if (sent === 0 && num(f['candidates']) === 0)
+      return `📱 Telegram : aucune nouveauté à notifier`;
+    return `📱 Telegram : ${paint(`${sent} envoyée(s)`, GREEN, c)}`;
+  },
+  'reactions.done': (f, c) =>
+    `⭐ Favoris via Telegram : +${paint(String(num(f['favorited'])), GREEN, c)}` +
+    (num(f['unfavorited']) > 0 ? ` · -${num(f['unfavorited'])}` : ''),
+  'pipeline.partial_failure': (f, c) =>
+    paint(
+      `⚠ Sources en échec : ${shortList(f['sources'])} (les autres ont continué)`,
+      LEVEL_COLOR.warn,
+      c,
+    ),
+  // Doublon du bilan « pipeline.done » côté notifieur : on le tait.
+  'notify.telegram_sent': () => '',
+  // Bruit de démarrage : on ne montre que si des migrations sont appliquées.
+  'db.migration.up_to_date': () => '',
+  'db.migration.done': (f) => {
+    const applied = Array.isArray(f['applied']) ? f['applied'] : [];
+    return applied.length === 0 ? '' : `🗃️  Migrations appliquées : ${shortList(f['applied'])}`;
+  },
+};
+
+/**
+ * Sink « narratif » pour `pnpm collect` : traduit les événements connus en
+ * phrases claires, et retombe sur le format technique pour le reste (utile en
+ * `--verbose`). Erreurs sur stderr.
+ */
+export function narratorSink(event: LogEvent): void {
+  const color = process.stdout.isTTY === true;
+  const narrate = NARRATION[event.event];
+  const line = narrate?.(event.fields, color) ?? formatPretty(event, color);
+  if (line === '') return; // événement volontairement tu
+  if (event.level === 'error') console.error(line);
+  else console.log(line);
+}
