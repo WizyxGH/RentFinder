@@ -74,12 +74,27 @@ const ADDRESS_ABBREVIATIONS: Record<string, string> = {
   bd: 'boulevard',
   bld: 'boulevard',
   blvd: 'boulevard',
+  boul: 'boulevard',
   av: 'avenue',
   ave: 'avenue',
   imp: 'impasse',
   chem: 'chemin',
+  ch: 'chemin',
   prom: 'promenade',
   bat: 'bât.',
+  pl: 'place',
+  rte: 'route',
+  sq: 'square',
+  all: 'allée',
+  crs: 'cours',
+  qu: 'quai',
+  pass: 'passage',
+  res: 'résidence',
+  resid: 'résidence',
+  mte: 'montée',
+  cor: 'corniche',
+  trav: 'traverse',
+  vla: 'villa',
 };
 
 /** Chiffres romains (Napoléon III, Albert 1er…) gardés en capitales. */
@@ -122,8 +137,14 @@ export function formatAddress(address: string | null): string {
 
   const words = address
     .replace(/\s+/g, ' ')
+    // Homogénéisation : certaines sources collent « … 06000 Nice » à la rue,
+    // d'autres non. On retire le CODE POSTAL et tout ce qui suit pour ne garder
+    // que la VOIE (la ville est affichée à part). Signal fiable, contrairement
+    // au nom « Nice »/« France » qui peut être une voie (« rue France »).
+    .replace(/[\s,]+\d{5}\b.*$/, '')
     // « 37 - 39 » → « 37-39 » : plage de numéros recollée.
     .replace(/(\d)\s*-\s*(\d)/g, '$1-$2')
+    .replace(/,\s*$/, '')
     .trim()
     .split(' ')
     .map((word) => {

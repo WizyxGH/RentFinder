@@ -12,6 +12,21 @@ describe('formatAddress', () => {
     expect(formatAddress('3 rue André Poulan')).toBe('3 Rue André Poulan');
   });
 
+  it('retire le code postal et la ville collés à la voie (harmonisation)', () => {
+    expect(formatAddress('260 BOULEVARD DE LA MADELEINE 06000 NICE')).toBe(
+      '260 Boulevard de la Madeleine',
+    );
+    expect(formatAddress('5 Avenue Jean Médecin, 06000 Nice, France')).toBe(
+      '5 Avenue Jean Médecin',
+    );
+  });
+
+  it('déplie davantage d’abréviations de voies', () => {
+    expect(formatAddress('Pl Masséna')).toBe('Place Masséna');
+    expect(formatAddress('Ch de Fabron')).toBe('Chemin de Fabron');
+    expect(formatAddress('Rte de Turin')).toBe('Route de Turin');
+  });
+
   it('déplie les abréviations de voies', () => {
     expect(formatAddress('Bd Gorbella')).toBe('Boulevard Gorbella');
     expect(formatAddress('26/30 BLD NAPOLEON III')).toBe('26/30 Boulevard Napoleon III');

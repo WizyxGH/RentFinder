@@ -142,8 +142,14 @@ export function ListingCard({
           {affinity !== undefined && affinity >= AFFINITY_BADGE_THRESHOLD && !archived && (
             <Badge variant="good">Vos préférences</Badge>
           )}
-          {listing.viewed === true && !archived && <Badge>Consultée</Badge>}
-          {listing.tracking !== 'new' && <Badge>{formatTracking(listing.tracking)}</Badge>}
+          {/* Un seul statut, le plus avancé : « Consultée » n'apparaît QUE si
+              aucune action n'a suivi (dès qu'il y a un suivi — contactée,
+              visitée… — ce statut le remplace). */}
+          {listing.tracking !== 'new' ? (
+            <Badge>{formatTracking(listing.tracking)}</Badge>
+          ) : (
+            listing.viewed === true && !archived && <Badge>Consultée</Badge>
+          )}
           {listing.priceDropped === true && <Badge variant="good">Prix en baisse</Badge>}
           {listing.flatShare?.value === true && <Badge variant="warning">Colocation</Badge>}
         </span>
