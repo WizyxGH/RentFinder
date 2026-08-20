@@ -88,8 +88,9 @@ export function StatsPanel(): React.JSX.Element {
 
       <div>
         <h3 className="mb-2 text-sm font-semibold text-muted-foreground">Annonces</h3>
-        <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+        <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
           <Stat label="pertinentes" value={listings.matching} />
+          <Stat label="louées" value={listings.rented ?? 0} />
           <Stat label="actives" value={listings.active} />
           <Stat label="consultées" value={listings.viewed} />
           <Stat label="archivées" value={listings.archived} />

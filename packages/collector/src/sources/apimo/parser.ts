@@ -182,6 +182,8 @@ function parseJsonLd($: cheerio.CheerioAPI): JsonLdData | null {
 export interface ParsedDetail {
   readonly listing: RawListing | null;
   readonly warnings: readonly string[];
+  /** `true` si la fiche affiche « déjà Loué/Vendu » : à marquer `rented`. */
+  readonly rented?: boolean;
 }
 
 /**
@@ -232,10 +234,11 @@ export function parseDetailPage(
 
   // Bien DÉJÀ LOUÉ / VENDU : ces sites laissent la fiche en ligne avec un
   // bandeau `.propertySold` (« déjà Loué »), alors que le JSON-LD dit encore
-  // `InStock`. On ne collecte pas un bien qui n'est plus disponible (§17).
+  // `InStock`. On ne le collecte pas comme actif, mais on signale `rented`
+  // pour marquer l'annonce (favoris grisés, statistiques — §32, §33).
   const soldSticker = comparable($('.propertySold, .sticker').text());
   if (/deja loue|deja louee|\bloue\b|\blouee\b|\bvendu\b|\bvendue\b/.test(soldSticker)) {
-    return { listing: null, warnings: [`Bien déjà loué/vendu (ignoré) : ${pageUrl}`] };
+    return { listing: null, rented: true, warnings: [`Bien déjà loué/vendu : ${pageUrl}`] };
   }
 
   // Bien NON RÉSIDENTIEL (commerce, bureau, local, atelier, entrepôt, fonds de

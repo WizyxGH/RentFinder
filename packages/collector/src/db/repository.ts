@@ -168,6 +168,11 @@ export interface Repository {
   /** Ids d'occurrences avec une baisse de loyer depuis `sinceIso` (§17, §31). */
   recentPriceDropIds(sinceIso: string): Promise<Set<string>>;
   saveListings(listings: readonly ScoredListing[]): Promise<UpsertReport>;
+  /**
+   * Marque « loué » les fiches contenant une occurrence `sourceId:ref`.
+   * @returns le nombre de fiches effectivement marquées.
+   */
+  markRented(sourceId: SourceId, refs: readonly string[]): Promise<number>;
   loadSourceState(sourceId: SourceId): Promise<SourceRuntimeState>;
   saveSourceState(state: SourceRuntimeState): Promise<void>;
   recordRun(entry: CollectionRunRecord): Promise<void>;
@@ -522,6 +527,22 @@ export function createRepository(db: Database): Repository {
       return { inserted, updated, unchanged };
     },
 
+    async markRented(sourceId, refs) {
+      if (refs.length === 0) return 0;
+      const placeholders = refs.map(() => '?').join(',');
+      // La fiche est reliée à ses occurrences par `group_id`. On marque « loué »
+      // toute fiche possédant une occurrence `sourceId:ref` signalée.
+      const result = await db.execute({
+        sql: `UPDATE listings SET rented = 1, updated_at = ?
+              WHERE id IN (
+                SELECT group_id FROM occurrences
+                WHERE source_id = ? AND source_ref IN (${placeholders}) AND group_id IS NOT NULL
+              )`,
+        args: [new Date().toISOString(), sourceId, ...refs],
+      });
+      return result.rowsAffected;
+    },
+
     async loadSourceState(sourceId) {
       const result = await db.execute({
         sql: 'SELECT * FROM source_state WHERE source_id = ?',
@@ -644,6 +665,7 @@ export function createRepository(db: Database): Repository {
               WHERE matches_criteria = 1
                 AND notified = 0
                 AND lifecycle = 'active'
+                AND rented = 0
                 AND COALESCE(action_priority, 0) >= ?
               ORDER BY action_priority DESC`,
         args: [minPriority],

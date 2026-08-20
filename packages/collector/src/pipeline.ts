@@ -211,6 +211,7 @@ export async function runPipeline(options: PipelineOptions): Promise<PipelineRep
   const outcomes: SourceOutcome[] = [];
   const rawBySource = new Map<string, readonly RawListing[]>();
   const confirmedBySource = new Map<string, readonly string[]>();
+  const rentedBySource = new Map<string, readonly string[]>();
 
   for (const decision of plan.selected) {
     const scraper = registry.get(decision.sourceId);
@@ -224,6 +225,7 @@ export async function runPipeline(options: PipelineOptions): Promise<PipelineRep
     if (outcome.result !== null) {
       rawBySource.set(decision.sourceId, outcome.result.listings);
       confirmedBySource.set(decision.sourceId, outcome.result.confirmedRefs ?? []);
+      rentedBySource.set(decision.sourceId, outcome.result.rentedRefs ?? []);
     }
 
     const base = previousState ?? (await repository.loadSourceState(decision.sourceId));
@@ -359,6 +361,15 @@ export async function runPipeline(options: PipelineOptions): Promise<PipelineRep
 
   const listingReport = await repository.saveListings(scored);
   logger.info('pipeline.listings_written', { ...listingReport });
+
+  // Biens signalés « déjà loués » : on les marque APRÈS l'écriture, pour que le
+  // lien occurrence → fiche existe. Ils sortent de la liste active mais restent
+  // en favori (grisés) et comptent dans les stats (§32, §33).
+  let rentedMarked = 0;
+  for (const [sourceId, refs] of rentedBySource) {
+    if (refs.length > 0) rentedMarked += await repository.markRented(sourceId, refs);
+  }
+  if (rentedMarked > 0) logger.info('pipeline.rented_marked', { count: rentedMarked });
 
   return {
     sourcesRun: plan.selected.map((decision) => decision.sourceId),

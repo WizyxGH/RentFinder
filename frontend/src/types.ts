@@ -76,6 +76,8 @@ export interface ListingView {
   readonly archived?: boolean;
   /** `true` si l'utilisateur a mis l'annonce en favori. */
   readonly favorite?: boolean;
+  /** `true` si la source affiche le bien comme DÉJÀ LOUÉ (§32, §33). */
+  readonly rented?: boolean;
   readonly actionPriority: number;
   readonly tracking: TrackingStatus;
   readonly lifecycle: 'active' | 'possiblyInactive' | 'inactive';
@@ -112,6 +114,8 @@ export interface StatsData {
     readonly active: number;
     readonly viewed: number;
     readonly archived: number;
+    /** Biens dans les critères repérés comme LOUÉS (§33). */
+    readonly rented?: number;
   };
   readonly byTracking: Readonly<Record<string, number>>;
   readonly bySource: Readonly<Record<string, number>>;

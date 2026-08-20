@@ -61,6 +61,7 @@ export function ListingCard({
   const sources = [...new Set(listing.occurrences.map((occurrence) => occurrence.sourceId))];
   const isHot = listing.actionPriority >= 85;
   const archived = listing.archived === true;
+  const rented = listing.rented === true;
   const favorite = listing.favorite === true;
   const tier = priorityTier(listing.actionPriority);
   const publishedAt = listing.publishedAt.value;
@@ -89,8 +90,8 @@ export function ListingCard({
   return (
     <Card
       className={`overflow-hidden transition-shadow hover:shadow-md ${
-        isHot ? 'border-2 border-hot' : ''
-      } ${archived ? 'opacity-60' : ''}`}
+        isHot && !rented ? 'border-2 border-hot' : ''
+      } ${archived || rented ? 'opacity-60' : ''} ${rented ? 'grayscale' : ''}`}
       data-testid="listing-card"
     >
       {photos.length > 0 && <PhotoCarousel urls={photos} />}
@@ -138,10 +139,13 @@ export function ListingCard({
               {favorite ? '★' : '☆'}
             </button>
           )}
-          {archived && <Badge variant="warning">Archivée</Badge>}
-          {affinity !== undefined && affinity >= AFFINITY_BADGE_THRESHOLD && !archived && (
-            <Badge variant="good">Vos préférences</Badge>
-          )}
+          {/* « Loué » prime sur tout : le bien n'est plus disponible (§32). */}
+          {rented && <Badge variant="bad">Loué</Badge>}
+          {archived && !rented && <Badge variant="warning">Archivée</Badge>}
+          {affinity !== undefined &&
+            affinity >= AFFINITY_BADGE_THRESHOLD &&
+            !archived &&
+            !rented && <Badge variant="good">Vos préférences</Badge>}
           {/* Un seul statut, le plus avancé : « Consultée » n'apparaît QUE si
               aucune action n'a suivi (dès qu'il y a un suivi — contactée,
               visitée… — ce statut le remplace). */}

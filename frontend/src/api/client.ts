@@ -207,7 +207,11 @@ export async function fetchSources(): Promise<{ sources: readonly SourceStateVie
 /** Statistiques, calculées localement en démo depuis les données fictives. */
 export async function fetchStats(): Promise<StatsData> {
   if (isDemoMode()) {
-    const matching = MOCK_LISTINGS.filter((l) => l.matchesCriteria);
+    // « Pertinentes » = même filtre que la liste (in-criteria, non archivée,
+    // non louée), pour que le compteur Stats colle à l'onglet Annonces.
+    const matching = MOCK_LISTINGS.filter(
+      (l) => l.matchesCriteria && l.archived !== true && l.rented !== true,
+    );
     const byTracking: Record<string, number> = {};
     const bySource: Record<string, number> = {};
     for (const l of matching) byTracking[l.tracking] = (byTracking[l.tracking] ?? 0) + 1;
@@ -223,6 +227,7 @@ export async function fetchStats(): Promise<StatsData> {
         active: MOCK_LISTINGS.filter((l) => l.lifecycle === 'active').length,
         viewed: matching.filter((l) => l.viewed === true).length,
         archived: MOCK_LISTINGS.filter((l) => l.archived === true).length,
+        rented: MOCK_LISTINGS.filter((l) => l.rented === true).length,
       },
       byTracking,
       bySource,

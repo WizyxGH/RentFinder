@@ -192,6 +192,12 @@ export interface ScrapeResult {
    * n'en ont pas besoin.
    */
   readonly confirmedRefs?: readonly string[];
+  /**
+   * Références que la source affiche comme DÉJÀ LOUÉES/VENDUES (bandeau sur la
+   * fiche). Le cœur marque alors ces annonces `rented` : hors liste active,
+   * mais conservées pour les favoris et les statistiques (§32, §33).
+   */
+  readonly rentedRefs?: readonly string[];
   /** Nombre de requêtes HTTP réellement émises — sert au suivi du coût (§62). */
   readonly requestCount: number;
   /** Pages parcourues avant arrêt. */

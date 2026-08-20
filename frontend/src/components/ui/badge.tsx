@@ -11,6 +11,7 @@ const badgeVariants = cva(
         default: 'bg-border text-foreground',
         warning: 'border border-medium bg-transparent text-medium',
         good: 'border border-good/40 bg-good/10 text-good',
+        bad: 'border border-bad/40 bg-bad/10 font-semibold text-bad',
       },
     },
     defaultVariants: { variant: 'default' },

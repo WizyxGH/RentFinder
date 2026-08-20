@@ -94,6 +94,7 @@ function rowToListing(row: Record<string, unknown>): Record<string, unknown> {
     viewed: Number(row['viewed'] ?? 0) === 1,
     archived: Number(row['archived'] ?? 0) === 1,
     favorite: Number(row['favorite'] ?? 0) === 1,
+    rented: Number(row['rented'] ?? 0) === 1,
     ...payload,
   };
 }
@@ -148,6 +149,9 @@ async function listListings(db: Client, url: URL, filters?: LiveFilters): Promis
   if (url.searchParams.get('favorite') === 'true') {
     conditions.push('favorite = 1');
   }
+  // Un bien LOUÉ sort de la liste — sauf s'il est en favori (on le garde, grisé,
+  // pour que l'utilisateur voie qu'il est parti). §32/§33.
+  conditions.push('(rented = 0 OR favorite = 1)');
 
   const filter = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
@@ -235,8 +239,9 @@ async function getStats(db: Client): Promise<unknown> {
              -- (dans les critères, encore disponibles, non archivées), sinon
              -- le compteur diverge de la liste (§33).
              SUM(CASE WHEN matches_criteria = 1 AND lifecycle != 'inactive' AND archived = 0
-                      THEN 1 ELSE 0 END) AS matching,
-             SUM(CASE WHEN lifecycle = 'active' THEN 1 ELSE 0 END) AS active
+                      AND rented = 0 THEN 1 ELSE 0 END) AS matching,
+             SUM(CASE WHEN lifecycle = 'active' THEN 1 ELSE 0 END) AS active,
+             SUM(CASE WHEN matches_criteria = 1 AND rented = 1 THEN 1 ELSE 0 END) AS rented
       FROM listings
     `),
     db.execute(
@@ -263,6 +268,7 @@ async function getStats(db: Client): Promise<unknown> {
     listings: {
       total: Number(listings.rows[0]?.['total'] ?? 0),
       matching: Number(listings.rows[0]?.['matching'] ?? 0),
+      rented: Number(listings.rows[0]?.['rented'] ?? 0),
       active: Number(listings.rows[0]?.['active'] ?? 0),
       viewed: Number(engagement.rows[0]?.['viewed'] ?? 0),
       archived: Number(engagement.rows[0]?.['archived'] ?? 0),

@@ -67,6 +67,7 @@ export function makeApimoScraper(config: ApimoConfig): Scraper {
 
     async run(context: ScrapeContext): Promise<ScrapeResult> {
       const listings: RawListing[] = [];
+      const rentedRefs: string[] = [];
       const warnings: string[] = [];
       let requestCount = 0;
       let pagesFetched = 0;
@@ -149,6 +150,7 @@ export function makeApimoScraper(config: ApimoConfig): Scraper {
           const parsed = parseDetailPage(response.body, entry.url.canonicalUrl, config.name);
           warnings.push(...parsed.warnings);
           if (parsed.listing !== null) listings.push(parsed.listing);
+          else if (parsed.rented === true) rentedRefs.push(entry.url.reference);
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
           warnings.push(`Échec sur ${entry.url.canonicalUrl} : ${message}`);
@@ -168,6 +170,7 @@ export function makeApimoScraper(config: ApimoConfig): Scraper {
         sourceId: config.id,
         listings,
         confirmedRefs,
+        rentedRefs,
         requestCount,
         pagesFetched,
         stopReason,
