@@ -48,6 +48,8 @@ describe('liste des annonces', () => {
     render(<App />);
     await screen.findAllByTestId('listing-card');
 
+    // Le réglage vit dans le menu déroulant « Affichage ».
+    await user.click(screen.getByRole('button', { name: /Affichage/ }));
     await user.click(screen.getByLabelText(/hors critères/i));
 
     const cards = await screen.findAllByTestId('listing-card');
@@ -254,7 +256,9 @@ describe('état des sources (§63)', () => {
     render(<App />);
     await screen.findAllByTestId('listing-card');
 
-    await user.click(screen.getByRole('button', { name: 'Sources' }));
+    await user.click(
+      within(screen.getByRole('navigation')).getByRole('button', { name: 'Sources' }),
+    );
 
     expect(await screen.findByRole('heading', { name: 'État des sources' })).toBeInTheDocument();
     expect(screen.getByText('En repos (429)')).toBeInTheDocument();
@@ -265,7 +269,9 @@ describe('état des sources (§63)', () => {
     const user = userEvent.setup();
     render(<App />);
     await screen.findAllByTestId('listing-card');
-    await user.click(screen.getByRole('button', { name: 'Sources' }));
+    await user.click(
+      within(screen.getByRole('navigation')).getByRole('button', { name: 'Sources' }),
+    );
 
     expect(await screen.findByText(/Aucune requête n’est émise/)).toBeInTheDocument();
   });

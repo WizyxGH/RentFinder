@@ -50,6 +50,7 @@ import { SourcesPanel } from './components/SourcesPanel.js';
 import { FiltersPanel } from './components/FiltersPanel.js';
 import { StatsPanel } from './components/StatsPanel.js';
 import { SourceFilter } from './components/SourceFilter.js';
+import { Dropdown } from './components/Dropdown.js';
 
 // Leaflet n'entre dans le bundle que si la vue carte est ouverte (§65).
 const MapView = lazy(() => import('./components/MapView.js'));
@@ -421,6 +422,10 @@ export function App(): React.JSX.Element {
       ? listings
       : listings.filter((l) => l.occurrences.some((o) => selectedSources.has(o.sourceId)));
 
+  // Nb de filtres d'affichage actifs, pour la pastille du menu « Filtres ».
+  const activeFilterCount =
+    (favoritesOnly ? 1 : 0) + (includeOutOfCriteria ? 1 : 0) + (showArchived ? 1 : 0);
+
   const toggleSource = (sourceId: string): void =>
     setSelectedSources((current) => {
       const next = new Set(current);
@@ -488,41 +493,47 @@ export function App(): React.JSX.Element {
         </p>
       )}
 
-      {/* Bascule Liste ⇄ Carte : deux vues des mêmes annonces (§36). */}
-      <div className="my-3 inline-flex rounded-lg border border-border p-0.5" role="group">
-        <button
-          type="button"
-          onClick={() => setDisplayMode('list')}
-          aria-pressed={displayMode === 'list'}
-          className={`min-h-9 cursor-pointer rounded-md px-3 text-sm font-medium transition-colors ${
-            displayMode === 'list'
-              ? 'bg-primary text-primary-foreground'
-              : 'text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          Liste
-        </button>
-        <button
-          type="button"
-          onClick={() => setDisplayMode('map')}
-          aria-pressed={displayMode === 'map'}
-          className={`min-h-9 cursor-pointer rounded-md px-3 text-sm font-medium transition-colors ${
-            displayMode === 'map'
-              ? 'bg-primary text-primary-foreground'
-              : 'text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          🗺️ Carte
-        </button>
-      </div>
+      {/* Barre d'outils compacte : vue, tri, filtres et sources sur une ligne
+          qui se replie proprement sur mobile (§39). */}
+      <div
+        className="my-3 flex flex-wrap items-center gap-2 text-sm"
+        role="group"
+        aria-label="Barre de filtres"
+      >
+        {/* Bascule Liste ⇄ Carte. */}
+        <div className="inline-flex rounded-lg border border-border p-0.5" role="group">
+          <button
+            type="button"
+            onClick={() => setDisplayMode('list')}
+            aria-pressed={displayMode === 'list'}
+            className={`min-h-9 cursor-pointer rounded-md px-3 font-medium transition-colors ${
+              displayMode === 'list'
+                ? 'bg-primary text-primary-foreground'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            Liste
+          </button>
+          <button
+            type="button"
+            onClick={() => setDisplayMode('map')}
+            aria-pressed={displayMode === 'map'}
+            className={`min-h-9 cursor-pointer rounded-md px-3 font-medium transition-colors ${
+              displayMode === 'map'
+                ? 'bg-primary text-primary-foreground'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            🗺️ Carte
+          </button>
+        </div>
 
-      <div className="my-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
-        <span className="flex items-center gap-2">
-          <label htmlFor="sort-select" className="text-muted-foreground">
-            Trier par
-          </label>
+        {/* Tri. */}
+        <label className="flex items-center gap-1.5 text-muted-foreground">
+          <span className="sr-only">Trier par</span>
           <select
             id="sort-select"
+            aria-label="Trier par"
             value={sort}
             onChange={(event) => setSort(event.target.value as SortMode)}
           >
@@ -530,47 +541,43 @@ export function App(): React.JSX.Element {
             <option value="recent">Plus récentes</option>
             <option value="price">Loyer croissant</option>
           </select>
-        </span>
-
-        <label className="flex items-center gap-1.5 text-muted-foreground">
-          <input
-            type="checkbox"
-            checked={includeOutOfCriteria}
-            onChange={(event) => setIncludeOutOfCriteria(event.target.checked)}
-          />
-          Afficher les annonces hors critères
         </label>
 
-        <label className="flex items-center gap-1.5 text-muted-foreground">
-          <input
-            type="checkbox"
-            checked={showArchived}
-            onChange={(event) => setShowArchived(event.target.checked)}
-          />
-          Afficher les archivées
-        </label>
+        {/* Filtres d'affichage regroupés dans un menu (« Affichage » pour ne pas
+            confondre avec l'onglet « Filtres » qui règle les critères, §66). */}
+        <Dropdown label="Affichage" badge={activeFilterCount}>
+          <ul className="flex flex-col gap-0.5">
+            {(
+              [
+                ['Favoris uniquement', favoritesOnly, setFavoritesOnly],
+                ['Annonces hors critères', includeOutOfCriteria, setIncludeOutOfCriteria],
+                ['Annonces archivées', showArchived, setShowArchived],
+              ] as const
+            ).map(([label, checked, setter]) => (
+              <li key={label}>
+                <label className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-muted">
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={(event) => setter(event.target.checked)}
+                  />
+                  <span>{label}</span>
+                </label>
+              </li>
+            ))}
+          </ul>
+        </Dropdown>
 
-        <label className="flex items-center gap-1.5 text-muted-foreground">
-          <input
-            type="checkbox"
-            checked={favoritesOnly}
-            onChange={(event) => setFavoritesOnly(event.target.checked)}
-          />
-          Favoris uniquement
-        </label>
-      </div>
-
-      {/* Filtre par source : menu déroulant multi-sélection (§13). */}
-      {availableSources.length > 1 && (
-        <div className="my-2">
+        {/* Filtre par source (multi-sélection, §13). */}
+        {availableSources.length > 1 && (
           <SourceFilter
             sources={availableSources}
             selected={selectedSources}
             onToggle={toggleSource}
             onClear={() => setSelectedSources(new Set())}
           />
-        </div>
-      )}
+        )}
+      </div>
 
       {error !== null && (
         <p className="rounded-xl border border-bad px-3 py-2 text-bad" role="alert">

@@ -49,7 +49,9 @@ test('scénario 3 — une annonce hors critères est écartée de la liste (§53
   // L'annonce à 750 € dépasse le budget : absente par défaut.
   await expect(page.getByText('750 €')).toHaveCount(0);
 
-  await page.getByLabel(/hors critères/).check();
+  // Le réglage vit dans le menu « Affichage » de la barre de filtres.
+  await page.getByRole('button', { name: 'Affichage' }).click();
+  await page.getByRole('checkbox', { name: 'Annonces hors critères' }).check();
   await expect(page.getByText('750 €').first()).toBeVisible();
 });
 
@@ -128,8 +130,8 @@ test('le tri et le changement de statut fonctionnent (§35, §54)', async ({ pag
 });
 
 test('la page d’état des sources est consultable (§63)', async ({ page }) => {
-  // `exact` : distinguer l'onglet « Sources » du filtre « Sources : … ».
-  await page.getByRole('button', { name: 'Sources', exact: true }).click();
+  // L'onglet « Sources » de la navigation (distinct du filtre par source).
+  await page.getByRole('navigation').getByRole('button', { name: 'Sources' }).click();
 
   await expect(page.getByRole('heading', { name: 'État des sources' })).toBeVisible();
   await expect(page.getByText('En repos (429)')).toBeVisible();
@@ -218,8 +220,10 @@ test('on peut filtrer la liste par source (menu déroulant)', async ({ page }) =
   const before = await cards.count();
   expect(before).toBeGreaterThan(1);
 
-  // Ouvrir le menu déroulant des sources.
-  await page.getByRole('button', { name: /Sources :/ }).click();
+  // Ouvrir le menu « Sources » de la barre de filtres (distinct de l'onglet
+  // de navigation du même nom).
+  const toolbar = page.getByRole('group', { name: 'Barre de filtres' });
+  await toolbar.getByRole('button', { name: 'Sources' }).click();
 
   // Cocher une source restreint la liste.
   await page.getByRole('checkbox', { name: 'Demo Agence' }).check();
