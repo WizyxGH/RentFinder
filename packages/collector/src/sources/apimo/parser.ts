@@ -16,7 +16,7 @@
 
 import * as cheerio from 'cheerio';
 import type { RawListing } from '@rentfinder/shared';
-import { cleanText } from '../../normalization/text.js';
+import { cleanText, comparable } from '../../normalization/text.js';
 
 /**
  * Forme d'une URL de fiche, tout domaine Apimo confondu :
@@ -205,6 +205,18 @@ export function mostRecentDate(a?: string, b?: string): string | undefined {
  * @param pageUrl URL de la fiche (déjà validée par `parseListingUrl`)
  * @param defaultAgencyName agence à afficher si le JSON-LD ne la nomme pas
  */
+/** Slugs de type d'URL désignant un bien NON résidentiel. */
+const COMMERCIAL_SLUGS =
+  /commerce|bureau|local|atelier|entrepot|fonds|professionnel|industriel|terrain|hangar/;
+
+/** `true` si la fiche décrit un bien à usage commercial/professionnel. */
+function isCommercial($: cheerio.CheerioAPI, typeSlug: string): boolean {
+  if (COMMERCIAL_SLUGS.test(comparable(typeSlug))) return true;
+  // Type schema.org du JSON-LD : `CommercialProperty` (le graphe peut aussi le
+  // porter alors que le repli résidentiel a échoué).
+  return /"@type"\s*:\s*"CommercialProperty"/.test($.html());
+}
+
 export function parseDetailPage(
   html: string,
   pageUrl: string,
@@ -217,6 +229,22 @@ export function parseDetailPage(
 
   const $ = cheerio.load(html);
   const warnings: string[] = [];
+
+  // Bien DÉJÀ LOUÉ / VENDU : ces sites laissent la fiche en ligne avec un
+  // bandeau `.propertySold` (« déjà Loué »), alors que le JSON-LD dit encore
+  // `InStock`. On ne collecte pas un bien qui n'est plus disponible (§17).
+  const soldSticker = comparable($('.propertySold, .sticker').text());
+  if (/deja loue|deja louee|\bloue\b|\blouee\b|\bvendu\b|\bvendue\b/.test(soldSticker)) {
+    return { listing: null, warnings: [`Bien déjà loué/vendu (ignoré) : ${pageUrl}`] };
+  }
+
+  // Bien NON RÉSIDENTIEL (commerce, bureau, local, atelier, entrepôt, fonds de
+  // commerce) : hors périmètre — on cherche un logement. Repéré par le type
+  // JSON-LD `CommercialProperty` ou par le slug de type dans l'URL.
+  if (isCommercial($, parsedUrl.typeSlug)) {
+    return { listing: null, warnings: [`Bien à usage commercial (ignoré) : ${pageUrl}`] };
+  }
+
   const jsonLd = parseJsonLd($);
   if (jsonLd === null) {
     warnings.push('JSON-LD absent ou illisible — repli sur le HTML seul');

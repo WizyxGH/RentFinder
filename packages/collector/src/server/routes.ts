@@ -231,7 +231,11 @@ async function getStats(db: Client): Promise<unknown> {
   const [listings, engagement, contacts, outcomes, byTracking, bySource] = await Promise.all([
     db.execute(`
       SELECT COUNT(*) AS total,
-             SUM(CASE WHEN matches_criteria = 1 THEN 1 ELSE 0 END) AS matching,
+             -- « Pertinentes » = EXACTEMENT ce que montre l'onglet Annonces
+             -- (dans les critères, encore disponibles, non archivées), sinon
+             -- le compteur diverge de la liste (§33).
+             SUM(CASE WHEN matches_criteria = 1 AND lifecycle != 'inactive' AND archived = 0
+                      THEN 1 ELSE 0 END) AS matching,
              SUM(CASE WHEN lifecycle = 'active' THEN 1 ELSE 0 END) AS active
       FROM listings
     `),
