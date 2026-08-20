@@ -8,7 +8,7 @@ function residentialHtml(extra = ''): string {
   return `<!DOCTYPE html><html><head>
     <script type="application/ld+json">${JSON.stringify({
       '@graph': [
-        { '@type': 'RealEstateAgent', name: 'Agence', telephone: '0400000000' },
+        { '@type': 'RealEstateAgent', name: 'Agence' },
         {
           '@type': 'Apartment',
           name: 'Beau T2',
