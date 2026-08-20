@@ -211,3 +211,23 @@ test('on peut mettre une annonce en favori', async ({ page }) => {
   // L'étoile devient « pleine » : le bouton bascule vers « Retirer des favoris ».
   await expect(first.getByRole('button', { name: 'Retirer des favoris' })).toBeVisible();
 });
+
+test('on peut filtrer la liste par source', async ({ page }) => {
+  const cards = page.getByTestId('listing-card');
+  const before = await cards.count();
+  expect(before).toBeGreaterThan(1);
+
+  // Sélectionner une source restreint la liste (chip → aria-pressed).
+  const chip = page.getByRole('button', { name: 'Demo Agence' });
+  await expect(chip).toBeVisible();
+  await chip.click();
+  await expect(chip).toHaveAttribute('aria-pressed', 'true');
+
+  const filtered = await cards.count();
+  expect(filtered).toBeGreaterThan(0);
+  expect(filtered).toBeLessThanOrEqual(before);
+
+  // « tout afficher » réinitialise.
+  await page.getByRole('button', { name: 'tout afficher' }).click();
+  await expect(cards).toHaveCount(before);
+});

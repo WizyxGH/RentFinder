@@ -30,6 +30,7 @@ import {
 } from './api/client.js';
 import { clearProfile, loadProfile, saveProfile } from './profile.js';
 import { AFFINITY_BOOST, computeAffinity } from './affinity.js';
+import { formatSourceName } from './format.js';
 import {
   diffForNotification,
   fireNotifications,
@@ -167,6 +168,9 @@ export function App(): React.JSX.Element {
   const [includeOutOfCriteria, setIncludeOutOfCriteria] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [favoritesOnly, setFavoritesOnly] = useState(false);
+  // Filtre par source : ensemble vide = toutes les sources affichées. Une
+  // annonce passe si l'une de ses occurrences vient d'une source sélectionnée.
+  const [selectedSources, setSelectedSources] = useState<ReadonlySet<string>>(new Set());
   // Liste ⇄ Carte : deux façons de parcourir les mêmes annonces (§36, §39).
   const [displayMode, setDisplayMode] = useState<'list' | 'map'>('list');
   const [profile, setProfile] = useState<TenantProfile | null>(() => loadProfile());
@@ -404,17 +408,37 @@ export function App(): React.JSX.Element {
     );
   }
 
+  // Sources présentes dans les annonces chargées, pour proposer le filtre.
+  const availableSources = [
+    ...new Set(listings.flatMap((l) => l.occurrences.map((o) => o.sourceId))),
+  ].sort((a, b) => formatSourceName(a).localeCompare(formatSourceName(b)));
+
+  // Filtre par source : ensemble vide = tout ; sinon, on garde les annonces
+  // dont AU MOINS une occurrence vient d'une source sélectionnée (§13).
+  const sourceFiltered =
+    selectedSources.size === 0
+      ? listings
+      : listings.filter((l) => l.occurrences.some((o) => selectedSources.has(o.sourceId)));
+
+  const toggleSource = (sourceId: string): void =>
+    setSelectedSources((current) => {
+      const next = new Set(current);
+      if (next.has(sourceId)) next.delete(sourceId);
+      else next.add(sourceId);
+      return next;
+    });
+
   // §36 : en tri par priorité, on classe par priorité d'action AJUSTÉE de
   // l'affinité — les annonces proches de vos préférences remontent.
   const ranked =
     sort === 'priority'
-      ? [...listings].sort(
+      ? [...sourceFiltered].sort(
           (a, b) =>
             b.actionPriority +
             (affinity.scores.get(b.id) ?? 0) * AFFINITY_BOOST -
             (a.actionPriority + (affinity.scores.get(a.id) ?? 0) * AFFINITY_BOOST),
         )
-      : listings;
+      : sourceFiltered;
 
   // La section « à contacter maintenant » reste fondée sur l'urgence réelle.
   const hot = sort === 'priority' ? ranked.filter((l) => l.actionPriority >= HOT_PRIORITY) : [];
@@ -535,6 +559,40 @@ export function App(): React.JSX.Element {
         </label>
       </div>
 
+      {/* Filtre par source : n'afficher que les agences/sites sélectionnés. */}
+      {availableSources.length > 1 && (
+        <div className="my-2 flex flex-wrap items-center gap-1.5">
+          <span className="text-[0.8rem] text-muted-foreground">Sources :</span>
+          {availableSources.map((sourceId) => {
+            const active = selectedSources.has(sourceId);
+            return (
+              <button
+                key={sourceId}
+                type="button"
+                onClick={() => toggleSource(sourceId)}
+                aria-pressed={active}
+                className={`cursor-pointer rounded-full border px-2.5 py-0.5 text-[0.8rem] transition-colors ${
+                  active
+                    ? 'border-primary bg-primary/10 font-medium text-primary'
+                    : 'border-border text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {formatSourceName(sourceId)}
+              </button>
+            );
+          })}
+          {selectedSources.size > 0 && (
+            <button
+              type="button"
+              onClick={() => setSelectedSources(new Set())}
+              className="cursor-pointer text-[0.8rem] text-muted-foreground underline hover:text-foreground"
+            >
+              tout afficher
+            </button>
+          )}
+        </div>
+      )}
+
       {error !== null && (
         <p className="rounded-xl border border-bad px-3 py-2 text-bad" role="alert">
           {error}
@@ -543,13 +601,15 @@ export function App(): React.JSX.Element {
 
       {loading ? (
         <p className="py-8 text-center text-muted-foreground">Chargement…</p>
-      ) : listings.length === 0 ? (
+      ) : sourceFiltered.length === 0 ? (
         <p className="py-8 text-center text-muted-foreground">
-          Aucune annonce ne correspond à vos critères pour l’instant.
+          {selectedSources.size > 0
+            ? 'Aucune annonce pour les sources sélectionnées.'
+            : 'Aucune annonce ne correspond à vos critères pour l’instant.'}
         </p>
       ) : displayMode === 'map' ? (
         <>
-          <StatsStrip listings={listings} />
+          <StatsStrip listings={sourceFiltered} />
           <Suspense
             fallback={
               <p className="py-8 text-center text-muted-foreground">Chargement de la carte…</p>
@@ -560,7 +620,7 @@ export function App(): React.JSX.Element {
         </>
       ) : (
         <>
-          <StatsStrip listings={listings} />
+          <StatsStrip listings={sourceFiltered} />
           {hot.length > 0 && (
             <section aria-labelledby="hot-title" className="mb-6">
               <h2 id="hot-title" className="mb-2 text-lg font-bold">
