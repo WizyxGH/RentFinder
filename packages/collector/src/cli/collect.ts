@@ -29,7 +29,11 @@ import {
   loadTelegramConfig,
 } from '../config.js';
 import { createGeocoder } from '../core/geocode.js';
-import { notifyNewListings, editRentedTelegramMessages } from '../notify/telegram.js';
+import {
+  notifyNewListings,
+  editRentedTelegramMessages,
+  notifySourceHealth,
+} from '../notify/telegram.js';
 import { pollTelegramReactions } from '../notify/reactions.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -140,6 +144,9 @@ async function main(): Promise<void> {
         logger.info('notify.done', { ...notice });
         // §33 : un bien notifié puis loué voit son message édité en « LOUÉ ».
         await editRentedTelegramMessages({ repository, config: telegram, logger });
+        // §69 : alerte quand une source se dégrade/se bloque (ou se rétablit) —
+        // sinon un parseur cassé fait perdre des annonces en silence.
+        await notifySourceHealth(telegram, report.healthTransitions, logger);
       } catch (error) {
         // Le notifieur ne doit jamais faire échouer la collecte (§69).
         logger.warn('notify.failed', {

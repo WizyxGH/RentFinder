@@ -21,6 +21,7 @@ import type {
   ScrapeResult,
   Scraper,
   ScoredListing,
+  SourceHealth,
   SourceRuntimeState,
 } from '@rentfinder/shared';
 import type { Clock } from './core/clock.js';
@@ -74,10 +75,21 @@ export interface SourceOutcome {
   readonly error: string | null;
 }
 
+/** Changement d'état de santé d'une source entre deux runs (§69, alerting). */
+export interface SourceHealthTransition {
+  readonly sourceId: string;
+  readonly from: SourceHealth;
+  readonly to: SourceHealth;
+  readonly listingsFound: number;
+  readonly error: string | null;
+}
+
 export interface PipelineReport {
   readonly sourcesRun: readonly string[];
   readonly sourcesSkipped: readonly { sourceId: string; reason: string }[];
   readonly outcomes: readonly SourceOutcome[];
+  /** Sources dont l'état de santé a changé ce run (pour alerter, §69). */
+  readonly healthTransitions: readonly SourceHealthTransition[];
   readonly listingsCollected: number;
   readonly groupsFormed: number;
   readonly comparisons: number;
@@ -134,9 +146,14 @@ async function runSource(
       warnings: result.warnings.length,
     });
 
-    // Un parser qui ne rend plus rien alors qu'il a bien téléchargé des pages
-    // signale un changement de structure : la source est dégradée, pas morte (§69).
-    const degraded = result.pagesFetched > 0 && result.listings.length === 0;
+    // Un parser qui ne DÉCOUVRE plus rien alors qu'il a bien téléchargé des
+    // pages signale un changement de structure : la source est dégradée, pas
+    // morte (§69). « Découvrir » = de nouvelles annonces OU des références
+    // confirmées : une source incrémentale (sitemap, liste à refs connues) qui
+    // n'a rien de neuf mais confirme son stock reste saine — ne pas la marquer
+    // dégradée à tort.
+    const discovered = result.listings.length + (result.confirmedRefs?.length ?? 0);
+    const degraded = result.pagesFetched > 0 && discovered === 0;
 
     return {
       outcome: { sourceId: descriptor.id, success: true, result, error: null },
@@ -209,6 +226,7 @@ export async function runPipeline(options: PipelineOptions): Promise<PipelineRep
 
   // --- 2. Collecte, source par source, en isolation -------------------------
   const outcomes: SourceOutcome[] = [];
+  const healthTransitions: SourceHealthTransition[] = [];
   const rawBySource = new Map<string, readonly RawListing[]>();
   const confirmedBySource = new Map<string, readonly string[]>();
   const rentedBySource = new Map<string, readonly string[]>();
@@ -238,6 +256,19 @@ export async function runPipeline(options: PipelineOptions): Promise<PipelineRep
         outcome.result?.listings.length ?? 0,
       ),
     });
+
+    // Transition d'état de santé : c'est le changement (et non l'état stable)
+    // qui mérite une alerte, pour ne pas répéter le même avertissement à chaque
+    // run tant qu'une source reste dégradée.
+    if (nextState.health !== undefined && nextState.health !== base.health) {
+      healthTransitions.push({
+        sourceId: decision.sourceId,
+        from: base.health,
+        to: nextState.health,
+        listingsFound: outcome.result?.listings.length ?? 0,
+        error: outcome.error,
+      });
+    }
 
     if (outcome.result !== null) {
       await repository.recordRun({
@@ -378,6 +409,7 @@ export async function runPipeline(options: PipelineOptions): Promise<PipelineRep
       reason: decision.reason,
     })),
     outcomes,
+    healthTransitions,
     listingsCollected: normalized.length,
     groupsFormed: groups.length,
     comparisons: comparisonCount,

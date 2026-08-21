@@ -21,6 +21,7 @@
 import type { Logger } from '../core/logger.js';
 import type { NotifiableListing, Repository } from '../db/repository.js';
 import type { TelegramConfig } from '../config.js';
+import type { SourceHealthTransition } from '../pipeline.js';
 
 const TELEGRAM_API = 'https://api.telegram.org';
 
@@ -46,7 +47,10 @@ function summarize(listing: NotifiableListing): string {
  * sinon ville + code postal) et devient un lien Google Maps dès qu'on a de quoi
  * localiser — l'adresse de rue quand elle existe, la ville sinon (§20).
  */
-export function formatListingMessage(listing: NotifiableListing): string {
+export function formatListingMessage(
+  listing: NotifiableListing,
+  nowMs: number = Date.now(),
+): string {
   const heading = escapeHtml(listing.title ?? 'Nouvelle annonce');
   const titleLine =
     listing.url !== null
@@ -71,12 +75,39 @@ export function formatListingMessage(listing: NotifiableListing): string {
     lines.push(`📍 <a href="${escapeHtml(mapsUrl)}">${escapeHtml(label)}</a>`);
   }
 
+  // Disponibilité : décisive pour agir (emménagement possible) — §17, affichée
+  // seulement si la source l'a publiée.
+  const availability = formatAvailability(listing.availableAt, nowMs);
+  if (availability !== null) lines.push(`📅 ${availability}`);
+
   // L'album montre jusqu'à 10 photos ; au-delà, on signale le reste (fiche).
   const photoCount = listing.photoUrls.length;
   if (photoCount > 10) lines.push(`📷 ${photoCount} photos (10 ici, toutes sur la fiche)`);
 
   lines.push(`⭐ Priorité ${listing.actionPriority}/100`);
   return lines.join('\n');
+}
+
+/**
+ * Disponibilité lisible, alignée sur l'affichage du site : « Dispo maintenant »
+ * si l'emménagement est immédiat (sous 3 jours), sinon « Dispo le {date} ».
+ * `null` si la source ne l'a pas publiée ou si la date est illisible (§17).
+ */
+function formatAvailability(iso: string | null, nowMs: number): string | null {
+  if (iso === null) return null;
+  const timestamp = Date.parse(iso);
+  if (!Number.isFinite(timestamp)) return null;
+  if (timestamp <= nowMs + 3 * 86_400_000) return 'Dispo maintenant';
+  const formatted = new Date(timestamp).toLocaleDateString('fr-FR', {
+    day: 'numeric',
+    month: 'short',
+    year:
+      new Date(timestamp).getUTCFullYear() === new Date(nowMs).getUTCFullYear()
+        ? undefined
+        : 'numeric',
+    timeZone: 'UTC',
+  });
+  return `Dispo ${formatted}`;
 }
 
 /** Extrait le `message_id` d'une réponse Telegram (message seul ou album). */
@@ -130,7 +161,6 @@ export async function sendTelegramMessage(
   return firstMessageId(response);
 }
 
-/** Limite d'un album Telegram. */
 /** Limite d'un album Telegram. */
 const ALBUM_MAX = 10;
 
@@ -239,6 +269,63 @@ async function tryEdit(
     body: JSON.stringify(body),
   });
   return response.ok;
+}
+
+/**
+ * Alerte l'administrateur (soi-même) quand l'état de santé d'une source CHANGE
+ * (§69). On ne signale que ce qui mérite attention : une source qui devient
+ * dégradée (parseur probablement cassé) ou bloquée, et le rétablissement d'une
+ * source qui l'était. Les mises au repos (429, `cooldown`) sont routinières et
+ * passées sous silence. Ne lève jamais : une alerte ratée ne fait pas échouer
+ * la collecte (§69).
+ *
+ * @returns le nombre de transitions signalées.
+ */
+export async function notifySourceHealth(
+  config: TelegramConfig,
+  transitions: readonly SourceHealthTransition[],
+  logger: Logger,
+  fetchImpl: typeof fetch = fetch,
+): Promise<number> {
+  const notable = transitions.filter((t) => isWorsening(t) || isRecovery(t));
+  if (notable.length === 0) return 0;
+
+  const lines = notable.map((t) => {
+    if (isRecovery(t)) return `✅ <b>${escapeHtml(t.sourceId)}</b> : rétablie`;
+    if (t.to === 'blocked') return `🔴 <b>${escapeHtml(t.sourceId)}</b> : bloquée (§10)`;
+    // Dégradée : le cas le plus utile — le parseur ne rend plus rien.
+    const detail = t.error !== null ? escapeHtml(t.error) : '0 annonce découverte';
+    return `🟠 <b>${escapeHtml(t.sourceId)}</b> : dégradée — ${detail}`;
+  });
+  const text = `🛠️ <b>État des sources</b>\n\n${lines.join('\n')}`;
+
+  try {
+    await sendTelegramMessage(config, text, fetchImpl);
+    logger.info('telegram.health_alerted', { count: notable.length });
+    return notable.length;
+  } catch (error) {
+    logger.warn('telegram.health_alert_failed', {
+      error: error instanceof Error ? error.message : 'erreur inconnue',
+    });
+    return 0;
+  }
+}
+
+/**
+ * Une source qui bascule vers un état préoccupant. Le passage en `blocked`
+ * (retrait du roulement, §10) alerte tant qu'elle ne l'était pas déjà ; le
+ * passage en `degraded` alerte seulement depuis un état sain (pas depuis
+ * `blocked`, qui est déjà connu et pire).
+ */
+function isWorsening(t: SourceHealthTransition): boolean {
+  if (t.to === 'blocked') return t.from !== 'blocked';
+  if (t.to === 'degraded') return t.from !== 'degraded' && t.from !== 'blocked';
+  return false;
+}
+
+/** Une source qui redevient saine après avoir été dégradée ou bloquée. */
+function isRecovery(t: SourceHealthTransition): boolean {
+  return t.to === 'healthy' && (t.from === 'degraded' || t.from === 'blocked');
 }
 
 export interface NotifyDeps {

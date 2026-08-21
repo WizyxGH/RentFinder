@@ -6,9 +6,11 @@ import {
   editRentedTelegramMessages,
   formatListingMessage,
   notifyNewListings,
+  notifySourceHealth,
   sendTelegramListing,
   sendTelegramMessage,
 } from './telegram.js';
+import type { SourceHealthTransition } from '../pipeline.js';
 
 const CONFIG: TelegramConfig = {
   botToken: 'test-token',
@@ -33,6 +35,7 @@ function listing(over: Partial<NotifiableListing> & { id: string }): NotifiableL
     city: pick('city', 'nice'),
     postalCode: pick('postalCode', '06000'),
     address: pick('address', null),
+    availableAt: pick('availableAt', null),
     actionPriority: pick('actionPriority', 80),
     url: pick('url', 'https://exemple.fr/annonce/1'),
     photoUrls: pick('photoUrls', []),
@@ -68,6 +71,24 @@ describe('formatListingMessage', () => {
     const msg = formatListingMessage(listing({ id: 'a', title: 'T2 <script> & co' }));
     expect(msg).toContain('T2 &lt;script&gt; &amp; co');
     expect(msg).not.toContain('<script>');
+  });
+
+  it('affiche la disponibilité quand la source la publie (§17)', () => {
+    const now = Date.parse('2026-08-21T12:00:00Z');
+    // Date future → date précise.
+    const future = formatListingMessage(
+      listing({ id: 'a', availableAt: '2026-10-01T00:00:00.000Z' }),
+      now,
+    );
+    expect(future).toContain('📅 Dispo 1 oct.');
+    // Date immédiate (sous 3 jours) → « maintenant ».
+    const soon = formatListingMessage(
+      listing({ id: 'a', availableAt: '2026-08-22T00:00:00.000Z' }),
+      now,
+    );
+    expect(soon).toContain('📅 Dispo maintenant');
+    // Absente → pas de ligne de dispo.
+    expect(formatListingMessage(listing({ id: 'a', availableAt: null }), now)).not.toContain('📅');
   });
 
   it('omet les champs inconnus plutôt que d’inventer (§17)', () => {
@@ -340,6 +361,72 @@ describe('editRentedTelegramMessages', () => {
       logger,
       fetchImpl,
     });
+    expect(count).toBe(0);
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+});
+
+describe('notifySourceHealth', () => {
+  const logger = createLogger({ minLevel: 'error' });
+  const t = (over: Partial<SourceHealthTransition>): SourceHealthTransition => ({
+    sourceId: 'x',
+    from: 'healthy',
+    to: 'degraded',
+    listingsFound: 0,
+    error: null,
+    ...over,
+  });
+
+  it('alerte sur dégradation, blocage et rétablissement — un seul message', async () => {
+    const fetchImpl = okFetch();
+    const count = await notifySourceHealth(
+      CONFIG,
+      [
+        t({ sourceId: 'mirabello', from: 'healthy', to: 'degraded' }),
+        t({ sourceId: 'seloger', from: 'healthy', to: 'blocked', error: 'accès refusé' }),
+        t({ sourceId: 'citya', from: 'degraded', to: 'healthy' }),
+      ],
+      logger,
+      fetchImpl,
+    );
+    expect(count).toBe(3);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    const body = JSON.parse(
+      (fetchImpl as unknown as ReturnType<typeof vi.fn>).mock.calls[0]?.[1]?.body as string,
+    ) as { text: string };
+    expect(body.text).toContain('mirabello');
+    expect(body.text).toContain('dégradée');
+    expect(body.text).toContain('seloger');
+    expect(body.text).toContain('bloquée');
+    expect(body.text).toContain('citya');
+    expect(body.text).toContain('rétablie');
+  });
+
+  it('ignore les mises au repos (429/cooldown) et les non-changements pertinents', async () => {
+    const fetchImpl = okFetch();
+    const count = await notifySourceHealth(
+      CONFIG,
+      [
+        t({ sourceId: 'a', from: 'healthy', to: 'cooldown' }),
+        // Déjà dégradée et le reste : pas de nouvelle alerte.
+        t({ sourceId: 'b', from: 'degraded', to: 'blocked' }),
+      ],
+      logger,
+      fetchImpl,
+    );
+    // Seule la bascule dégradée→bloquée compte (b était déjà en mauvais état,
+    // mais bloquée est une aggravation notable) ; cooldown est ignoré.
+    expect(count).toBe(1);
+  });
+
+  it('ne poste rien quand aucune transition n’est notable', async () => {
+    const fetchImpl = okFetch();
+    const count = await notifySourceHealth(
+      CONFIG,
+      [t({ from: 'healthy', to: 'cooldown' })],
+      logger,
+      fetchImpl,
+    );
     expect(count).toBe(0);
     expect(fetchImpl).not.toHaveBeenCalled();
   });
