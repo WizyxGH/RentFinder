@@ -51,6 +51,13 @@ import { FiltersPanel } from './components/FiltersPanel.js';
 import { StatsPanel } from './components/StatsPanel.js';
 import { SourceFilter } from './components/SourceFilter.js';
 import { Dropdown } from './components/Dropdown.js';
+import {
+  QuickFilters,
+  EMPTY_QUICK_FILTERS,
+  hasActiveQuickFilters,
+  matchesQuickFilters,
+  type QuickFilterValues,
+} from './components/QuickFilters.js';
 
 // Leaflet n'entre dans le bundle que si la vue carte est ouverte (§65).
 const MapView = lazy(() => import('./components/MapView.js'));
@@ -173,6 +180,9 @@ export function App(): React.JSX.Element {
   // Filtre par source : ensemble vide = toutes les sources affichées. Une
   // annonce passe si l'une de ses occurrences vient d'une source sélectionnée.
   const [selectedSources, setSelectedSources] = useState<ReadonlySet<string>>(new Set());
+  // Filtres rapides façon SeLoger (budget, surface, pièces, type) : affinent la
+  // liste déjà chargée, sans toucher aux critères de collecte (§66).
+  const [quickFilters, setQuickFilters] = useState<QuickFilterValues>(EMPTY_QUICK_FILTERS);
   // Liste ⇄ Carte : deux façons de parcourir les mêmes annonces (§36, §39).
   const [displayMode, setDisplayMode] = useState<'list' | 'map'>('list');
   const [profile, setProfile] = useState<TenantProfile | null>(() => loadProfile());
@@ -342,73 +352,77 @@ export function App(): React.JSX.Element {
     );
   }
 
-  if (view === 'profile') {
-    return (
-      <Shell view={view} onNavigate={navigate}>
-        <ProfileForm
-          initial={profile}
-          onSave={(next) => {
-            saveProfile(next);
-            setProfile(next);
-            setView(selectedId === null ? 'list' : 'detail');
-          }}
-          onCancel={() => setView(selectedId === null ? 'list' : 'detail')}
-          onClear={() => {
-            clearProfile();
-            setProfile(null);
-            setView('list');
-          }}
-        />
-        <DocumentsSection />
-      </Shell>
-    );
-  }
+  // Vues « secondaires » (plein écran), regroupées hors du corps principal pour
+  // garder App lisible : chacune rend sa coquille ou `null` si non concernée.
+  const secondaryView = (): React.JSX.Element | null => {
+    if (view === 'profile') {
+      return (
+        <Shell view={view} onNavigate={navigate}>
+          <ProfileForm
+            initial={profile}
+            onSave={(next) => {
+              saveProfile(next);
+              setProfile(next);
+              setView(selectedId === null ? 'list' : 'detail');
+            }}
+            onCancel={() => setView(selectedId === null ? 'list' : 'detail')}
+            onClear={() => {
+              clearProfile();
+              setProfile(null);
+              setView('list');
+            }}
+          />
+          <DocumentsSection />
+        </Shell>
+      );
+    }
+    if (view === 'sources') {
+      return (
+        <Shell view={view} onNavigate={navigate}>
+          <SourcesPanel sources={sources} nowMs={nowMs} onBack={() => setView('list')} />
+        </Shell>
+      );
+    }
+    if (view === 'filters') {
+      return (
+        <Shell view={view} onNavigate={navigate}>
+          <FiltersPanel
+            onSaved={() => {
+              void load();
+            }}
+          />
+        </Shell>
+      );
+    }
+    if (view === 'stats') {
+      return (
+        <Shell view={view} onNavigate={navigate}>
+          <StatsPanel />
+        </Shell>
+      );
+    }
+    if (view === 'detail' && selected !== null) {
+      return (
+        <Shell view={view} onNavigate={navigate}>
+          <ListingDetail
+            listing={selected}
+            profile={profile}
+            nowMs={nowMs}
+            onBack={() => setView('list')}
+            onTrackingChange={(status) => void handleTrackingChange(status)}
+            onContactRecorded={(channel, message, documents) =>
+              void handleContactRecorded(channel, message, documents)
+            }
+            onConfigureProfile={() => setView('profile')}
+          />
+        </Shell>
+      );
+    }
+    return null;
+  };
 
-  if (view === 'sources') {
-    return (
-      <Shell view={view} onNavigate={navigate}>
-        <SourcesPanel sources={sources} nowMs={nowMs} onBack={() => setView('list')} />
-      </Shell>
-    );
-  }
-
-  if (view === 'filters') {
-    return (
-      <Shell view={view} onNavigate={navigate}>
-        <FiltersPanel
-          onSaved={() => {
-            void load();
-          }}
-        />
-      </Shell>
-    );
-  }
-
-  if (view === 'stats') {
-    return (
-      <Shell view={view} onNavigate={navigate}>
-        <StatsPanel />
-      </Shell>
-    );
-  }
-
-  if (view === 'detail' && selected !== null) {
-    return (
-      <Shell view={view} onNavigate={navigate}>
-        <ListingDetail
-          listing={selected}
-          profile={profile}
-          nowMs={nowMs}
-          onBack={() => setView('list')}
-          onTrackingChange={(status) => void handleTrackingChange(status)}
-          onContactRecorded={(channel, message, documents) =>
-            void handleContactRecorded(channel, message, documents)
-          }
-          onConfigureProfile={() => setView('profile')}
-        />
-      </Shell>
-    );
-  }
+  const secondary = secondaryView();
+  if (secondary !== null) return secondary;
 
   // Sources présentes dans les annonces chargées, pour proposer le filtre.
   const availableSources = [
@@ -422,7 +436,15 @@ export function App(): React.JSX.Element {
       ? listings
       : listings.filter((l) => l.occurrences.some((o) => selectedSources.has(o.sourceId)));
 
-  // Nb de filtres d'affichage actifs, pour la pastille du menu « Filtres ».
+  // Filtres rapides (budget/surface/pièces/type), appliqués à l'affichage.
+  const filtered = sourceFiltered.filter((l) => matchesQuickFilters(l, quickFilters));
+
+  // Types de biens présents dans la liste, pour n'offrir que ceux-là au filtre.
+  const availableTypes = [...new Set(listings.map((l) => l.propertyType.value))]
+    .filter((t) => t !== 'unknown')
+    .sort();
+
+  // Nb de filtres d'affichage actifs, pour la pastille du menu « Affichage ».
   const activeFilterCount =
     (favoritesOnly ? 1 : 0) + (includeOutOfCriteria ? 1 : 0) + (showArchived ? 1 : 0);
 
@@ -438,13 +460,13 @@ export function App(): React.JSX.Element {
   // l'affinité — les annonces proches de vos préférences remontent.
   const ranked =
     sort === 'priority'
-      ? [...sourceFiltered].sort(
+      ? [...filtered].sort(
           (a, b) =>
             b.actionPriority +
             (affinity.scores.get(b.id) ?? 0) * AFFINITY_BOOST -
             (a.actionPriority + (affinity.scores.get(a.id) ?? 0) * AFFINITY_BOOST),
         )
-      : sourceFiltered;
+      : filtered;
 
   // La section « à contacter maintenant » reste fondée sur l'urgence réelle.
   const hot = sort === 'priority' ? ranked.filter((l) => l.actionPriority >= HOT_PRIORITY) : [];
@@ -493,90 +515,103 @@ export function App(): React.JSX.Element {
         </p>
       )}
 
-      {/* Barre d'outils compacte : vue, tri, filtres et sources sur une ligne
-          qui se replie proprement sur mobile (§39). */}
-      <div
-        className="my-3 flex flex-wrap items-center gap-2 text-sm"
-        role="group"
-        aria-label="Barre de filtres"
-      >
-        {/* Bascule Liste ⇄ Carte. */}
-        <div className="inline-flex rounded-lg border border-border p-0.5" role="group">
-          <button
-            type="button"
-            onClick={() => setDisplayMode('list')}
-            aria-pressed={displayMode === 'list'}
-            className={`min-h-9 cursor-pointer rounded-md px-3 font-medium transition-colors ${
-              displayMode === 'list'
-                ? 'bg-primary text-primary-foreground'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            Liste
-          </button>
-          <button
-            type="button"
-            onClick={() => setDisplayMode('map')}
-            aria-pressed={displayMode === 'map'}
-            className={`min-h-9 cursor-pointer rounded-md px-3 font-medium transition-colors ${
-              displayMode === 'map'
-                ? 'bg-primary text-primary-foreground'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            🗺️ Carte
-          </button>
+      {/* Barre d'outils façon SeLoger : une rangée « vue + tri + affichage +
+          sources » et son compteur, puis une rangée de filtres rapides (budget,
+          surface, pièces, type) avec puces actives. Se replie sur mobile (§39). */}
+      <div className="my-3 flex flex-col gap-2 text-sm" role="group" aria-label="Barre de filtres">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Bascule Liste ⇄ Carte. */}
+          <div className="inline-flex rounded-lg border border-border p-0.5" role="group">
+            <button
+              type="button"
+              onClick={() => setDisplayMode('list')}
+              aria-pressed={displayMode === 'list'}
+              className={`min-h-9 cursor-pointer rounded-md px-3 font-medium transition-colors ${
+                displayMode === 'list'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Liste
+            </button>
+            <button
+              type="button"
+              onClick={() => setDisplayMode('map')}
+              aria-pressed={displayMode === 'map'}
+              className={`min-h-9 cursor-pointer rounded-md px-3 font-medium transition-colors ${
+                displayMode === 'map'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              🗺️ Carte
+            </button>
+          </div>
+
+          {/* Tri. */}
+          <label className="flex items-center gap-1.5 text-muted-foreground">
+            <span className="sr-only">Trier par</span>
+            <select
+              id="sort-select"
+              aria-label="Trier par"
+              value={sort}
+              onChange={(event) => setSort(event.target.value as SortMode)}
+            >
+              <option value="priority">Priorité d’action</option>
+              <option value="recent">Plus récentes</option>
+              <option value="price">Loyer croissant</option>
+            </select>
+          </label>
+
+          {/* Filtres d'affichage regroupés dans un menu (« Affichage » pour ne pas
+            confondre avec l'onglet « Filtres » qui règle les critères, §66). */}
+          <Dropdown label="Affichage" badge={activeFilterCount}>
+            <ul className="flex flex-col gap-0.5">
+              {(
+                [
+                  ['Favoris uniquement', favoritesOnly, setFavoritesOnly],
+                  ['Annonces hors critères', includeOutOfCriteria, setIncludeOutOfCriteria],
+                  ['Annonces archivées', showArchived, setShowArchived],
+                ] as const
+              ).map(([label, checked, setter]) => (
+                <li key={label}>
+                  <label className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-muted">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={(event) => setter(event.target.checked)}
+                    />
+                    <span>{label}</span>
+                  </label>
+                </li>
+              ))}
+            </ul>
+          </Dropdown>
+
+          {/* Filtre par source (multi-sélection, §13). */}
+          {availableSources.length > 1 && (
+            <SourceFilter
+              sources={availableSources}
+              selected={selectedSources}
+              onToggle={toggleSource}
+              onClear={() => setSelectedSources(new Set())}
+            />
+          )}
+
+          {/* Compteur de résultats, poussé à droite (repère façon SeLoger). */}
+          {!loading && (
+            <span className="ml-auto font-semibold text-muted-foreground" aria-live="polite">
+              {filtered.length} résultat{filtered.length > 1 ? 's' : ''}
+            </span>
+          )}
         </div>
 
-        {/* Tri. */}
-        <label className="flex items-center gap-1.5 text-muted-foreground">
-          <span className="sr-only">Trier par</span>
-          <select
-            id="sort-select"
-            aria-label="Trier par"
-            value={sort}
-            onChange={(event) => setSort(event.target.value as SortMode)}
-          >
-            <option value="priority">Priorité d’action</option>
-            <option value="recent">Plus récentes</option>
-            <option value="price">Loyer croissant</option>
-          </select>
-        </label>
-
-        {/* Filtres d'affichage regroupés dans un menu (« Affichage » pour ne pas
-            confondre avec l'onglet « Filtres » qui règle les critères, §66). */}
-        <Dropdown label="Affichage" badge={activeFilterCount}>
-          <ul className="flex flex-col gap-0.5">
-            {(
-              [
-                ['Favoris uniquement', favoritesOnly, setFavoritesOnly],
-                ['Annonces hors critères', includeOutOfCriteria, setIncludeOutOfCriteria],
-                ['Annonces archivées', showArchived, setShowArchived],
-              ] as const
-            ).map(([label, checked, setter]) => (
-              <li key={label}>
-                <label className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-muted">
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    onChange={(event) => setter(event.target.checked)}
-                  />
-                  <span>{label}</span>
-                </label>
-              </li>
-            ))}
-          </ul>
-        </Dropdown>
-
-        {/* Filtre par source (multi-sélection, §13). */}
-        {availableSources.length > 1 && (
-          <SourceFilter
-            sources={availableSources}
-            selected={selectedSources}
-            onToggle={toggleSource}
-            onClear={() => setSelectedSources(new Set())}
-          />
-        )}
+        {/* Rangée des filtres rapides. */}
+        <QuickFilters
+          values={quickFilters}
+          onChange={setQuickFilters}
+          availableTypes={availableTypes}
+        />
       </div>
 
       {error !== null && (
@@ -587,15 +622,15 @@ export function App(): React.JSX.Element {
 
       {loading ? (
         <p className="py-8 text-center text-muted-foreground">Chargement…</p>
-      ) : sourceFiltered.length === 0 ? (
+      ) : filtered.length === 0 ? (
         <p className="py-8 text-center text-muted-foreground">
-          {selectedSources.size > 0
-            ? 'Aucune annonce pour les sources sélectionnées.'
+          {hasActiveQuickFilters(quickFilters) || selectedSources.size > 0
+            ? 'Aucune annonce ne correspond à ces filtres.'
             : 'Aucune annonce ne correspond à vos critères pour l’instant.'}
         </p>
       ) : displayMode === 'map' ? (
         <>
-          <StatsStrip listings={sourceFiltered} />
+          <StatsStrip listings={filtered} />
           <Suspense
             fallback={
               <p className="py-8 text-center text-muted-foreground">Chargement de la carte…</p>
@@ -606,7 +641,7 @@ export function App(): React.JSX.Element {
         </>
       ) : (
         <>
-          <StatsStrip listings={sourceFiltered} />
+          <StatsStrip listings={filtered} />
           {hot.length > 0 && (
             <section aria-labelledby="hot-title" className="mb-6">
               <h2 id="hot-title" className="mb-2 text-lg font-bold">
@@ -631,7 +666,7 @@ export function App(): React.JSX.Element {
           <section aria-labelledby="all-title">
             {hot.length > 0 && (
               <h2 id="all-title" className="mb-2 text-lg font-bold text-muted-foreground">
-                Toutes les annonces <span className="text-sm font-normal">({listings.length})</span>
+                Toutes les annonces <span className="text-sm font-normal">({ranked.length})</span>
               </h2>
             )}
             <div className="flex flex-col gap-3">

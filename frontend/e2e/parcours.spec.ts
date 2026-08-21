@@ -235,3 +235,24 @@ test('on peut filtrer la liste par source (menu déroulant)', async ({ page }) =
   await page.getByRole('button', { name: 'Tout afficher' }).click();
   await expect(cards).toHaveCount(before);
 });
+
+test('les filtres rapides (façon SeLoger) affinent la liste et se retirent', async ({ page }) => {
+  const cards = page.getByTestId('listing-card');
+  const before = await cards.count();
+  expect(before).toBeGreaterThan(1);
+  const toolbar = page.getByRole('group', { name: 'Barre de filtres' });
+
+  // Un compteur de résultats est affiché.
+  await expect(toolbar.getByText(/résultats?$/)).toBeVisible();
+
+  // Filtre « Pièces » : au moins 2 pièces → la liste ne grandit pas.
+  await toolbar.getByRole('button', { name: 'Pièces' }).click();
+  await page.getByRole('button', { name: '2+', exact: true }).click();
+  const filtered = await cards.count();
+  expect(filtered).toBeLessThanOrEqual(before);
+
+  // Une puce de filtre actif apparaît et le retirer restaure la liste.
+  await expect(toolbar.getByRole('button', { name: 'Retirer le filtre 2+ pièces' })).toBeVisible();
+  await page.getByRole('button', { name: 'Effacer tout' }).click();
+  await expect(cards).toHaveCount(before);
+});

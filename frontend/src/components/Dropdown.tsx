@@ -18,6 +18,8 @@ interface DropdownProps {
   readonly children: ReactNode;
   /** Largeur du panneau (classe Tailwind), défaut `w-64`. */
   readonly panelClassName?: string;
+  /** Filtre actif : surligne le bouton (façon SeLoger) pour le signaler. */
+  readonly active?: boolean;
 }
 
 export function Dropdown({
@@ -25,6 +27,7 @@ export function Dropdown({
   badge = 0,
   children,
   panelClassName = 'w-64',
+  active = false,
 }: DropdownProps): React.JSX.Element {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -56,6 +59,7 @@ export function Dropdown({
         aria-expanded={open}
         aria-controls={panelId}
         onClick={() => setOpen((value) => !value)}
+        className={active ? 'border-primary font-semibold text-primary' : undefined}
       >
         {label}
         {badge > 0 && (
