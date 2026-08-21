@@ -3,6 +3,7 @@ import type { NotifiableListing, Repository } from '../db/repository.js';
 import type { TelegramConfig } from '../config.js';
 import { createLogger } from '../core/logger.js';
 import {
+  editRentedTelegramMessages,
   formatListingMessage,
   notifyNewListings,
   sendTelegramListing,
@@ -253,5 +254,93 @@ describe('notifyNewListings', () => {
     const report = await notifyNewListings({ repository: repo, config: CONFIG, logger, fetchImpl });
     expect(report.sent).toBe(1);
     expect(marked).toEqual(['a']);
+  });
+});
+
+describe('editRentedTelegramMessages', () => {
+  const logger = createLogger({ minLevel: 'error' });
+
+  function fakeRepo(pending: { chatId: string; messageId: number; title: string | null }[]): {
+    repo: Repository;
+    edited: { chatId: string; messageId: number }[];
+  } {
+    const edited: { chatId: string; messageId: number }[] = [];
+    const repo = {
+      rentedTelegramMessages: vi.fn(async () => pending),
+      markTelegramRentedEdited: vi.fn(async (chatId: string, messageId: number) => {
+        edited.push({ chatId, messageId });
+      }),
+    } as unknown as Repository;
+    return { repo, edited };
+  }
+
+  it('édite la légende du message loué et le marque traité', async () => {
+    const { repo, edited } = fakeRepo([{ chatId: '123', messageId: 42, title: 'T2 Nice' }]);
+    const fetchImpl = okFetch();
+    const count = await editRentedTelegramMessages({
+      repository: repo,
+      config: CONFIG,
+      logger,
+      fetchImpl,
+    });
+    expect(count).toBe(1);
+    const calls = (fetchImpl as unknown as ReturnType<typeof vi.fn>).mock.calls;
+    expect(String(calls[0]?.[0])).toContain('editMessageCaption');
+    const body = JSON.parse(calls[0]?.[1]?.body as string) as {
+      caption: string;
+      message_id: number;
+    };
+    expect(body.caption).toContain('LOUÉ');
+    expect(body.caption).toContain('T2 Nice');
+    expect(body.message_id).toBe(42);
+    expect(edited).toEqual([{ chatId: '123', messageId: 42 }]);
+  });
+
+  it('bascule sur editMessageText si la légende échoue (message texte)', async () => {
+    const { repo } = fakeRepo([{ chatId: '123', messageId: 7, title: null }]);
+    // editMessageCaption échoue (message sans média), editMessageText réussit.
+    const fetchImpl = vi.fn(async (url: string) =>
+      String(url).includes('editMessageCaption')
+        ? new Response('{"ok":false}', { status: 400 })
+        : new Response('{"ok":true}', { status: 200 }),
+    ) as unknown as typeof fetch;
+    const count = await editRentedTelegramMessages({
+      repository: repo,
+      config: CONFIG,
+      logger,
+      fetchImpl,
+    });
+    expect(count).toBe(1);
+    const urls = (fetchImpl as unknown as ReturnType<typeof vi.fn>).mock.calls.map((c) =>
+      String(c[0]),
+    );
+    expect(urls.some((u) => u.includes('editMessageCaption'))).toBe(true);
+    expect(urls.some((u) => u.includes('editMessageText'))).toBe(true);
+  });
+
+  it('marque traité même si l’édition échoue (évite de boucler)', async () => {
+    const { repo, edited } = fakeRepo([{ chatId: '123', messageId: 9, title: 'X' }]);
+    const failing = vi.fn(async () => new Response('{"ok":false}', { status: 400 }));
+    const count = await editRentedTelegramMessages({
+      repository: repo,
+      config: CONFIG,
+      logger,
+      fetchImpl: failing as unknown as typeof fetch,
+    });
+    expect(count).toBe(0);
+    expect(edited).toEqual([{ chatId: '123', messageId: 9 }]);
+  });
+
+  it('ne fait rien sans message loué en attente', async () => {
+    const { repo } = fakeRepo([]);
+    const fetchImpl = okFetch();
+    const count = await editRentedTelegramMessages({
+      repository: repo,
+      config: CONFIG,
+      logger,
+      fetchImpl,
+    });
+    expect(count).toBe(0);
+    expect(fetchImpl).not.toHaveBeenCalled();
   });
 });

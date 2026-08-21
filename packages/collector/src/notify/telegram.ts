@@ -193,6 +193,54 @@ export async function sendTelegramListing(
   return sendTelegramMessage(config, text, fetchImpl, true);
 }
 
+/**
+ * Édite les messages Telegram des annonces devenues LOUÉES pour le signaler
+ * (§29, §33). On ne connaît pas le type du message (photo ou texte) : on tente
+ * `editMessageCaption` puis `editMessageText`. Chaque message n'est édité
+ * qu'une fois (drapeau `edited_rented`). Ne lève jamais (§69).
+ *
+ * @returns le nombre de messages édités.
+ */
+export async function editRentedTelegramMessages(deps: NotifyDeps): Promise<number> {
+  const { repository, config, logger } = deps;
+  const fetchImpl = deps.fetchImpl ?? fetch;
+  const pending = await repository.rentedTelegramMessages();
+  let edited = 0;
+
+  for (const { chatId, messageId, title } of pending) {
+    const text = `🔴 <b>LOUÉ</b> — ${escapeHtml(title ?? 'Annonce')}\n<i>Ce bien n'est plus disponible.</i>`;
+    try {
+      const base = { chat_id: chatId, message_id: messageId, parse_mode: 'HTML' as const };
+      let ok = await tryEdit(config, 'editMessageCaption', { ...base, caption: text }, fetchImpl);
+      if (!ok) ok = await tryEdit(config, 'editMessageText', { ...base, text }, fetchImpl);
+      // On marque « traité » même si l'édition échoue (message supprimé,
+      // trop ancien…) pour ne pas boucler indéfiniment.
+      await repository.markTelegramRentedEdited(chatId, messageId);
+      if (ok) edited += 1;
+    } catch {
+      /* réseau : on réessaiera au prochain run (drapeau non posé) */
+    }
+  }
+
+  if (edited > 0) logger.info('telegram.rented_edited', { edited });
+  return edited;
+}
+
+/** Tente une édition Telegram ; `true` si l'API a accepté. */
+async function tryEdit(
+  config: TelegramConfig,
+  method: 'editMessageCaption' | 'editMessageText',
+  body: Record<string, unknown>,
+  fetchImpl: typeof fetch,
+): Promise<boolean> {
+  const response = await fetchImpl(`${TELEGRAM_API}/bot${config.botToken}/${method}`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  return response.ok;
+}
+
 export interface NotifyDeps {
   readonly repository: Repository;
   readonly config: TelegramConfig;

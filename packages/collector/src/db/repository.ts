@@ -191,6 +191,12 @@ export interface Repository {
   markNotified(ids: readonly string[]): Promise<void>;
   /** Retient qu'un message Telegram correspond à une annonce (§29). */
   recordTelegramMessage(chatId: string, messageId: number, listingId: string): Promise<void>;
+  /** Messages Telegram d'annonces devenues LOUÉES, pas encore éditées (§33). */
+  rentedTelegramMessages(): Promise<
+    readonly { chatId: string; messageId: number; title: string | null }[]
+  >;
+  /** Marque un message Telegram comme déjà édité en « loué ». */
+  markTelegramRentedEdited(chatId: string, messageId: number): Promise<void>;
   /** Retrouve l'annonce liée à un message Telegram. `null` si inconnu. */
   listingForTelegramMessage(chatId: string, messageId: number): Promise<string | null>;
   /** Bascule le favori d'une annonce (réaction ❤️ Telegram → favori). */
@@ -534,7 +540,7 @@ export function createRepository(db: Database): Repository {
       // toute fiche possédant une occurrence `sourceId:ref` signalée.
       const result = await db.execute({
         sql: `UPDATE listings SET rented = 1, updated_at = ?
-              WHERE id IN (
+              WHERE rented = 0 AND id IN (
                 SELECT group_id FROM occurrences
                 WHERE source_id = ? AND source_ref IN (${placeholders}) AND group_id IS NOT NULL
               )`,
@@ -721,6 +727,27 @@ export function createRepository(db: Database): Repository {
               VALUES (?,?,?,?)
               ON CONFLICT(chat_id, message_id) DO UPDATE SET listing_id = excluded.listing_id`,
         args: [chatId, messageId, listingId, new Date().toISOString()],
+      });
+    },
+
+    async rentedTelegramMessages() {
+      const result = await db.execute(`
+        SELECT tn.chat_id AS chat_id, tn.message_id AS message_id, l.title AS title
+        FROM telegram_notifications tn
+        JOIN listings l ON l.id = tn.listing_id
+        WHERE l.rented = 1 AND tn.edited_rented = 0
+      `);
+      return result.rows.map((row) => ({
+        chatId: String(row['chat_id']),
+        messageId: Number(row['message_id']),
+        title: row['title'] === null ? null : String(row['title']),
+      }));
+    },
+
+    async markTelegramRentedEdited(chatId, messageId) {
+      await db.execute({
+        sql: 'UPDATE telegram_notifications SET edited_rented = 1 WHERE chat_id = ? AND message_id = ?',
+        args: [chatId, messageId],
       });
     },
 
