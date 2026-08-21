@@ -6,11 +6,9 @@ import {
   editRentedTelegramMessages,
   formatListingMessage,
   notifyNewListings,
-  notifySourceHealth,
   sendTelegramListing,
   sendTelegramMessage,
 } from './telegram.js';
-import type { SourceHealthTransition } from '../pipeline.js';
 
 const CONFIG: TelegramConfig = {
   botToken: 'test-token',
@@ -361,72 +359,6 @@ describe('editRentedTelegramMessages', () => {
       logger,
       fetchImpl,
     });
-    expect(count).toBe(0);
-    expect(fetchImpl).not.toHaveBeenCalled();
-  });
-});
-
-describe('notifySourceHealth', () => {
-  const logger = createLogger({ minLevel: 'error' });
-  const t = (over: Partial<SourceHealthTransition>): SourceHealthTransition => ({
-    sourceId: 'x',
-    from: 'healthy',
-    to: 'degraded',
-    listingsFound: 0,
-    error: null,
-    ...over,
-  });
-
-  it('alerte sur dégradation, blocage et rétablissement — un seul message', async () => {
-    const fetchImpl = okFetch();
-    const count = await notifySourceHealth(
-      CONFIG,
-      [
-        t({ sourceId: 'mirabello', from: 'healthy', to: 'degraded' }),
-        t({ sourceId: 'seloger', from: 'healthy', to: 'blocked', error: 'accès refusé' }),
-        t({ sourceId: 'citya', from: 'degraded', to: 'healthy' }),
-      ],
-      logger,
-      fetchImpl,
-    );
-    expect(count).toBe(3);
-    expect(fetchImpl).toHaveBeenCalledTimes(1);
-    const body = JSON.parse(
-      (fetchImpl as unknown as ReturnType<typeof vi.fn>).mock.calls[0]?.[1]?.body as string,
-    ) as { text: string };
-    expect(body.text).toContain('mirabello');
-    expect(body.text).toContain('dégradée');
-    expect(body.text).toContain('seloger');
-    expect(body.text).toContain('bloquée');
-    expect(body.text).toContain('citya');
-    expect(body.text).toContain('rétablie');
-  });
-
-  it('ignore les mises au repos (429/cooldown) et les non-changements pertinents', async () => {
-    const fetchImpl = okFetch();
-    const count = await notifySourceHealth(
-      CONFIG,
-      [
-        t({ sourceId: 'a', from: 'healthy', to: 'cooldown' }),
-        // Déjà dégradée et le reste : pas de nouvelle alerte.
-        t({ sourceId: 'b', from: 'degraded', to: 'blocked' }),
-      ],
-      logger,
-      fetchImpl,
-    );
-    // Seule la bascule dégradée→bloquée compte (b était déjà en mauvais état,
-    // mais bloquée est une aggravation notable) ; cooldown est ignoré.
-    expect(count).toBe(1);
-  });
-
-  it('ne poste rien quand aucune transition n’est notable', async () => {
-    const fetchImpl = okFetch();
-    const count = await notifySourceHealth(
-      CONFIG,
-      [t({ from: 'healthy', to: 'cooldown' })],
-      logger,
-      fetchImpl,
-    );
     expect(count).toBe(0);
     expect(fetchImpl).not.toHaveBeenCalled();
   });

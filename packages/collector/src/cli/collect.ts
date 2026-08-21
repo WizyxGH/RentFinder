@@ -29,11 +29,7 @@ import {
   loadTelegramConfig,
 } from '../config.js';
 import { createGeocoder } from '../core/geocode.js';
-import {
-  notifyNewListings,
-  editRentedTelegramMessages,
-  notifySourceHealth,
-} from '../notify/telegram.js';
+import { notifyNewListings, editRentedTelegramMessages } from '../notify/telegram.js';
 import { pollTelegramReactions } from '../notify/reactions.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -135,6 +131,19 @@ async function main(): Promise<void> {
       });
     }
 
+    // §69 : un changement d'état de santé d'une source (dégradée/bloquée/
+    // rétablie) est signalé dans le log de collecte — le panneau « Sources »
+    // du site en donne le détail. Pas de notification Telegram : la santé des
+    // sources est une info d'exploitation, pas une alerte à pousser.
+    for (const t of report.healthTransitions) {
+      logger.warn('source.health_changed', {
+        source: t.sourceId,
+        from: t.from,
+        to: t.to,
+        listings: t.listingsFound,
+      });
+    }
+
     // §29 : pousse les nouvelles annonces sur Telegram, si configuré. Absent →
     // silencieusement désactivé (le collecteur et la CI tournent sans).
     const telegram = loadTelegramConfig();
@@ -144,9 +153,6 @@ async function main(): Promise<void> {
         logger.info('notify.done', { ...notice });
         // §33 : un bien notifié puis loué voit son message édité en « LOUÉ ».
         await editRentedTelegramMessages({ repository, config: telegram, logger });
-        // §69 : alerte quand une source se dégrade/se bloque (ou se rétablit) —
-        // sinon un parseur cassé fait perdre des annonces en silence.
-        await notifySourceHealth(telegram, report.healthTransitions, logger);
       } catch (error) {
         // Le notifieur ne doit jamais faire échouer la collecte (§69).
         logger.warn('notify.failed', {
