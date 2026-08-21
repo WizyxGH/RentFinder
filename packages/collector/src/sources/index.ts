@@ -31,6 +31,7 @@ import { leprinceRealtyScraper } from './leprince-realty/index.js';
 import { ltImmobilierScraper } from './lt-immobilier/index.js';
 import { saintRochScraper } from './saint-roch/index.js';
 import { mirabelloScraper } from './mirabello/index.js';
+import { inliScraper } from './inli/index.js';
 import { cityaScraper } from './citya/index.js';
 import { studapartScraper } from './studapart/index.js';
 import { personalimmoScraper } from './personalimmo/index.js';
@@ -60,6 +61,7 @@ export const ALL_SCRAPERS: readonly Scraper[] = [
   agenceDuCentreScraper,
   saintRochScraper,
   mirabelloScraper,
+  inliScraper,
   cityaScraper,
   studapartScraper,
 ];

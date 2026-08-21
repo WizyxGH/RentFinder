@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html >
+<head >
+
+    <script type="text/javascript">
+      window.MY_APP_CONFIG = {
+        googleApiEndpoint: 'https://maps.googleapis.com/maps/api/geocode/json',
+        googleApiKey: 'AIzaSyA_Y-bzvHjs0UD5C7jyRzm6k1psA6wdTNU'
+      };
+      !(function (cfg){function e(){cfg.onInit&&cfg.onInit(n)}var x,w,D,t,E,n,C=window,O=document,b=C.location,q="script",I="ingestionendpoint",L="disableExceptionTracking",j="ai.device.";"instrumentationKey"[x="toLowerCase"](),w="crossOrigin",D="POST",t="appInsightsSDK",E=cfg.name||"appInsights",(cfg.name||C[t])&&(C[t]=E),n=C[E]||function(g){var f=!1,m=!1,h={initialize:!0,queue:[],sv:"8",version:2,config:g};function v(e,t){var n={},i="Browser";function a(e){e=""+e;return 1===e.length?"0"+e:e}return n[j+"id"]=i[x](),n[j+"type"]=i,n["ai.operation.name"]=b&&b.pathname||"_unknown_",n["ai.internal.sdkVersion"]="javascript:snippet_"+(h.sv||h.version),{time:(i=new Date).getUTCFullYear()+"-"+a(1+i.getUTCMonth())+"-"+a(i.getUTCDate())+"T"+a(i.getUTCHours())+":"+a(i.getUTCMinutes())+":"+a(i.getUTCSeconds())+"."+(i.getUTCMilliseconds()/1e3).toFixed(3).slice(2,5)+"Z",iKey:e,name:"Microsoft.ApplicationInsights."+e.replace(/-/g,"")+"."+t,sampleRate:100,tags:n,data:{baseData:{ver:2}},ver:undefined,seq:"1",aiDataContract:undefined}}var n,i,t,a,y=-1,T=0,S=["js.monitor.azure.com","js.cdn.applicationinsights.io","js.cdn.monitor.azure.com","js0.cdn.applicationinsights.io","js0.cdn.monitor.azure.com","js2.cdn.applicationinsights.io","js2.cdn.monitor.azure.com","az416426.vo.msecnd.net"],o=g.url||cfg.src,r=function(){return s(o,null)};function s(d,t){if((n=navigator)&&(~(n=(n.userAgent||"").toLowerCase()).indexOf("msie")||~n.indexOf("trident/"))&&~d.indexOf("ai.3")&&(d=d.replace(/(\/)(ai\.3\.)([^\d]*)$/,function(e,t,n){return t+"ai.2"+n})),!1!==cfg.cr)for(var e=0;e<S.length;e++)if(0<d.indexOf(S[e])){y=e;break}var n,i=function(e){var a,t,n,i,o,r,s,c,u,l;h.queue=[],m||(0<=y&&T+1<S.length?(a=(y+T+1)%S.length,p(d.replace(/^(.*\/\/)([\w\.]*)(\/.*)$/,function(e,t,n,i){return t+S[a]+i})),T+=1):(f=m=!0,s=d,!0!==cfg.dle&&(c=(t=function(){var e,t={},n=g.connectionString;if(n)for(var i=n.split(";"),a=0;a<i.length;a++){var o=i[a].split("=");2===o.length&&(t[o[0][x]()]=o[1])}return t[I]||(e=(n=t.endpointsuffix)?t.location:null,t[I]="https://"+(e?e+".":"")+"dc."+(n||"services.visualstudio.com")),t}()).instrumentationkey||g.instrumentationKey||"",t=(t=(t=t[I])&&"/"===t.slice(-1)?t.slice(0,-1):t)?t+"/v2/track":g.endpointUrl,t=g.userOverrideEndpointUrl||t,(n=[]).push((i="SDK LOAD Failure: Failed to load Application Insights SDK script (See stack for details)",o=s,u=t,(l=(r=v(c,"Exception")).data).baseType="ExceptionData",l.baseData.exceptions=[{typeName:"SDKLoadFailed",message:i.replace(/\./g,"-"),hasFullStack:!1,stack:i+"\nSnippet failed to load ["+o+"] -- Telemetry is disabled\nHelp Link: https://go.microsoft.com/fwlink/?linkid=2128109\nHost: "+(b&&b.pathname||"_unknown_")+"\nEndpoint: "+u,parsedStack:[]}],r)),n.push((l=s,i=t,(u=(o=v(c,"Message")).data).baseType="MessageData",(r=u.baseData).message='AI (Internal): 99 message:"'+("SDK LOAD Failure: Failed to load Application Insights SDK script (See stack for details) ("+l+")").replace(/\"/g,"")+'"',r.properties={endpoint:i},o)),s=n,c=t,JSON&&((u=C.fetch)&&!cfg.useXhr?u(c,{method:D,body:JSON.stringify(s),mode:"cors"}):XMLHttpRequest&&((l=new XMLHttpRequest).open(D,c),l.setRequestHeader("Content-type","application/json"),l.send(JSON.stringify(s)))))))},a=function(e,t){m||setTimeout(function(){!t&&h.core||i()},500),f=!1},p=function(e){var n=O.createElement(q),e=(n.src=e,t&&(n.integrity=t),n.setAttribute("data-ai-name",E),cfg[w]);return!e&&""!==e||"undefined"==n[w]||(n[w]=e),n.onload=a,n.onerror=i,n.onreadystatechange=function(e,t){"loaded"!==n.readyState&&"complete"!==n.readyState||a(0,t)},cfg.ld&&cfg.ld<0?O.getElementsByTagName("head")[0].appendChild(n):setTimeout(function(){O.getElementsByTagName(q)[0].parentNode.appendChild(n)},cfg.ld||0),n};p(d)}cfg.sri&&(n=o.match(/^((http[s]?:\/\/.*\/)\w+(\.\d+){1,5})\.(([\w]+\.){0,2}js)$/))&&6===n.length?(d="".concat(n[1],".integrity.json"),i="@".concat(n[4]),l=window.fetch,t=function(e){if(!e.ext||!e.ext[i]||!e.ext[i].file)throw Error("Error Loading JSON response");var t=e.ext[i].integrity||null;s(o=n[2]+e.ext[i].file,t)},l&&!cfg.useXhr?l(d,{method:"GET",mode:"cors"}).then(function(e){return e.json()["catch"](function(){return{}})}).then(t)["catch"](r):XMLHttpRequest&&((a=new XMLHttpRequest).open("GET",d),a.onreadystatechange=function(){if(a.readyState===XMLHttpRequest.DONE)if(200===a.status)try{t(JSON.parse(a.responseText))}catch(e){r()}else r()},a.send())):o&&r();try{h.cookie=O.cookie}catch(k){}function e(e){for(;e.length;)!function(t){h[t]=function(){var e=arguments;f||h.queue.push(function(){h[t].apply(h,e)})}}(e.pop())}var c,u,l="track",d="TrackPage",p="TrackEvent",l=(e([l+"Event",l+"PageView",l+"Exception",l+"Trace",l+"DependencyData",l+"Metric",l+"PageViewPerformance","start"+d,"stop"+d,"start"+p,"stop"+p,"addTelemetryInitializer","setAuthenticatedUserContext","clearAuthenticatedUserContext","flush"]),h.SeverityLevel={Verbose:0,Information:1,Warning:2,Error:3,Critical:4},(g.extensionConfig||{}).ApplicationInsightsAnalytics||{});return!0!==g[L]&&!0!==l[L]&&(e(["_"+(c="onerror")]),u=C[c],C[c]=function(e,t,n,i,a){var o=u&&u(e,t,n,i,a);return!0!==o&&h["_"+c]({message:e,url:t,lineNumber:n,columnNumber:i,error:a,evt:C.event}),o},g.autoExceptionInstrumented=!0),h}(cfg.cfg),(C[E]=n).queue&&0===n.queue.length?(n.queue.push(e),n.trackPageView({})):e();})({
+        src: "https://js.monitor.azure.com/scripts/b/ai.3.gbl.min.js",
+        // name: "appInsights", // Global SDK Instance name defaults to "appInsights" when not supplied
+        // ld: 0, // Defines the load delay (in ms) before attempting to load the sdk. -1 = block page load and add to head. (default) = 0ms load after timeout,
+        // useXhr: 1, // Use XHR instead of fetch to report failures (if available),
+        // dle: true, // Prevent the SDK from reporting load failure log
+        crossOrigin: "anonymous", // When supplied this will add the provided value as the cross origin attribute on the script tag
+        // onInit: null, // Once the application insights instance has loaded and initialized this callback function will be called with 1 argument -- the sdk instance (DON'T ADD anything to the sdk.queue -- As they won't get called)
+        // sri: false, // Custom optional value to specify whether fetching the snippet from integrity file and do integrity check
+        cfg: { // Application Insights Configuration
+          connectionString: "InstrumentationKey=0e350dbc-71af-4e97-956a-8b17dd0a3780;IngestionEndpoint=https://francecentral-1.in.applicationinsights.azure.com/;LiveEndpoint=https://francecentral.livediagnostics.monitor.azure.com/"
+      }});
+</script>
+  <title>Appartement 55.5m² à louer à NICE (06300) | In'li</title>
+  <meta property="og:title" content="Appartement 55.5m&sup2; &agrave; louer &agrave; NICE (06300) | In'li" />
+<meta property="og:type" content="page" />
+<meta property="og:url" content="https://www.inli.fr/location-appartement-nice-06300/IPA-000435" />
+<meta property="og:description" content="Location appartement 55.5m&sup2; &agrave; prix ma&icirc;tris&eacute; &agrave; NICE (06300). Loyer : 656&euro; CC. R&eacute;serv&eacute; salari&eacute;s secteur priv&eacute;. Visite virtuelle &amp; candidature en ligne." />
+
+  <link rel="canonical" href="https://www.inli.fr/location-appartement-nice-06300/IPA-000435" />
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico"/>
+  <link rel="apple-touch-icon" href="/favicon.ico"/>
+  <script type="text/javascript">
+  var tarteaucitronForceCDN = '/vendor/tarteaucitron/';
+</script>
+<script type="text/javascript" src="/vendor/tarteaucitron/tarteaucitron.js"></script>
+  <script type="text/javascript">
+
+    tarteaucitron.services.localizationhistory = {
+      "key": "localizationhistory",
+      "type": "other",
+      "name": "Localization History",
+      "needConsent": true,
+      "cookies": [],
+      "js": function () {
+        "use strict";
+        let expiration = new Date();
+        expiration.setFullYear(expiration.getFullYear() + 1);
+        document.cookie = 'accept_localization=true; expires=' + expiration.toUTCString();
+      },
+      "fallback": function () {
+        "use strict";
+        document.cookie = 'accept_localization=false; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+      }
+    };
+
+    var tarteaucitronCustomText = {
+      "privacyUrl": "Politique cookies",
+      "personalize": "Personnaliser mes choix de cookies",
+      "alertBigPrivacy": "In’li dépose des cookies afin de mesurer et d’analyser l’audience du site, de personnaliser son contenu selon votre navigation, de vous proposer sur le site du contenu multimédia via les services de partage de vidéo, réaliser du ciblage et afficher de la publicité personnalisée. Ses partenaire déposent également des cookies. Retrouvez la liste des partenaires ainsi que les finalités en <a class='link' href='/cookies'>cliquant ici</a>.",
+      "disclaimer": "Certains cookies ont pour finalité exclusive de permettre ou faciliter la communication électronique et d’autres sont strictement nécessaires à la fourniture d'un service de communication en ligne à votre demande expresse. Ces cookies ne sont pas soumis au recueil de votre consentement. En revanche, les autres cookies ne sont déposés par nous-mêmes ou nos partenaires sur votre équipement qui si vous les avez acceptés. Ces partenaires collecteront et utiliseront vos données de navigation pour des finalités qui leur sont propres, conformément à leur politique de confidentialité. Pour en savoir plus <a href='/cookies' class='link'>cliquer ici</a><br>" +
+        "<br>" +
+        "Votre consentement est valable pour le site www.inli.fr." +
+        "<br><br>" +
+        "Vous pourrez à tout moment revenir sur vos choix, retirer votre consentement en cliquant sur la rubrique « module de gestion des Cookies (lien) » présente en bas des pages du site.",
+      "title": "Module de gestion des Cookies",
+      "all": "Personnaliser mes choix de cookies"
+    };
+
+    tarteaucitron.init({
+      /* "privacyUrl": "/cookies", Privacy policy url */
+
+      "hashtag": "#tarteaucitron", /* Open the panel with this hashtag */
+      "cookieName": "tarteaucitron", /* Cookie name */
+
+      "orientation": "bottom", /* Banner position (top - bottom) */
+      "showAlertSmall": false, /* Show the small banner on bottom right */
+      "cookieslist": true, /* Show the cookie list */
+
+      "adblocker": false, /* Show a Warning if an adblocker is detected */
+      "AcceptAllCta" : true, /* Show the accept all button when highPrivacy on */
+      "highPrivacy": true, /* Disable auto consent */
+      "handleBrowserDNTRequest": false, /* If Do Not Track == 1, disallow all */
+
+      "removeCredit": true, /* Remove credit link */
+      "moreInfoLink": false, /* Show more info link */
+      "useExternalCss": false, /* If false, the tarteaucitron.css file will be loaded */
+
+      //"cookieDomain": ".my-multisite-domaine.fr", /* Shared cookie for multisite */
+
+      /* "readmoreLink": "/cookiespolicy" Change the default readmore link */
+    });
+
+    <!-- Matomo -->
+
+    (tarteaucitron.job = tarteaucitron.job || []).push('localizationhistory');
+    tarteaucitron.user.matomoId = 6;
+    tarteaucitron.user.matomoHost = 'https://inlietmoi.matomo.cloud/';
+    tarteaucitron.user.matomoCustomJSPath = '//cdn.matomo.cloud/inlietmoi.matomo.cloud/matomo.js';
+    (tarteaucitron.job = tarteaucitron.job || []).push('matomo');
+
+    <!-- End Matomo Code -->
+
+
+
+
+
+  </script>
+
+
+  <link rel="stylesheet" href="/build/app.06dd297f607b324b831d1a685b89d45b.css">
+                  <script src="/locations/js/routes"></script>
+          <script src="/js/environments"></script>
+          <style type="text/css">
+    ui-rgpd-modal { display: none;}
+  </style>
+      <script src="https://apis.google.com/js/platform.js"></script>
+    </head>
+<body class="bg-white">
+<div class="lock-overlay"></div>
+       ﻿<div id="candidacy-modal" class="modal-popup resp-alert-modal" >
+    <span class="close"></span>
+    <div class="alert-content resp-alert-content">
+        <div class="logo-container" style="text-align: center; margin-bottom: 10px;">
+            <img src="/images/logo-action-logement.png" alt="Logo Action Logement" style="max-height: 50px;">
+        </div>
+        <h5 class="demi-condensed">Valider votre identifiant Action Logement</h5>
+        <p id="candidacy-count">
+            🔔 Vous avez actuellement des candidatures en attente.
+        </p>
+        
+        <p class="alert-notice signup-link">
+                    </p>
+    </div>
+</div>          <header>
+  <a href="/"><img class="logo" src="/images/logo.png" alt="N°1 du logement intermédiaire en Ile-de-France"></a>
+  <nav class="menu-left ">
+    <ul>
+                         <li class="active no-display-480 no-display-768">
+              <a href="/login">
+                
+                <span class="medium">Mon espace client</span>
+              </a>
+            </li>
+            <li class="active display-480 display-768 no-display-1280">
+              <a href="/login">
+                
+                <span class="medium no-display-480 no-display-768">Mon espace client</span>
+              </a>
+            </li>
+                    <li class="no-display-480 no-display-768">
+        <a href="/nous-contacter">
+          <span class="medium">Contact</span>
+        </a>
+      </li>
+      <li class="display-480 display-768 no-display-1280">
+        <a href="/nous-contacter">
+          <img class="contact-icon-768 contact-icon-480" alt="Contactez-nous" src="/images/contact.png">
+        </a>
+      </li>
+      <li class="burger-menu">
+        <a href="#">
+          <img alt="" src="/images/burger.png">
+        </a>
+      </li>
+    </ul>
+  </nav>
+</header>
+         ﻿
+      <aside>
+  <div class="close-icon">
+    
+  </div>
+  <ul>
+              <li>
+        <a href="/" target="_self" class="demi-condensed">Accueil</a>
+      </li>
+          <li>
+        <a href="___aide-conseils" target="_self" class="demi-condensed">Aide &amp; Conseils</a>
+      </li>
+          <li>
+        <a href="/infos" target="_self" class="demi-condensed">Infos</a>
+      </li>
+          <li>
+        <a href="/logements-a-prix-maitrise" target="_self" class="demi-condensed">Logement à prix maîtrisé</a>
+      </li>
+          <li>
+        <a href="/nous-contacter" target="_self" class="demi-condensed">Contactez-nous</a>
+      </li>
+      </ul>
+  <div class="menu-sites">
+    <h3 class="demi-condensed">NOS AUTRES SITES</h3>
+    <ul>
+      <li class="transition-animate">
+        <a href="https://inlietmoi.fr/?autoconnect=true" class="book-condensed">Mon espace client in'li & moi</a>
+      </li>
+      <li class="transition-animate">
+        <a href="https://inli.com" class="book-condensed">inli.com</a>
+      </li>
+      <li class="transition-animate">
+        <a href="https://actionlogement.fr" class="book-condensed">Action Logement</a>
+      </li>
+    </ul>
+  </div>
+  <div class="menu-pages-links">
+    <ul>
+                    <li>
+          <a href="/mentions-legales" target="_self">Mentions Légales</a>
+        </li>
+              <li>
+          <a href="/cgu" target="_self">Conditions Générales d&#039;Utilisation</a>
+        </li>
+              <li>
+          <a href="/politique_donneesperso" target="_self">Politique protection des données d&#039;in&#039;li, d&#039;in&#039;li Property Management, d&#039;in&#039;li AURA, d&#039;in&#039;li Grand Est, d&#039;in&#039;li Sud Ouest et d&#039;in&#039;li PACA</a>
+        </li>
+              <li>
+          <a href="/cookies" target="_self">Politique Cookies</a>
+        </li>
+          </ul>
+  </div>
+</aside>            
+    <div class="container advert-page bordered-page-top advert-page-resp">
+        <div class="advert-page-title">
+            <h1 class="sr-only">Appartement de 55.5 m² à NICE</h1>
+            <h3 class="demi-condensed">
+                3 pièces · 55.5 m²</h3>
+            <h4 class="book-condensed">
+
+                Nice
+                
+                
+            </h4>
+            <span class="reference">Référence logement: IPA 000435</span>
+                    </div>
+        <div class="advert-infos-actions">
+                        <div class="block-advert-infos">
+                <div class="advert-carousel">
+                                                                <img src="https://prd-azr-photos-cdn-anb8asetcqb3ang2.a01.azurefd.net/paca/IPA%20000435/1-compressed.jpg" alt="1-compressed.jpg" class="advert-carousel-image active">
+                                                                                                </div>
+                <div class="advert-price-block">
+                    <div class="header-advert-infos">
+              <span class="demi-condensed badge badge-success">
+                                    Location
+                              </span>
+                                                    <span class="advert-perk-inline demi-condensed">Sans frais de dossier</span>
+                                                            <div class="advert-perks">
+                                    <span class="advert-perk demi-condensed"><span class="advert-perk-top">Sans garant</span><span class="advert-perk-bottom">personne physique</span></span>
+                                </div>
+                                                                            <h5 class="demi-condensed">656 €
+                                                            <span>cc/mois</span>
+                                                    </h5>
+                    </div>
+                                            <ul>
+                            <li>Loyer hors charges
+                                <span class="demi-condensed">535 €</span>
+                            </li>
+                            <li>Provisions de charges <span class="demi-condensed">121 €</span></li>
+                                                                                                                                            <li>Dépôt de garantie logement <span class="demi-condensed">535 €</span></li>
+                                                    </ul>
+                        <!--<p class="grey-text">
+                  
+                </p>-->
+                                    </div>
+                <div class="advert-body-description">
+                    <h5 class="demi-condensed">À propos de ce bien</h5>
+                    <p>
+                        Beau T3 de 55m² situé au 2ème étage sans ascenseur. <br>DISPONIBLE IMMEDIATEMENT.  <br> Logement soumis à plafond de ressource. Pas d'honoraire de location. Garantie VISALE acceptée. <br>POUR VISITER, DEPOSEZ DES A PRESENT VOTRE DOSSIER SUR LE SITE INLI . FR EN CLIQUANT SUR "DEPOSER UNE CANDIDATURE ".
+                        <br>
+                                            </p>
+                </div>
+                <div class="advert-body-diagnostics">
+                    <h5 class="demi-condensed">Diagnostic de performance énergétique (DPE)</h5>
+                    <div class="holder-diag">
+                        <div class="advert-diagnostics-energy">
+                            <div class="advert-energy-header no-display-768 no-display-480">
+                                <div>
+                                    <h6 class="medium-condensed">Consommation energétique</h6>
+                                                                                                            <div class="diagnostic-consumption">
+                                                                                                                                    <span data-step="A" data-value='127' class="consumption-1">A</span>
+                                                                                                                                                                                <span data-step="B" data-value='127' class="consumption-2">B</span>
+                                                                                                                                                                                <span data-step="C" data-value='127' class="consumption-3 active">C</span>
+                                                                                                                                                                                <span data-step="D" data-value='127' class="consumption-4">D</span>
+                                                                                                                                                                                <span data-step="E" data-value='127' class="consumption-5">E</span>
+                                                                                                                                                                                <span data-step="F" data-value='127' class="consumption-6">F</span>
+                                                                                                                                                                                <span data-step="G" data-value='127' class="consumption-7">G</span>
+                                                                                                                        </div>
+                                </div>
+                                <div>
+                                    <h6 class="medium-condensed">Gaz à effet de serre</h6>
+                                    <div class="diagnostic-consumption">
+                                                                                                                                                                                                                    <span data-step="A" data-value='9' class="gaz-effect-1">A</span>
+                                                                                                                                                                                <span data-step="B" data-value='9' class="gaz-effect-2 active">B</span>
+                                                                                                                                                                                <span data-step="C" data-value='9' class="gaz-effect-3">C</span>
+                                                                                                                                                                                <span data-step="D" data-value='9' class="gaz-effect-4">D</span>
+                                                                                                                                                                                <span data-step="E" data-value='9' class="gaz-effect-5">E</span>
+                                                                                                                                                                                <span data-step="F" data-value='9' class="gaz-effect-6">F</span>
+                                                                                                                                                                                <span data-step="G" data-value='9' class="gaz-effect-7">G</span>
+                                                                                                                        </div>
+                                </div>
+                            </div>
+                            
+                            <div class="advert-energy-body no-display-768 no-display-480">
+                                <div class="diagnostic-detail">
+                                                                            <p data-step="A" data-value="127" class="diagnostic-detail-item-1 ">
+                                            <span class="diag-bar">A</span><span class="diag-range">&lt; 50</span><span class="diag-line"></span><span class="diag-value"></span>
+                                        </p>
+                                                                                                                    <p data-step="B" data-value="127" class="diagnostic-detail-item-2 ">
+                                            <span class="diag-bar">B</span><span class="diag-range">51 à 90</span><span class="diag-line"></span><span class="diag-value"></span>
+                                        </p>
+                                                                                                                    <p data-step="C" data-value="127" class="diagnostic-detail-item-3 active">
+                                            <span class="diag-bar">C</span><span class="diag-range">91 à 150</span><span class="diag-line"></span><span class="diag-value"></span>
+                                        </p>
+                                                                                                                    <p data-step="D" data-value="127" class="diagnostic-detail-item-4 ">
+                                            <span class="diag-bar">D</span><span class="diag-range">151 à 230</span><span class="diag-line"></span><span class="diag-value"></span>
+                                        </p>
+                                                                                                                    <p data-step="E" data-value="127" class="diagnostic-detail-item-5 ">
+                                            <span class="diag-bar">E</span><span class="diag-range">231 à 330</span><span class="diag-line"></span><span class="diag-value"></span>
+                                        </p>
+                                                                                                                    <p data-step="F" data-value="127" class="diagnostic-detail-item-6 ">
+                                            <span class="diag-bar">F</span><span class="diag-range">331 à 450</span><span class="diag-line"></span><span class="diag-value"></span>
+                                        </p>
+                                                                                                                    <p data-step="G" data-value="127" class="diagnostic-detail-item-7 ">
+                                            <span class="diag-bar">G</span><span class="diag-range">&gt; 450</span><span class="diag-line"></span><span class="diag-value"></span>
+                                        </p>
+                                                                                                                <p class="diagnostic-notice">Unité de mesure exprimé en KWhEP/m².an</p>
+                                </div>
+                                <div class="diagnostic-detail">
+                                                                            <p data-step="A" data-value="9" class="gaz-detail-item-1 ">
+                                            <span class="diag-bar">A</span><span class="diag-range">&lt; 5</span><span class="diag-line"></span><span class="diag-value"></span>
+                                        </p>
+                                                                            <p data-step="B" data-value="9" class="gaz-detail-item-2 active">
+                                            <span class="diag-bar">B</span><span class="diag-range">6 à 10</span><span class="diag-line"></span><span class="diag-value"></span>
+                                        </p>
+                                                                            <p data-step="C" data-value="9" class="gaz-detail-item-3 ">
+                                            <span class="diag-bar">C</span><span class="diag-range">11 à 20</span><span class="diag-line"></span><span class="diag-value"></span>
+                                        </p>
+                                                                            <p data-step="D" data-value="9" class="gaz-detail-item-4 ">
+                                            <span class="diag-bar">D</span><span class="diag-range">21 à 35</span><span class="diag-line"></span><span class="diag-value"></span>
+                                        </p>
+                                                                            <p data-step="E" data-value="9" class="gaz-detail-item-5 ">
+                                            <span class="diag-bar">E</span><span class="diag-range">36 à 55</span><span class="diag-line"></span><span class="diag-value"></span>
+                                        </p>
+                                                                            <p data-step="F" data-value="9" class="gaz-detail-item-6 ">
+                                            <span class="diag-bar">F</span><span class="diag-range">56 à 80</span><span class="diag-line"></span><span class="diag-value"></span>
+                                        </p>
+                                                                            <p data-step="G" data-value="9" class="gaz-detail-item-7 ">
+                                            <span class="diag-bar">G</span><span class="diag-range">&gt; 80</span><span class="diag-line"></span><span class="diag-value"></span>
+                                        </p>
+                                                                        <p class="diagnostic-notice">Unité de mesure exprimé en kgegCO2/m².an</p>
+                                </div>
+                            </div>
+                            <!-- Version  mobile -->
+
+                            <div class="resp-advert-energy-header no-display-1280">
+                                <div class="semi-diag-holder">
+                                    <h6 class="medium-condensed">Gaz à effet de serre</h6>
+                                    <div class="diagnostic-consumption">
+                                                                                                                                                                                                                    <span data-step="A" data-value="9" class="gaz-effect-1">A</span>
+                                                                                                                                                                                <span data-step="B" data-value="9" class="gaz-effect-2 active">B</span>
+                                                                                                                                                                                <span data-step="C" data-value="9" class="gaz-effect-3">C</span>
+                                                                                                                                                                                <span data-step="D" data-value="9" class="gaz-effect-4">D</span>
+                                                                                                                                                                                <span data-step="E" data-value="9" class="gaz-effect-5">E</span>
+                                                                                                                                                                                <span data-step="F" data-value="9" class="gaz-effect-6">F</span>
+                                                                                                                                                                                <span data-step="G" data-value="9" class="gaz-effect-7">G</span>
+                                                                                                                        </div>
+                                </div>
+
+                                <div class="diagnostic-detail">
+                                                                            <p data-step="A" data-value="9" class="gaz-detail-item-1 ">
+                                            <span class="diag-bar">A</span><span class="diag-range">&lt; 5</span><span class="diag-line"></span><span class="diag-value"></span>
+                                        </p>
+                                                                            <p data-step="B" data-value="9" class="gaz-detail-item-2 active">
+                                            <span class="diag-bar">B</span><span class="diag-range">6 à 10</span><span class="diag-line"></span><span class="diag-value"></span>
+                                        </p>
+                                                                            <p data-step="C" data-value="9" class="gaz-detail-item-3 ">
+                                            <span class="diag-bar">C</span><span class="diag-range">11 à 20</span><span class="diag-line"></span><span class="diag-value"></span>
+                                        </p>
+                                                                            <p data-step="D" data-value="9" class="gaz-detail-item-4 ">
+                                            <span class="diag-bar">D</span><span class="diag-range">21 à 35</span><span class="diag-line"></span><span class="diag-value"></span>
+                                        </p>
+                                                                            <p data-step="E" data-value="9" class="gaz-detail-item-5 ">
+                                            <span class="diag-bar">E</span><span class="diag-range">36 à 55</span><span class="diag-line"></span><span class="diag-value"></span>
+                                        </p>
+                                                                            <p data-step="F" data-value="9" class="gaz-detail-item-6 ">
+                                            <span class="diag-bar">F</span><span class="diag-range">56 à 80</span><span class="diag-line"></span><span class="diag-value"></span>
+                                        </p>
+                                                                            <p data-step="G" data-value="9" class="gaz-detail-item-7 ">
+                                            <span class="diag-bar">G</span><span class="diag-range">&gt; 80</span><span class="diag-line"></span><span class="diag-value"></span>
+                                        </p>
+                                                                        <p class="diagnostic-notice">Unité de mesure exprimé en kgegCO2/m².an</p>
+                                </div>
+                            </div>
+
+                            <div class="resp-advert-energy-body no-display-1280">
+                                <div class="semi-diag-holder">
+                                    <h6 class="medium-condensed">Consommation energétique</h6>
+                                                                        
+                                    <div class="diagnostic-consumption">
+                                                                                                                                    <span data-step="A" data-value="127" class="consumption-1">A</span>
+                                                                                                                                                                                <span data-step="B" data-value="127" class="consumption-2">B</span>
+                                                                                                                                                                                <span data-step="C" data-value="127" class="consumption-3 active">C</span>
+                                                                                                                                                                                <span data-step="D" data-value="127" class="consumption-4">D</span>
+                                                                                                                                                                                <span data-step="E" data-value="127" class="consumption-5">E</span>
+                                                                                                                                                                                <span data-step="F" data-value="127" class="consumption-6">F</span>
+                                                                                                                                                                                <span data-step="G" data-value="127" class="consumption-7">G</span>
+                                                                                                                        </div>
+                                </div>
+
+                                <div class="diagnostic-detail">
+                                                                            <p data-step="A" data-value="127" class="diagnostic-detail-item-1 ">
+                                            <span class="diag-bar">A</span><span class="diag-range">&lt; 50</span><span class="diag-line"></span><span class="diag-value"></span>
+                                        </p>
+                                                                                                                    <p data-step="B" data-value="127" class="diagnostic-detail-item-2 ">
+                                            <span class="diag-bar">B</span><span class="diag-range">51 à 90</span><span class="diag-line"></span><span class="diag-value"></span>
+                                        </p>
+                                                                                                                    <p data-step="C" data-value="127" class="diagnostic-detail-item-3 active">
+                                            <span class="diag-bar">C</span><span class="diag-range">91 à 150</span><span class="diag-line"></span><span class="diag-value"></span>
+                                        </p>
+                                                                                                                    <p data-step="D" data-value="127" class="diagnostic-detail-item-4 ">
+                                            <span class="diag-bar">D</span><span class="diag-range">151 à 230</span><span class="diag-line"></span><span class="diag-value"></span>
+                                        </p>
+                                                                                                                    <p data-step="E" data-value="127" class="diagnostic-detail-item-5 ">
+                                            <span class="diag-bar">E</span><span class="diag-range">231 à 330</span><span class="diag-line"></span><span class="diag-value"></span>
+                                        </p>
+                                                                                                                    <p data-step="F" data-value="127" class="diagnostic-detail-item-6 ">
+                                            <span class="diag-bar">F</span><span class="diag-range">331 à 450</span><span class="diag-line"></span><span class="diag-value"></span>
+                                        </p>
+                                                                                                                    <p data-step="G" data-value="127" class="diagnostic-detail-item-7 ">
+                                            <span class="diag-bar">G</span><span class="diag-range">&gt; 450</span><span class="diag-line"></span><span class="diag-value"></span>
+                                        </p>
+                                                                                                                <p class="diagnostic-notice">Unité de mesure exprimé en KWhEP/m².an</p>
+                                </div>
+                            </div>
+                                                        <p>Les informations sur les risques auxquels ce bien est exposé sont disponibles sur le site
+                                Géorisques<br><a target="_blank"
+                                                 href="https://www.georisques.gouv.fr">https://www.georisques.gouv.fr</a></p>
+                        </div>
+                    </div>
+                </div>
+                                    <div class="advert-map">
+                        <h5 class="demi-condensed">Le quartier</h5>
+                        <div>
+                            <div id="mapFull" style="cursor: pointer;">
+                                <div class="alentoor-widget" data-config='{"key":"9f92d040db87310005b3f698cb6a7c76","latitude":43.701269,"longitude":7.294222}'></div>
+                            </div>
+                        </div>
+                    </div>
+                            </div>
+            <div class="block-advert-actions">
+                <div class="advert-summary-card">
+                    <div class="advert-summary-scroll">
+                        <div class="advert-summary-section">
+                            <h5 class="demi-condensed">L'essentiel</h5>
+                            <div class="advert-summary-grid">
+                                <div class="advert-summary-item">
+                                    <img src="/images/door-closed.svg" alt="Pièces">
+                                    <span class="book-condensed">3 pièces</span>
+                                </div>
+                                                                    <div class="advert-summary-item">
+                                        <img src="/images/bed.svg" alt="Chambres">
+                                        <span class="book-condensed">2 chambres</span>
+                                    </div>
+                                                                <div class="advert-summary-item">
+                                    
+                                    <span class="book-condensed">55,50 m²</span>
+                                </div>
+                                                                <div class="advert-summary-item">
+                                    <img src="/images/stairs.svg" alt="Étage">
+                                    <span class="book-condensed">2ème étage</span>
+                                </div>
+                                                            </div>
+                        </div>
+                                                                    </div>
+                    <button type="button" class="advert-summary-arrow" aria-label="Afficher tous les critères"></button>
+                </div>
+                <div class="advert-actions-card">
+                                                                                                        <a href="#" data-target="candidature-modal" class="book-condensed btn btn-primary modal-trigger">Déposer une candidature</a>
+                                                                                            <div class="advert-actions-secondary">
+                                                    <a href="#"  data-target="favorite-modal" class="modal-trigger medium-condensed btn btn-secondary">
+                                <span class="featured-favorite"></span>
+                                Favoris
+                            </a>
+                                                <a href="#" data-target="share-modal" class="modal-trigger medium-condensed btn btn-secondary">
+                            
+                            Partager
+                        </a>
+                    </div>
+                    <div id="favorite-modal" class="modal-popup favorite-modal-link">
+    <span class="close"></span>
+    <h5 class="demi-condensed">Ajouter aux favoris</h5>
+    <p>
+       Enregistrez vos annonces préférées dans la liste de vos favoris.
+    </p>
+        <div class="alert-signin">
+                            <p class="alert-notice">
+                    Pour ajouter aux favoris vous devez être connecté !
+                </p>
+                <a href="https://connect.inli.fr/Account/Register?backUrl=https://www.inli.fr" class="btn btn-secondary medium-condensed">Inscription</a>
+                <a href="/login" class="btn btn-primary medium-condensed">Connexion</a>
+                    </div>
+</div>
+                    
+<div id="share-modal" class="intreset-error modal-popup">
+  <span class="close"></span>
+  <h5 class="demi-condensed">Copier et partager ce lien</h5>
+  <div class="alert-signin">
+    <div class="share-modal-meta">
+      <div class="share-title">Appartement, NICE</div>
+      <div class="share-description">
+        3 pièces de 55.5m2
+      </div>
+      <div class="share-price">656 € cc</div>
+    </div>
+    <input type="text" class="share-modal-copylink" readonly value="https://www.inli.fr/location-appartement-nice-06300/IPA-000435">
+    <div class="share-actions">
+      <div class="share-action">
+        <a href="https://www.facebook.com/sharer/sharer.php?u=https%3A%2F%2Fwww.inli.fr%2Flocation-appartement-nice-06300%2FIPA-000435"  target="_blank" class="share-action__link">
+          <span class="icon icon-facebook"></span>
+          Facebook
+        </a>
+      </div>
+      <div class="share-action">
+        <a href="https://twitter.com/home?status=Ce+logement+peut+t%27int%C3%A9resser%3A+https%3A%2F%2Fwww.inli.fr%2Flocation-appartement-nice-06300%2FIPA-000435" target="_blank" class="share-action__link">
+          <span class="icon icon-twitter"></span>
+          Twitter
+        </a>
+      </div>
+      <div class="share-action">
+        <a href="mailto:?subject=Voici une annonce qui pourrait vous intéresser&body=Ce logement peut t'intéresser: https://www.inli.fr/location-appartement-nice-06300/IPA-000435" class="share-action__link">
+          <span class="icon icon-send"></span>
+          Email
+        </a>
+      </div>
+    </div>
+  </div>
+</div>                        <div id="candidature-modal" class="intreset-error modal-popup">
+        <span class="close"></span>
+        <h5 class="demi-condensed">Ce bien vous intéresse ?</h5>
+
+        <div class="alert-signin">
+                            <p class="alert-notice">
+                    Pour déposer une candidature vous devez être connecté !
+                </p>
+                <a href="https://connect.inli.fr/Account/Register?backUrl=https://www.inli.fr/location-appartement-nice-06300/IPA-000435" class="btn btn-secondary medium-condensed">Inscription</a>
+                <a href="/login" class="btn btn-primary medium-condensed">Connexion</a>
+                    </div>
+    </div>
+                </div>
+                <div class="advert-rented-by">
+                    <h5 class="demi-condensed"><span>Ce bien est loué par</span></h5>
+                    <div class="demi-condensed"><img src="https://inlifrcontenu.blob.core.windows.net/logos/logo-paca.svg" width="153" alt="Logo In'li"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="advert-page advert-page-resp">
+            </div>
+
+
+    <footer>
+    <div class="social">
+    <h3 class="medium-condensed">Nous suivre</h3>
+    <div class="social-links">
+      <a href="https://www.linkedin.com/company/in-li" target="_blank">
+        
+      </a>
+      <a href="https://x.com/inli_officiel" target="_blank">
+        
+      </a>
+      <a href="https://www.youtube.com/channel/UC-c-yHh7lpHFdRhJGWq_t1A" target="_blank">
+        
+      </a>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <div class="footer-logo">
+      <img src="/images/logo-footer-white.png" alt="IN'LI Property Management">
+    </div>
+    <div class="footer-address-links">
+      <div class="footer-address">
+        <h5 class="demi-condensed">Siège social</h5>
+        <p>
+          Tour Ariane<br>
+          5, place de la Pyramide<br>
+          92088 Paris La Défense
+        </p>
+      </div>
+      <div class="footer-links display-flex-768">
+        <div class="footer-links-item">
+          <h5 class="demi-condensed">Plan du site</h5>
+          <ul>
+            <li><a target="_blank" href="https://inlietmoi.fr/?autoconnect=true">Mon espace client in'li & moi</a></li>
+            <li><a target="_blank" href="/logements-a-prix-maitrise">Logement à prix maitrisé</a></li>
+          </ul>
+        </div>
+        <div class="footer-links-item no-display-768">
+          <h5 class="demi-condensed">Autres sites</h5>
+          <ul>
+            <li><a target="_blank" href="https://inli.com">inli.com</a></li>
+            <li><a target="_blank" href="https://www.inli.com/nos-appels-doffres">Nos appels d'offres</a></li>
+            <li><a target="_blank" href="https://www.actionlogement.fr/">Groupe Action Logement</a></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div
+            class="footer-links-item footer-other-sites-768 footer-other-sites-480 no-display-1280 force-margin-bottom-40">
+      <h5 class="demi-condensed  force-margin-bottom-20">Autres sites</h5>
+      <ul class="footer-elements-li-768">
+        <li><a target="_blank" href="https://inli.com">inli.com</a></li>
+        <li><a target="_blank" href="https://www.inli.com/nos-appels-doffres">Nos appels d'offres</a></li>
+        <li><a target="_blank" href="https://www.actionlogement.fr/">Groupe Action Logement</a></li>
+      </ul>
+    </div>
+    <div class="copyright">
+      <p>
+        <a href="/">© 2025 in’li</a> - <a href="/mentions-legales">Mentions légales</a> - <a href="/cgu">CGU</a> - <a href="#" class="manage-cookies">Gestion des cookies</a> - <a href="/cookies">Politique cookies</a> - <a href="/politique_donneesperso">Données personnelles</a>
+      </p>
+    </div>
+  </div>
+</footer>      <script src="/vendor/browser-polyfill.min.js"></script>
+
+    <script
+            async
+            src="https://carte.alentoor.fr/widget/loader.js?version=6"
+            crossorigin="anonymous"
+            integrity="sha512-GwQCvsx/SUET8VU9iBdFPmH7oG8HibXJLx0De0bOicPsbLIW61sL6TIs6kUQR7lCU3fM9uIDH5/sINA4nom88A=="></script>
+<script src="/build/app.5b89cca3c0474be498b2.js"></script>
+
+    <script type="text/javascript">
+
+        let mapInitialized = false;
+        let centerCoords;
+        window.initMap = function() {
+                        centerCoords = { lat: 43.701269, lng: 7.294222 };
+            initGoogleMap(centerCoords);
+                    }
+        function initGoogleMap(centerCoords) {
+
+            let map = new google.maps.Map(document.getElementById("google-dynamic-map"), {
+                center: centerCoords,
+                zoom: 15,
+                mapTypeControl: false,
+                streetViewControl: true,
+                zoomControl: true,
+                panControl: true
+            });
+            let autocomplete = new google.maps.places.Autocomplete(document.getElementById("address-way"), {
+                types: ["geocode"],
+                componentRestrictions: { country: "fr" }
+            });
+            let marker = new google.maps.Marker({
+                position: centerCoords,
+                map: map
+            });
+
+            let directionsService = new google.maps.DirectionsService();
+            let directionsRenderer = new google.maps.DirectionsRenderer();
+            directionsRenderer.setMap(map);
+
+
+            document.querySelectorAll(".advert-direction-actions a").forEach((btn, index, btns) => {
+                btn.addEventListener("click", (e) => {
+                    e.preventDefault();
+
+                    btns.forEach(b => b.classList.remove("active"));
+
+                    btn.classList.add("active");
+
+                    let mode = ["DRIVING", "TRANSIT", "WALKING", "BICYCLING"][index] || "DRIVING";
+                    calculateRoute(directionsService, directionsRenderer, mode);
+                });
+            });
+
+            document.getElementById("open-gmaps").addEventListener("click", () => {
+                let origin = document.getElementById("address-way").value;
+                let destination = `${centerCoords.lat},${centerCoords.lng}`;
+
+                if (origin) {
+                    window.open(`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${destination}`, "_blank");
+                } else {
+                    console.log("Veuillez entrer une adresse de départ !");
+                }
+            });
+        }
+        function replaceStaticWithDynamicMap() {
+            const mapContainer = document.getElementById("mapFull");
+            if (!mapContainer.querySelector("#google-dynamic-map")) {
+                mapContainer.innerHTML = '<div id="google-dynamic-map" style="width: 100%; height: 400px;"></div>';
+            }
+        }
+
+        function loadGoogleMapsScript(callback) {
+            if (mapInitialized) {
+                return;
+            }
+
+            const script = document.createElement('script');
+            script.src = "https://maps.googleapis.com/maps/api/js?key=AIzaSyDdYFQpaysIISCBSEmnsEf7U1DaDXLWDHk&libraries=places&callback=initMap";
+            script.async = true;
+            script.defer = true;
+            document.head.appendChild(script);
+        }
+
+
+
+        function calculateRoute(directionsService, directionsRenderer, mode) {
+            let origin = document.getElementById("address-way").value;
+            let destination = { lat: centerCoords.lat, lng: centerCoords.lng };
+
+            if (!origin) {
+                console.log("Veuillez entrer une adresse de départ !");
+                return;
+            }
+
+            let request = {
+                origin: origin,
+                destination: destination,
+                travelMode: mode
+            };
+
+            directionsService.route(request, function(result, status) {
+                if (status === google.maps.DirectionsStatus.OK) {
+                    directionsRenderer.setDirections(result);
+                    const route = result.routes[0];
+                    const leg = route.legs[0];
+                    const durationText = leg.duration.text;
+
+                    let formattedDuration = durationText
+                        .replace('hours', 'h')
+                        .replace('heures', 'h')
+                        .replace('hour', 'h')
+                        .replace('heure', 'h')
+                        .replace('minutes', 'mins')
+                        .replace('minute', 'min')
+                        .replace(/\s/g, '');
+
+                    document.getElementById("travel-time").textContent = formattedDuration;
+                } else {
+                    console.log("Impossible de calculer l'itinéraire : " + status);
+                }
+            });
+        }
+
+        document.addEventListener("DOMContentLoaded", function () {
+            let mapActivated = false;
+            const activateMap = () => {
+                if (mapActivated) return;
+                mapActivated = true;
+                replaceStaticWithDynamicMap();
+                loadGoogleMapsScript();
+            };
+            document.body.addEventListener("click", function (e) {
+                if (e.target.closest("#mapFull")) {
+                    activateMap();
+                    document.querySelector('.advert-directions-overlay').remove();
+                }
+            }, { once: true });
+
+            document.querySelectorAll(".advert-directions-overlay").forEach(btn => {
+                btn.addEventListener("click", (e) => {
+                    e.preventDefault();
+                    activateMap();
+                    document.querySelector('.advert-directions-overlay').remove();
+                }, { once: true });
+            });
+            $('.video-trigger').click(function (e) {
+                e.preventDefault();
+                var target = $(this).data('video-target');
+                var videoUrl = $(this).data('video');
+                var $modal = $('#' + target);
+                var $video = $modal.find('video');
+                var $source = $video.find('source');
+                $source.attr('src', videoUrl);
+                $video[0].load();
+                $video[0].play();
+                $modal.fadeIn(200);
+                $('body').addClass('locked');
+            });
+            $('#video-player .close').click(function (e) {
+                e.preventDefault();
+
+                var $modal = $(this).closest('.modal-popup');
+                var $video = $modal.find('video');
+                var $source = $video.find('source');
+
+                if ($video.length) {
+                    $video[0].pause();
+                    $source.attr('src', '');
+                    $video[0].load();
+                }
+            });
+        });
+
+    </script>
+    <script
+            async
+            src="https://carte.alentoor.fr/widget/loader.js?version=5"
+            crossorigin="anonymous"
+            integrity="sha512-EmG5JTegC+6N/AWFVk8eDcuE+GVad0FM+7LpSanHewzqKu+WKoWtDT0ZgFqqXra1KAqX38/kdGISUA/PcBqZ+g==">
+    </script>
+    <script>
+        function disableButton(form) {
+            const button = form.querySelector('button');
+
+            button.disabled = true;
+            button.style.opacity = '0.5';
+            button.style.cursor = 'not-allowed';
+            button.innerText = 'Envoi en cours...';
+        }
+    </script>
+
+  <script src='https://www.google.com/recaptcha/api.js' async defer></script>
+  <script type="text/javascript">
+    var previousForm = null;
+    function onCaptchaSubmit(returnKey) {
+      if (previousForm){
+        $(previousForm).find('.g-recaptcha .g-recaptcha-response').val(returnKey);
+        previousForm.submit();
+      }
+    }
+    $(document).on('submit','form', function(event){
+      if ($(this).find('.g-recaptcha').length <= 0) {
+        return;
+      }
+      event.preventDefault();
+      previousForm = this;
+      grecaptcha.execute();
+    });
+  </script>
+    <script src="https://code.jquery.com/ui/1.14.1/jquery-ui.min.js"
+            integrity="sha256-AlTido85uXPlSyyaZNsjJXeCs07eSv3r43kyCVc8ChI=" crossorigin="anonymous"></script>
+<span class="return-to-top"></span>
+<div class="cookies">
+    <div class="container-md-plus-fixed">
+        <!-- Default Banner -->
+        <div class="cookies-default">
+            <h3 class="demi-condensed">Nous espérons que vous aimez les cookies</h3>
+            <div class="cookies-infos">
+                <p>Certains cookies ont pour finalité exclusive de permettre ou faciliter la communication
+                    électronique et d’autres sont strictement nécessaires à la fourniture d’un service de
+                    communication en ligne à votre demande expresse. Ces cookies ne sont pas soumis au recueil de
+                    votre consentement. En revanche, les autres cookies ne sont déposés qui si vous les avez acceptés.
+                    Pour en savoir plus <a href="https://inli.fr/cookies">cliquer ici</a>.
+                    S'agissant des cookies exemptés de consentement, vous pouvez vous opposer à leur dépôt en vous rendant dans le module ≪ Paramètres des cookies ≫ puis en décochant l'option prévue à cet effet.
+                    Votre consentement est valable pour le site <a href="https://inli.fr">www.inli.fr</a>. Vous
+                    pourrez à tout moment revenir sur vos choix, retirer votre consentement en cliquant sur la
+                    rubrique “ Gestion des cookies ” présente en bas des pages du site</p>
+            </div>
+            <div class="cookies-actions">
+                <a href="#" class="medium-condensed btn btn-secondary btn-accept-all">Accepter tous les cookies</a>
+                <a href="#" class="medium-condensed btn btn-grey btn-necessary-only">Tout refuser</a>
+                <a href="#" class="cookie-link">Paramètres des cookies</a>
+            </div>
+        </div>
+
+        <!-- Custom Settings -->
+        <div class="cookies-customize" style="display: none;">
+            <h3 class="demi-condensed">
+                Module de gestion des Cookies
+            </h3>
+            <div class="cookies-infos" style="margin-bottom: 20px;">
+                <p>
+                    Certains cookies ont pour finalité exclusive de permettre ou faciliter la communication électronique et d'autres sont strictement nécessaires à la fourniture d'un service de communication en ligne à votre demande expresse. Ces cookies ne sont pas soumis au recueil de votre consentement.
+                    En revanche, les autres cookies ne sont installés que si vous les avez acceptés. Pour en savoir plus <a href="https://inli.fr/cookies">cliquer ici</a>. S'agissant des cookies exemptés de consentement, vous pouvez vous opposer à leut dépôt en vous rendant dans le module ≪ Paramètres des cookies ≫, puis en décochant l'option prévue à cet effet.
+                    <br><br>
+                    Votre consentement est valable pour le site www.inli.fr
+                    <br><br>
+                    Vous pourrez à tout moment revenir sur vos choix, retirer votre consentement en cliquant sur la rubrique ≪ Gestion des cookies ≫ présente en bas des pages du site.
+                </p>
+            </div>
+            <h3 class="demi-condensed with-link hide-cookies-param">
+                <a href="#" class="cookies-back"></a>Paramètres des cookies
+            </h3>
+            <div class="cookies-options">
+                <div>
+                    <h5 class="book-condensed">Fonctionnel</h5>
+                    <div class="form-element checkbox-group">
+                        <label class="checkbox-container disabled">
+                            &nbsp;
+                            <input type="checkbox" disabled checked id="basic-cookies-checkbox">
+                            <span class="checkmark"></span>
+                        </label>
+                    </div>
+                    <p>
+                        Cookies ayant pour finalité exclusive de permettre ou faciliter la communication électronique et ceux strictement nécessaires à la fourniture d'un service de communication en ligne à votre demande expresse.
+                    </p>
+                </div>
+                <div>
+                    <h5 class="book-condensed">Mesure d'audience</h5>
+                    <div class="form-element checkbox-group">
+                        <label class="checkbox-container">
+                            Matomo
+                            <input type="checkbox" checked id="matomo-checkbox">
+                            <span class="checkmark"></span>
+                        </label>
+                    </div>
+                    <p>Cookies nécessaires pour assurer le bon fonctionnement du site.</p>
+                    <p>Ce service peut déposer 4 cookies.</p>
+                    <p>
+                        Les cookies Matomo étant exemptés de consentement, sont déposés par défaut sur votre terminal. En décochant cette option, vous pouvez empêcher leur dépôt.
+                    </p>
+                </div>
+                <div>
+                    <h5 class="book-condensed">Autres</h5>
+                    <div class="form-element checkbox-group">
+                        <label class="checkbox-container">
+                            Historique de localisation
+                            <input type="checkbox" id="localization-checkbox">
+                            <span class="checkmark"></span>
+                        </label>
+                    </div>
+                    <p>Ce service peut déposer 2 cookies.</p>
+                </div>
+                <a href="#" class="btn btn-secondary medium-condensed apply-cookies">Appliquer</a>
+            </div>
+        </div>
+    </div>
+    <a href="#" class="close-band"></a>
+</div>
+<script>
+    (function(){
+        var s = document.createElement('script'),
+            e = !document.body ? document.querySelector('head') :
+                document.body;
+        s.src = 'https://eu.acsbapp.com/apps/app/dist/js/app.js';
+        s.async = true;
+        s.onload = function(){
+            acsbJS.init({
+                statementLink : '#',
+                footerHtml : '<a href="https://www.accessiway.fr/" target="_blank">AccessiWay. The Web Accessibility Solution</a>',
+                hideMobile : false,
+                hideTrigger : false,
+                language : 'fr',
+                position : 'right',
+                leadColor : '#980B3B',
+                triggerColor : '#EB275E',
+                triggerRadius : '50%',
+                triggerPositionX : 'right',
+                triggerPositionY : 'bottom',
+                triggerIcon : 'people',
+                triggerSize : 'medium',
+                triggerOffsetX : 20,
+                triggerOffsetY : 20,
+                mobile : {
+                    triggerSize : 'medium',
+                    triggerPositionX : 'right',
+                    triggerPositionY : 'bottom',
+                    triggerOffsetX : 10,
+                    triggerOffsetY : 10,
+                    triggerRadius : '50%'
+                }
+            });
+        };
+        e.appendChild(s);
+    }());
+</script></body>
+</html>
