@@ -191,11 +191,20 @@ export interface Repository {
   markNotified(ids: readonly string[]): Promise<void>;
   /** Retient qu'un message Telegram correspond à une annonce (§29). */
   recordTelegramMessage(chatId: string, messageId: number, listingId: string): Promise<void>;
-  /** Messages Telegram d'annonces devenues LOUÉES, pas encore éditées (§33). */
-  rentedTelegramMessages(): Promise<
-    readonly { chatId: string; messageId: number; title: string | null }[]
+  /**
+   * Messages Telegram d'annonces devenues INDISPONIBLES et pas encore éditées :
+   * soit louées (`rented`), soit disparues de la source (`lifecycle` inactif).
+   * `reason` distingue les deux pour adapter le texte de l'édition (§33).
+   */
+  unavailableTelegramMessages(): Promise<
+    readonly {
+      chatId: string;
+      messageId: number;
+      title: string | null;
+      reason: 'rented' | 'inactive';
+    }[]
   >;
-  /** Marque un message Telegram comme déjà édité en « loué ». */
+  /** Marque un message Telegram comme déjà édité en « indisponible ». */
   markTelegramRentedEdited(chatId: string, messageId: number): Promise<void>;
   /** Retrouve l'annonce liée à un message Telegram. `null` si inconnu. */
   listingForTelegramMessage(chatId: string, messageId: number): Promise<string | null>;
@@ -737,17 +746,20 @@ export function createRepository(db: Database): Repository {
       });
     },
 
-    async rentedTelegramMessages() {
+    async unavailableTelegramMessages() {
+      // « Loué » prime sur « disparue » si les deux sont vrais.
       const result = await db.execute(`
-        SELECT tn.chat_id AS chat_id, tn.message_id AS message_id, l.title AS title
+        SELECT tn.chat_id AS chat_id, tn.message_id AS message_id, l.title AS title,
+               CASE WHEN l.rented = 1 THEN 'rented' ELSE 'inactive' END AS reason
         FROM telegram_notifications tn
         JOIN listings l ON l.id = tn.listing_id
-        WHERE l.rented = 1 AND tn.edited_rented = 0
+        WHERE (l.rented = 1 OR l.lifecycle = 'inactive') AND tn.edited_rented = 0
       `);
       return result.rows.map((row) => ({
         chatId: String(row['chat_id']),
         messageId: Number(row['message_id']),
         title: row['title'] === null ? null : String(row['title']),
+        reason: row['reason'] === 'rented' ? ('rented' as const) : ('inactive' as const),
       }));
     },
 

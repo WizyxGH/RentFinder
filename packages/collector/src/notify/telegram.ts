@@ -223,21 +223,26 @@ export async function sendTelegramListing(
 }
 
 /**
- * Édite les messages Telegram des annonces devenues LOUÉES pour le signaler
- * (§29, §33). On ne connaît pas le type du message (photo ou texte) : on tente
- * `editMessageCaption` puis `editMessageText`. Chaque message n'est édité
- * qu'une fois (drapeau `edited_rented`). Ne lève jamais (§69).
+ * Édite les messages Telegram des annonces devenues INDISPONIBLES pour le
+ * signaler (§29, §33) : « 🔴 LOUÉ » quand la source l'a marquée louée, « ⚫ Plus
+ * disponible » quand l'annonce a simplement disparu de la source. On ne connaît
+ * pas le type du message (photo ou texte) : on tente `editMessageCaption` puis
+ * `editMessageText`. Chaque message n'est édité qu'une fois (drapeau
+ * `edited_rented`). Ne lève jamais (§69).
  *
  * @returns le nombre de messages édités.
  */
 export async function editRentedTelegramMessages(deps: NotifyDeps): Promise<number> {
   const { repository, config, logger } = deps;
   const fetchImpl = deps.fetchImpl ?? fetch;
-  const pending = await repository.rentedTelegramMessages();
+  const pending = await repository.unavailableTelegramMessages();
   let edited = 0;
 
-  for (const { chatId, messageId, title } of pending) {
-    const text = `🔴 <b>LOUÉ</b> — ${escapeHtml(title ?? 'Annonce')}\n<i>Ce bien n'est plus disponible.</i>`;
+  for (const { chatId, messageId, title, reason } of pending) {
+    const heading = reason === 'rented' ? '🔴 <b>LOUÉ</b>' : '⚫ <b>Plus disponible</b>';
+    const note =
+      reason === 'rented' ? 'Ce bien a été loué.' : 'Cette annonce a été retirée de la source.';
+    const text = `${heading} — ${escapeHtml(title ?? 'Annonce')}\n<i>${note}</i>`;
     try {
       const base = { chat_id: chatId, message_id: messageId, parse_mode: 'HTML' as const };
       let ok = await tryEdit(config, 'editMessageCaption', { ...base, caption: text }, fetchImpl);
@@ -251,7 +256,7 @@ export async function editRentedTelegramMessages(deps: NotifyDeps): Promise<numb
     }
   }
 
-  if (edited > 0) logger.info('telegram.rented_edited', { edited });
+  if (edited > 0) logger.info('telegram.unavailable_edited', { edited });
   return edited;
 }
 

@@ -279,13 +279,21 @@ describe('notifyNewListings', () => {
 describe('editRentedTelegramMessages', () => {
   const logger = createLogger({ minLevel: 'error' });
 
-  function fakeRepo(pending: { chatId: string; messageId: number; title: string | null }[]): {
+  type Pending = {
+    chatId: string;
+    messageId: number;
+    title: string | null;
+    reason?: 'rented' | 'inactive';
+  };
+  function fakeRepo(pending: Pending[]): {
     repo: Repository;
     edited: { chatId: string; messageId: number }[];
   } {
     const edited: { chatId: string; messageId: number }[] = [];
     const repo = {
-      rentedTelegramMessages: vi.fn(async () => pending),
+      unavailableTelegramMessages: vi.fn(async () =>
+        pending.map((p) => ({ ...p, reason: p.reason ?? ('rented' as const) })),
+      ),
       markTelegramRentedEdited: vi.fn(async (chatId: string, messageId: number) => {
         edited.push({ chatId, messageId });
       }),
@@ -313,6 +321,25 @@ describe('editRentedTelegramMessages', () => {
     expect(body.caption).toContain('T2 Nice');
     expect(body.message_id).toBe(42);
     expect(edited).toEqual([{ chatId: '123', messageId: 42 }]);
+  });
+
+  it('édite « Plus disponible » quand l’annonce a disparu (inactive)', async () => {
+    const { repo } = fakeRepo([
+      { chatId: '123', messageId: 50, title: 'Studio', reason: 'inactive' },
+    ]);
+    const fetchImpl = okFetch();
+    const count = await editRentedTelegramMessages({
+      repository: repo,
+      config: CONFIG,
+      logger,
+      fetchImpl,
+    });
+    expect(count).toBe(1);
+    const body = JSON.parse(
+      (fetchImpl as unknown as ReturnType<typeof vi.fn>).mock.calls[0]?.[1]?.body as string,
+    ) as { caption: string };
+    expect(body.caption).toContain('Plus disponible');
+    expect(body.caption).not.toContain('LOUÉ');
   });
 
   it('bascule sur editMessageText si la légende échoue (message texte)', async () => {
