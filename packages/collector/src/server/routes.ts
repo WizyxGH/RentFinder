@@ -101,7 +101,7 @@ function rowToListing(row: Record<string, unknown>): Record<string, unknown> {
 
 async function listListings(db: Client, url: URL, filters?: LiveFilters): Promise<unknown> {
   const limit = Math.min(
-    100,
+    500,
     Math.max(1, Number.parseInt(url.searchParams.get('limit') ?? '30', 10)),
   );
   const offset = Math.max(0, Number.parseInt(url.searchParams.get('offset') ?? '0', 10));
