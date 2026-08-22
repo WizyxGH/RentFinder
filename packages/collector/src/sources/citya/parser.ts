@@ -14,6 +14,7 @@
 import * as cheerio from 'cheerio';
 import type { RawListing } from '@rentfinder/shared';
 import { cleanText } from '../../normalization/text.js';
+import { collectJsonLdNodes, findJsonLdNode } from '../shared/json-ld.js';
 
 /**
  * URL de fiche : `/annonces/location/{type}/{ville-cp}/{réf}`, réf
@@ -92,31 +93,17 @@ interface CityaJsonLd {
 
 /** Décode le JSON-LD RealEstateListing d'une fiche. `null` si absent. */
 function parseJsonLd($: cheerio.CheerioAPI): CityaJsonLd | null {
-  let result: CityaJsonLd | null = null;
-  $('script[type="application/ld+json"]').each((_i, el) => {
-    if (result !== null) return;
-    try {
-      const parsed = JSON.parse($(el).text()) as {
-        '@type'?: string;
-        mainEntity?: {
-          price?: unknown;
-          itemOffered?: { '@type'?: unknown; name?: unknown; description?: unknown };
-        };
-      };
-      if (parsed['@type'] !== 'RealEstateListing' || parsed.mainEntity === undefined) return;
-      const offer = parsed.mainEntity;
-      const item = offer.itemOffered ?? {};
-      result = {
-        ...(typeof offer.price === 'number' ? { price: offer.price } : {}),
-        ...(typeof item.name === 'string' ? { name: item.name } : {}),
-        ...(typeof item.description === 'string' ? { description: item.description } : {}),
-        ...(typeof item['@type'] === 'string' ? { propertyType: item['@type'] } : {}),
-      };
-    } catch {
-      /* bloc illisible : on tente le suivant */
-    }
-  });
-  return result;
+  const node = findJsonLdNode(collectJsonLdNodes($), ['realestatelisting']);
+  const offer = node?.['mainEntity'] as
+    { price?: unknown; itemOffered?: Record<string, unknown> } | undefined;
+  if (offer === undefined) return null;
+  const item = offer.itemOffered ?? {};
+  return {
+    ...(typeof offer.price === 'number' ? { price: offer.price } : {}),
+    ...(typeof item['name'] === 'string' ? { name: item['name'] } : {}),
+    ...(typeof item['description'] === 'string' ? { description: item['description'] } : {}),
+    ...(typeof item['@type'] === 'string' ? { propertyType: item['@type'] } : {}),
+  };
 }
 
 export interface ParsedDetail {

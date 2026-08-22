@@ -26,6 +26,7 @@
 import * as cheerio from 'cheerio';
 import type { RawListing } from '@rentfinder/shared';
 import { cleanText } from '../../normalization/text.js';
+import { compactListing, type RawDraft } from '../shared/raw-listing.js';
 
 /**
  * Forme d'une URL d'annonce :
@@ -175,128 +176,151 @@ export interface ParsedPage {
  * @param html contenu HTML brut de la page
  * @param pageUrl URL de la page, pour résoudre les liens relatifs
  */
+/** Premier lien de fiche de la carte, canonisé. `null` si aucun. */
+function findCardUrl(
+  $: cheerio.CheerioAPI,
+  card: ReturnType<cheerio.CheerioAPI>,
+  pageUrl: string,
+): ParsedListingUrl | null {
+  let parsed: ParsedListingUrl | null = null;
+  card.find('a[href*="/annonce-location-"]').each((_i, anchor) => {
+    if (parsed !== null) return;
+    const href = $(anchor).attr('href');
+    if (href === undefined) return;
+    const absolute = href.startsWith('http') ? href : new URL(href, pageUrl).toString();
+    parsed = parseListingUrl(absolute);
+  });
+  return parsed;
+}
+
+/**
+ * Attributs structurés du tracking → dictionnaire `extra` (quartier, DPE,
+ * atouts). Le quartier n'est PAS une adresse : le placer dans `addressText`
+ * ferait gagner à tort le bonus « même adresse » au dédoublonnage (§14).
+ */
+function buildOrpiExtra(eulerian: EulerianData | null, reference: string): Record<string, string> {
+  const extra: Record<string, string> = { reference };
+  if (eulerian === null) return extra;
+  if (eulerian.quartier !== undefined && eulerian.quartier !== '') {
+    extra['quartier'] = eulerian.quartier;
+  }
+  if (eulerian.dpe != null && eulerian.dpe !== '') extra['dpe'] = eulerian.dpe;
+  if (eulerian.etage != null) extra['etage'] = String(eulerian.etage);
+  if (eulerian.ascenseur != null) extra['ascenseur'] = String(eulerian.ascenseur);
+  if (eulerian.nbBalcons != null && eulerian.nbBalcons !== '') {
+    extra['nbBalcons'] = String(eulerian.nbBalcons);
+  }
+  if (eulerian.nbTerrasses != null) extra['nbTerrasses'] = String(eulerian.nbTerrasses);
+  if (eulerian.nbParking != null) extra['nbParking'] = String(eulerian.nbParking);
+  return extra;
+}
+
+/** Champs de localisation/contact issus du tracking (avec secours sur l'URL). */
+function orpiEulerianFields(eulerian: EulerianData | null, url: ParsedListingUrl): RawDraft {
+  return {
+    cityText:
+      eulerian?.nomVille !== undefined && eulerian.nomVille !== '' ? eulerian.nomVille : undefined,
+    postalCodeText:
+      eulerian?.codePostal != null && eulerian.codePostal !== ''
+        ? eulerian.codePostal
+        : url.postalCode,
+    latitude: eulerian?.latitude,
+    longitude: eulerian?.longitude,
+    agencyName:
+      eulerian?.agenceNom !== undefined && eulerian.agenceNom !== ''
+        ? `Orpi — ${eulerian.agenceNom}`
+        : 'Orpi',
+    publishedAtText:
+      eulerian?.dateCreation !== undefined && eulerian.dateCreation !== ''
+        ? eulerian.dateCreation
+        : undefined,
+  };
+}
+
+/** Convention « N pièces M chambres » : pièces (titre ou JSON) + chambres (JSON). */
+function orpiRoomsText(titleText: string, eulerian: EulerianData | null): string | undefined {
+  const parts: string[] = [];
+  const fromTitle =
+    extractRoomsText(titleText) ??
+    (eulerian?.nbPieces !== undefined ? `${eulerian.nbPieces} pièces` : undefined);
+  if (fromTitle !== undefined) parts.push(fromTitle);
+  if (eulerian?.nbChambres != null) parts.push(`${eulerian.nbChambres} chambres`);
+  return parts.length > 0 ? parts.join(' ') : undefined;
+}
+
+/** Analyse une carte d'annonce en `RawListing`. `null` si non exploitable. */
+function parseCard(
+  $: cheerio.CheerioAPI,
+  card: ReturnType<cheerio.CheerioAPI>,
+  pageUrl: string,
+): RawListing | null {
+  const url = findCardUrl($, card, pageUrl);
+  if (url === null || url.nonResidential) return null;
+
+  // La référence de l'attribut fait foi ; l'URL sert de secours.
+  const reference = card.attr('data-reference') ?? url.reference;
+
+  // Texte aplati de la carte : les balises deviennent des espaces pour que
+  // deux fragments voisins restent des mots distincts.
+  const cardText = cleanText($.html(card).replace(/<[^>]*>/g, ' '));
+  const titleText = cleanText(card.find('a.c-overlay__link').first().text());
+  const tagsText = cleanText(
+    card
+      .find('.c-tag')
+      .map((_i, tag) => $(tag).text())
+      .get()
+      .join(' '),
+  );
+  const description = cleanText(card.find('.text-sm').first().text());
+
+  // Enrichissement optionnel par le JSON de tracking (voir en-tête).
+  const eulerian = parseEulerianData(
+    card.find('[data-eulerian-action*="prdref"]').first().attr('data-eulerian-action'),
+    reference,
+  );
+
+  const imageUrls = card
+    .find('img[data-src]')
+    .map((_i, img) => $(img).attr('data-src'))
+    .get()
+    .filter((src): src is string => typeof src === 'string' && src.startsWith('http'));
+
+  return compactListing({
+    sourceRef: reference,
+    sourceUrl: url.canonicalUrl,
+    title: titleText !== '' ? titleText : undefined,
+    description: description !== '' ? description : undefined,
+    priceText:
+      extractPriceText(cardText) ??
+      (eulerian?.prdamount !== undefined ? `${eulerian.prdamount} €` : undefined),
+    // `surfaceBien` est documentée en m² par la structure même de la carte.
+    areaText:
+      extractAreaText(titleText) ??
+      (eulerian?.surfaceBien !== undefined ? `${eulerian.surfaceBien} m²` : undefined),
+    roomsText: orpiRoomsText(titleText, eulerian),
+    // Le premier token du slug (« appartement », « maison », « studio »).
+    propertyTypeText: url.typeAndCitySlug.split('-')[0] ?? '',
+    // Meublé : tags + titre + description — jamais le champ JSON `meuble`.
+    furnishedText: cleanText(`${tagsText} ${titleText} ${description}`),
+    ...orpiEulerianFields(eulerian, url),
+    // §21 : la liste ne publie pas de coordonnées directes. Le formulaire de la
+    // fiche est le canal prévu ; on ne force aucune requête pour plus.
+    contactFormUrl: url.canonicalUrl,
+    imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
+    extra: buildOrpiExtra(eulerian, reference),
+  });
+}
+
 export function parseSearchPage(html: string, pageUrl: string): ParsedPage {
   const $ = cheerio.load(html);
   const warnings: string[] = [];
   const byReference = new Map<string, RawListing>();
 
   $('article[data-reference]').each((_index, element) => {
-    const card = $(element);
-
-    // URL de la fiche : premier lien d'annonce de la carte, canonisé.
-    let parsedUrl: ParsedListingUrl | null = null;
-    card.find('a[href*="/annonce-location-"]').each((_i, anchor) => {
-      if (parsedUrl !== null) return;
-      const href = $(anchor).attr('href');
-      if (href === undefined) return;
-      const absolute = href.startsWith('http') ? href : new URL(href, pageUrl).toString();
-      parsedUrl = parseListingUrl(absolute);
-    });
-    if (parsedUrl === null) return;
-    const url: ParsedListingUrl = parsedUrl;
-
-    if (url.nonResidential) return;
-
-    // La référence de l'attribut fait foi ; l'URL sert de secours.
-    const reference = card.attr('data-reference') ?? url.reference;
-    if (byReference.has(reference)) return;
-
-    // Texte aplati de la carte : les balises deviennent des espaces pour que
-    // deux fragments voisins restent des mots distincts.
-    const cardText = cleanText($.html(card).replace(/<[^>]*>/g, ' '));
-    const titleText = cleanText(card.find('a.c-overlay__link').first().text());
-    const tagsText = cleanText(
-      card
-        .find('.c-tag')
-        .map((_i, tag) => $(tag).text())
-        .get()
-        .join(' '),
-    );
-    const description = cleanText(card.find('.text-sm').first().text());
-
-    // Enrichissement optionnel par le JSON de tracking (voir en-tête).
-    const eulerian = parseEulerianData(
-      card.find('[data-eulerian-action*="prdref"]').first().attr('data-eulerian-action'),
-      reference,
-    );
-
-    const priceText =
-      extractPriceText(cardText) ??
-      (eulerian?.prdamount !== undefined ? `${eulerian.prdamount} €` : undefined);
-    const areaText =
-      extractAreaText(titleText) ??
-      // `surfaceBien` est documentée en m² par la structure même de la carte.
-      (eulerian?.surfaceBien !== undefined ? `${eulerian.surfaceBien} m²` : undefined);
-    // Pièces du titre (ou du JSON), chambres du JSON seul : la carte ne les
-    // affiche pas. La convention « N pièces M chambres » est celle que la
-    // normalisation sait lire.
-    const roomsParts: string[] = [];
-    const roomsFromTitle =
-      extractRoomsText(titleText) ??
-      (eulerian?.nbPieces !== undefined ? `${eulerian.nbPieces} pièces` : undefined);
-    if (roomsFromTitle !== undefined) roomsParts.push(roomsFromTitle);
-    if (eulerian?.nbChambres != null) roomsParts.push(`${eulerian.nbChambres} chambres`);
-    const roomsText = roomsParts.length > 0 ? roomsParts.join(' ') : undefined;
-
-    const imageUrls = card
-      .find('img[data-src]')
-      .map((_i, img) => $(img).attr('data-src'))
-      .get()
-      .filter((src): src is string => typeof src === 'string' && src.startsWith('http'));
-
-    const extra: Record<string, string> = { reference };
-    if (eulerian?.quartier !== undefined && eulerian.quartier !== '') {
-      // Le quartier n'est PAS une adresse : le mettre dans `addressText`
-      // ferait gagner à tort le signal « même adresse » (+30) à deux biens
-      // distincts du même quartier lors du dédoublonnage (§14).
-      extra['quartier'] = eulerian.quartier;
+    const listing = parseCard($, $(element), pageUrl);
+    if (listing !== null && !byReference.has(listing.sourceRef)) {
+      byReference.set(listing.sourceRef, listing);
     }
-    if (eulerian?.dpe != null && eulerian.dpe !== '') extra['dpe'] = eulerian.dpe;
-    // Attributs structurés → alimentent la liste d'atouts en normalisation.
-    if (eulerian?.etage != null) extra['etage'] = String(eulerian.etage);
-    if (eulerian?.ascenseur != null) extra['ascenseur'] = String(eulerian.ascenseur);
-    if (eulerian?.nbBalcons != null && eulerian.nbBalcons !== '') {
-      extra['nbBalcons'] = String(eulerian.nbBalcons);
-    }
-    if (eulerian?.nbTerrasses != null) extra['nbTerrasses'] = String(eulerian.nbTerrasses);
-    if (eulerian?.nbParking != null) extra['nbParking'] = String(eulerian.nbParking);
-
-    const listing: RawListing = {
-      sourceRef: reference,
-      sourceUrl: url.canonicalUrl,
-      ...(titleText !== '' ? { title: titleText } : {}),
-      ...(description !== '' ? { description } : {}),
-      ...(priceText !== undefined ? { priceText } : {}),
-      ...(areaText !== undefined ? { areaText } : {}),
-      ...(roomsText !== undefined ? { roomsText } : {}),
-      // Le premier token du slug (« appartement », « maison », « studio »).
-      propertyTypeText: url.typeAndCitySlug.split('-')[0] ?? '',
-      // Meublé : tags + titre + description — jamais le champ JSON `meuble`.
-      furnishedText: cleanText(`${tagsText} ${titleText} ${description}`),
-      ...(eulerian?.nomVille !== undefined && eulerian.nomVille !== ''
-        ? { cityText: eulerian.nomVille }
-        : {}),
-      postalCodeText:
-        eulerian?.codePostal != null && eulerian.codePostal !== ''
-          ? eulerian.codePostal
-          : url.postalCode,
-      ...(eulerian?.latitude !== undefined ? { latitude: eulerian.latitude } : {}),
-      ...(eulerian?.longitude !== undefined ? { longitude: eulerian.longitude } : {}),
-      agencyName:
-        eulerian?.agenceNom !== undefined && eulerian.agenceNom !== ''
-          ? `Orpi — ${eulerian.agenceNom}`
-          : 'Orpi',
-      // §21 : la liste ne publie pas de coordonnées directes. Le formulaire de
-      // la fiche est le canal prévu ; on ne force aucune requête pour plus.
-      contactFormUrl: url.canonicalUrl,
-      ...(eulerian?.dateCreation !== undefined && eulerian.dateCreation !== ''
-        ? { publishedAtText: eulerian.dateCreation }
-        : {}),
-      ...(imageUrls.length > 0 ? { imageUrls } : {}),
-      extra,
-    };
-
-    byReference.set(reference, listing);
   });
 
   const listings = [...byReference.values()];

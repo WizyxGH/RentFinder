@@ -22,6 +22,14 @@
 import * as cheerio from 'cheerio';
 import type { RawListing } from '@rentfinder/shared';
 import { cleanText } from '../../normalization/text.js';
+import {
+  collectJsonLdNodes,
+  findJsonLdNode,
+  jsonLdString as asString,
+  jsonLdType as nodeType,
+  type JsonLdNode,
+} from '../shared/json-ld.js';
+import { compactListing, type RawDraft } from '../shared/raw-listing.js';
 
 /** URL de fiche : `/fr/propriété/{id}` (l'accent est souvent percent-encodé). */
 const FICHE_PATTERN = /^\/fr\/propriété\/(\d+)\/?$/i;
@@ -77,63 +85,9 @@ export function parseListPage(html: string, pageUrl: string): ParsedList {
   };
 }
 
-/** Un nœud schema.org quelconque (forme volontairement lâche). */
-type JsonLdNode = Record<string, unknown>;
-
-/** Aplati tous les nœuds JSON-LD d'une page (gère `@graph` et blocs multiples). */
-function collectJsonLdNodes($: cheerio.CheerioAPI): JsonLdNode[] {
-  const nodes: JsonLdNode[] = [];
-  $('script[type="application/ld+json"]').each((_i, el) => {
-    const raw = $(el).contents().text();
-    if (raw.trim() === '') return;
-    try {
-      const parsed: unknown = JSON.parse(raw);
-      const graph =
-        typeof parsed === 'object' && parsed !== null && '@graph' in parsed
-          ? (parsed as { '@graph': unknown })['@graph']
-          : parsed;
-      if (Array.isArray(graph)) nodes.push(...(graph as JsonLdNode[]));
-      else if (typeof graph === 'object' && graph !== null) nodes.push(graph as JsonLdNode);
-    } catch {
-      /* JSON-LD illisible : bloc ignoré */
-    }
-  });
-  return nodes;
-}
-
-/** `@type` d'un nœud, en minuscules (le champ peut être une chaîne ou un tableau). */
-function nodeType(node: JsonLdNode): string {
-  const type = node['@type'];
-  const value = Array.isArray(type) ? type[0] : type;
-  return typeof value === 'string' ? value.toLowerCase() : '';
-}
-
-function asString(value: unknown): string | undefined {
-  if (typeof value === 'string' && value.trim() !== '') return value.trim();
-  if (typeof value === 'number') return String(value);
-  return undefined;
-}
-
 export interface ParsedDetail {
   readonly listing: RawListing | null;
   readonly warnings: readonly string[];
-}
-
-/**
- * Brouillon d'annonce : mêmes champs que `RawListing`, mais tous facultatifs et
- * pouvant valoir `undefined`. On assemble par groupes puis on compacte —
- * bien plus lisible que la nuée de spreads conditionnels qu'impose
- * `exactOptionalPropertyTypes`.
- */
-type RawDraft = { [K in keyof RawListing]?: RawListing[K] | undefined };
-
-/** Retire les champs `undefined` d'un brouillon et le fige en `RawListing`. */
-function compactListing(draft: RawDraft): RawListing {
-  const out: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(draft)) {
-    if (value !== undefined) out[key] = value;
-  }
-  return out as unknown as RawListing;
 }
 
 /**
@@ -187,11 +141,11 @@ export function parseDetailPage(html: string, pageUrl: string, agencyName: strin
 
   const $ = cheerio.load(html);
   const nodes = collectJsonLdNodes($);
-  const property = nodes.find((node) => nodeType(node) in RESIDENTIAL_TYPES);
+  const property = findJsonLdNode(nodes, Object.keys(RESIDENTIAL_TYPES));
   if (property === undefined) {
     return { listing: null, warnings: [`Fiche sans JSON-LD logement : ${pageUrl}`] };
   }
-  const agency = nodes.find((node) => nodeType(node) === 'realestateagent');
+  const agency = findJsonLdNode(nodes, ['realestateagent']);
   const description = asString(property['description']);
   const photos = imageUrls(property);
   const price = priceFields($, html, property['offers'] as JsonLdNode | undefined);

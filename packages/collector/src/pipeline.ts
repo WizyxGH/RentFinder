@@ -204,6 +204,43 @@ function updateAverage(previous: number, latest: number): number {
   return Math.round((previous * 0.7 + latest * 0.3) * 100) / 100;
 }
 
+/**
+ * Géocode les adresses des fiches qui n'ont pas de GPS mais une adresse de rue
+ * (§20). Ne fait aucun appel réseau si aucun point de référence n'est configuré
+ * ou si le budget réseau est épuisé — les adresses en cache restent gratuites
+ * (§30). Retourne l'association fiche → coordonnées (ou `null` si non résolue).
+ */
+async function geocodeMissingAddresses(
+  merged: readonly AggregatedListing[],
+  options: PipelineOptions,
+  nowMs: number,
+): Promise<Map<string, Coordinates | null>> {
+  const geocoded = new Map<string, Coordinates | null>();
+  if (options.referencePoints.length === 0) return geocoded;
+
+  const geocoder = createGeocoder({
+    cache: options.repository.geocodeCache(),
+    nowMs,
+    userAgent: options.userAgent,
+    ...(options.fetchImpl !== undefined ? { fetchImpl: options.fetchImpl } : {}),
+  });
+  let networkBudget = GEOCODE_NETWORK_BUDGET;
+  for (const listing of merged) {
+    // Seulement les annonces sans GPS mais avec une adresse de rue : géocoder
+    // une simple ville donnerait un centre-ville trompeur (§17).
+    if (listing.latitude.value !== null && listing.longitude.value !== null) continue;
+    const query = geocodeQuery(listing);
+    if (query === null) continue;
+
+    const cached = await options.repository.geocodeCache().get(geocodeCacheKey(query));
+    if (cached === null && networkBudget <= 0) continue; // budget réseau épuisé
+    if (cached === null) networkBudget -= 1;
+
+    geocoded.set(listing.id, await geocoder.geocode(query));
+  }
+  return geocoded;
+}
+
 /** Exécute un cycle complet de collecte. */
 export async function runPipeline(options: PipelineOptions): Promise<PipelineReport> {
   const { registry, repository, logger, clock, config } = options;
@@ -327,30 +364,8 @@ export async function runPipeline(options: PipelineOptions): Promise<PipelineRep
 
   const merged = groups.map((group) => mergeGroup(group.occurrences));
 
-  // Géocodage des adresses pour la distance au travail/gare (§20). Inutile si
-  // aucun point de référence n'est configuré → aucun appel réseau dans ce cas.
-  const geocoded = new Map<string, Coordinates | null>();
-  if (options.referencePoints.length > 0) {
-    const geocoder = createGeocoder({
-      cache: repository.geocodeCache(),
-      nowMs,
-      userAgent: options.userAgent,
-      ...(options.fetchImpl !== undefined ? { fetchImpl: options.fetchImpl } : {}),
-    });
-    let networkBudget = GEOCODE_NETWORK_BUDGET;
-    for (const listing of merged) {
-      // Seulement les annonces sans GPS mais avec une adresse de rue : géocoder
-      // une simple ville donnerait un centre-ville trompeur (§17).
-      if (listing.latitude.value !== null && listing.longitude.value !== null) continue;
-      const query = geocodeQuery(listing);
-      if (query === null) continue;
-
-      const cached = await repository.geocodeCache().get(geocodeCacheKey(query));
-      if (cached === null && networkBudget <= 0) continue; // budget réseau épuisé
-      if (cached === null) networkBudget -= 1;
-
-      geocoded.set(listing.id, await geocoder.geocode(query));
-    }
+  const geocoded = await geocodeMissingAddresses(merged, options, nowMs);
+  if (geocoded.size > 0) {
     logger.info('pipeline.geocoded', {
       resolved: [...geocoded.values()].filter((c) => c !== null).length,
       attempted: geocoded.size,
