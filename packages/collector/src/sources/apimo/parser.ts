@@ -17,6 +17,8 @@
 import * as cheerio from 'cheerio';
 import type { RawListing } from '@rentfinder/shared';
 import { cleanText, comparable } from '../../normalization/text.js';
+import { compactListing } from '../shared/raw-listing.js';
+import { collectJsonLdNodes, findJsonLdNode, type JsonLdNode } from '../shared/json-ld.js';
 
 /**
  * Forme d'une URL de fiche, tout domaine Apimo confondu :
@@ -110,73 +112,59 @@ interface JsonLdData {
   readonly agencyEmail?: string;
 }
 
-/** Décode le graphe JSON-LD d'une fiche. `null` si absent ou corrompu. */
+/** Champs `string` d'un nœud, lus de façon tolérante. */
+function str(node: JsonLdNode | undefined, key: string): string | undefined {
+  const value = node?.[key];
+  return typeof value === 'string' ? value : undefined;
+}
+
+/** Mappe les nœuds `bien` + `agence` du graphe vers `JsonLdData`. */
+function mapApimoJsonLd(property: JsonLdNode, agent: JsonLdNode | undefined): JsonLdData {
+  const address = property['address'] as JsonLdNode | undefined;
+  const floorSize = property['floorSize'] as JsonLdNode | undefined;
+  const price = (property['offers'] as JsonLdNode | undefined)?.['price'];
+  const name = str(property, 'name');
+  return {
+    ...(name !== undefined ? { name: name.trim() } : {}),
+    ...(str(property, 'description') !== undefined
+      ? { description: str(property, 'description') }
+      : {}),
+    ...(typeof property['numberOfRooms'] === 'number' ? { rooms: property['numberOfRooms'] } : {}),
+    ...(typeof floorSize?.['value'] === 'number' ? { area: floorSize['value'] } : {}),
+    ...(str(address, 'addressLocality') !== undefined
+      ? { city: str(address, 'addressLocality') }
+      : {}),
+    ...(str(address, 'postalCode') !== undefined ? { postalCode: str(address, 'postalCode') } : {}),
+    ...(str(address, 'streetAddress') !== undefined
+      ? { streetAddress: str(address, 'streetAddress') }
+      : {}),
+    ...(str(property, 'datePosted') !== undefined
+      ? { datePosted: str(property, 'datePosted') }
+      : {}),
+    ...(str(property, 'dateModified') !== undefined
+      ? { dateModified: str(property, 'dateModified') }
+      : {}),
+    ...(typeof price === 'string' || typeof price === 'number'
+      ? { offerPrice: String(price) }
+      : {}),
+    ...(Array.isArray(property['image'])
+      ? { imageUrls: property['image'].filter((u): u is string => typeof u === 'string') }
+      : {}),
+    ...(str(agent, 'name') !== undefined ? { agencyName: str(agent, 'name') } : {}),
+    ...(str(agent, 'telephone') !== undefined ? { agencyPhone: str(agent, 'telephone') } : {}),
+    ...(str(agent, 'email') !== undefined ? { agencyEmail: str(agent, 'email') } : {}),
+  };
+}
+
+/**
+ * Décode le graphe JSON-LD d'une fiche. `null` si aucun bien. On cherche le
+ * nœud qui porte le bien (pas l'Organization ni le Product SEO générique).
+ */
 function parseJsonLd($: cheerio.CheerioAPI): JsonLdData | null {
-  // Certaines fiches ont plusieurs blocs ld+json : on cherche celui qui porte
-  // le bien, pas l'Organization ou le Product SEO générique.
-  let result: JsonLdData | null = null;
-  $('script[type="application/ld+json"]').each((_index, element) => {
-    if (result !== null) return;
-    const raw = $(element).text();
-    if (raw.trim() === '') return;
-
-    try {
-      const parsed: unknown = JSON.parse(raw);
-      const graph = (parsed as { '@graph'?: unknown[] })['@graph'];
-      if (!Array.isArray(graph)) return;
-
-      const agent = graph.find(
-        (node) => (node as { '@type'?: string })['@type'] === 'RealEstateAgent',
-      ) as Record<string, unknown> | undefined;
-      const property = graph.find((node) => {
-        const type = (node as { '@type'?: string })['@type'];
-        return type === 'Apartment' || type === 'House' || type === 'Residence';
-      }) as Record<string, unknown> | undefined;
-      if (property === undefined) return;
-
-      const address = property['address'] as Record<string, unknown> | undefined;
-      const floorSize = property['floorSize'] as Record<string, unknown> | undefined;
-      const offers = property['offers'] as Record<string, unknown> | undefined;
-
-      result = {
-        ...(typeof property['name'] === 'string' ? { name: property['name'].trim() } : {}),
-        ...(typeof property['description'] === 'string'
-          ? { description: property['description'] }
-          : {}),
-        ...(typeof property['numberOfRooms'] === 'number'
-          ? { rooms: property['numberOfRooms'] }
-          : {}),
-        ...(typeof floorSize?.['value'] === 'number' ? { area: floorSize['value'] } : {}),
-        ...(typeof address?.['addressLocality'] === 'string'
-          ? { city: address['addressLocality'] }
-          : {}),
-        ...(typeof address?.['postalCode'] === 'string'
-          ? { postalCode: address['postalCode'] }
-          : {}),
-        ...(typeof address?.['streetAddress'] === 'string'
-          ? { streetAddress: address['streetAddress'] }
-          : {}),
-        ...(typeof property['datePosted'] === 'string'
-          ? { datePosted: property['datePosted'] }
-          : {}),
-        ...(typeof property['dateModified'] === 'string'
-          ? { dateModified: property['dateModified'] }
-          : {}),
-        ...(typeof offers?.['price'] === 'string' || typeof offers?.['price'] === 'number'
-          ? { offerPrice: String(offers['price']) }
-          : {}),
-        ...(Array.isArray(property['image'])
-          ? { imageUrls: property['image'].filter((u): u is string => typeof u === 'string') }
-          : {}),
-        ...(typeof agent?.['name'] === 'string' ? { agencyName: agent['name'] } : {}),
-        ...(typeof agent?.['telephone'] === 'string' ? { agencyPhone: agent['telephone'] } : {}),
-        ...(typeof agent?.['email'] === 'string' ? { agencyEmail: agent['email'] } : {}),
-      };
-    } catch {
-      /* bloc illisible : on tente le suivant */
-    }
-  });
-  return result;
+  const nodes = collectJsonLdNodes($);
+  const property = findJsonLdNode(nodes, ['apartment', 'house', 'residence']);
+  if (property === undefined) return null;
+  return mapApimoJsonLd(property, findJsonLdNode(nodes, ['realestateagent']));
 }
 
 export interface ParsedDetail {
@@ -219,6 +207,76 @@ function isCommercial($: cheerio.CheerioAPI, typeSlug: string): boolean {
   return /"@type"\s*:\s*"CommercialProperty"/.test($.html());
 }
 
+/**
+ * Statut bloquant d'une fiche, avant tout parsing : bien DÉJÀ LOUÉ/VENDU
+ * (bandeau `.propertySold`, alors que le JSON-LD dit encore `InStock` → on
+ * signale `rented`, §32/§33) ou bien NON RÉSIDENTIEL (commerce, bureau…, hors
+ * périmètre). Retourne le `ParsedDetail` à renvoyer, ou `null` si rien ne bloque.
+ */
+function apimoBlockingStatus(
+  $: cheerio.CheerioAPI,
+  typeSlug: string,
+  pageUrl: string,
+): ParsedDetail | null {
+  const soldSticker = comparable($('.propertySold, .sticker').text());
+  if (/deja loue|deja louee|\bloue\b|\blouee\b|\bvendu\b|\bvendue\b/.test(soldSticker)) {
+    return { listing: null, rented: true, warnings: [`Bien déjà loué/vendu : ${pageUrl}`] };
+  }
+  if (isCommercial($, typeSlug)) {
+    return { listing: null, warnings: [`Bien à usage commercial (ignoré) : ${pageUrl}`] };
+  }
+  return null;
+}
+
+/** Champs métier d'une fiche Apimo : JSON-LD prioritaire, HTML en secours. */
+function extractApimoContent(
+  $: cheerio.CheerioAPI,
+  jsonLd: JsonLdData | null,
+): {
+  priceText?: string;
+  title?: string;
+  description?: string;
+  areaText?: string;
+  roomsText?: string;
+} {
+  const infoText = cleanText($('.module-property-info').first().text().replace(/\s+/g, ' '));
+  // Prix : le bloc affiché d'abord (mention des charges), le JSON en secours.
+  const htmlPrice = cleanText($('.module-property-info .price').first().text());
+  let priceText: string | undefined;
+  if (htmlPrice !== '') priceText = htmlPrice;
+  else if (jsonLd?.offerPrice !== undefined) priceText = `${jsonLd.offerPrice} €`;
+
+  return {
+    priceText,
+    title: jsonLd?.name ?? cleanText($('.module-property-info .title').first().text()) ?? undefined,
+    description: jsonLd?.description ?? cleanText($('#description').first().text()) ?? undefined,
+    areaText:
+      jsonLd?.area !== undefined
+        ? `${jsonLd.area} m²`
+        : infoText.match(/[\d][\d\s.,]*\s*m\s*(?:²|2)(?!\d)/i)?.[0],
+    roomsText:
+      jsonLd?.rooms !== undefined
+        ? `${jsonLd.rooms} pièces`
+        : infoText.match(/\d+\s*pièces?/i)?.[0],
+  };
+}
+
+/** `true` si la page est une fiche retirée / introuvable (§17). */
+function isRemovedListing(
+  $: cheerio.CheerioAPI,
+  jsonLd: JsonLdData | null,
+  priceText: string | undefined,
+): boolean {
+  const canonical =
+    $('link[rel="canonical"]').attr('href') ?? $('meta[property="og:url"]').attr('content') ?? '';
+  // Redirection vers une page « not found », OU absence totale de signal (ni
+  // JSON-LD de bien, ni prix — une vraie location a un loyer).
+  return (
+    /\/(not-?found|introuvable|404)\b/i.test(canonical) ||
+    (jsonLd === null && priceText === undefined)
+  );
+}
+
 export function parseDetailPage(
   html: string,
   pageUrl: string,
@@ -230,105 +288,52 @@ export function parseDetailPage(
   }
 
   const $ = cheerio.load(html);
+  const blocked = apimoBlockingStatus($, parsedUrl.typeSlug, pageUrl);
+  if (blocked !== null) return blocked;
+
   const warnings: string[] = [];
-
-  // Bien DÉJÀ LOUÉ / VENDU : ces sites laissent la fiche en ligne avec un
-  // bandeau `.propertySold` (« déjà Loué »), alors que le JSON-LD dit encore
-  // `InStock`. On ne le collecte pas comme actif, mais on signale `rented`
-  // pour marquer l'annonce (favoris grisés, statistiques — §32, §33).
-  const soldSticker = comparable($('.propertySold, .sticker').text());
-  if (/deja loue|deja louee|\bloue\b|\blouee\b|\bvendu\b|\bvendue\b/.test(soldSticker)) {
-    return { listing: null, rented: true, warnings: [`Bien déjà loué/vendu : ${pageUrl}`] };
-  }
-
-  // Bien NON RÉSIDENTIEL (commerce, bureau, local, atelier, entrepôt, fonds de
-  // commerce) : hors périmètre — on cherche un logement. Repéré par le type
-  // JSON-LD `CommercialProperty` ou par le slug de type dans l'URL.
-  if (isCommercial($, parsedUrl.typeSlug)) {
-    return { listing: null, warnings: [`Bien à usage commercial (ignoré) : ${pageUrl}`] };
-  }
-
   const jsonLd = parseJsonLd($);
-  if (jsonLd === null) {
-    warnings.push('JSON-LD absent ou illisible — repli sur le HTML seul');
-  }
+  if (jsonLd === null) warnings.push('JSON-LD absent ou illisible — repli sur le HTML seul');
 
-  // Prix : le bloc affiché d'abord (mention des charges), le JSON en secours.
-  const htmlPrice = cleanText($('.module-property-info .price').first().text());
-  const priceText =
-    htmlPrice !== ''
-      ? htmlPrice
-      : jsonLd?.offerPrice !== undefined
-        ? `${jsonLd.offerPrice} €`
-        : undefined;
+  const { priceText, title, description, areaText, roomsText } = extractApimoContent($, jsonLd);
 
-  const infoText = cleanText($('.module-property-info').first().text().replace(/\s+/g, ' '));
-  const title =
-    jsonLd?.name ?? cleanText($('.module-property-info .title').first().text()) ?? undefined;
-  const description =
-    jsonLd?.description ?? cleanText($('#description').first().text()) ?? undefined;
-
-  const areaText =
-    jsonLd?.area !== undefined
-      ? `${jsonLd.area} m²`
-      : (infoText.match(/[\d][\d\s.,]*\s*m\s*(?:²|2)(?!\d)/i)?.[0] ?? undefined);
-  const roomsText =
-    jsonLd?.rooms !== undefined
-      ? `${jsonLd.rooms} pièces`
-      : (infoText.match(/\d+\s*pièces?/i)?.[0] ?? undefined);
-
-  // Fiche retirée : certains sites Apimo redirigent une annonce délistée vers
-  // une page « not found ». Deux signatures :
-  //   - l'URL canonique / og:url de la page pointe vers /not-found ;
-  //   - la page n'a NI JSON-LD de bien NI prix (une vraie location a un loyer).
-  // Dans les deux cas on ne produit rien, plutôt qu'une fiche fantôme dont le
-  // lien mène à une page morte (§17).
-  const canonical =
-    $('link[rel="canonical"]').attr('href') ?? $('meta[property="og:url"]').attr('content') ?? '';
-  const isNotFoundPage = /\/(not-?found|introuvable|404)\b/i.test(canonical);
-  if (isNotFoundPage || (jsonLd === null && priceText === undefined)) {
+  // Fiche retirée : on ne produit rien plutôt qu'une fiche fantôme (§17).
+  if (isRemovedListing($, jsonLd, priceText)) {
     return {
       listing: null,
       warnings: [...warnings, `Fiche retirée ou introuvable (ignorée) : ${pageUrl}`],
     };
   }
+  if (priceText === undefined) warnings.push(`Fiche sans prix : ${pageUrl}`);
 
-  if (priceText === undefined) {
-    warnings.push(`Fiche sans prix : ${pageUrl}`);
-  }
+  // Date effective = la plus récente entre publication et dernière modif : sur
+  // ces sites, `datePosted` peut être ancien pour une annonce rafraîchie.
+  const publishedAtText = mostRecentDate(jsonLd?.datePosted, jsonLd?.dateModified);
 
-  const listing: RawListing = {
+  const listing = compactListing({
     sourceRef: parsedUrl.reference,
     sourceUrl: parsedUrl.canonicalUrl,
-    ...(title !== undefined && title !== '' ? { title } : {}),
-    ...(description !== undefined && description !== '' ? { description } : {}),
-    ...(priceText !== undefined ? { priceText } : {}),
-    ...(areaText !== undefined ? { areaText } : {}),
-    ...(roomsText !== undefined ? { roomsText } : {}),
+    title: title !== undefined && title !== '' ? title : undefined,
+    description: description !== undefined && description !== '' ? description : undefined,
+    priceText,
+    areaText,
+    roomsText,
     propertyTypeText: parsedUrl.typeSlug,
     // Meublé : le titre et la description le disent quand c'est le cas.
     furnishedText: cleanText(`${title ?? ''} ${description ?? ''}`),
-    // §21 : adresse exacte publiée dans le JSON-LD quand elle existe.
-    ...(jsonLd?.streetAddress !== undefined ? { addressText: jsonLd.streetAddress } : {}),
+    // §21 : adresse exacte + coordonnées d'agence, publiées dans le JSON-LD.
+    addressText: jsonLd?.streetAddress,
     cityText: jsonLd?.city ?? parsedUrl.citySlug.replace(/-/g, ' '),
-    ...(jsonLd?.postalCode !== undefined ? { postalCodeText: jsonLd.postalCode } : {}),
-    // §21 : coordonnées d'agence publiées volontairement dans le JSON-LD.
+    postalCodeText: jsonLd?.postalCode,
     agencyName: jsonLd?.agencyName ?? defaultAgencyName,
-    ...(jsonLd?.agencyPhone !== undefined ? { phoneText: jsonLd.agencyPhone } : {}),
-    ...(jsonLd?.agencyEmail !== undefined ? { emailText: jsonLd.agencyEmail } : {}),
+    phoneText: jsonLd?.agencyPhone,
+    emailText: jsonLd?.agencyEmail,
     contactFormUrl: parsedUrl.canonicalUrl,
-    // Date effective = la plus récente entre publication et dernière modif
-    // (convention « annonce mise à jour le… » des portails). Sur ces sites
-    // d'agences, `datePosted` peut être très ancien pour une annonce laissée
-    // en ligne et rafraîchie ; `dateModified` reflète mieux l'activité réelle.
-    ...(mostRecentDate(jsonLd?.datePosted, jsonLd?.dateModified) !== undefined
-      ? { publishedAtText: mostRecentDate(jsonLd?.datePosted, jsonLd?.dateModified) }
-      : {}),
-    ...(jsonLd?.imageUrls !== undefined && jsonLd.imageUrls.length > 0
-      ? { imageUrls: jsonLd.imageUrls }
-      : {}),
+    publishedAtText,
+    imageUrls:
+      jsonLd?.imageUrls !== undefined && jsonLd.imageUrls.length > 0 ? jsonLd.imageUrls : undefined,
     extra: { reference: parsedUrl.reference, citySlug: parsedUrl.citySlug },
-  };
+  });
 
   return { listing, warnings };
 }

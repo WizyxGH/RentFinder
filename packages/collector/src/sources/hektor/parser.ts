@@ -17,6 +17,7 @@
 import * as cheerio from 'cheerio';
 import type { RawListing } from '@rentfinder/shared';
 import { cleanText } from '../../normalization/text.js';
+import { compactListing } from '../shared/raw-listing.js';
 
 /**
  * Identifiant d'une fiche dans une URL Hektor : dernier segment `{id}-{slug}`
@@ -112,6 +113,26 @@ const FEATURE_KEYS: Readonly<Record<string, string>> = {
 };
 
 /** Analyse une fiche bien et en extrait l'annonce. */
+/**
+ * Type de bien et ville, depuis le `<title>` plateforme (« Location {type}
+ * {Ville} … »), avec repli sur l'URL. Extrait pour alléger `parseDetailPage`.
+ */
+function parseTypeAndCity(
+  pageTitle: string,
+  parsedUrl: ParsedHektorUrl,
+): { propertyTypeText: string; cityText: string | undefined } {
+  const match =
+    /^location\s+(appartement|studio|maison|villa|parking|garage|local|chambre|duplex|loft)\s+(.+?)(?:\s+\d|$)/i.exec(
+      pageTitle,
+    );
+  return {
+    propertyTypeText: match?.[1] ?? parsedUrl.canonicalUrl,
+    cityText:
+      match?.[2]?.trim() ??
+      (parsedUrl.citySlug !== null ? parsedUrl.citySlug.replace(/-/g, ' ') : undefined),
+  };
+}
+
 export function parseDetailPage(html: string, pageUrl: string, agencyName: string): ParsedDetail {
   const parsedUrl = parseListingUrl(pageUrl, pageUrl);
   if (parsedUrl === null) {
@@ -150,15 +171,7 @@ export function parseDetailPage(html: string, pageUrl: string, agencyName: strin
   const meuble = table.get('meuble');
   const furnishedText = meuble === undefined ? '' : /^oui$/i.test(meuble) ? 'meublé' : 'non meublé';
 
-  // Type et ville : le <title> plateforme commence par « Location {type} {Ville} ».
-  const titleMatch =
-    /^location\s+(appartement|studio|maison|villa|parking|garage|local|chambre|duplex|loft)\s+(.+?)(?:\s+\d|$)/i.exec(
-      pageTitle,
-    );
-  const propertyTypeText = titleMatch?.[1] ?? parsedUrl.canonicalUrl;
-  const cityText =
-    titleMatch?.[2]?.trim() ??
-    (parsedUrl.citySlug !== null ? parsedUrl.citySlug.replace(/-/g, ' ') : undefined);
+  const { propertyTypeText, cityText } = parseTypeAndCity(pageTitle, parsedUrl);
 
   const features = [...table.entries()]
     .filter(([key, value]) => FEATURE_KEYS[key] !== undefined && /^oui$/i.test(value))
@@ -178,35 +191,34 @@ export function parseDetailPage(html: string, pageUrl: string, agencyName: strin
 
   const chargesValue = table.get('ChargesAnnonceLocation_forfaitaires_mensuelles');
 
-  const listing: RawListing = {
+  // Atouts consolidés (caractéristiques + vue + exposition), pour la liste
+  // d'atouts en normalisation.
+  const featureList = [
+    ...features,
+    ...(vue !== undefined ? [`Vue ${vue}`] : []),
+    ...(exposition !== undefined ? [`Exposition ${exposition}`] : []),
+  ];
+  const extra: Record<string, string> = { reference: parsedUrl.reference };
+  if (featureList.length > 0) extra['features'] = featureList.join(' · ');
+
+  const listing = compactListing({
     sourceRef: parsedUrl.reference,
     sourceUrl: parsedUrl.canonicalUrl,
-    ...(title !== '' ? { title } : {}),
-    ...(description !== '' ? { description } : {}),
-    ...(priceText !== undefined ? { priceText } : {}),
-    ...(chargesValue !== undefined ? { chargesText: `${chargesValue} de charges` } : {}),
-    ...(areaText !== undefined ? { areaText } : {}),
-    ...(roomsText !== undefined ? { roomsText } : {}),
+    title: title !== '' ? title : undefined,
+    description: description !== '' ? description : undefined,
+    priceText,
+    chargesText: chargesValue !== undefined ? `${chargesValue} de charges` : undefined,
+    areaText,
+    roomsText,
     propertyTypeText,
     furnishedText,
-    ...(cityText !== undefined ? { cityText } : {}),
-    ...(table.get('cp') !== undefined ? { postalCodeText: table.get('cp') as string } : {}),
+    cityText,
+    postalCodeText: table.get('cp'),
     agencyName,
     contactFormUrl: parsedUrl.canonicalUrl,
-    ...(imageUrls.length > 0 ? { imageUrls } : {}),
-    extra: {
-      reference: parsedUrl.reference,
-      ...(features.length > 0 || vue !== undefined || exposition !== undefined
-        ? {
-            features: [
-              ...features,
-              ...(vue !== undefined ? [`Vue ${vue}`] : []),
-              ...(exposition !== undefined ? [`Exposition ${exposition}`] : []),
-            ].join(' · '),
-          }
-        : {}),
-    },
-  };
+    imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
+    extra,
+  });
 
   return { listing, warnings };
 }
