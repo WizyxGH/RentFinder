@@ -137,8 +137,15 @@ function Shell({
   // La fiche appartient à l'univers « Annonces ».
   const active = view === 'detail' ? 'list' : view;
 
+  // La liste s'élargit sur grand écran pour afficher les cartes en grille ; les
+  // autres vues (fiche, profil, stats) restent en colonne étroite, plus lisible.
+  const wide = view === 'list';
   return (
-    <main className="mx-auto max-w-[720px] px-3 py-4 pb-12 sm:px-4 sm:py-6 sm:pb-16">
+    <main
+      className={`mx-auto px-3 py-4 pb-12 sm:px-4 sm:py-6 sm:pb-16 ${
+        wide ? 'max-w-[720px] lg:max-w-[1120px]' : 'max-w-[720px]'
+      }`}
+    >
       <header className="mb-4">
         <div className="flex items-baseline justify-between gap-2">
           <h1 className="text-2xl font-bold tracking-tight">Recherche Nice</h1>
@@ -680,7 +687,7 @@ export function App(): React.JSX.Element {
               <h2 id="hot-title" className="mb-2 text-lg font-bold">
                 🔥 À contacter maintenant
               </h2>
-              <div className="flex flex-col gap-3">
+              <div className="grid gap-3 lg:grid-cols-2">
                 {hot.map((listing) => (
                   <ListingCard
                     key={listing.id}
@@ -702,7 +709,7 @@ export function App(): React.JSX.Element {
                 Toutes les annonces <span className="text-sm font-normal">({ranked.length})</span>
               </h2>
             )}
-            <div className="flex flex-col gap-3">
+            <div className="grid gap-3 lg:grid-cols-2">
               {rest.map((listing) => (
                 <ListingCard
                   key={listing.id}
