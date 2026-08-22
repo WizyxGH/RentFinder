@@ -67,6 +67,13 @@ type View = 'list' | 'detail' | 'filters' | 'stats' | 'profile' | 'sources';
 /** Seuil de mise en avant : au-delà, l'annonce mérite un contact immédiat. */
 const HOT_PRIORITY = 85;
 
+/** Options de tri de la liste (§36). L'ordre définit celui du menu. */
+const SORT_OPTIONS: readonly { value: SortMode; label: string }[] = [
+  { value: 'priority', label: 'Priorité d’action' },
+  { value: 'recent', label: 'Plus récentes' },
+  { value: 'price', label: 'Loyer croissant' },
+];
+
 /**
  * Bandeau de synthèse (§33) : de quoi comprendre l'état de la recherche d'un
  * coup d'œil, sans page dédiée. Calculé depuis les annonces déjà chargées —
@@ -560,20 +567,34 @@ export function App(): React.JSX.Element {
             </button>
           </div>
 
-          {/* Tri. */}
-          <label className="flex items-center gap-1.5 text-muted-foreground">
-            <span className="sr-only">Trier par</span>
-            <select
-              id="sort-select"
-              aria-label="Trier par"
-              value={sort}
-              onChange={(event) => setSort(event.target.value as SortMode)}
-            >
-              <option value="priority">Priorité d’action</option>
-              <option value="recent">Plus récentes</option>
-              <option value="price">Loyer croissant</option>
-            </select>
-          </label>
+          {/* Tri : même style de menu déroulant que les autres filtres. */}
+          <Dropdown
+            label={`Tri : ${SORT_OPTIONS.find((o) => o.value === sort)?.label ?? ''}`}
+            active={sort !== 'priority'}
+            panelClassName="w-52"
+          >
+            <ul className="flex flex-col gap-0.5">
+              {SORT_OPTIONS.map((option) => (
+                <li key={option.value}>
+                  <button
+                    type="button"
+                    onClick={() => setSort(option.value)}
+                    aria-pressed={sort === option.value}
+                    className={`flex w-full cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors ${
+                      sort === option.value
+                        ? 'bg-primary/10 font-semibold text-primary'
+                        : 'hover:bg-muted'
+                    }`}
+                  >
+                    <span aria-hidden="true" className="w-4">
+                      {sort === option.value ? '✓' : ''}
+                    </span>
+                    {option.label}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </Dropdown>
 
           {/* Filtres d'affichage regroupés dans un menu (« Affichage » pour ne pas
             confondre avec l'onglet « Filtres » qui règle les critères, §66). */}

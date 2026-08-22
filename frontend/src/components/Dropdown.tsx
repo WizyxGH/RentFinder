@@ -73,7 +73,7 @@ export function Dropdown({
       {open && (
         <div
           id={panelId}
-          className={`absolute left-0 z-20 mt-1 max-h-72 overflow-y-auto rounded-xl border border-border bg-card p-2 shadow-lg ${panelClassName}`}
+          className={`absolute left-0 z-20 mt-1 max-h-72 overflow-y-auto rounded-xl border border-border bg-card p-2 text-sm shadow-lg ${panelClassName}`}
         >
           {children}
         </div>

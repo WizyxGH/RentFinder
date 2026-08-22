@@ -121,7 +121,10 @@ test('une annonce risquée reste visible, avec ses raisons (§19)', async ({ pag
 });
 
 test('le tri et le changement de statut fonctionnent (§35, §54)', async ({ page }) => {
-  await page.getByLabel('Trier par').selectOption('price');
+  // Tri en menu déroulant (même style que les autres filtres).
+  const toolbar = page.getByRole('group', { name: 'Barre de filtres' });
+  await toolbar.getByRole('button', { name: /^Tri :/ }).click();
+  await page.getByRole('button', { name: 'Loyer croissant' }).click();
   await expect(page.getByTestId('listing-card').first()).toContainText('420 €');
 
   await page.getByTestId('listing-card').first().getByRole('button', { name: 'Voir' }).click();
