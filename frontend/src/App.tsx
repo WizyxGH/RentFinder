@@ -199,6 +199,54 @@ export function App(): React.JSX.Element {
   // conditionnel (règle des hooks). Recalculée quand la liste change.
   const affinity = useMemo(() => computeAffinity(listings), [listings]);
 
+  // Dérivations d'affichage MÉMOÏSÉES : elles filtrent et trient des centaines
+  // d'annonces. Sans mémoïsation, tout serait recalculé à chaque rendu — donc à
+  // chaque frappe dans un filtre. Placées avant tout return conditionnel (règle
+  // des hooks). Chacune ne se recalcule que si ses entrées changent.
+  const availableSources = useMemo(
+    () =>
+      [...new Set(listings.flatMap((l) => l.occurrences.map((o) => o.sourceId)))].sort((a, b) =>
+        formatSourceName(a).localeCompare(formatSourceName(b)),
+      ),
+    [listings],
+  );
+  const availableTypes = useMemo(
+    () =>
+      [...new Set(listings.map((l) => l.propertyType.value))].filter((t) => t !== 'unknown').sort(),
+    [listings],
+  );
+  // Filtre par source (§13) PUIS filtres rapides (budget/surface/pièces/type).
+  const filtered = useMemo(() => {
+    const bySource =
+      selectedSources.size === 0
+        ? listings
+        : listings.filter((l) => l.occurrences.some((o) => selectedSources.has(o.sourceId)));
+    return bySource.filter((l) => matchesQuickFilters(l, quickFilters));
+  }, [listings, selectedSources, quickFilters]);
+  // §36 : en tri par priorité, on classe par priorité d'action AJUSTÉE de
+  // l'affinité — les annonces proches de vos préférences remontent.
+  const ranked = useMemo(
+    () =>
+      sort === 'priority'
+        ? [...filtered].sort(
+            (a, b) =>
+              b.actionPriority +
+              (affinity.scores.get(b.id) ?? 0) * AFFINITY_BOOST -
+              (a.actionPriority + (affinity.scores.get(a.id) ?? 0) * AFFINITY_BOOST),
+          )
+        : filtered,
+    [filtered, sort, affinity],
+  );
+  // La section « à contacter maintenant » reste fondée sur l'urgence réelle.
+  const hot = useMemo(
+    () => (sort === 'priority' ? ranked.filter((l) => l.actionPriority >= HOT_PRIORITY) : []),
+    [ranked, sort],
+  );
+  const rest = useMemo(
+    () => (sort === 'priority' ? ranked.filter((l) => l.actionPriority < HOT_PRIORITY) : ranked),
+    [ranked, sort],
+  );
+
   const load = useCallback(async (): Promise<void> => {
     setLoading(true);
     setError(null);
@@ -424,26 +472,6 @@ export function App(): React.JSX.Element {
   const secondary = secondaryView();
   if (secondary !== null) return secondary;
 
-  // Sources présentes dans les annonces chargées, pour proposer le filtre.
-  const availableSources = [
-    ...new Set(listings.flatMap((l) => l.occurrences.map((o) => o.sourceId))),
-  ].sort((a, b) => formatSourceName(a).localeCompare(formatSourceName(b)));
-
-  // Filtre par source : ensemble vide = tout ; sinon, on garde les annonces
-  // dont AU MOINS une occurrence vient d'une source sélectionnée (§13).
-  const sourceFiltered =
-    selectedSources.size === 0
-      ? listings
-      : listings.filter((l) => l.occurrences.some((o) => selectedSources.has(o.sourceId)));
-
-  // Filtres rapides (budget/surface/pièces/type), appliqués à l'affichage.
-  const filtered = sourceFiltered.filter((l) => matchesQuickFilters(l, quickFilters));
-
-  // Types de biens présents dans la liste, pour n'offrir que ceux-là au filtre.
-  const availableTypes = [...new Set(listings.map((l) => l.propertyType.value))]
-    .filter((t) => t !== 'unknown')
-    .sort();
-
   // Nb de filtres d'affichage actifs, pour la pastille du menu « Affichage ».
   const activeFilterCount =
     (favoritesOnly ? 1 : 0) + (includeOutOfCriteria ? 1 : 0) + (showArchived ? 1 : 0);
@@ -455,22 +483,6 @@ export function App(): React.JSX.Element {
       else next.add(sourceId);
       return next;
     });
-
-  // §36 : en tri par priorité, on classe par priorité d'action AJUSTÉE de
-  // l'affinité — les annonces proches de vos préférences remontent.
-  const ranked =
-    sort === 'priority'
-      ? [...filtered].sort(
-          (a, b) =>
-            b.actionPriority +
-            (affinity.scores.get(b.id) ?? 0) * AFFINITY_BOOST -
-            (a.actionPriority + (affinity.scores.get(a.id) ?? 0) * AFFINITY_BOOST),
-        )
-      : filtered;
-
-  // La section « à contacter maintenant » reste fondée sur l'urgence réelle.
-  const hot = sort === 'priority' ? ranked.filter((l) => l.actionPriority >= HOT_PRIORITY) : [];
-  const rest = sort === 'priority' ? ranked.filter((l) => l.actionPriority < HOT_PRIORITY) : ranked;
 
   const handleFavorite = async (id: string, favorite: boolean): Promise<void> => {
     // Optimiste ; si on n'affiche que les favoris, retirer un favori le fait
