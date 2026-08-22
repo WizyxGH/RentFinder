@@ -394,6 +394,105 @@ async function recordContact(
   return { id, followUpIndex, sentAt: now, documents };
 }
 
+/** Filtres de recherche éditables depuis l'interface, en mode local (§66). */
+async function handleConfigRoute(
+  method: string,
+  request: Request,
+  cors: Record<string, string>,
+  local: LocalFeatures,
+): Promise<Response> {
+  if (method === 'GET') return json(local.readSearchFilters(), cors);
+  if (method === 'PUT') {
+    const body = await request.json().catch(() => null);
+    try {
+      return json(local.writeSearchFilters(body), cors);
+    } catch (error) {
+      return jsonError(400, error instanceof Error ? error.message : 'Filtres invalides');
+    }
+  }
+  return json({ error: 'Route inconnue' }, cors, 404);
+}
+
+/**
+ * Documents de candidature (§25) : stockés dans data/ (gitignoré), servis
+ * uniquement en local. Aucun envoi automatique, jamais (§24).
+ */
+async function handleDocumentsRoute(
+  method: string,
+  id: string | undefined,
+  url: URL,
+  request: Request,
+  cors: Record<string, string>,
+  local: LocalFeatures,
+): Promise<Response> {
+  if (id === undefined && method === 'GET') {
+    return json({ documents: local.listDocuments() }, cors);
+  }
+  if (id === undefined && method === 'POST') {
+    const name = url.searchParams.get('name') ?? '';
+    const bytes = new Uint8Array(await request.arrayBuffer());
+    const result = local.saveDocument(name, bytes);
+    return result.ok ? json(result.document, cors, 201) : jsonError(400, result.error);
+  }
+  if (id !== undefined && method === 'GET') {
+    const document = local.readDocument(id);
+    if (document === null) return jsonError(404, 'Document introuvable');
+    return new Response(new Uint8Array(document.bytes), {
+      headers: {
+        'content-type': document.contentType,
+        'content-disposition': 'inline',
+        'cache-control': 'private, no-store',
+        ...cors,
+      },
+    });
+  }
+  if (id !== undefined && method === 'DELETE') {
+    return local.deleteDocument(id)
+      ? json({ deleted: true }, cors)
+      : jsonError(404, 'Document introuvable');
+  }
+  return json({ error: 'Route inconnue' }, cors, 404);
+}
+
+/** Ressource `listings` : collection, élément et sous-ressource `contact`. */
+async function handleListingsRoute(
+  db: Client,
+  method: string,
+  id: string | undefined,
+  action: string | undefined,
+  url: URL,
+  request: Request,
+  cors: Record<string, string>,
+  local: LocalFeatures | undefined,
+): Promise<Response> {
+  // Collection : GET /api/listings
+  if (id === undefined && method === 'GET') {
+    return json(await listListings(db, url, local?.readSearchFilters()), cors);
+  }
+  if (id === undefined) return json({ error: 'Route inconnue' }, cors, 404);
+
+  // Sous-ressource : POST /api/listings/:id/contact
+  if (action === 'contact') {
+    if (method !== 'POST') return json({ error: 'Route inconnue' }, cors, 404);
+    const result = await recordContact(db, id, request);
+    return result instanceof Response ? result : json(result, cors, 201);
+  }
+  if (action !== undefined) return json({ error: 'Route inconnue' }, cors, 404);
+
+  // Élément : GET ou PATCH /api/listings/:id
+  if (method === 'GET') {
+    const listing = await getListing(db, id);
+    return listing === null
+      ? json({ error: 'Annonce introuvable' }, cors, 404)
+      : json(listing, cors);
+  }
+  if (method === 'PATCH') {
+    const result = await updateListing(db, id, request);
+    return result instanceof Response ? result : json(result, cors);
+  }
+  return json({ error: 'Route inconnue' }, cors, 404);
+}
+
 /**
  * Aiguillage des routes. La clé de routage combine méthode et forme du chemin.
  * Les segments sont validés par le transport avant d'arriver ici (§75).
@@ -412,101 +511,22 @@ export async function route(
   // « : » (`source:référence`), encodé `%3A` par certains appels du client.
   // On décode ici une fois pour toutes, sinon la fiche ne correspond plus.
   const id = segments[2] !== undefined ? decodeURIComponent(segments[2]) : undefined;
-  const action = segments[3];
 
   // Filtres et documents touchent le DISQUE de l'utilisateur : disponibles
   // uniquement quand le transport les fournit (mode local, §25/§66).
   if ((resource === 'config' || resource === 'documents') && local === undefined) {
     return jsonError(501, 'Disponible uniquement en mode local (pnpm local)');
   }
-
-  // Filtres de recherche éditables depuis l'interface (§66).
   if (resource === 'config' && local !== undefined) {
-    if (method === 'GET') return json(local.readSearchFilters(), cors);
-    if (method === 'PUT') {
-      const body = await request.json().catch(() => null);
-      try {
-        return json(local.writeSearchFilters(body), cors);
-      } catch (error) {
-        return jsonError(400, error instanceof Error ? error.message : 'Filtres invalides');
-      }
-    }
-    return json({ error: 'Route inconnue' }, cors, 404);
+    return handleConfigRoute(method, request, cors, local);
   }
-
-  // Documents de candidature (§25) : stockés dans data/ (gitignoré), servis
-  // uniquement en local. Aucun envoi automatique, jamais (§24).
   if (resource === 'documents' && local !== undefined) {
-    if (id === undefined && method === 'GET') {
-      return json({ documents: local.listDocuments() }, cors);
-    }
-    if (id === undefined && method === 'POST') {
-      const name = url.searchParams.get('name') ?? '';
-      const bytes = new Uint8Array(await request.arrayBuffer());
-      const result = local.saveDocument(name, bytes);
-      return result.ok ? json(result.document, cors, 201) : jsonError(400, result.error);
-    }
-    if (id !== undefined && method === 'GET') {
-      const document = local.readDocument(id);
-      if (document === null) return jsonError(404, 'Document introuvable');
-      return new Response(new Uint8Array(document.bytes), {
-        headers: {
-          'content-type': document.contentType,
-          'content-disposition': 'inline',
-          'cache-control': 'private, no-store',
-          ...cors,
-        },
-      });
-    }
-    if (id !== undefined && method === 'DELETE') {
-      return local.deleteDocument(id)
-        ? json({ deleted: true }, cors)
-        : jsonError(404, 'Document introuvable');
-    }
-    return json({ error: 'Route inconnue' }, cors, 404);
+    return handleDocumentsRoute(method, id, url, request, cors, local);
   }
-
-  if (resource === 'sources' && method === 'GET') {
-    return json(await listSources(db), cors);
+  if (resource === 'sources' && method === 'GET') return json(await listSources(db), cors);
+  if (resource === 'stats' && method === 'GET') return json(await getStats(db), cors);
+  if (resource === 'listings') {
+    return handleListingsRoute(db, method, id, segments[3], url, request, cors, local);
   }
-
-  if (resource === 'stats' && method === 'GET') {
-    return json(await getStats(db), cors);
-  }
-
-  if (resource !== 'listings') {
-    return json({ error: 'Route inconnue' }, cors, 404);
-  }
-
-  // Collection : GET /api/listings
-  if (id === undefined && method === 'GET') {
-    return json(await listListings(db, url, local?.readSearchFilters()), cors);
-  }
-  if (id === undefined) {
-    return json({ error: 'Route inconnue' }, cors, 404);
-  }
-
-  // Sous-ressource : POST /api/listings/:id/contact
-  if (action === 'contact') {
-    if (method !== 'POST') return json({ error: 'Route inconnue' }, cors, 404);
-    const result = await recordContact(db, id, request);
-    return result instanceof Response ? result : json(result, cors, 201);
-  }
-  if (action !== undefined) {
-    return json({ error: 'Route inconnue' }, cors, 404);
-  }
-
-  // Élément : GET ou PATCH /api/listings/:id
-  if (method === 'GET') {
-    const listing = await getListing(db, id);
-    return listing === null
-      ? json({ error: 'Annonce introuvable' }, cors, 404)
-      : json(listing, cors);
-  }
-  if (method === 'PATCH') {
-    const result = await updateListing(db, id, request);
-    return result instanceof Response ? result : json(result, cors);
-  }
-
   return json({ error: 'Route inconnue' }, cors, 404);
 }
