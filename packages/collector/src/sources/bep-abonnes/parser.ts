@@ -18,6 +18,7 @@
 
 import type { RawListing } from '@rentfinder/shared';
 import { cleanText } from '../../normalization/text.js';
+import { compactListing } from '../shared/raw-listing.js';
 
 /**
  * URL vers laquelle pointe une annonce du bulletin abonné.
@@ -49,6 +50,58 @@ export interface ParsedBulletin {
 }
 
 /** Analyse le bulletin complet et en extrait les annonces. */
+/**
+ * Analyse UNE annonce du bulletin, du titre `startIndex` au titre suivant
+ * `endIndex`. Extraite pour garder `parseBulletin` (l'itération) simple.
+ */
+function parseBulletinEntry(
+  html: string,
+  reference: string,
+  location: string,
+  startIndex: number,
+  endIndex: number,
+): RawListing {
+  const block = html.slice(startIndex, endIndex);
+  const text = toText(block);
+
+  // La date du bulletin est juste AVANT le titre : on la cherche en arrière.
+  const before = html.slice(Math.max(0, startIndex - 1500), startIndex);
+  const lastDate = [...before.matchAll(/BULLETIN[^)]*?DU\s+(\d{2})\/(\d{2})\/(\d{4})/gi)].at(-1);
+  const publishedAtText =
+    lastDate !== undefined ? `${lastDate[3]}-${lastDate[2]}-${lastDate[1]}` : undefined;
+
+  // Type + surface depuis « DESCRIPTION : {type}, {surface} M² ».
+  const description = text.match(/DESCRIPTION\s*:\s*(.+?)(?:\s*$)/i)?.[1] ?? text;
+  const typeMatch = description.match(/^([A-ZÀ-Ý' ]+?)(?:,|\bEN\b|\d)/);
+  const propertyTypeText = typeMatch?.[1] !== undefined ? cleanText(typeMatch[1]) : undefined;
+  const dpe = text.match(/CLASSE\s+ENERGETIQUE\s+([A-G])\b/i)?.[1];
+
+  // Photos : uniquement les URLs (§11), jamais de téléchargement.
+  const imageUrls = [...block.matchAll(/href=["'](https?:\/\/[^"']+\.jpg)["']/gi)].map(
+    (m) => m[1] as string,
+  );
+
+  return compactListing({
+    sourceRef: reference,
+    sourceUrl: BULLETIN_URL,
+    title: `${propertyTypeText ?? ''} — ${location}`.trim(),
+    description,
+    priceText: text.match(/LOYER\s*:\s*([\d.,]+)\s*€/i)?.[0],
+    // « charges comprises » : on le signale à la normalisation via le prix.
+    chargesText: /CHARGES\s+COMPRISES/i.test(text) ? 'charges comprises' : undefined,
+    areaText: description.match(/(\d+(?:[.,]\d+)?)\s*M²/i)?.[0],
+    propertyTypeText,
+    furnishedText: description,
+    // La localisation du bulletin sert de ville : le filtre ne garde que Nice.
+    cityText: location,
+    agencyName: 'BEP Logement',
+    contactFormUrl: BULLETIN_URL,
+    publishedAtText,
+    imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
+    extra: dpe !== undefined ? { dpe: dpe.toUpperCase() } : undefined,
+  });
+}
+
 export function parseBulletin(html: string): ParsedBulletin {
   const warnings: string[] = [];
   const listings: RawListing[] = [];
@@ -65,57 +118,11 @@ export function parseBulletin(html: string): ParsedBulletin {
     if (anchor?.[1] === undefined || anchor[2] === undefined || anchor.index === undefined)
       continue;
     const reference = anchor[1];
-    const location = cleanText(anchor[2]);
     if (byRef.has(reference)) continue;
 
     // Contenu de l'annonce : de ce titre au titre suivant.
     const end = anchors[i + 1]?.index ?? html.length;
-    const block = html.slice(anchor.index, end);
-    const text = toText(block);
-
-    // La date du bulletin est juste AVANT le titre : on la cherche en arrière.
-    const before = html.slice(Math.max(0, anchor.index - 1500), anchor.index);
-    const dateMatches = [...before.matchAll(/BULLETIN[^)]*?DU\s+(\d{2})\/(\d{2})\/(\d{4})/gi)];
-    const lastDate = dateMatches.at(-1);
-    const publishedAtText =
-      lastDate !== undefined ? `${lastDate[3]}-${lastDate[2]}-${lastDate[1]}` : undefined;
-
-    // Type + surface depuis « DESCRIPTION : {type}, {surface} M² ».
-    const description = text.match(/DESCRIPTION\s*:\s*(.+?)(?:\s*$)/i)?.[1] ?? text;
-    const typeMatch = description.match(/^([A-ZÀ-Ý' ]+?)(?:,|\bEN\b|\d)/);
-    const propertyTypeText = typeMatch?.[1] !== undefined ? cleanText(typeMatch[1]) : undefined;
-    const areaText = description.match(/(\d+(?:[.,]\d+)?)\s*M²/i)?.[0];
-
-    // Loyer + charges + DPE.
-    const priceText = text.match(/LOYER\s*:\s*([\d.,]+)\s*€/i)?.[0];
-    const chargesIncluded = /CHARGES\s+COMPRISES/i.test(text);
-    const dpeMatch = text.match(/CLASSE\s+ENERGETIQUE\s+([A-G])\b/i);
-
-    // Photos : uniquement les URLs (§11), jamais de téléchargement.
-    const imageUrls = [...block.matchAll(/href=["'](https?:\/\/[^"']+\.jpg)["']/gi)].map(
-      (m) => m[1] as string,
-    );
-
-    const listing: RawListing = {
-      sourceRef: reference,
-      sourceUrl: BULLETIN_URL,
-      title: `${propertyTypeText ?? ''} — ${location}`.trim(),
-      description,
-      ...(priceText !== undefined ? { priceText } : {}),
-      // « charges comprises » : on le signale à la normalisation via le prix.
-      ...(chargesIncluded ? { chargesText: 'charges comprises' } : {}),
-      ...(areaText !== undefined ? { areaText } : {}),
-      ...(propertyTypeText !== undefined ? { propertyTypeText } : {}),
-      furnishedText: description,
-      // La localisation du bulletin sert de ville : le filtre ne garde que Nice.
-      cityText: location,
-      ...(dpeMatch?.[1] !== undefined ? { extra: { dpe: dpeMatch[1].toUpperCase() } } : {}),
-      agencyName: 'BEP Logement',
-      contactFormUrl: BULLETIN_URL,
-      ...(publishedAtText !== undefined ? { publishedAtText } : {}),
-      ...(imageUrls.length > 0 ? { imageUrls } : {}),
-    };
-
+    const listing = parseBulletinEntry(html, reference, cleanText(anchor[2]), anchor.index, end);
     byRef.set(reference, listing);
     listings.push(listing);
   }

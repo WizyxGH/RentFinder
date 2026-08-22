@@ -118,6 +118,56 @@ function buildContact(raw: RawListing, sourceId: SourceId): Contact {
   };
 }
 
+/** Localisation résolue depuis les multiples champs bruts possibles (§14, §20). */
+function resolveLocation(raw: RawListing): {
+  address: string | null;
+  city: string | null;
+  postalCode: string | null;
+  latitude: number | null;
+  longitude: number | null;
+} {
+  return {
+    // Adresse : champ dédié, sinon repérée en tête de description (« 22-24
+    // Avenue… » — beaucoup d'agences l'y mettent en première ligne).
+    address: toNull(raw.addressText) ?? extractStreetAddress(raw.description),
+    // Ville en forme comparable : les filtres et le dédoublonnage ignorent
+    // ainsi casse et accents.
+    city: raw.cityText !== undefined ? comparable(raw.cityText) || null : null,
+    postalCode:
+      parsePostalCode(raw.postalCodeText) ??
+      parsePostalCode(raw.addressText) ??
+      parsePostalCode(raw.cityText),
+    latitude: Number.isFinite(raw.latitude) ? (raw.latitude ?? null) : null,
+    longitude: Number.isFinite(raw.longitude) ? (raw.longitude ?? null) : null,
+  };
+}
+
+/** Surface : champ dédié, sinon repérée dans le titre ou la description. */
+function resolveArea(raw: RawListing): number | null {
+  return parseArea(raw.areaText) ?? parseArea(raw.title) ?? parseArea(raw.description);
+}
+
+/** DPE cherché dans les champs où les sources le publient. */
+function resolveDpe(raw: RawListing): NormalizedListing['dpe'] {
+  return (
+    parseDpe(raw.extra?.['dpe']) ??
+    parseDpe(raw.title) ??
+    parseDpe(raw.description) ??
+    parseDpe(raw.extra?.['features'])
+  );
+}
+
+/** Disponibilité : champ dédié, sinon repérée dans le titre/la description. */
+function resolveAvailability(raw: RawListing, nowMs: number): string | null {
+  return (
+    parseAvailableAt(raw.availableAtText, nowMs) ??
+    parseAvailableAt(
+      `${raw.title ?? ''} ${raw.description ?? ''}`.match(/disponi\w+[^.;!]{0,60}/i)?.[0],
+      nowMs,
+    )
+  );
+}
+
 /**
  * Transforme une annonce brute en annonce normalisée.
  *
@@ -142,20 +192,9 @@ export function normalizeListing(
 
   const nowIso = new Date(options.nowMs).toISOString();
   const price = parsePrice(raw.priceText);
-
-  // La surface peut apparaître dans un champ dédié ou seulement dans le titre.
-  const area = parseArea(raw.areaText) ?? parseArea(raw.title) ?? parseArea(raw.description);
-
-  const roomsSource = `${raw.roomsText ?? ''} ${raw.title ?? ''}`;
-  const rooms = parseRooms(roomsSource);
-
   const typeSource = `${raw.propertyTypeText ?? ''} ${raw.title ?? ''}`;
   const furnishedSource = `${raw.furnishedText ?? ''} ${raw.extra?.['features'] ?? ''} ${raw.description ?? ''}`;
-
-  const postalCode =
-    parsePostalCode(raw.postalCodeText) ??
-    parsePostalCode(raw.addressText) ??
-    parsePostalCode(raw.cityText);
+  const location = resolveLocation(raw);
 
   return {
     id: occurrenceId(options.sourceId, sourceRef),
@@ -169,45 +208,29 @@ export function normalizeListing(
     price: price.amount,
     charges: parseCharges(raw.chargesText) ?? parseCharges(raw.priceText),
     chargesIncluded: price.chargesIncluded,
-    area,
-    rooms,
+    area: resolveArea(raw),
+    rooms: parseRooms(`${raw.roomsText ?? ''} ${raw.title ?? ''}`),
     bedrooms: parseBedrooms(`${raw.roomsText ?? ''} ${raw.extra?.['features'] ?? ''}`),
     propertyType: parsePropertyType(typeSource),
     furnished: parseFurnished(furnishedSource),
     flatShare: parseFlatShare(`${typeSource} ${raw.description ?? ''}`),
-    dpe:
-      parseDpe(raw.extra?.['dpe']) ??
-      parseDpe(raw.title) ??
-      parseDpe(raw.description) ??
-      parseDpe(raw.extra?.['features']),
+    dpe: resolveDpe(raw),
     features: extractFeatures(
       `${raw.title ?? ''} ${raw.description ?? ''} ${raw.furnishedText ?? ''} ${raw.extra?.['features'] ?? ''}`,
       raw.extra,
     ),
 
-    // Adresse : champ dédié si la source le publie, sinon repérée en tête de
-    // description (« 22-24 Avenue de la Californie… » — beaucoup d'agences
-    // l'y mettent en première ligne). Décisif pour la distance (§20) et le
-    // dédoublonnage (§14).
-    address: toNull(raw.addressText) ?? extractStreetAddress(raw.description),
-    // La ville est stockée en forme comparable pour que les filtres et le
-    // dédoublonnage n'aient jamais à se soucier de la casse ni des accents.
-    city: raw.cityText !== undefined ? comparable(raw.cityText) || null : null,
-    postalCode,
-    latitude: Number.isFinite(raw.latitude) ? (raw.latitude ?? null) : null,
-    longitude: Number.isFinite(raw.longitude) ? (raw.longitude ?? null) : null,
+    // Localisation : décisive pour la distance (§20) et le dédoublonnage (§14).
+    address: location.address,
+    city: location.city,
+    postalCode: location.postalCode,
+    latitude: location.latitude,
+    longitude: location.longitude,
 
     contact: buildContact(raw, options.sourceId),
 
     publishedAt: parsePublishedAt(raw.publishedAtText, options.nowMs),
-    // Disponibilité : champ dédié si la source le publie, sinon repérée dans le
-    // titre ou la description (« Disponible le 1er septembre » — fréquent).
-    availableAt:
-      parseAvailableAt(raw.availableAtText, options.nowMs) ??
-      parseAvailableAt(
-        `${raw.title ?? ''} ${raw.description ?? ''}`.match(/disponi\w+[^.;!]{0,60}/i)?.[0],
-        options.nowMs,
-      ),
+    availableAt: resolveAvailability(raw, options.nowMs),
 
     // §11 : uniquement des URLs distantes, jamais de téléchargement.
     imageUrls: [...(raw.imageUrls ?? [])].filter((url) => url.startsWith('http')),

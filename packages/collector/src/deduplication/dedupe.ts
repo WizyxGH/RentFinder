@@ -109,12 +109,61 @@ export interface DedupeResult {
   readonly comparisonCount: number;
 }
 
+/** État mutable partagé par les comparaisons de paires d'un run de dédoublonnage. */
+interface CompareContext {
+  readonly byId: ReadonlyMap<string, NormalizedListing>;
+  readonly unionFind: UnionFind;
+  readonly comparedPairs: Set<string>;
+  readonly ambiguousByRoot: Map<string, AmbiguousPair[]>;
+  readonly mergeAmbiguous: boolean;
+}
+
+/**
+ * Compare une paire d'occurrences d'un même bucket et met à jour l'union-find.
+ * @returns `1` si une comparaison fine a eu lieu, `0` sinon (paire déjà vue ou
+ *          identifiant introuvable).
+ */
+function comparePair(leftId: string, rightId: string, ctx: CompareContext): number {
+  const pairKey = leftId < rightId ? `${leftId}|${rightId}` : `${rightId}|${leftId}`;
+  if (ctx.comparedPairs.has(pairKey)) return 0;
+  ctx.comparedPairs.add(pairKey);
+
+  const left = ctx.byId.get(leftId);
+  const right = ctx.byId.get(rightId);
+  if (left === undefined || right === undefined) return 0;
+
+  const result = similarity(left, right);
+  if (result.verdict === 'duplicate' || (ctx.mergeAmbiguous && result.verdict === 'ambiguous')) {
+    ctx.unionFind.union(leftId, rightId);
+  } else if (result.verdict === 'ambiguous') {
+    const root = ctx.unionFind.find(leftId);
+    const pending = ctx.ambiguousByRoot.get(root) ?? [];
+    pending.push({ leftId, rightId, result });
+    ctx.ambiguousByRoot.set(root, pending);
+  }
+  return 1;
+}
+
+/** Compare toutes les paires d'un bucket. @returns le nombre de comparaisons. */
+function comparePairsInBucket(bucket: readonly string[], ctx: CompareContext): number {
+  let count = 0;
+  for (let i = 0; i < bucket.length; i += 1) {
+    for (let j = i + 1; j < bucket.length; j += 1) {
+      const leftId = bucket[i];
+      const rightId = bucket[j];
+      if (leftId !== undefined && rightId !== undefined) {
+        count += comparePair(leftId, rightId, ctx);
+      }
+    }
+  }
+  return count;
+}
+
 /** Regroupe un lot d'occurrences en logements uniques. */
 export function dedupe(
   listings: readonly NormalizedListing[],
   options: DedupeOptions = {},
 ): DedupeResult {
-  const mergeAmbiguous = options.mergeAmbiguous ?? false;
   const byId = new Map(listings.map((listing) => [listing.id, listing]));
   const unionFind = new UnionFind();
   for (const listing of listings) unionFind.add(listing.id);
@@ -129,43 +178,22 @@ export function dedupe(
     }
   }
 
-  const comparedPairs = new Set<string>();
-  const ambiguousByRoot = new Map<string, AmbiguousPair[]>();
+  const ctx: CompareContext = {
+    byId,
+    unionFind,
+    comparedPairs: new Set<string>(),
+    ambiguousByRoot: new Map<string, AmbiguousPair[]>(),
+    mergeAmbiguous: options.mergeAmbiguous ?? false,
+  };
   let comparisonCount = 0;
-
   for (const bucket of buckets.values()) {
     // Un bucket dégénéré (toutes les annonces d'une ville sans surface ni prix)
     // ferait exploser le coût : on l'ignore plutôt que de ralentir la collecte.
-    if (bucket.length < 2 || bucket.length > 200) continue;
-
-    for (let i = 0; i < bucket.length; i += 1) {
-      for (let j = i + 1; j < bucket.length; j += 1) {
-        const leftId = bucket[i];
-        const rightId = bucket[j];
-        if (leftId === undefined || rightId === undefined) continue;
-
-        const pairKey = leftId < rightId ? `${leftId}|${rightId}` : `${rightId}|${leftId}`;
-        if (comparedPairs.has(pairKey)) continue;
-        comparedPairs.add(pairKey);
-
-        const left = byId.get(leftId);
-        const right = byId.get(rightId);
-        if (left === undefined || right === undefined) continue;
-
-        comparisonCount += 1;
-        const result = similarity(left, right);
-
-        if (result.verdict === 'duplicate' || (mergeAmbiguous && result.verdict === 'ambiguous')) {
-          unionFind.union(leftId, rightId);
-        } else if (result.verdict === 'ambiguous') {
-          const root = unionFind.find(leftId);
-          const pending = ambiguousByRoot.get(root) ?? [];
-          pending.push({ leftId, rightId, result });
-          ambiguousByRoot.set(root, pending);
-        }
-      }
+    if (bucket.length >= 2 && bucket.length <= 200) {
+      comparisonCount += comparePairsInBucket(bucket, ctx);
     }
   }
+  const ambiguousByRoot = ctx.ambiguousByRoot;
 
   // Matérialisation des groupes.
   const grouped = new Map<string, NormalizedListing[]>();
