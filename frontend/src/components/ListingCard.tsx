@@ -50,6 +50,40 @@ function priorityTier(priority: number): { className: string; label: string } {
   return { className: 'text-muted-foreground bg-muted-foreground/10', label: 'priorité' };
 }
 
+/**
+ * Pastilles de statut, empilées par ordre de priorité. « Loué » prime sur tout
+ * (§32) ; le suivi n'affiche qu'un seul statut, le plus avancé (« Consultée »
+ * seulement si aucune action n'a suivi). Isolé de `ListingCard` pour la clarté.
+ */
+function StatusBadges({
+  listing,
+  rented,
+  archived,
+  affinity,
+}: {
+  readonly listing: ListingView;
+  readonly rented: boolean;
+  readonly archived: boolean;
+  readonly affinity: number | undefined;
+}): React.JSX.Element {
+  const showAffinity =
+    affinity !== undefined && affinity >= AFFINITY_BADGE_THRESHOLD && !archived && !rented;
+  return (
+    <>
+      {rented && <Badge variant="bad">Loué</Badge>}
+      {archived && !rented && <Badge variant="warning">Archivée</Badge>}
+      {showAffinity && <Badge variant="good">Vos préférences</Badge>}
+      {listing.tracking !== 'new' ? (
+        <Badge>{formatTracking(listing.tracking)}</Badge>
+      ) : (
+        listing.viewed === true && !archived && <Badge>Consultée</Badge>
+      )}
+      {listing.priceDropped === true && <Badge variant="good">Prix en baisse</Badge>}
+      {listing.flatShare?.value === true && <Badge variant="warning">Colocation</Badge>}
+    </>
+  );
+}
+
 export function ListingCard({
   listing,
   nowMs,
@@ -139,23 +173,7 @@ export function ListingCard({
               {favorite ? '★' : '☆'}
             </button>
           )}
-          {/* « Loué » prime sur tout : le bien n'est plus disponible (§32). */}
-          {rented && <Badge variant="bad">Loué</Badge>}
-          {archived && !rented && <Badge variant="warning">Archivée</Badge>}
-          {affinity !== undefined &&
-            affinity >= AFFINITY_BADGE_THRESHOLD &&
-            !archived &&
-            !rented && <Badge variant="good">Vos préférences</Badge>}
-          {/* Un seul statut, le plus avancé : « Consultée » n'apparaît QUE si
-              aucune action n'a suivi (dès qu'il y a un suivi — contactée,
-              visitée… — ce statut le remplace). */}
-          {listing.tracking !== 'new' ? (
-            <Badge>{formatTracking(listing.tracking)}</Badge>
-          ) : (
-            listing.viewed === true && !archived && <Badge>Consultée</Badge>
-          )}
-          {listing.priceDropped === true && <Badge variant="good">Prix en baisse</Badge>}
-          {listing.flatShare?.value === true && <Badge variant="warning">Colocation</Badge>}
+          <StatusBadges listing={listing} rented={rented} archived={archived} affinity={affinity} />
         </span>
       </header>
 

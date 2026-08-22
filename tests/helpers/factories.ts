@@ -107,39 +107,46 @@ export interface AggregatedOverrides {
   readonly lifecycle?: AggregatedListing['lifecycle'];
 }
 
+/**
+ * Valeur surchargée ou défaut. Sémantique de `=== undefined` (et NON `??`) :
+ * une surcharge explicite `null`/`0`/`false` est respectée — indispensable pour
+ * tester les cas « champ absent » (§17).
+ */
+function pick<T>(value: T | undefined, fallback: T): T {
+  return value === undefined ? fallback : value;
+}
+
 /** Logement agrégé, tel qu'il entre dans le moteur de scoring. */
 export function makeAggregated(overrides: AggregatedOverrides = {}): AggregatedListing {
-  const id = overrides.id ?? 'test:1';
-  const occurrences = overrides.occurrences ?? [makeOccurrence({ id, sourceId: 'test' })];
-
+  const id = pick(overrides.id, 'test:1');
   return {
     id,
-    title: field(overrides.title ?? 'Appartement T2 lumineux'),
-    description: field(overrides.description ?? 'Bel appartement rénové, proche commerces.'),
-    price: field(overrides.price === undefined ? 690 : overrides.price),
-    charges: field(overrides.charges ?? null),
-    area: field(overrides.area === undefined ? 34 : overrides.area),
-    rooms: field(overrides.rooms === undefined ? 2 : overrides.rooms),
-    propertyType: field(overrides.propertyType ?? 'apartment'),
-    furnished: field(overrides.furnished ?? null),
-    flatShare: field(overrides.flatShare ?? null),
-    dpe: field(overrides.dpe ?? null),
-    features: overrides.features ?? [],
-    address: field(overrides.address ?? null),
-    city: field(overrides.city === undefined ? 'nice' : overrides.city),
-    postalCode: field(overrides.postalCode ?? '06000'),
-    latitude: field(overrides.latitude ?? null),
-    longitude: field(overrides.longitude ?? null),
-    contact: overrides.contact ?? { ...EMPTY_CONTACT },
-    publishedAt: field(overrides.publishedAt ?? null),
+    title: field(pick(overrides.title, 'Appartement T2 lumineux')),
+    description: field(pick(overrides.description, 'Bel appartement rénové, proche commerces.')),
+    price: field(pick(overrides.price, 690)),
+    charges: field(pick(overrides.charges, null)),
+    area: field(pick(overrides.area, 34)),
+    rooms: field(pick(overrides.rooms, 2)),
+    propertyType: field(pick(overrides.propertyType, 'apartment')),
+    furnished: field(pick(overrides.furnished, null)),
+    flatShare: field(pick(overrides.flatShare, null)),
+    dpe: field(pick(overrides.dpe, null)),
+    features: pick(overrides.features, []),
+    address: field(pick(overrides.address, null)),
+    city: field(pick(overrides.city, 'nice')),
+    postalCode: field(pick(overrides.postalCode, '06000')),
+    latitude: field(pick(overrides.latitude, null)),
+    longitude: field(pick(overrides.longitude, null)),
+    contact: pick(overrides.contact, { ...EMPTY_CONTACT }),
+    publishedAt: field(pick(overrides.publishedAt, null)),
     availableAt: field(null),
     imageUrls: [],
-    views: field(overrides.views ?? null),
-    favorites: field(overrides.favorites ?? null),
-    occurrences,
-    firstSeenAt: overrides.firstSeenAt ?? TEST_NOW_ISO,
+    views: field(pick(overrides.views, null)),
+    favorites: field(pick(overrides.favorites, null)),
+    occurrences: pick(overrides.occurrences, [makeOccurrence({ id, sourceId: 'test' })]),
+    firstSeenAt: pick(overrides.firstSeenAt, TEST_NOW_ISO),
     lastSeenAt: TEST_NOW_ISO,
-    lifecycle: overrides.lifecycle ?? 'active',
+    lifecycle: pick(overrides.lifecycle, 'active'),
     tracking: 'new',
   };
 }

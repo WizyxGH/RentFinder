@@ -46,6 +46,77 @@ function actionLink(
 
 const MUTED_NOTE = 'my-1.5 text-[0.82rem] text-muted-foreground';
 
+/**
+ * Coordonnées publiques du bien et leur provenance (§21). Affiche ce qui est
+ * réellement publié — jamais une coordonnée inventée (§17). Isolé de
+ * `ContactPanel` pour la clarté.
+ */
+function ContactDetails({
+  contact,
+  hasAnyContact,
+}: {
+  readonly contact: ListingView['contact'];
+  readonly hasAnyContact: boolean;
+}): React.JSX.Element {
+  const { name, agencyName, phone, email, formUrl, providedBy } = contact;
+  return (
+    <>
+      <dl className="mb-4 grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1 text-[0.92rem]">
+        {name !== null && (
+          <>
+            <dt className="text-muted-foreground">Interlocuteur</dt>
+            <dd>{name}</dd>
+          </>
+        )}
+        {agencyName !== null && (
+          <>
+            <dt className="text-muted-foreground">Agence</dt>
+            <dd>{agencyName}</dd>
+          </>
+        )}
+        {phone !== null && (
+          <>
+            <dt className="text-muted-foreground">Téléphone</dt>
+            <dd>
+              <a href={`tel:${phone}`}>{phone}</a>
+            </dd>
+          </>
+        )}
+        {email !== null && (
+          <>
+            <dt className="text-muted-foreground">E-mail</dt>
+            <dd>
+              <a href={`mailto:${email}`}>{email}</a>
+            </dd>
+          </>
+        )}
+        {formUrl !== null && (
+          <>
+            <dt className="text-muted-foreground">Formulaire</dt>
+            <dd>
+              <a href={formUrl} target="_blank" rel="noreferrer noopener">
+                Ouvrir le formulaire de l’annonce
+              </a>
+            </dd>
+          </>
+        )}
+      </dl>
+
+      {providedBy.length > 0 && (
+        <p className={MUTED_NOTE}>Coordonnées issues de : {providedBy.join(', ')}</p>
+      )}
+
+      {/* §17 : ne pas faire croire à une coordonnée qui n'existe pas. */}
+      {!hasAnyContact && (
+        <p className={MUTED_NOTE}>
+          Aucune coordonnée n’est publiée par les sources. Ouvrez l’annonce d’origine pour utiliser
+          le canal prévu par le site.
+        </p>
+      )}
+    </>
+  );
+}
+
 export function ContactPanel({
   listing,
   profile,
@@ -94,7 +165,7 @@ export function ContactPanel({
     });
   };
 
-  const { phone, email, formUrl, name, agencyName } = listing.contact;
+  const { phone, email, formUrl } = listing.contact;
   const hasAnyContact = phone !== null || email !== null || formUrl !== null;
 
   const message = draft ?? prepared?.body ?? '';
@@ -118,61 +189,7 @@ export function ContactPanel({
         Contact
       </h3>
 
-      {/* §21 : afficher ce qui est publiquement disponible, et sa source. */}
-      <dl className="mb-4 grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1 text-[0.92rem]">
-        {name !== null && (
-          <>
-            <dt className="text-muted-foreground">Interlocuteur</dt>
-            <dd>{name}</dd>
-          </>
-        )}
-        {agencyName !== null && (
-          <>
-            <dt className="text-muted-foreground">Agence</dt>
-            <dd>{agencyName}</dd>
-          </>
-        )}
-        {phone !== null && (
-          <>
-            <dt className="text-muted-foreground">Téléphone</dt>
-            <dd>
-              <a href={`tel:${phone}`}>{phone}</a>
-            </dd>
-          </>
-        )}
-        {email !== null && (
-          <>
-            <dt className="text-muted-foreground">E-mail</dt>
-            <dd>
-              <a href={`mailto:${email}`}>{email}</a>
-            </dd>
-          </>
-        )}
-        {formUrl !== null && (
-          <>
-            <dt className="text-muted-foreground">Formulaire</dt>
-            <dd>
-              <a href={formUrl} target="_blank" rel="noreferrer noopener">
-                Ouvrir le formulaire de l’annonce
-              </a>
-            </dd>
-          </>
-        )}
-      </dl>
-
-      {listing.contact.providedBy.length > 0 && (
-        <p className={MUTED_NOTE}>
-          Coordonnées issues de : {listing.contact.providedBy.join(', ')}
-        </p>
-      )}
-
-      {/* §17 : ne pas faire croire à une coordonnée qui n'existe pas. */}
-      {!hasAnyContact && (
-        <p className={MUTED_NOTE}>
-          Aucune coordonnée n’est publiée par les sources. Ouvrez l’annonce d’origine pour utiliser
-          le canal prévu par le site.
-        </p>
-      )}
+      <ContactDetails contact={listing.contact} hasAnyContact={hasAnyContact} />
 
       {profile === null ? (
         <div>
