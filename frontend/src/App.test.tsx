@@ -59,7 +59,7 @@ describe('liste des annonces', () => {
 
   it('rappelle les critères actifs (§36)', async () => {
     render(<App />);
-    expect(await screen.findByText(/≤ 700 € · ≥ 14 m²/)).toBeInTheDocument();
+    expect(await screen.findByText(/≤ 700 € · ≥ 16 m²/)).toBeInTheDocument();
   });
 
   it('classe par priorité d’action, pas par prix (§36)', async () => {

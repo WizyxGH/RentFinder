@@ -16,7 +16,7 @@ test('la liste répond à « que dois-je contacter maintenant ? » (§36)', asyn
   await expect(page.getByRole('heading', { name: 'Recherche Nice' })).toBeVisible();
 
   // Les critères actifs sont rappelés sans ambiguïté.
-  await expect(page.getByText('≤ 700 € · ≥ 14 m²')).toBeVisible();
+  await expect(page.getByText('≤ 700 € · ≥ 16 m²')).toBeVisible();
 
   const cards = page.getByTestId('listing-card');
   await expect(cards.first()).toBeVisible();

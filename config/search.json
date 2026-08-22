@@ -3,7 +3,7 @@
   "cities": ["nice"],
   "maxPrice": 700,
   "minPrice": 250,
-  "minArea": 14,
+  "minArea": 16,
   "excludeFlatShare": true,
   "excludeStudent": true,
   "referencePricePerSqm": 20

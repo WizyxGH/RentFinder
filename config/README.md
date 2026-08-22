@@ -18,7 +18,7 @@ la collecte (les filtres par défaut s'appliquent, avec un avertissement).
 | `cities`               | liste de textes | `["nice"]` | Villes recherchées, en minuscules sans accent. Une annonce hors de ces villes sort de la liste principale.                                     |
 | `maxPrice`             | nombre (€)      | `700`      | Loyer mensuel maximum. Au-delà → hors critères.                                                                                                |
 | `minPrice`             | nombre (€)      | `250`      | Loyer minimum. Écarte surtout les parkings/box/caves mal étiquetés « appartement » (~100 €). Un bien sans prix publié n'est jamais exclu.      |
-| `minArea`              | nombre (m²)     | `14`       | Surface minimum. En deçà → hors critères.                                                                                                      |
+| `minArea`              | nombre (m²)     | `16`       | Surface minimum. En deçà → hors critères.                                                                                                      |
 | `excludeFlatShare`     | booléen         | `true`     | `true` : les colocations sont exclues de la liste principale (elles restent collectées, visibles via « Afficher les annonces hors critères »). |
 | `excludeStudent`       | booléen         | `true`     | `true` : exclut les locations étudiantes (résidences étudiantes, Erasmus/CROUS). Un studio simplement « idéal étudiant » n'est PAS exclu.      |
 | `referencePricePerSqm` | nombre (€/m²)   | `20`       | Loyer de référence au m² pour la détection de risque (§19). Hypothèse de travail, pas un prix de marché officiel.                              |
