@@ -23,6 +23,49 @@ const ENTRY_URL = 'https://www.nousgerons.com/location/nice';
 /** Fiches détail visitées au maximum par run (§6, §30). */
 const MAX_DETAILS = 12;
 
+/** Résultat de l'enrichissement d'UNE annonce par sa fiche détail. */
+interface EnrichResult {
+  /** Annonce à conserver : la fiche si elle a pu être lue, sinon celle de liste. */
+  readonly listing: RawListing;
+  readonly enriched: boolean;
+  readonly pagesFetched: number;
+  readonly warnings: readonly string[];
+  /** `true` si un 429 impose d'arrêter la source (§30). */
+  readonly rateLimited: boolean;
+}
+
+/**
+ * Visite la fiche détail d'une annonce pour l'enrichir (adresse exacte, charges,
+ * description). Ne lève jamais : en cas d'échec, on garde la donnée de liste
+ * (§69). Extraite pour garder la boucle principale peu imbriquée.
+ */
+async function enrichListing(context: ScrapeContext, listing: RawListing): Promise<EnrichResult> {
+  try {
+    const detail = await context.fetch(listing.sourceUrl);
+    if (detail.notModified) {
+      return { listing, enriched: false, pagesFetched: 0, warnings: [], rateLimited: false };
+    }
+    const parsed = parseDetailPage(detail.body, listing.sourceUrl);
+    // La fiche prime ; à défaut, on garde la donnée de liste.
+    return {
+      listing: parsed.listing ?? listing,
+      enriched: parsed.listing !== null,
+      pagesFetched: 1,
+      warnings: parsed.warnings,
+      rateLimited: false,
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return {
+      listing,
+      enriched: false,
+      pagesFetched: 0,
+      warnings: [`Détail échoué ${listing.sourceUrl} : ${message}`],
+      rateLimited: message.includes('429'),
+    };
+  }
+}
+
 export const NOUSGERONS_DESCRIPTOR: SourceDescriptor = {
   id: 'nousgerons',
   name: 'NousGérons',
@@ -76,34 +119,20 @@ export const nousgeronsScraper: Scraper = {
             listings.push(listing);
             continue;
           }
-
           if (enriched >= MAX_DETAILS || context.shouldStop()) {
             listings.push(listing);
             continue;
           }
 
-          try {
-            const detail = await context.fetch(listing.sourceUrl);
-            requestCount += 1;
-            if (!detail.notModified) {
-              pagesFetched += 1;
-              const parsedDetail = parseDetailPage(detail.body, listing.sourceUrl);
-              warnings.push(...parsedDetail.warnings);
-              // La fiche prime ; à défaut, on garde la donnée de liste.
-              listings.push(parsedDetail.listing ?? listing);
-              if (parsedDetail.listing !== null) enriched += 1;
-            } else {
-              listings.push(listing);
-            }
-          } catch (error) {
-            // §69 : une fiche en échec n'empêche pas de garder la donnée liste.
-            const message = error instanceof Error ? error.message : String(error);
-            warnings.push(`Détail échoué ${listing.sourceUrl} : ${message}`);
-            listings.push(listing);
-            if (message.includes('429')) {
-              stopReason = 'rateLimited';
-              break;
-            }
+          const result = await enrichListing(context, listing);
+          requestCount += 1;
+          pagesFetched += result.pagesFetched;
+          warnings.push(...result.warnings);
+          listings.push(result.listing);
+          if (result.enriched) enriched += 1;
+          if (result.rateLimited) {
+            stopReason = 'rateLimited';
+            break;
           }
         }
 

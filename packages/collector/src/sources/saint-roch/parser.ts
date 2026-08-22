@@ -16,6 +16,7 @@
 import * as cheerio from 'cheerio';
 import type { RawListing } from '@rentfinder/shared';
 import { cleanText } from '../../normalization/text.js';
+import { compactListing } from '../shared/raw-listing.js';
 
 /**
  * URL de fiche : `/annonce/location-{type}[-{ville}]-{réf}.asp`, où la
@@ -142,31 +143,24 @@ export function parseDetailPage(html: string, pageUrl: string, agencyName: strin
   // Téléphone de l'agence, publié en pied de fiche (§21).
   const phoneMatch = html.match(/Tel\s*:?\s*((?:0\d[\s.]?){5})/i)?.[1];
 
-  const listing: RawListing = {
+  const listing = compactListing({
     sourceRef: parsedUrl.reference,
     sourceUrl: parsedUrl.canonicalUrl,
-    ...(title !== '' ? { title } : {}),
-    ...(description !== '' ? { description } : {}),
-    ...(priceText !== undefined ? { priceText } : {}),
-    ...(chargesAmount !== undefined ? { chargesText: `${chargesAmount.trim()} € de charges` } : {}),
-    ...(title.match(/\d+(?:[.,]\d+)?\s*m²/)?.[0] !== undefined
-      ? { areaText: title.match(/\d+(?:[.,]\d+)?\s*m²/)?.[0] as string }
-      : {}),
-    ...(title.match(/\d+\s*pi[eè]ces?/i)?.[0] !== undefined
-      ? { roomsText: title.match(/\d+\s*pi[eè]ces?/i)?.[0] as string }
-      : {}),
+    title: title !== '' ? title : undefined,
+    description: description !== '' ? description : undefined,
+    priceText,
+    chargesText: chargesAmount !== undefined ? `${chargesAmount.trim()} € de charges` : undefined,
+    areaText: title.match(/\d+(?:[.,]\d+)?\s*m²/)?.[0],
+    roomsText: title.match(/\d+\s*pi[eè]ces?/i)?.[0],
     propertyTypeText: parsedUrl.slug,
     furnishedText: description,
-    ...(cityFromSlug !== undefined ? { cityText: cityFromSlug } : {}),
+    cityText: cityFromSlug,
     agencyName,
-    ...(phoneMatch !== undefined ? { phoneText: phoneMatch } : {}),
+    phoneText: phoneMatch,
     contactFormUrl: parsedUrl.canonicalUrl,
-    ...(imageUrls.length > 0 ? { imageUrls } : {}),
-    extra: {
-      reference: parsedUrl.reference,
-      ...(dpe !== null ? { dpe: `DPE ${dpe}` } : {}),
-    },
-  };
+    imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
+    extra: { reference: parsedUrl.reference, ...(dpe !== null ? { dpe: `DPE ${dpe}` } : {}) },
+  });
 
   return { listing, warnings };
 }

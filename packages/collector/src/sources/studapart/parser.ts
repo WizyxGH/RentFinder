@@ -16,6 +16,7 @@
  */
 
 import type { RawListing } from '@rentfinder/shared';
+import { compactListing } from '../shared/raw-listing.js';
 
 const SITE_BASE = 'https://www.studapart.com';
 export const SEARCH_API_URL = 'https://search-api.studapart.com/property';
@@ -126,17 +127,25 @@ function epochToDate(epochSeconds: number | undefined): string | undefined {
   return new Date(epochSeconds * 1000).toISOString().slice(0, 10);
 }
 
-/** Transforme une fiche brute de l'API en `RawListing`. `null` si inexploitable. */
-function toRawListing(source: StudapartSource): RawListing | null {
+/** Référence stable + URL de fiche d'une source API. `null` si non identifiable. */
+function resolveRefAndUrl(
+  source: StudapartSource,
+): { reference: string; sourceUrl: string } | null {
   const reference =
     source.reference !== undefined ? String(source.reference) : (source.distinctId ?? '');
   if (reference === '') return null;
-
   const path =
     source.canonicalUrls?.fr ??
     (source.distinctId !== undefined ? `/fr/property/${source.distinctId}` : null);
   if (path === null) return null;
-  const sourceUrl = `${SITE_BASE}${path}`;
+  return { reference, sourceUrl: `${SITE_BASE}${path}` };
+}
+
+/** Transforme une fiche brute de l'API en `RawListing`. `null` si inexploitable. */
+function toRawListing(source: StudapartSource): RawListing | null {
+  const identity = resolveRefAndUrl(source);
+  if (identity === null) return null;
+  const { reference, sourceUrl } = identity;
 
   const typeText = source.propertyType !== undefined ? (TYPE_FR[source.propertyType] ?? '') : '';
   // §17 : une colocation est signalée explicitement, pour que le filtre perso
@@ -145,34 +154,32 @@ function toRawListing(source: StudapartSource): RawListing | null {
   const description = `${colocationPrefix}${source.description ?? ''}`.trim();
 
   const geoloc = source.geoloc;
-  const availableAtText = epochToDate(source.availabilities?.[0]?.start);
   const imageUrls = extractImageUrls(source.media);
 
-  return {
+  return compactListing({
     sourceRef: reference,
     sourceUrl,
-    ...(source.title !== undefined ? { title: source.title } : {}),
-    ...(description !== '' ? { description } : {}),
-    ...(source.rentWithExpensesAmount !== undefined
-      ? { priceText: `${source.rentWithExpensesAmount} € CC` }
-      : {}),
-    ...(source.propertySurface !== undefined ? { areaText: `${source.propertySurface} m²` } : {}),
-    ...(source.roomsCount !== undefined ? { roomsText: `${source.roomsCount} pièces` } : {}),
+    title: source.title,
+    description: description !== '' ? description : undefined,
+    priceText:
+      source.rentWithExpensesAmount !== undefined
+        ? `${source.rentWithExpensesAmount} € CC`
+        : undefined,
+    areaText: source.propertySurface !== undefined ? `${source.propertySurface} m²` : undefined,
+    roomsText: source.roomsCount !== undefined ? `${source.roomsCount} pièces` : undefined,
     propertyTypeText: `${typeText} ${source.title ?? ''}`.trim(),
     furnishedText: source.isFurnished === true ? 'meublé' : 'non meublé',
-    ...((source.full_address ?? source.address)
-      ? { addressText: source.full_address ?? source.address }
-      : {}),
-    ...(source.city !== undefined ? { cityText: source.city } : {}),
-    ...(source.zipcode !== undefined ? { postalCodeText: source.zipcode } : {}),
-    ...(typeof geoloc?.lat === 'number' ? { latitude: geoloc.lat } : {}),
-    ...(typeof geoloc?.lon === 'number' ? { longitude: geoloc.lon } : {}),
-    ...(availableAtText !== undefined ? { availableAtText } : {}),
+    addressText: (source.full_address ?? source.address) || undefined,
+    cityText: source.city,
+    postalCodeText: source.zipcode,
+    latitude: typeof geoloc?.lat === 'number' ? geoloc.lat : undefined,
+    longitude: typeof geoloc?.lon === 'number' ? geoloc.lon : undefined,
+    availableAtText: epochToDate(source.availabilities?.[0]?.start),
     agencyName: 'Studapart',
     contactFormUrl: sourceUrl,
-    ...(imageUrls.length > 0 ? { imageUrls } : {}),
+    imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
     extra: { reference },
-  };
+  });
 }
 
 export interface ParsedSearch {
