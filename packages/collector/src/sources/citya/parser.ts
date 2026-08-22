@@ -135,10 +135,14 @@ export function parseDetailPage(html: string, pageUrl: string, agencyName: strin
   // Code postal réel : dans la description/titre (« 06100 ») — l'URL a l'INSEE.
   const postalCode = `${name} ${description}`.match(/\b(06\d{3})\b/)?.[1];
 
+  // Photos du bien : elles sont sous `/media/images/agences/biens/…/location/`.
+  // On exige `/biens/` pour écarter l'habillage de marque (ex.
+  // `/assets/media/images/vesta-….webp`), qui matcherait sinon et serait envoyé
+  // à tort comme photo d'annonce sur Telegram (§29).
   const imageUrls: string[] = [];
   $('img[src], img[data-src]').each((_i, el) => {
     const src = $(el).attr('src') ?? $(el).attr('data-src') ?? '';
-    if (/citya|\/media\/|\.cloudfront|images?\./i.test(src) && /\.(jpe?g|webp|png)/i.test(src)) {
+    if (/\/biens\//i.test(src) && /\.(jpe?g|webp|png)/i.test(src)) {
       try {
         const absolute = new URL(src, pageUrl).toString();
         if (!imageUrls.includes(absolute)) imageUrls.push(absolute);

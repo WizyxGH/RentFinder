@@ -180,8 +180,12 @@ export function parseDetailPage(html: string, pageUrl: string, agencyName: strin
   const exposition = table.get('exposition');
 
   // Photos : CDN staticlbi de la plateforme, en pleine taille de préférence.
+  // On ne garde QUE les vraies photos du bien, sous `/images/biens/` — le reste
+  // du CDN est de l'habillage (avatar d'agence « contact », logos LBI/FNAIM,
+  // panneaux, diaporama d'accueil) qu'il ne faut jamais prendre pour une photo
+  // d'annonce (sinon envoyée à tort sur Telegram, §29).
   const imageUrls: string[] = [];
-  $('img[src*="staticlbi.com"]').each((_i, el) => {
+  $('img[src*="/images/biens/"]').each((_i, el) => {
     const src = ($(el).attr('src') ?? '').replace(/^\/\//, 'https://');
     const normalized = src.replace('/original/', '/1600xauto/');
     if (normalized.startsWith('https://') && !imageUrls.includes(normalized)) {
