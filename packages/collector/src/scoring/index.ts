@@ -36,6 +36,11 @@ export interface ScoringOptions {
   readonly priceDroppedIds?: ReadonlySet<string>;
   /** Coordonnées issues du géocodage de l'adresse, si la source n'a pas de GPS (§20). */
   readonly resolvedCoordinates?: Coordinates | null;
+  /**
+   * Durées de trajet RÉELLES en transports en commun, par libellé de point de
+   * référence (Navitia, §20). Absent → estimation vol d'oiseau.
+   */
+  readonly resolvedTransitMinutes?: Readonly<Record<string, number>>;
 }
 
 /**
@@ -48,6 +53,7 @@ export function computeDistances(
   listing: AggregatedListing,
   points: readonly ReferencePoint[],
   resolved?: Coordinates | null,
+  transitMinutes?: Readonly<Record<string, number>>,
 ): ReferenceDistance[] {
   // Coordonnées de l'annonce si la source les fournit, sinon celles issues du
   // géocodage de l'adresse (§20). Sans ni l'une ni l'autre, aucune distance :
@@ -58,13 +64,30 @@ export function computeDistances(
 
   return points.map((point) => {
     const distanceKm = haversineKm({ latitude, longitude }, point);
+    // Temps réel en transports en commun s'il a été calculé (Navitia) ; sinon
+    // estimation vol d'oiseau. La distance à vol d'oiseau reste affichée à côté.
+    const real = transitMinutes?.[point.label];
     return {
       label: point.label,
       distanceKm: Math.round(distanceKm * 100) / 100,
-      durationMinutes: estimateDurationMinutes(distanceKm, point.mode),
+      durationMinutes: real ?? estimateDurationMinutes(distanceKm, point.mode),
       mode: point.mode,
+      durationSource: real !== undefined ? ('transit' as const) : ('estimate' as const),
     };
   });
+}
+
+/**
+ * `true` si le trajet domicile→travail dépasse le plafond `maxCommuteMinutes`
+ * (§53). On se fonde sur les points en transports en commun (le trajet
+ * travail). Sans plafond, ou sans durée connue, on n'exclut jamais (§17).
+ */
+export function exceedsCommute(
+  distances: readonly ReferenceDistance[],
+  maxCommuteMinutes?: number,
+): boolean {
+  if (maxCommuteMinutes === undefined) return false;
+  return distances.some((d) => d.mode === 'transit' && d.durationMinutes > maxCommuteMinutes);
 }
 
 /** Applique les quatre scores et les distances à un logement. */
@@ -73,6 +96,15 @@ export function scoreListing(listing: AggregatedListing, options: ScoringOptions
   const priceDropped =
     options.priceDroppedIds !== undefined &&
     listing.occurrences.some((occurrence) => options.priceDroppedIds?.has(occurrence.id));
+
+  const distances = computeDistances(
+    listing,
+    options.referencePoints,
+    options.resolvedCoordinates,
+    options.resolvedTransitMinutes,
+  );
+  // Un trajet travail trop long rend l'annonce hors critères (§53).
+  const commuteTooLong = exceedsCommute(distances, options.criteria.maxCommuteMinutes);
 
   return {
     ...listing,
@@ -85,8 +117,8 @@ export function scoreListing(listing: AggregatedListing, options: ScoringOptions
       }),
       risk: scoreRisk(listing, { referencePricePerSqm: options.referencePricePerSqm }),
     },
-    distances: computeDistances(listing, options.referencePoints, options.resolvedCoordinates),
-    matchesCriteria: match.matchesCriteria,
+    distances,
+    matchesCriteria: match.matchesCriteria && !commuteTooLong,
     priceDropped,
   };
 }

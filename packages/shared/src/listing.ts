@@ -252,10 +252,16 @@ export interface ReferenceDistance {
   readonly label: string;
   /** Distance à vol d'oiseau en kilomètres. */
   readonly distanceKm: number;
-  /** Estimation de durée en minutes, selon le mode retenu. */
+  /** Durée en minutes, selon le mode retenu. */
   readonly durationMinutes: number;
   /** Mode de déplacement utilisé pour l'estimation. */
   readonly mode: 'walking' | 'cycling' | 'transit' | 'driving';
+  /**
+   * Origine de la durée (§17) : `transit` = itinéraire réel en transports en
+   * commun (routeur externe) ; `estimate` = approximation vol d'oiseau × détour
+   * ÷ vitesse moyenne. Absent → estimation, par compatibilité.
+   */
+  readonly durationSource?: 'transit' | 'estimate';
 }
 
 /** Le logement tel que l'interface le consomme. */

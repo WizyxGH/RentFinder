@@ -424,6 +424,56 @@ describe('computeDistances (§20)', () => {
     );
     expect(distances).toEqual([]);
   });
+
+  it('utilise le temps de trajet réel quand il est fourni (durationSource)', () => {
+    const listing = makeAggregated({ latitude: 43.6961, longitude: 7.2712 });
+    const distances = computeDistances(listing, points, null, { Travail: 33 });
+    const work = distances.find((d) => d.label === 'Travail');
+    const station = distances.find((d) => d.label === 'Gare');
+    expect(work?.durationMinutes).toBe(33);
+    expect(work?.durationSource).toBe('transit');
+    // Sans temps réel fourni pour la Gare : estimation.
+    expect(station?.durationSource).toBe('estimate');
+  });
+});
+
+describe('plafond de trajet (maxCommuteMinutes, §53)', () => {
+  const points = [
+    { label: 'Travail', latitude: 43.7031, longitude: 7.2661, mode: 'transit' as const },
+  ];
+  const listing = makeAggregated({ latitude: 43.6961, longitude: 7.2712, price: 650, area: 20 });
+
+  it('écarte l’annonce si le trajet dépasse le plafond', () => {
+    const scored = scoreListing(listing, {
+      criteria: { ...MVP_CRITERIA, maxCommuteMinutes: 30 },
+      nowMs: TEST_NOW,
+      referencePricePerSqm: 20,
+      referencePoints: points,
+      resolvedTransitMinutes: { Travail: 45 },
+    });
+    expect(scored.matchesCriteria).toBe(false);
+  });
+
+  it('conserve l’annonce si le trajet respecte le plafond', () => {
+    const scored = scoreListing(listing, {
+      criteria: { ...MVP_CRITERIA, maxCommuteMinutes: 60 },
+      nowMs: TEST_NOW,
+      referencePricePerSqm: 20,
+      referencePoints: points,
+      resolvedTransitMinutes: { Travail: 45 },
+    });
+    expect(scored.matchesCriteria).toBe(true);
+  });
+
+  it('n’écarte jamais une annonce sans localisation (§17)', () => {
+    const scored = scoreListing(makeAggregated({ latitude: null, price: 650, area: 20 }), {
+      criteria: { ...MVP_CRITERIA, maxCommuteMinutes: 5 },
+      nowMs: TEST_NOW,
+      referencePricePerSqm: 20,
+      referencePoints: points,
+    });
+    expect(scored.matchesCriteria).toBe(true);
+  });
 });
 
 describe('scoreListing — assemblage', () => {

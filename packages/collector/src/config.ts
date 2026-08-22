@@ -179,6 +179,9 @@ export function loadPublicConfig(onWarn?: (message: string) => void): PublicConf
       ...(parsed.furnished !== undefined ? { furnished: parsed.furnished } : {}),
       ...(parsed.propertyTypes !== undefined ? { propertyTypes: parsed.propertyTypes } : {}),
       ...(parsed.minRooms !== undefined ? { minRooms: parsed.minRooms } : {}),
+      ...(parsed.maxCommuteMinutes !== undefined
+        ? { maxCommuteMinutes: parsed.maxCommuteMinutes }
+        : {}),
       ...(parsed.energyClasses !== undefined ? { energyClasses: parsed.energyClasses } : {}),
     };
 
@@ -347,6 +350,28 @@ export function loadBepCredentials(
 }
 
 /** Réglages du notifieur Telegram (§29) — PRIVÉ. */
+export interface TransitConfig {
+  /** Jeton Navitia personnel (§26). */
+  readonly token: string;
+  /** Heure d'arrivée visée au travail, `HH:MM` (défaut `09:00`). */
+  readonly arrivalTime: string;
+}
+
+/**
+ * Charge la configuration du routage transports en commun (§20).
+ *
+ * Le jeton Navitia est PRIVÉ (`.env`/secrets, jamais dans le dépôt ni les logs,
+ * §26). `null` si absent → on reste sur l'estimation vol d'oiseau (§17, §69).
+ * `WORK_ARRIVAL_TIME` (défaut `09:00`) fixe l'heure d'arrivée visée.
+ */
+export function loadTransitConfig(env: NodeJS.ProcessEnv = process.env): TransitConfig | null {
+  const token = env['NAVITIA_TOKEN'];
+  if (token === undefined || token.trim() === '') return null;
+  const arrival = (env['WORK_ARRIVAL_TIME'] ?? '').trim();
+  const arrivalTime = /^\d{1,2}:\d{2}$/.test(arrival) ? arrival : '09:00';
+  return { token: token.trim(), arrivalTime };
+}
+
 export interface TelegramConfig {
   readonly botToken: string;
   readonly chatId: string;

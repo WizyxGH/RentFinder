@@ -32,15 +32,23 @@ import { planRun } from './scheduler/scheduler.js';
 import { normalizeAll } from './normalization/normalize.js';
 import { dedupe } from './deduplication/dedupe.js';
 import { mergeGroup } from './deduplication/merge.js';
-import { scoreListing } from './scoring/index.js';
+import { scoreListing, scoreMatch } from './scoring/index.js';
 import { createGeocoder, geocodeCacheKey } from './core/geocode.js';
+import { createTransitRouter } from './core/transit.js';
 import type { Coordinates } from './core/geo.js';
 import type { AggregatedListing } from '@rentfinder/shared';
 import type { Repository } from './db/repository.js';
-import type { PublicConfig, ReferencePoint } from './config.js';
+import type { PublicConfig, ReferencePoint, TransitConfig } from './config.js';
 
 /** Plafond d'appels réseau de géocodage par run (les adresses en cache sont gratuites, §30). */
 const GEOCODE_NETWORK_BUDGET = 80;
+
+/**
+ * Plafond de biens routés par run vers un point transit : borne le nombre
+ * d'appels Navitia (les résultats sont mis en cache, donc en régime établi
+ * seuls les biens NOUVEAUX en consomment, §30).
+ */
+const TRANSIT_MAX_LISTINGS = 120;
 
 /**
  * Construit la requête de géocodage d'un logement : uniquement s'il a une
@@ -66,6 +74,8 @@ export interface PipelineOptions {
   readonly logger: Logger;
   /** Injection de `fetch` — les tests n'accèdent jamais au réseau (§59). */
   readonly fetchImpl?: typeof fetch;
+  /** Routage transports en commun (Navitia). Absent → estimation vol d'oiseau. */
+  readonly transitConfig?: TransitConfig;
 }
 
 export interface SourceOutcome {
@@ -241,6 +251,52 @@ async function geocodeMissingAddresses(
   return geocoded;
 }
 
+/**
+ * Calcule le temps de trajet RÉEL en transports en commun (Navitia) vers les
+ * points de référence en mode `transit`, pour les biens géolocalisés qui
+ * satisfont DÉJÀ les autres critères (§20, §30). Résultats mis en cache ;
+ * ne route qu'un nombre borné de biens par run. Retourne, par fiche, la durée
+ * par libellé de point. Vide si le routage n'est pas configuré.
+ */
+async function resolveTransitMinutes(
+  merged: readonly AggregatedListing[],
+  options: PipelineOptions,
+  geocoded: ReadonlyMap<string, Coordinates | null>,
+  nowMs: number,
+): Promise<Map<string, Record<string, number>>> {
+  const byListing = new Map<string, Record<string, number>>();
+  const transitPoints = options.referencePoints.filter((point) => point.mode === 'transit');
+  if (options.transitConfig === undefined || transitPoints.length === 0) return byListing;
+
+  const router = createTransitRouter({
+    token: options.transitConfig.token,
+    arrivalTime: options.transitConfig.arrivalTime,
+    cache: options.repository.transitCache(),
+    nowMs,
+    ...(options.fetchImpl !== undefined ? { fetchImpl: options.fetchImpl } : {}),
+  });
+
+  let routed = 0;
+  for (const listing of merged) {
+    if (routed >= TRANSIT_MAX_LISTINGS) break;
+    const latitude = listing.latitude.value ?? geocoded.get(listing.id)?.latitude ?? null;
+    const longitude = listing.longitude.value ?? geocoded.get(listing.id)?.longitude ?? null;
+    if (latitude === null || longitude === null) continue;
+    // On ne route que les candidats déjà retenus par les autres critères, pour
+    // ne pas dépenser d'appels sur des biens de toute façon écartés (§30).
+    if (!scoreMatch(listing, options.config.criteria).matchesCriteria) continue;
+
+    routed += 1;
+    const byLabel: Record<string, number> = {};
+    for (const point of transitPoints) {
+      const minutes = await router.arrivalMinutes({ latitude, longitude }, point);
+      if (minutes !== null) byLabel[point.label] = minutes;
+    }
+    if (Object.keys(byLabel).length > 0) byListing.set(listing.id, byLabel);
+  }
+  return byListing;
+}
+
 /** Exécute un cycle complet de collecte. */
 export async function runPipeline(options: PipelineOptions): Promise<PipelineReport> {
   const { registry, repository, logger, clock, config } = options;
@@ -372,6 +428,13 @@ export async function runPipeline(options: PipelineOptions): Promise<PipelineRep
     });
   }
 
+  // Temps de trajet réel en transports en commun (Navitia), pour l'affichage
+  // ET le plafond de trajet (maxCommuteMinutes → hors critères).
+  const transitByListing = await resolveTransitMinutes(merged, options, geocoded, nowMs);
+  if (transitByListing.size > 0) {
+    logger.info('pipeline.transit_resolved', { listings: transitByListing.size });
+  }
+
   const scored: ScoredListing[] = merged.map((listing) => {
     const coords = geocoded.get(listing.id) ?? null;
     // Coordonnées géocodées PERSISTÉES sur la fiche quand la source n'en
@@ -395,6 +458,7 @@ export async function runPipeline(options: PipelineOptions): Promise<PipelineRep
             },
           }
         : listing;
+    const transitMinutes = transitByListing.get(listing.id);
     return scoreListing(enriched, {
       criteria: config.criteria,
       nowMs,
@@ -402,6 +466,7 @@ export async function runPipeline(options: PipelineOptions): Promise<PipelineRep
       referencePoints: options.referencePoints,
       priceDroppedIds,
       resolvedCoordinates: coords,
+      ...(transitMinutes !== undefined ? { resolvedTransitMinutes: transitMinutes } : {}),
     });
   });
 

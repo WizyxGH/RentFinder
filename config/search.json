@@ -4,6 +4,7 @@
   "maxPrice": 700,
   "minPrice": 250,
   "minArea": 16,
+  "maxCommuteMinutes": 60,
   "excludeFlatShare": true,
   "excludeStudent": true,
   "referencePricePerSqm": 20

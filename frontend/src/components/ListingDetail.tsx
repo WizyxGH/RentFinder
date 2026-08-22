@@ -223,9 +223,16 @@ export function ListingDetail({
         <ul className="mb-4">
           {listing.distances.map((distance) => (
             <li key={distance.label}>
-              <strong>{distance.label}</strong> : {formatDuration(distance.durationMinutes)}{' '}
+              <strong>{distance.label}</strong> :{' '}
+              {distance.durationSource === 'transit' && (
+                <span aria-hidden="true" title="Temps réel en transports en commun">
+                  🚆{' '}
+                </span>
+              )}
+              {formatDuration(distance.durationMinutes)}{' '}
               <span className="text-sm text-muted-foreground">
-                ({distance.distanceKm} km à vol d’oiseau)
+                ({distance.distanceKm} km à vol d’oiseau
+                {distance.durationSource === 'transit' ? ', durée réelle en transport' : ''})
               </span>
             </li>
           ))}

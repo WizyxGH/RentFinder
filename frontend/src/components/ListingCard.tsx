@@ -186,11 +186,20 @@ export function ListingCard({
             : `Publiée ${formatAge(publishedAt, nowMs)}`}
         </span>
         {availability !== null && <span className="text-foreground">{availability}</span>}
-        {/* §20 : distances vers des points de référence privés, libellés neutres. */}
+        {/* §20 : durée (transport réel si dispo, sinon estimée) + vol d'oiseau. */}
         {listing.distances.map((distance) => (
           <span key={distance.label} className="text-foreground">
             <span className="text-muted-foreground">{distance.label} </span>
+            {distance.durationSource === 'transit' && (
+              <span aria-hidden="true" title="Temps réel en transports en commun">
+                🚆{' '}
+              </span>
+            )}
             {formatDuration(distance.durationMinutes)}
+            <span className="text-muted-foreground">
+              {' '}
+              ({distance.distanceKm} km à vol d’oiseau)
+            </span>
           </span>
         ))}
       </div>

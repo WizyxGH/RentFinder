@@ -24,6 +24,7 @@ import type { InValue } from '@libsql/client';
 import type { Database } from './client.js';
 import type { CacheEntry, HttpCacheStore } from '../core/http-client.js';
 import type { GeocodeCacheStore } from '../core/geocode.js';
+import type { TransitCacheStore } from '../core/transit.js';
 
 /** Instruction SQL prête pour `db.batch`. */
 type Statement = { sql: string; args: InValue[] };
@@ -215,6 +216,7 @@ export interface Repository {
   setTelegramState(key: string, value: string): Promise<void>;
   httpCache(): HttpCacheStore;
   geocodeCache(): GeocodeCacheStore;
+  transitCache(): TransitCacheStore;
 }
 
 /** Vue légère d'une annonce pour composer une notification. */
@@ -854,6 +856,29 @@ export function createRepository(db: Database): Repository {
                   ON CONFLICT(query) DO UPDATE SET
                     lat = excluded.lat, lon = excluded.lon, geocoded_at = excluded.geocoded_at`,
             args: [query, entry.lat, entry.lon, entry.geocodedAt],
+          });
+        },
+      };
+    },
+
+    transitCache(): TransitCacheStore {
+      return {
+        async get(key) {
+          const result = await db.execute({
+            sql: 'SELECT minutes FROM transit_cache WHERE key = ?',
+            args: [key],
+          });
+          const row = result.rows[0];
+          if (row === undefined) return null;
+          return { minutes: row['minutes'] === null ? null : Number(row['minutes']) };
+        },
+        async set(key, entry) {
+          await db.execute({
+            sql: `INSERT INTO transit_cache (key, minutes, cached_at)
+                  VALUES (?,?,?)
+                  ON CONFLICT(key) DO UPDATE SET
+                    minutes = excluded.minutes, cached_at = excluded.cached_at`,
+            args: [key, entry.minutes, new Date().toISOString()],
           });
         },
       };

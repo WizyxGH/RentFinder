@@ -19,6 +19,7 @@ la collecte (les filtres par défaut s'appliquent, avec un avertissement).
 | `maxPrice`             | nombre (€)      | `700`      | Loyer mensuel maximum. Au-delà → hors critères.                                                                                                |
 | `minPrice`             | nombre (€)      | `250`      | Loyer minimum. Écarte surtout les parkings/box/caves mal étiquetés « appartement » (~100 €). Un bien sans prix publié n'est jamais exclu.      |
 | `minArea`              | nombre (m²)     | `16`       | Surface minimum. En deçà → hors critères.                                                                                                      |
+| `maxCommuteMinutes`    | nombre (min)    | `60`       | Durée maximale du trajet domicile→travail (transports en commun si `NAVITIA_TOKEN` est configuré, sinon estimation). Au-delà → hors critères.  |
 | `excludeFlatShare`     | booléen         | `true`     | `true` : les colocations sont exclues de la liste principale (elles restent collectées, visibles via « Afficher les annonces hors critères »). |
 | `excludeStudent`       | booléen         | `true`     | `true` : exclut les locations étudiantes (résidences étudiantes, Erasmus/CROUS). Un studio simplement « idéal étudiant » n'est PAS exclu.      |
 | `referencePricePerSqm` | nombre (€/m²)   | `20`       | Loyer de référence au m² pour la détection de risque (§19). Hypothèse de travail, pas un prix de marché officiel.                              |

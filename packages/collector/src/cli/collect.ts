@@ -27,6 +27,7 @@ import {
   loadReferenceAddresses,
   loadReferencePoints,
   loadTelegramConfig,
+  loadTransitConfig,
 } from '../config.js';
 import { createGeocoder } from '../core/geocode.js';
 import { notifyNewListings, editRentedTelegramMessages } from '../notify/telegram.js';
@@ -102,6 +103,13 @@ async function main(): Promise<void> {
       }
     }
 
+    // §20 : routage transports en commun si un jeton Navitia est configuré,
+    // sinon estimation vol d'oiseau. `null` = simplement désactivé.
+    const transitConfig = loadTransitConfig();
+    if (transitConfig !== null) {
+      logger.info('transit.enabled', { arrivalTime: transitConfig.arrivalTime });
+    }
+
     const report = await runPipeline({
       registry: createRegistry(ALL_SCRAPERS),
       repository,
@@ -111,6 +119,7 @@ async function main(): Promise<void> {
       mode,
       clock: systemClock,
       logger,
+      ...(transitConfig !== null ? { transitConfig } : {}),
     });
 
     logger.info('pipeline.done', {

@@ -45,6 +45,14 @@ export interface SearchCriteria {
    */
   readonly excludeFlatShare?: boolean;
   readonly districts?: readonly string[];
+  /**
+   * Durée maximale acceptée du trajet DOMICILE → TRAVAIL, en minutes. Au-delà,
+   * l'annonce est hors critères (§53). Comparée au temps de trajet réel en
+   * transports en commun quand il est disponible (Navitia, §20), sinon à
+   * l'estimation vol d'oiseau. Un bien sans localisation connue n'est jamais
+   * exclu sur ce critère (§17). Absent → pas de plafond de trajet.
+   */
+  readonly maxCommuteMinutes?: number;
   /** Durée maximale acceptée vers un point de référence, en minutes. */
   readonly maxDurationToReference?: Readonly<Record<string, number>>;
   /** Classes DPE acceptées, ex. `['A', 'B', 'C']`. */
@@ -71,4 +79,6 @@ export const MVP_CRITERIA: SearchCriteria = {
   minPrice: 250,
   // L'utilisateur ne cherche pas de location étudiante (décision du 2026-08-15).
   excludeStudent: true,
+  // Trajet domicile→travail ≤ 60 min (arrivée 9 h) — décision du 2026-08-22.
+  maxCommuteMinutes: 60,
 };
