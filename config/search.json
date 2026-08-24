@@ -9,5 +9,7 @@
   "excludeStudent": true,
   "landlordFilter": "all",
   "_landlordFilter": "Nature du bailleur : 'all' (tous), 'private' (particuliers — masque les agences connues, garde les bailleurs inconnus dont les alertes e-mail), 'agency' (agences seulement).",
+  "furnishedFilter": "all",
+  "_furnishedFilter": "Meublé : 'all' (tous), 'furnished' (meublés seulement), 'unfurnished' (non meublés seulement). Les biens au statut inconnu sont toujours conservés (§17).",
   "referencePricePerSqm": 20
 }

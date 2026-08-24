@@ -292,6 +292,7 @@ function demoFilters(): FilterConfig {
       ? { excludeStudent: MVP_CRITERIA.excludeStudent }
       : {}),
     landlordFilter: MVP_CRITERIA.landlordFilter ?? 'all',
+    furnishedFilter: MVP_CRITERIA.furnishedFilter ?? 'all',
   };
 }
 

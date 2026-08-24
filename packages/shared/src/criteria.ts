@@ -58,6 +58,15 @@ export interface SearchCriteria {
    */
   readonly landlordFilter?: 'all' | 'private' | 'agency';
   /**
+   * Filtre sur le caractère MEUBLÉ (décision utilisateur), distinct de la
+   * préférence notée `furnished` :
+   * - `'all'` (défaut) : aucune restriction.
+   * - `'furnished'` : ne garde que les biens meublés (et ceux au statut inconnu,
+   *   §17 — on n'élimine pas sur une donnée absente).
+   * - `'unfurnished'` : ne garde que les biens NON meublés (+ inconnus).
+   */
+  readonly furnishedFilter?: 'all' | 'furnished' | 'unfurnished';
+  /**
    * Durée maximale acceptée du trajet DOMICILE → TRAVAIL, en minutes. Au-delà,
    * l'annonce est hors critères (§53). Comparée au temps de trajet réel en
    * transports en commun quand il est disponible (Navitia, §20), sinon à

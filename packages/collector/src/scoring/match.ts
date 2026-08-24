@@ -267,6 +267,27 @@ export function scoreMatch(listing: AggregatedListing, criteria: SearchCriteria)
     });
   }
 
+  // --- Meublé / non meublé : filtre éliminatoire, au choix (§17) -------------
+  // Un statut meublé INCONNU (null) n'est jamais exclu : on n'élimine pas sur
+  // une donnée absente. Les deux modes partitionnent le connu.
+  const furnishedFilter = criteria.furnishedFilter ?? 'all';
+  const furnished = listing.furnished.value;
+  if (furnishedFilter === 'furnished' && furnished === false) {
+    matchesCriteria = false;
+    reasons.push({
+      code: 'furnished.excluded',
+      label: 'Non meublé — exclu (meublés seulement)',
+      delta: 0,
+    });
+  } else if (furnishedFilter === 'unfurnished' && furnished === true) {
+    matchesCriteria = false;
+    reasons.push({
+      code: 'unfurnished.excluded',
+      label: 'Meublé — exclu (non meublés seulement)',
+      delta: 0,
+    });
+  }
+
   // --- Critères optionnels, inactifs dans le MVP (§2) -----------------------
   if (criteria.propertyTypes !== undefined && criteria.propertyTypes.length > 0) {
     maxTotal += 10;

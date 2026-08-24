@@ -29,6 +29,52 @@ const LANDLORD_OPTIONS: readonly {
   { value: 'agency', label: 'Agences' },
 ];
 
+/** Choix « meublé » présentés dans l'ordre Tous / Meublé / Non meublé. */
+const FURNISHED_OPTIONS: readonly {
+  readonly value: 'all' | 'furnished' | 'unfurnished';
+  readonly label: string;
+}[] = [
+  { value: 'all', label: 'Tous' },
+  { value: 'furnished', label: 'Meublé' },
+  { value: 'unfurnished', label: 'Non meublé' },
+];
+
+/** Bouton segmenté générique (choix exclusif parmi quelques options courtes). */
+function Segmented<T extends string>({
+  value,
+  options,
+  onChange,
+  ariaLabel,
+}: {
+  readonly value: T;
+  readonly options: readonly { readonly value: T; readonly label: string }[];
+  readonly onChange: (value: T) => void;
+  readonly ariaLabel: string;
+}): React.JSX.Element {
+  return (
+    <div
+      role="group"
+      aria-label={ariaLabel}
+      className="inline-flex overflow-hidden rounded-lg border border-input text-sm"
+    >
+      {options.map((opt) => {
+        const active = value === opt.value;
+        return (
+          <button
+            key={opt.value}
+            type="button"
+            aria-pressed={active}
+            onClick={() => onChange(opt.value)}
+            className={`px-3 py-1.5 ${active ? 'bg-primary text-primary-foreground' : 'bg-card text-foreground hover:bg-accent'}`}
+          >
+            {opt.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export function FiltersPanel({ onSaved }: FiltersPanelProps): React.JSX.Element {
   const [filters, setFilters] = useState<FilterConfig | null>(null);
   const [saving, setSaving] = useState(false);
@@ -138,26 +184,24 @@ export function FiltersPanel({ onSaved }: FiltersPanelProps): React.JSX.Element 
               (« Particuliers » masque les agences)
             </span>
           </span>
-          <div
-            role="group"
-            aria-label="Nature du bailleur"
-            className="inline-flex overflow-hidden rounded-lg border border-input text-sm"
-          >
-            {LANDLORD_OPTIONS.map((opt) => {
-              const active = (filters.landlordFilter ?? 'all') === opt.value;
-              return (
-                <button
-                  key={opt.value}
-                  type="button"
-                  aria-pressed={active}
-                  onClick={() => set({ landlordFilter: opt.value })}
-                  className={`px-3 py-1.5 ${active ? 'bg-primary text-primary-foreground' : 'bg-card text-foreground hover:bg-accent'}`}
-                >
-                  {opt.label}
-                </button>
-              );
-            })}
-          </div>
+          <Segmented
+            ariaLabel="Nature du bailleur"
+            options={LANDLORD_OPTIONS}
+            value={filters.landlordFilter ?? 'all'}
+            onChange={(landlordFilter) => set({ landlordFilter })}
+          />
+        </div>
+        <div className={ROW}>
+          <span>
+            Meublé
+            <span className="ml-1 text-xs text-muted-foreground">(inconnus conservés)</span>
+          </span>
+          <Segmented
+            ariaLabel="Caractère meublé"
+            options={FURNISHED_OPTIONS}
+            value={filters.furnishedFilter ?? 'all'}
+            onChange={(furnishedFilter) => set({ furnishedFilter })}
+          />
         </div>
       </dl>
 

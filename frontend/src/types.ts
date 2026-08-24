@@ -139,4 +139,6 @@ export interface FilterConfig {
   excludeStudent?: boolean;
   /** Nature du bailleur : tous, particuliers (hors agences), ou agences. */
   landlordFilter?: 'all' | 'private' | 'agency';
+  /** Meublé : tous, meublés seulement, ou non meublés seulement. */
+  furnishedFilter?: 'all' | 'furnished' | 'unfurnished';
 }

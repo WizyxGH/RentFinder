@@ -86,6 +86,8 @@ export interface EditableFilters {
   readonly excludeStudent?: boolean;
   /** Nature du bailleur : tous, particuliers (hors agences), ou agences. */
   readonly landlordFilter?: 'all' | 'private' | 'agency';
+  /** Meublé : tous, meublés seulement, ou non meublés seulement. */
+  readonly furnishedFilter?: 'all' | 'furnished' | 'unfurnished';
 }
 
 /** Lit les filtres courants (fichier + défauts) pour les présenter à l'UI. */
@@ -100,6 +102,7 @@ export function readSearchFilters(): EditableFilters {
     ...(c.excludeFlatShare !== undefined ? { excludeFlatShare: c.excludeFlatShare } : {}),
     ...(c.excludeStudent !== undefined ? { excludeStudent: c.excludeStudent } : {}),
     landlordFilter: c.landlordFilter ?? 'all',
+    furnishedFilter: c.furnishedFilter ?? 'all',
   };
 }
 
@@ -154,6 +157,10 @@ function validateFilters(input: unknown): EditableFilters {
       o['landlordFilter'] === 'private' || o['landlordFilter'] === 'agency'
         ? o['landlordFilter']
         : 'all',
+    furnishedFilter:
+      o['furnishedFilter'] === 'furnished' || o['furnishedFilter'] === 'unfurnished'
+        ? o['furnishedFilter']
+        : 'all',
   };
 }
 
@@ -195,6 +202,7 @@ export function loadPublicConfig(onWarn?: (message: string) => void): PublicConf
       ...(parsed.propertyTypes !== undefined ? { propertyTypes: parsed.propertyTypes } : {}),
       ...(parsed.minRooms !== undefined ? { minRooms: parsed.minRooms } : {}),
       ...(parsed.landlordFilter !== undefined ? { landlordFilter: parsed.landlordFilter } : {}),
+      ...(parsed.furnishedFilter !== undefined ? { furnishedFilter: parsed.furnishedFilter } : {}),
       ...(parsed.maxCommuteMinutes !== undefined
         ? { maxCommuteMinutes: parsed.maxCommuteMinutes }
         : {}),

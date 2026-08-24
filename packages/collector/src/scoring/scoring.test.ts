@@ -140,6 +140,27 @@ describe('scoreMatch (§16)', () => {
     expect(scoreMatch(at('unknown'), withFilter('agency')).matchesCriteria).toBe(false);
   });
 
+  it('filtre par caractère meublé, un meublé inconnu restant conservé (§17)', () => {
+    const withFurniture = (v: boolean | null) => makeAggregated({ furnished: v });
+    const f = (mode: 'all' | 'furnished' | 'unfurnished') => ({
+      ...MVP_CRITERIA,
+      furnishedFilter: mode,
+    });
+
+    // « all » : rien n'est exclu.
+    for (const v of [true, false, null] as const) {
+      expect(scoreMatch(withFurniture(v), f('all')).matchesCriteria).toBe(true);
+    }
+    // « furnished » : exclut les non meublés, garde meublés et inconnus.
+    expect(scoreMatch(withFurniture(false), f('furnished')).matchesCriteria).toBe(false);
+    expect(scoreMatch(withFurniture(true), f('furnished')).matchesCriteria).toBe(true);
+    expect(scoreMatch(withFurniture(null), f('furnished')).matchesCriteria).toBe(true);
+    // « unfurnished » : exclut les meublés, garde non meublés et inconnus.
+    expect(scoreMatch(withFurniture(true), f('unfurnished')).matchesCriteria).toBe(false);
+    expect(scoreMatch(withFurniture(false), f('unfurnished')).matchesCriteria).toBe(true);
+    expect(scoreMatch(withFurniture(null), f('unfurnished')).matchesCriteria).toBe(true);
+  });
+
   it('détecte la location étudiante via l’URL de la source', () => {
     const listing = makeAggregated({
       occurrences: [
