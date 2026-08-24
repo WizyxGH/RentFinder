@@ -281,6 +281,9 @@ function demoFilters(): FilterConfig {
     cities: [...MVP_CRITERIA.cities],
     maxPrice: MVP_CRITERIA.maxPrice,
     minArea: MVP_CRITERIA.minArea,
+    ...(MVP_CRITERIA.maxCommuteMinutes !== undefined
+      ? { maxCommuteMinutes: MVP_CRITERIA.maxCommuteMinutes }
+      : {}),
     ...(MVP_CRITERIA.minPrice !== undefined ? { minPrice: MVP_CRITERIA.minPrice } : {}),
     ...(MVP_CRITERIA.excludeFlatShare !== undefined
       ? { excludeFlatShare: MVP_CRITERIA.excludeFlatShare }

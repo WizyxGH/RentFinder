@@ -120,7 +120,7 @@ export default function MapView({ listings, onOpen }: MapViewProps): React.JSX.E
       const address = listing.address.value !== null ? formatAddress(listing.address.value) : null;
       if (address !== null) {
         const addr = document.createElement('div');
-        addr.textContent = `📍 ${address}`;
+        addr.textContent = `${address}`;
         addr.style.cssText = 'margin-top:2px;color:#52525b;font-size:12px';
         popup.append(addr);
       }

@@ -36,7 +36,7 @@ test('scénario 2 — une annonce multi-sources n’apparaît qu’une fois (§5
   // Une seule carte, mais quatre sources annoncées.
   await expect(first.getByText('4 sources')).toBeVisible();
 
-  await first.getByRole('button', { name: 'Voir' }).click();
+  await first.getByRole('button', { name: 'Contacter' }).click();
 
   // La fiche liste les quatre origines, avec leurs liens d'accès direct (§38).
   await expect(page.getByText('Cette annonce a été trouvée sur')).toBeVisible();
@@ -85,7 +85,7 @@ test('scénario 4 — le contact manuel n’envoie rien tout seul (§53)', async
 });
 
 test('les scores exposent leurs raisons et leurs angles morts (§17, §19)', async ({ page }) => {
-  await page.getByTestId('listing-card').first().getByRole('button', { name: 'Voir' }).click();
+  await page.getByTestId('listing-card').first().getByRole('button', { name: 'Contacter' }).click();
 
   // Le détail des scores est repliable : on déplie ceux qu'on veut inspecter,
   // et on scope les assertions au bloc déplié (le même libellé peut exister
@@ -111,7 +111,7 @@ test('une annonce risquée reste visible, avec ses raisons (§19)', async ({ pag
   const risky = page.getByTestId('listing-card').filter({ hasText: '420 €' });
   await expect(risky).toBeVisible();
 
-  await risky.getByRole('button', { name: 'Voir' }).click();
+  await risky.getByRole('button', { name: 'Contacter' }).click();
 
   // Le détail « Risque » est repliable : on le déplie pour lire ses raisons.
   const risk = page.locator('details').filter({ hasText: 'Risque' });
@@ -127,7 +127,7 @@ test('le tri et le changement de statut fonctionnent (§35, §54)', async ({ pag
   await page.getByRole('button', { name: 'Loyer croissant' }).click();
   await expect(page.getByTestId('listing-card').first()).toContainText('420 €');
 
-  await page.getByTestId('listing-card').first().getByRole('button', { name: 'Voir' }).click();
+  await page.getByTestId('listing-card').first().getByRole('button', { name: 'Contacter' }).click();
   await page.getByLabel('Statut').selectOption('toContact');
   await expect(page.getByLabel('Statut')).toHaveValue('toContact');
 });
@@ -172,7 +172,7 @@ test('les filtres sont réglables depuis le site (§66)', async ({ page }) => {
 });
 
 test('la localisation ouvre Maps facilement (§20)', async ({ page }) => {
-  await page.getByTestId('listing-card').first().getByRole('button', { name: 'Voir' }).click();
+  await page.getByTestId('listing-card').first().getByRole('button', { name: 'Contacter' }).click();
   // La localisation elle-même est le lien : « 📍 Nice (06000) — … » → Maps.
   const maps = page.getByRole('link', { name: /📍/ });
   await expect(maps).toBeVisible();

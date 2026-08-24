@@ -91,6 +91,17 @@ export function FiltersPanel({ onSaved }: FiltersPanelProps): React.JSX.Element 
           />
         </div>
         <div className={ROW}>
+          <label htmlFor="maxCommuteMinutes">Trajet max domicile→travail (min)</label>
+          <input
+            id="maxCommuteMinutes"
+            type="number"
+            min={0}
+            className={FIELD}
+            value={filters.maxCommuteMinutes ?? 60}
+            onChange={(e) => set({ maxCommuteMinutes: Number(e.target.value) })}
+          />
+        </div>
+        <div className={ROW}>
           <label htmlFor="excludeFlatShare">Exclure les colocations</label>
           <input
             id="excludeFlatShare"

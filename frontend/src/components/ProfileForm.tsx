@@ -131,6 +131,23 @@ export function ProfileForm({
         </label>
       </div>
 
+      {/* §24 : message de candidature UNIQUE, envoyé tel quel pour toutes les
+          annonces. C'est TOUJOURS vous qui l'envoyez (bouton « Ouvrir »). */}
+      <label className={`${FIELD} my-4`}>
+        Message de candidature (identique pour toutes les annonces)
+        <textarea
+          rows={8}
+          value={profile.applicationMessage ?? ''}
+          onChange={(event) => update('applicationMessage', event.target.value)}
+          placeholder={`Bonjour,\n\nVotre annonce m'intéresse. Je suis en CDI, revenus 3× le loyer, garant possible. Serait-il possible de convenir d'une visite ?\n\nCordialement,\n${profile.firstName} ${profile.lastName}\n${profile.phone}`.trim()}
+          className="rounded-lg border border-border bg-card px-2.5 py-2 font-sans text-[0.9rem] text-foreground"
+        />
+        <span className="text-[0.8rem]">
+          Laissé vide, un message personnalisé par annonce est généré à la place. L’objet de
+          l’e-mail reprend la référence du bien pour que l’agence l’identifie.
+        </span>
+      </label>
+
       <div className="flex flex-wrap gap-2">
         <Button type="button" variant="ghost" onClick={onCancel}>
           Annuler

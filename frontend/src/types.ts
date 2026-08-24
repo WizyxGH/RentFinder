@@ -131,6 +131,8 @@ export interface FilterConfig {
   maxPrice: number;
   minPrice?: number;
   minArea: number;
+  /** Durée maximale du trajet domicile→travail, en minutes (§20). */
+  maxCommuteMinutes?: number;
   excludeFlatShare?: boolean;
   excludeStudent?: boolean;
 }

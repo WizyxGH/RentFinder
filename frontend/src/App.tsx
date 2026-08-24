@@ -303,6 +303,17 @@ export function App(): React.JSX.Element {
     });
   }, []);
 
+  // Consultée SANS navigation : clic « Voir l'annonce » (ouvre l'agence dans un
+  // nouvel onglet) — on marque quand même l'annonce comme vue (§37).
+  const markSeen = useCallback((id: string): void => {
+    setListings((current) =>
+      current.map((listing) => (listing.id === id ? { ...listing, viewed: true } : listing)),
+    );
+    void markViewed(id).catch(() => {
+      /* l'échec réseau n'empêche pas d'ouvrir l'annonce */
+    });
+  }, []);
+
   // Notifications navigateur des nouvelles annonces, site ouvert (§29). Sonde
   // périodiquement, indépendamment des filtres d'affichage, et ne notifie que
   // si l'utilisateur a donné sa permission ET activé la cloche. Le premier
@@ -694,6 +705,7 @@ export function App(): React.JSX.Element {
                     listing={listing}
                     nowMs={nowMs}
                     onOpen={openListing}
+                    onView={markSeen}
                     onArchive={(archived) => void handleArchive(listing.id, archived)}
                     onFavorite={(favorite) => void handleFavorite(listing.id, favorite)}
                     affinity={affinity.active ? affinity.scores.get(listing.id) : undefined}
@@ -716,6 +728,9 @@ export function App(): React.JSX.Element {
                   listing={listing}
                   nowMs={nowMs}
                   onOpen={openListing}
+                  onView={markSeen}
+                  onArchive={(archived) => void handleArchive(listing.id, archived)}
+                  onFavorite={(favorite) => void handleFavorite(listing.id, favorite)}
                 />
               ))}
             </div>
