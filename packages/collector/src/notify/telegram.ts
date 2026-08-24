@@ -29,6 +29,32 @@ function escapeHtml(text: string): string {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
+/**
+ * Portail d'origine déduit de l'URL de l'annonce. Les annonces importées par
+ * ALERTE E-MAIL portent une URL du portail (parfois via son domaine de
+ * tracking) : on la traduit en nom lisible pour lever l'ambiguïté du
+ * `source = email-alerts` (§17). `null` si l'hôte n'est pas un portail connu
+ * (annonces d'agences : leur source suffit déjà à les identifier).
+ */
+const PORTAL_LABELS: readonly (readonly [RegExp, string])[] = [
+  [/seloger\.com$/i, 'SeLoger'],
+  [/bienici\.com$/i, "Bien'ici"],
+  [/leboncoin\.fr$/i, 'Leboncoin'],
+  [/pap\.fr$/i, 'PAP'],
+  [/logic-immo\.com$/i, 'Logic-Immo'],
+];
+
+function portalLabel(url: string | null): string | null {
+  if (url === null) return null;
+  let host: string;
+  try {
+    host = new URL(url).hostname;
+  } catch {
+    return null;
+  }
+  return PORTAL_LABELS.find(([pattern]) => pattern.test(host))?.[1] ?? null;
+}
+
 /** Somme lisible « 640 € · 28 m² · 2 pièces », en omettant l'inconnu (§17). */
 function summarize(listing: NotifiableListing): string {
   const parts: string[] = [];
@@ -86,6 +112,11 @@ export function formatListingMessage(
   // l'annonce d'origine.
   const photoCount = listing.photoUrls.length;
   if (photoCount > 1) lines.push(`📷 ${photoCount} photos sur l’annonce`);
+
+  // Provenance : indispensable quand l'annonce vient d'une alerte e-mail, pour
+  // savoir de QUEL portail elle provient (SeLoger, Bien'ici…).
+  const portal = portalLabel(listing.url);
+  if (portal !== null) lines.push(`📨 via ${portal}`);
 
   lines.push(`⭐ Priorité ${listing.actionPriority}/100`);
   return lines.join('\n');

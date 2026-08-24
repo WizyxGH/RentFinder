@@ -102,13 +102,17 @@ describe('parseAlertEmail', () => {
 // et la ligne ville « Nice, 06000 » précède le prix « 570 € ».
 const SELOGER_DIGEST = `
 <table>
-  <tr>
-    <td><a href="https://click.by.seloger.com/?qs=IMG001"><img src="https://v.seloger.com/p.jpg" /></a></td>
-  </tr>
-  <tr>
-    <td><a href="https://click.by.seloger.com/?qs=TITLE01">Appartement • 1 pièce • 12 m² <br /> Nice, 06000</a></td>
-    <td align="right"><a href="https://click.by.seloger.com/?qs=PRICE01">570 €</a></td>
-  </tr>
+  <tbody>
+    <tr>
+      <td style="background-image: url('https://mms.seloger.com/a/b/c/photo.jpg?ci_seal=xyz'); width:250px">
+        <a href="https://click.by.seloger.com/?qs=IMG001"><img src="https://mms.seloger.com/static/logo.png" /></a>
+      </td>
+    </tr>
+    <tr>
+      <td><a href="https://click.by.seloger.com/?qs=TITLE01">Appartement • 1 pièce • 12 m² <br /> Nice, 06000</a></td>
+      <td align="right"><a href="https://click.by.seloger.com/?qs=PRICE01">570 €</a></td>
+    </tr>
+  </tbody>
 </table>`;
 
 describe('parseAlertEmail — digest SeLoger réel (liens de tracking)', () => {
@@ -130,5 +134,11 @@ describe('parseAlertEmail — digest SeLoger réel (liens de tracking)', () => {
     expect(listing?.sourceUrl).toContain('click.by.seloger.com');
     // Faute d'identifiant exposé, la référence est dérivée du contenu.
     expect(listing?.sourceRef).toMatch(/^seloger:/);
+  });
+
+  it('extrait la photo depuis background-image et ignore le logo', () => {
+    // SeLoger met la vraie photo en CSS `background-image`, pas en <img> ;
+    // le seul <img> présent est un logo (à écarter).
+    expect(listing?.imageUrls?.[0]).toBe('https://mms.seloger.com/a/b/c/photo.jpg?ci_seal=xyz');
   });
 });

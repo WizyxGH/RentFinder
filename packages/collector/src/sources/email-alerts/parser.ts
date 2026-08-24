@@ -151,16 +151,49 @@ function contentReference(portalId: string, parts: readonly (string | undefined)
 /** Type minimal d'un nœud cheerio (évite d'importer les types d'éléments). */
 type Node = ReturnType<cheerio.CheerioAPI>;
 
-/** Remonte jusqu'au bloc de l'annonce : 1er ancêtre dont le texte porte un prix. */
-function climbToBlock(anchor: Node): Node {
+/** URL qui pointe vraiment vers une photo (extension image, éventuel `?token`). */
+const IMAGE_URL = /\.(?:jpe?g|png|webp)(?:[?&#]|$)/i;
+/** Habillage d'e-mail à écarter : logos, icônes sociales, pixels de tracking. */
+const IMAGE_DENY =
+  /mail-sender|\/static\/|facebook|instagram|linkedin|twitter|x_round|transparent|spacer|pixel|logo/i;
+
+/**
+ * Première photo d'annonce trouvée dans un nœud. Les digests placent la photo
+ * soit en `<img src>` (Bien'ici), soit en `background-image` CSS / VML Outlook
+ * (SeLoger) — on regarde les deux, en filtrant l'habillage.
+ */
+function findImage($: cheerio.CheerioAPI, node: Node): string | undefined {
+  const urls: string[] = [];
+  node.find('img[src]').each((_i, el) => {
+    const src = $(el).attr('src');
+    if (src !== undefined) urls.push(src);
+  });
+  node.find('[style*="background"]').each((_i, el) => {
+    const match = /url\(\s*['"]?(https?:\/\/[^'")\s]+)/i.exec($(el).attr('style') ?? '');
+    if (match?.[1] !== undefined) urls.push(match[1]);
+  });
+  return urls.find((url) => IMAGE_URL.test(url) && !IMAGE_DENY.test(url));
+}
+
+/**
+ * Remonte au bloc de l'annonce et y repère sa photo. Le bloc « texte » est le
+ * 1er ancêtre portant un prix (tight, pour ne pas mélanger les voisins) ; la
+ * photo, elle, vit souvent un cran plus haut (rangée image au-dessus du titre),
+ * donc on continue de remonter pour la trouver — chaque annonce a la sienne.
+ */
+function climbToBlock(anchor: Node, $: cheerio.CheerioAPI): { block: Node; image?: string } {
   let node = anchor;
+  let block: Node | null = null;
+  let image: string | undefined;
   for (let depth = 0; depth < 6; depth += 1) {
     const parent = node.parent();
     if (parent.length === 0) break;
     node = parent;
-    if (/€/.test(node.text())) break;
+    if (block === null && /€/.test(node.text())) block = node;
+    if (image === undefined) image = findImage($, node);
+    if (block !== null && image !== undefined) break;
   }
-  return node;
+  return { block: block ?? anchor, image };
 }
 
 /** Construit l'annonce à partir de son lien-titre (celui qui porte « m² »). */
@@ -171,7 +204,7 @@ function buildFromTitle(
   resolved: Resolved,
 ): RawListing | null {
   const { portal, url, canonical } = resolved;
-  const block = climbToBlock(anchor);
+  const { block, image } = climbToBlock(anchor, $);
   const blockText = cleanText(block.text().replace(/\s+/g, ' '));
 
   const priceText = findPrice(title) ?? findPrice(blockText);
@@ -185,7 +218,6 @@ function buildFromTitle(
   // Lien ouvert par l'utilisateur : la vraie URL si on l'a dénouée, sinon le
   // lien de tracking d'origine (qui redirige bien vers l'annonce).
   const sourceUrl = canonical ? `${url.origin}${url.pathname}` : (anchor.attr('href') ?? url.href);
-  const image = block.find('img[src]').attr('src');
 
   return {
     sourceRef: `${portal.id}:${reference}`,

@@ -66,6 +66,20 @@ describe('formatListingMessage', () => {
     expect(msg).toContain(encodeURIComponent('22-24 Avenue de la Californie, nice 06000'));
   });
 
+  it('indique le portail d’origine pour une annonce d’alerte e-mail (§17)', () => {
+    // URL de tracking SeLoger → « via SeLoger » (lève l'ambiguïté email-alerts).
+    const seloger = formatListingMessage(
+      listing({ id: 'a', url: 'https://click.by.seloger.com/?qs=ABC' }),
+    );
+    expect(seloger).toContain('📨 via SeLoger');
+    const bienici = formatListingMessage(
+      listing({ id: 'b', url: 'https://www.bienici.com/annonce/ag1-2' }),
+    );
+    expect(bienici).toContain("📨 via Bien'ici");
+    // URL d'agence non-portail → pas de ligne « via » (la source suffit).
+    expect(formatListingMessage(listing({ id: 'c' }))).not.toContain('📨 via');
+  });
+
   it('échappe le HTML du titre (§62)', () => {
     const msg = formatListingMessage(listing({ id: 'a', title: 'T2 <script> & co' }));
     expect(msg).toContain('T2 &lt;script&gt; &amp; co');
