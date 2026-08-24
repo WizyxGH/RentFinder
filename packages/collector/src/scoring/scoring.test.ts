@@ -46,7 +46,20 @@ describe('scoreMatch (§16)', () => {
   });
 
   it('rejette une annonce hors de la zone recherchée', () => {
-    const { matchesCriteria } = scoreMatch(makeAggregated({ city: 'cannes' }), MVP_CRITERIA);
+    // Cannes (06400) : le code postal fait autorité — même si un libellé
+    // trompeur mentionnait « Nice », le 06400 l'exclut (§16).
+    const { matchesCriteria } = scoreMatch(
+      makeAggregated({ city: 'cannes', postalCode: '06400' }),
+      MVP_CRITERIA,
+    );
+    expect(matchesCriteria).toBe(false);
+  });
+
+  it('exclut une commune voisine malgré un libellé « à X km de Nice » (CP prioritaire)', () => {
+    const { matchesCriteria } = scoreMatch(
+      makeAggregated({ city: 'a 33 km de nice', postalCode: '06210' }),
+      MVP_CRITERIA,
+    );
     expect(matchesCriteria).toBe(false);
   });
 

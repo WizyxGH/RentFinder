@@ -65,8 +65,13 @@ function buildListing(fields: {
     areaText: (description.match(/[\d.,]+\s*m²/i) ?? alt.match(/[\d.,]+\s*m²/i))?.[0],
     roomsText: (description.match(/\d+\s*pi[eè]ces?/i) ?? alt.match(/\d+\s*pi[eè]ces?/i))?.[0],
     propertyTypeText: TYPE_LABELS.test(typeText) ? typeText : undefined,
-    // Ville : `.bien-geo` (« Nice (06) ») sans son suffixe ; CP depuis l'alt.
-    cityText: geo.replace(/\s*\(\d+\)\s*$/, '').trim() || undefined,
+    // Ville : depuis l'alt « {Type} {VILLE} ({CP}) … » — fiable (le `.bien-geo`
+    // vaut parfois « à 33 km de Nice » pour les communes lointaines, trompeur).
+    // CP depuis l'alt aussi.
+    cityText:
+      /^\S+\s+(.+?)\s*\(\d{5}\)/.exec(alt)?.[1]?.trim() ||
+      geo.replace(/\s*\(\d+\)\s*$/, '').trim() ||
+      undefined,
     postalCodeText: /\((\d{5})\)/.exec(alt)?.[1],
     agencyName,
     contactFormUrl: sourceUrl,

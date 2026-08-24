@@ -74,8 +74,32 @@ interface CityOutcome {
  * ville est vide) ; sinon on n'élimine pas, faute de signal (§17).
  */
 function evaluateCity(listing: AggregatedListing, criteria: SearchCriteria): CityOutcome {
-  const city = listing.city.value;
+  const postalCode = listing.postalCode.value;
+  const targetPostalCodes = criteria.cities.flatMap(
+    (wanted) => CITY_POSTAL_CODES[comparable(wanted)] ?? [],
+  );
 
+  // Le CODE POSTAL fait AUTORITÉ quand il est connu : une commune voisine
+  // (06210 Mandelieu ≠ Nice) ou une mention trompeuse comme « à 33 km de Nice »
+  // ne doit pas passer le filtre à cause du seul nom de ville (§16).
+  if (postalCode !== null && targetPostalCodes.length > 0) {
+    return targetPostalCodes.includes(postalCode)
+      ? {
+          matches: true,
+          unknown: false,
+          points: 30,
+          reason: cityReason('match', `Code postal ${postalCode}`),
+        }
+      : {
+          matches: false,
+          unknown: false,
+          points: 0,
+          reason: cityReason('mismatch', `Hors zone (code postal ${postalCode})`),
+        };
+  }
+
+  // Sans code postal : on se rabat sur le nom de ville.
+  const city = listing.city.value;
   if (city !== null) {
     const inZone = criteria.cities.some((wanted) => city.includes(comparable(wanted)));
     return inZone
@@ -90,26 +114,6 @@ function evaluateCity(listing: AggregatedListing, criteria: SearchCriteria): Cit
           unknown: false,
           points: 0,
           reason: cityReason('mismatch', `Hors zone recherchée (${city})`),
-        };
-  }
-
-  const postalCode = listing.postalCode.value;
-  const targetPostalCodes = criteria.cities.flatMap(
-    (wanted) => CITY_POSTAL_CODES[comparable(wanted)] ?? [],
-  );
-  if (postalCode !== null && targetPostalCodes.length > 0) {
-    return targetPostalCodes.includes(postalCode)
-      ? {
-          matches: true,
-          unknown: false,
-          points: 30,
-          reason: cityReason('match', `Code postal ${postalCode}`),
-        }
-      : {
-          matches: false,
-          unknown: false,
-          points: 0,
-          reason: cityReason('mismatch', `Hors zone (code postal ${postalCode})`),
         };
   }
 
