@@ -37,15 +37,15 @@ Le dépôt est **public**. Toute PR doit passer `pnpm check:secrets` et Gitleaks
 Aucune PR n'est acceptée si elle : contourne une protection (CAPTCHA,
 anti-bot, rate limit), ignore un `robots.txt`, déguise le User-Agent en
 navigateur, réessaie après un 429, télécharge des images, ou ajoute une source
-sans fiche d'étude dans [docs/sources.md](docs/sources.md). Voir
-[docs/scraping.md](docs/scraping.md).
+sans fiche d'étude dans [docs/sources.md](docs/sources.md). Voir la section
+« scraping » de [docs/architecture.md](docs/architecture.md).
 
 ## Ajouter une source
 
-Le cas de contribution le plus utile. Mode d'emploi pas à pas :
-[docs/contributing.md](docs/contributing.md#ajouter-une-source). Résumé :
-étude robots.txt datée → fixtures anonymisées (nominale + dégradée) → parser
-pur → tests → scraper → enregistrement dans `ALL_SCRAPERS` → `pnpm verify`.
+Le cas de contribution le plus utile. Le mode d'emploi vit dans l'en-tête de
+[`packages/collector/src/sources/index.ts`](packages/collector/src/sources/index.ts).
+Résumé : étude robots.txt datée → fixtures anonymisées (nominale + dégradée) →
+parser pur → tests → scraper → enregistrement dans `ALL_SCRAPERS` → `pnpm verify`.
 
 ## Tests
 

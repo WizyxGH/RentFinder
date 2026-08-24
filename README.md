@@ -135,22 +135,14 @@ Sans ces variables, le notifieur reste silencieusement désactivé.
 
 ## Documentation
 
-| Document                                          | Contenu                                                              |
-| ------------------------------------------------- | -------------------------------------------------------------------- |
-| [architecture.md](docs/architecture.md)           | composants, flux, décisions, limites                                 |
-| [deployment.md](docs/deployment.md)               | installation locale, `.env`, notifications Telegram                  |
-| [hebergement-cloud.md](docs/hebergement-cloud.md) | option cloud gratuite (Turso + Worker + Actions + Pages)             |
-| [sources.md](docs/sources.md)                     | étude datée des sources (robots.txt, verdicts, priorités)            |
-| [scraping.md](docs/scraping.md)                   | règles de collecte, garanties du core, diagnostic d'un scraper cassé |
-| [scheduler.md](docs/scheduler.md)                 | fréquences adaptatives                                               |
-| [deduplication.md](docs/deduplication.md)         | signaux, vetos, fusion, provenance                                   |
-| [scoring.md](docs/scoring.md)                     | les 4 scores et la priorité d'action                                 |
-| [risk-detection.md](docs/risk-detection.md)       | signaux d'arnaque                                                    |
-| [contact.md](docs/contact.md)                     | mode manuel, garde-fous du mode auto, relances                       |
-| [database.md](docs/database.md)                   | schéma, migrations, économie d'écritures                             |
-| [privacy.md](docs/privacy.md)                     | cartographie des données, les six barrières anti-fuite               |
-| [deployment.md](docs/deployment.md)               | mise en production pas à pas                                         |
-| [contributing.md](docs/contributing.md)           | **ajouter une source**, conventions                                  |
+| Document                                | Contenu                                                                                                                            |
+| --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| [architecture.md](docs/architecture.md) | composants et flux, puis par sections : scoring, détection de risque, dédoublonnage, scheduler, scraping, base de données, contact |
+| [sources.md](docs/sources.md)           | étude datée des sources (robots.txt, verdicts, priorités)                                                                          |
+| [deployment.md](docs/deployment.md)     | installation locale, `.env`, notifications Telegram, et option cloud gratuite (Turso + Worker + Actions + Pages)                   |
+| [privacy.md](docs/privacy.md)           | cartographie des données, les six barrières anti-fuite                                                                             |
+
+Pour **contribuer / ajouter une source**, voir [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Principes non négociables
 
@@ -208,7 +200,7 @@ Sans ces variables, le notifieur reste silencieusement désactivé.
 | `Le port 8788 est déjà utilisé` au `pnpm local`                                | Un serveur tourne déjà — ouvrir http://127.0.0.1:8788, ou `PORT=8789 pnpm local`.                                                                                               |
 | L'interface locale affiche « Interface non construite »                        | Lancer `pnpm local` (qui construit), pas `pnpm --filter @rentfinder/collector serve` seul.                                                                                      |
 | 0 annonce alors que la collecte a réussi                                       | Les annonces sont hors critères (≤ 700 €, ≥ 14 m², Nice). Cocher « Afficher les annonces hors critères ».                                                                       |
-| Un parser ne trouve plus de prix (warning « structure probablement modifiée ») | Le site a changé son HTML : suivre la procédure de réparation de [docs/scraping.md](docs/scraping.md#diagnostiquer-un-scraper-cassé-69).                                        |
+| Un parser ne trouve plus de prix (warning « structure probablement modifiée ») | Le site a changé son HTML : suivre la procédure de réparation dans la section « scraping » de [docs/architecture.md](docs/architecture.md).                                     |
 | Pas de notification Telegram                                                   | Vérifier `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` dans `.env` (voir le script d'installation) ; le notifieur ne signale que les annonces découvertes **après** son activation. |
 
 ## Licence
