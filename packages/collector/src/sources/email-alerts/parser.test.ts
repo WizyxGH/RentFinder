@@ -141,4 +141,49 @@ describe('parseAlertEmail — digest SeLoger réel (liens de tracking)', () => {
     // le seul <img> présent est un logo (à écarter).
     expect(listing?.imageUrls?.[0]).toBe('https://mms.seloger.com/a/b/c/photo.jpg?ci_seal=xyz');
   });
+
+  it('déduit le type et les pièces depuis le titre', () => {
+    expect(listing?.propertyTypeText).toBe('appartement');
+    expect(listing?.roomsText).toContain('1 pièce');
+    // Ce digest n'indique pas « cc » → le prix reste brut.
+    expect(listing?.priceText).toBe('570 €');
+  });
+});
+
+// Cas piège : « 2 pièces • 1 chambre » SANS le mot « Appartement » — la
+// normalisation prenait « chambre » (nb de chambres) pour une location de
+// CHAMBRE. Le parseur doit typer « appartement » (présence de pièces) et
+// exposer les chambres pour le comptage.
+const SELOGER_ROOMS = `
+<table><tbody>
+  <tr><td><a href="https://click.by.seloger.com/?qs=T">2 pièces • 1 chambre • 24 m² <br /> Nice, 06300</a></td>
+  <td><a href="https://click.by.seloger.com/?qs=P">635 € CC</a></td></tr>
+</tbody></table>`;
+
+describe('parseAlertEmail — pièces/chambres sans mot « Appartement »', () => {
+  const [l] = parseAlertEmail(SELOGER_ROOMS);
+  it('type « appartement » (pas « chambre ») et chambres exposées', () => {
+    expect(l?.propertyTypeText).toBe('appartement');
+    expect(l?.roomsText).toContain('2 pièces');
+    expect(l?.roomsText).toContain('1 chambre');
+    expect(l?.priceText).toBe('635 € cc');
+  });
+});
+
+// Bien'ici : titre « Appartement meublé 4 pièces 67 m² ».
+const BIENICI_FURNISHED = `
+<table><tbody>
+  <tr><td style="background-image:url('https://file.bienici.com/photo/x_photos_1.jpg?w=200')"></td></tr>
+  <tr><td><a href="https://www.bienici.com/annonce/ag99-88">Appartement meublé 4 pièces 67 m² 06000 Nice</a></td>
+  <td><a href="https://www.bienici.com/annonce/ag99-88">567 € par mois charges comprises</a></td></tr>
+</tbody></table>`;
+
+describe('parseAlertEmail — Bien’ici meublé', () => {
+  const [l] = parseAlertEmail(BIENICI_FURNISHED);
+  it('détecte « meublé » et 4 pièces', () => {
+    expect(l?.furnishedText).toBe('meublé');
+    expect(l?.roomsText).toContain('4 pièces');
+    expect(l?.propertyTypeText).toBe('appartement');
+    expect(l?.imageUrls?.[0]).toContain('file.bienici.com');
+  });
 });

@@ -137,6 +137,49 @@ function findLocation(text: string): { city?: string; postalCode?: string } {
   return { city: cleanText(match[1]).replace(/\s+/g, ' ').trim(), postalCode: match[2] };
 }
 
+/**
+ * Détails du bien lus dans le texte du bloc : typologie, pièces/chambres,
+ * meublé, charges. On ne devine pas l'absent (§17) — chaque champ reste absent
+ * si le digest ne le donne pas.
+ */
+interface ListingDetails {
+  readonly propertyTypeText?: string;
+  readonly roomsText?: string;
+  readonly furnishedText?: string;
+  readonly chargesIncluded: boolean;
+}
+
+function extractDetails(text: string): ListingDetails {
+  const pieces = /\d+\s*pièces?/i.exec(text)?.[0];
+  const chambres = /\d+\s*chambres?/i.exec(text)?.[0];
+  // « X pièces • Y chambres » alimente à la fois le nb de pièces et de chambres.
+  const roomsText = [pieces, chambres].filter((p) => p !== undefined).join(' • ') || undefined;
+
+  // Type explicite d'abord ; à défaut, la présence de « pièce(s) » désigne un
+  // appartement (jamais une simple chambre ni un parking) — ce qui évite en
+  // prime que « 1 chambre » (nb de chambres) soit pris pour une location de
+  // chambre par la normalisation.
+  let propertyTypeText: string | undefined;
+  if (/\bstudio\b/i.test(text)) propertyTypeText = 'studio';
+  else if (/\bmaison\b|\bvilla\b/i.test(text)) propertyTypeText = 'maison';
+  else if (/\bloft\b/i.test(text)) propertyTypeText = 'loft';
+  else if (/\bduplex\b/i.test(text)) propertyTypeText = 'duplex';
+  else if (/\bappartement\b/i.test(text) || pieces !== undefined) propertyTypeText = 'appartement';
+
+  let furnishedText: string | undefined;
+  if (/\bnon\s+meubl/i.test(text)) furnishedText = 'non meublé';
+  else if (/\bmeubl[ée]/i.test(text)) furnishedText = 'meublé';
+
+  const chargesIncluded = /charges comprises|\bcc\b|\+\s*cc\b|\btcc\b/i.test(text);
+
+  return {
+    ...(propertyTypeText !== undefined ? { propertyTypeText } : {}),
+    ...(roomsText !== undefined ? { roomsText } : {}),
+    ...(furnishedText !== undefined ? { furnishedText } : {}),
+    chargesIncluded,
+  };
+}
+
 /** Référence de repli quand le portail n'expose pas d'identifiant (SeLoger). */
 function contentReference(portalId: string, parts: readonly (string | undefined)[]): string {
   const slug = parts
@@ -207,10 +250,17 @@ function buildFromTitle(
   const { block, image } = climbToBlock(anchor, $);
   const blockText = cleanText(block.text().replace(/\s+/g, ' '));
 
-  const priceText = findPrice(title) ?? findPrice(blockText);
+  const rawPrice = findPrice(title) ?? findPrice(blockText);
   const areaText = findArea(title) ?? findArea(blockText);
   const { city, postalCode } = findLocation(blockText);
-  if (priceText === undefined && areaText === undefined) return null;
+  if (rawPrice === undefined && areaText === undefined) return null;
+
+  // Détails lus dans le titre + le bloc (typologie, pièces, meublé, charges).
+  const details = extractDetails(`${title} ${blockText}`);
+  // On réinjecte « cc » dans le prix pour que la normalisation marque le loyer
+  // comme charges comprises (findPrice ne garde que le montant).
+  const priceText =
+    rawPrice !== undefined ? (details.chargesIncluded ? `${rawPrice} cc` : rawPrice) : undefined;
 
   const reference =
     (canonical ? portal.reference(url) : null) ??
@@ -225,6 +275,11 @@ function buildFromTitle(
     title,
     ...(priceText !== undefined ? { priceText } : {}),
     ...(areaText !== undefined ? { areaText } : {}),
+    ...(details.propertyTypeText !== undefined
+      ? { propertyTypeText: details.propertyTypeText }
+      : {}),
+    ...(details.roomsText !== undefined ? { roomsText: details.roomsText } : {}),
+    ...(details.furnishedText !== undefined ? { furnishedText: details.furnishedText } : {}),
     ...(city !== undefined ? { cityText: city } : {}),
     ...(postalCode !== undefined ? { postalCodeText: postalCode } : {}),
     contactFormUrl: sourceUrl,
