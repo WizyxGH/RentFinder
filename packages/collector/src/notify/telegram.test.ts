@@ -38,6 +38,7 @@ function listing(over: Partial<NotifiableListing> & { id: string }): NotifiableL
     actionPriority: pick('actionPriority', 80),
     url: pick('url', 'https://exemple.fr/annonce/1'),
     photoUrls: pick('photoUrls', []),
+    sourceId: pick('sourceId', 'test-agency'),
   };
 }
 
@@ -174,8 +175,9 @@ describe('sendTelegramListing', () => {
     // La couverture = la première photo ; le bouton favori est présent.
     expect(body.photo).toBe('https://img.exemple/0.jpg');
     expect(body.reply_markup).toBeDefined();
-    // La légende signale les autres photos, à voir sur l'annonce.
-    expect(body.caption).toContain('5 photos');
+    // Les autres photos sont visibles sur l'annonce d'origine ; on n'encombre
+    // plus la légende de leur décompte.
+    expect(body.caption).not.toContain('photos');
   });
 
   it('sans photo, envoie un message texte avec bouton', async () => {
@@ -211,6 +213,7 @@ describe('notifyNewListings', () => {
     const marked: string[] = [];
     const repo = {
       pendingNotifications: vi.fn(async () => pending),
+      directListingSpecKeys: vi.fn(async () => new Set<string>()),
       markNotified: vi.fn(async (ids: readonly string[]) => {
         marked.push(...ids);
       }),
@@ -219,6 +222,55 @@ describe('notifyNewListings', () => {
   }
 
   const logger = createLogger({ minLevel: 'error' });
+
+  it('tait la notif d’une annonce e-mail dont un équivalent direct existe (§29)', async () => {
+    const emailDup = listing({
+      id: 'e1',
+      sourceId: 'email-alerts',
+      price: 700,
+      area: 20,
+      city: 'nice',
+      rooms: 1,
+    });
+    const emailUnique = listing({
+      id: 'e2',
+      sourceId: 'email-alerts',
+      price: 900,
+      area: 40,
+      city: 'nice',
+      rooms: 2,
+    });
+    const agency = listing({ id: 'a1', sourceId: 'foncia', price: 700, area: 20, city: 'nice' });
+    const marked: string[] = [];
+    const repo = {
+      pendingNotifications: vi.fn(async () => [emailDup, emailUnique, agency]),
+      // Un bien direct 700€/20m²/nice/1p existe déjà.
+      directListingSpecKeys: vi.fn(async () => new Set(['700|20|nice|1'])),
+      markNotified: vi.fn(async (ids: readonly string[]) => marked.push(...ids)),
+      recordTelegramMessage: vi.fn(async () => {}),
+    } as unknown as Repository;
+
+    const sent: string[] = [];
+    const fetchImpl = vi.fn(async (url: string, init?: RequestInit) => {
+      if (typeof url === 'string' && url.includes('/sendPhoto')) {
+        sent.push(String(JSON.parse(String(init?.body ?? '{}')).caption ?? ''));
+      }
+      return new Response('{"ok":true,"result":{"message_id":1}}', { status: 200 });
+    }) as unknown as typeof fetch;
+
+    const report = await notifyNewListings({
+      repository: repo,
+      config: { botToken: 't', chatId: 'c', minPriority: 0, maxPerRun: 50 },
+      logger,
+      fetchImpl,
+    });
+
+    // e1 (doublon d'un bien direct) est tu ; e2 et a1 passent.
+    expect(report.candidates).toBe(2);
+    expect(marked).toContain('e2');
+    expect(marked).toContain('a1');
+    expect(marked).not.toContain('e1');
+  });
 
   it('chaque annonce multi-photos → UN SEUL message (sendPhoto), pas d’album', async () => {
     const pending = Array.from({ length: 3 }, (_, i) =>

@@ -20,6 +20,7 @@
 
 import type { Logger } from '../core/logger.js';
 import type { NotifiableListing, Repository } from '../db/repository.js';
+import { listingSpecKey } from '../db/repository.js';
 import type { TelegramConfig } from '../config.js';
 
 const TELEGRAM_API = 'https://api.telegram.org';
@@ -106,12 +107,6 @@ export function formatListingMessage(
   // seulement si la source l'a publiée.
   const availability = formatAvailability(listing.availableAt, nowMs);
   if (availability !== null) lines.push(`📅 ${availability}`);
-
-  // L'album montre jusqu'à 10 photos ; au-delà, on signale le reste (fiche).
-  // Une seule photo (couverture) est jointe ; on signale les autres, à voir sur
-  // l'annonce d'origine.
-  const photoCount = listing.photoUrls.length;
-  if (photoCount > 1) lines.push(`📷 ${photoCount} photos sur l’annonce`);
 
   // Provenance : indispensable quand l'annonce vient d'une alerte e-mail, pour
   // savoir de QUEL portail elle provient (SeLoger, Bien'ici…).
@@ -310,7 +305,18 @@ export interface NotifyReport {
  */
 export async function notifyNewListings(deps: NotifyDeps): Promise<NotifyReport> {
   const { repository, config, logger, fetchImpl } = deps;
-  const pending = await repository.pendingNotifications(config.minPriority);
+  const raw = await repository.pendingNotifications(config.minPriority);
+
+  // Anti-doublon inter-sources : une annonce d'alerte E-MAIL dont un équivalent
+  // direct (agence déjà scrapée) existe déjà n'est PAS notifiée — le lien direct
+  // est meilleur et l'e-mail dupliquait la notif (§29). L'annonce e-mail reste
+  // visible sur le site ; seule sa notification est tue.
+  const directKeys = await repository.directListingSpecKeys();
+  const pending = raw.filter((listing) => {
+    if (listing.sourceId !== 'email-alerts') return true;
+    const key = listingSpecKey(listing.price, listing.area, listing.city, listing.rooms);
+    return key === null || !directKeys.has(key);
+  });
 
   if (pending.length === 0) {
     return { candidates: 0, sent: 0, summarized: 0 };

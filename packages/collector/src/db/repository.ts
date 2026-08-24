@@ -188,6 +188,14 @@ export interface Repository {
    * priorité suffisante (§29). Triées par priorité décroissante.
    */
   pendingNotifications(minPriority: number): Promise<NotifiableListing[]>;
+  /**
+   * Clés `prix|surface|ville|pièces` des annonces actives issues UNIQUEMENT de
+   * sources directes (agences), jamais des alertes e-mail. Sert à taire la
+   * notification d'une annonce e-mail dont un équivalent direct — meilleur
+   * (téléphone, lien direct, frais) — existe déjà (§29). L'annonce e-mail reste
+   * visible sur le site : seule sa notification est supprimée.
+   */
+  directListingSpecKeys(): Promise<ReadonlySet<string>>;
   /** Marque des annonces comme notifiées, pour ne jamais les re-signaler. */
   markNotified(ids: readonly string[]): Promise<void>;
   /** Retient qu'un message Telegram correspond à une annonce (§29). */
@@ -239,6 +247,24 @@ export interface NotifiableListing {
   readonly url: string | null;
   /** Photos (URLs du site d'origine, §11) — 10 max, la limite d'un album Telegram. */
   readonly photoUrls: readonly string[];
+  /** Source de l'occurrence principale (ex. `email-alerts`), pour le dédoublonnage. */
+  readonly sourceId: string | null;
+}
+
+/**
+ * Clé de rapprochement d'une annonce sur ses caractéristiques observables
+ * (loyer, surface, ville, pièces). Prix et surface sont arrondis à l'entier
+ * pour absorber les écarts d'affichage entre sources (« 16 » vs « 16,4 »).
+ * `null` si les signaux fiables manquent — on ne rapproche pas dans le vide (§17).
+ */
+export function listingSpecKey(
+  price: number | null,
+  area: number | null,
+  city: string | null,
+  rooms: number | null,
+): string | null {
+  if (price === null || area === null || city === null) return null;
+  return `${Math.round(price)}|${Math.round(area)}|${city.toLowerCase()}|${rooms ?? '?'}`;
 }
 
 export interface LifecycleThresholds {
@@ -700,9 +726,10 @@ export function createRepository(db: Database): Repository {
         let address: string | null = null;
         let district: string | null = null;
         let availableAt: string | null = null;
+        let sourceId: string | null = null;
         try {
           const payload = JSON.parse(String(row['payload'] ?? '{}')) as {
-            occurrences?: { sourceUrl?: unknown }[];
+            occurrences?: { sourceUrl?: unknown; sourceId?: unknown }[];
             imageUrls?: unknown[];
             address?: { value?: unknown };
             district?: { value?: unknown };
@@ -710,6 +737,8 @@ export function createRepository(db: Database): Repository {
           };
           const first = payload.occurrences?.[0]?.sourceUrl;
           if (typeof first === 'string') url = first;
+          const firstSource = payload.occurrences?.[0]?.sourceId;
+          if (typeof firstSource === 'string') sourceId = firstSource;
           photoUrls = (payload.imageUrls ?? [])
             .filter((u): u is string => typeof u === 'string' && u.startsWith('http'))
             .slice(0, 10);
@@ -734,8 +763,31 @@ export function createRepository(db: Database): Repository {
           actionPriority: Number(row['action_priority'] ?? 0),
           url,
           photoUrls,
+          sourceId,
         };
       });
+    },
+
+    async directListingSpecKeys() {
+      // Annonces actives dont AUCUNE occurrence n'est une alerte e-mail : elles
+      // constituent les biens « directs » de référence.
+      const result = await db.execute(
+        `SELECT price, area, city, rooms FROM listings
+         WHERE lifecycle != 'inactive' AND rented = 0 AND archived = 0
+           AND price IS NOT NULL AND area IS NOT NULL
+           AND id NOT IN (SELECT group_id FROM occurrences WHERE source_id = 'email-alerts')`,
+      );
+      const keys = new Set<string>();
+      for (const row of result.rows) {
+        const key = listingSpecKey(
+          row['price'] === null ? null : Number(row['price']),
+          row['area'] === null ? null : Number(row['area']),
+          row['city'] === null ? null : String(row['city']),
+          row['rooms'] === null ? null : Number(row['rooms']),
+        );
+        if (key !== null) keys.add(key);
+      }
+      return keys;
     },
 
     async markNotified(ids) {
