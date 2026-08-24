@@ -38,6 +38,7 @@ import { personalimmoScraper } from './personalimmo/index.js';
 import { nousgeronsScraper } from './nousgerons/index.js';
 import { orpiScraper } from './orpi/index.js';
 import { papScraper } from './pap/index.js';
+import { emailAlertsScraper } from './email-alerts/index.js';
 
 export const ALL_SCRAPERS: readonly Scraper[] = [
   laforetScraper,
@@ -64,6 +65,7 @@ export const ALL_SCRAPERS: readonly Scraper[] = [
   inliScraper,
   cityaScraper,
   studapartScraper,
+  emailAlertsScraper,
 ];
 
 export { laforetScraper } from './laforet/index.js';

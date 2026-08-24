@@ -1,0 +1,81 @@
+import { describe, expect, it } from 'vitest';
+import { parseAlertEmail, resolvePortalUrl } from './parser.js';
+
+describe('resolvePortalUrl', () => {
+  it('reconnaît un lien Leboncoin direct', () => {
+    const r = resolvePortalUrl('https://www.leboncoin.fr/ad/locations/2812345678');
+    expect(r?.portal.id).toBe('leboncoin');
+  });
+
+  it('dénoue un lien de tracking qui enveloppe l’URL du portail', () => {
+    const wrapped =
+      'https://clic.leboncoin-mail.fr/redirect?u=' +
+      encodeURIComponent(
+        'https://www.seloger.com/annonces/locations/appartement/nice/123456789.htm',
+      );
+    const r = resolvePortalUrl(wrapped);
+    expect(r?.portal.id).toBe('seloger');
+    expect(r?.url.hostname).toBe('www.seloger.com');
+  });
+
+  it('ignore un lien hors portail', () => {
+    expect(resolvePortalUrl('https://exemple.fr/aide')).toBeNull();
+  });
+});
+
+const EMAIL = `
+<html><body>
+  <table>
+    <tr>
+      <td>
+        <a href="https://clic.lbc.fr/r?u=${encodeURIComponent(
+          'https://www.leboncoin.fr/ad/locations/2812345678',
+        )}">
+          <img src="https://img.leboncoin.fr/photo1.jpg" alt="photo">
+          Bel appartement T2 à Nice — 680 € — 32 m²
+        </a>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <a href="https://www.seloger.com/annonces/locations/appartement/nice/987654321.htm">
+          Studio meublé Nice centre
+        </a>
+        <div>Loyer 590 € CC · 24 m²</div>
+      </td>
+    </tr>
+    <tr><td><a href="https://aide.exemple.fr/faq">Se désabonner</a></td></tr>
+    <tr><td><a href="https://www.leboncoin.fr/ad/locations/2812345678">doublon</a></td></tr>
+  </table>
+</body></html>`;
+
+describe('parseAlertEmail', () => {
+  const listings = parseAlertEmail(EMAIL);
+
+  it('extrait une annonce par portail, dédoublonnée sur la référence', () => {
+    expect(listings).toHaveLength(2);
+    const refs = listings.map((l) => l.sourceRef).sort();
+    expect(refs).toEqual(['leboncoin:2812345678', 'seloger:987654321']);
+  });
+
+  it('déplie le lien de tracking et garde l’URL canonique du portail', () => {
+    const lbc = listings.find((l) => l.extra?.['portal'] === 'leboncoin');
+    expect(lbc?.sourceUrl).toBe('https://www.leboncoin.fr/ad/locations/2812345678');
+    expect(lbc?.priceText).toContain('680');
+    expect(lbc?.areaText).toBe('32 m²');
+    expect(lbc?.imageUrls?.[0]).toContain('photo1.jpg');
+  });
+
+  it('récupère prix/surface depuis le bloc voisin (SeLoger)', () => {
+    const sl = listings.find((l) => l.extra?.['portal'] === 'seloger');
+    expect(sl?.priceText).toContain('590');
+    expect(sl?.areaText).toBe('24 m²');
+    expect(sl?.title).toContain('Studio');
+  });
+
+  it('ignore les liens hors annonce (désabonnement, aide)', () => {
+    expect(
+      listings.every((l) => l.sourceUrl.includes('leboncoin') || l.sourceUrl.includes('seloger')),
+    ).toBe(true);
+  });
+});
