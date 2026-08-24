@@ -56,7 +56,11 @@ export const emailAlertsScraper: Scraper = {
       };
     }
 
-    const bodies = await fetchAlertEmails({ config, log: context.log });
+    // Fenêtre courte (4 j) : les annonces des portails expirent vite. Au-delà,
+    // le lien renvoie souvent vers une annonce « plus disponible » et rouvrir
+    // beaucoup de ces liens fait rate-limiter l'utilisateur par le portail. On
+    // privilégie donc le frais au volume (§17, §29).
+    const bodies = await fetchAlertEmails({ config, log: context.log, sinceDays: 4 });
 
     // Toutes les annonces des e-mails, dédoublonnées sur la référence.
     const bySourceRef = new Map<string, RawListing>();
