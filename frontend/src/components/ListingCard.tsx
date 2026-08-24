@@ -236,11 +236,19 @@ export function ListingCard({
         {photos.length === 0 && <PriorityBadge priority={listing.actionPriority} overlay={false} />}
 
         <div className="min-w-0 flex-1">
+          {/* La RUE prime dans le titre quand on l'a (plus utile que « Nice »,
+              toujours identique) ; sinon la ville. La ville/CP reste en dessous. */}
           <h2 className="truncate text-base font-semibold">
-            {formatPropertyType(listing.propertyType.value)} · {formatCity(listing.city.value)}
+            {formatPropertyType(listing.propertyType.value)} ·{' '}
+            {neighborhood ?? formatCity(listing.city.value)}
           </h2>
           {neighborhood !== null && (
-            <p className="truncate text-[0.8rem] text-muted-foreground">{neighborhood}</p>
+            <p className="truncate text-[0.8rem] text-muted-foreground">
+              {formatCity(listing.city.value)}
+              {listing.postalCode?.value !== null &&
+                listing.postalCode?.value !== undefined &&
+                ` ${listing.postalCode.value}`}
+            </p>
           )}
           <p className="mt-1 flex items-baseline gap-1.5">
             <strong className="text-xl font-extrabold tracking-tight">
