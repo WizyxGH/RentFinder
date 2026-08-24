@@ -19,6 +19,16 @@ interface FiltersPanelProps {
 const FIELD = 'w-28 rounded-lg border border-input bg-card px-2 py-1.5 text-right';
 const ROW = 'flex items-center justify-between gap-3 py-2';
 
+/** Choix « nature du bailleur » présentés dans l'ordre Tous / Particuliers / Agences. */
+const LANDLORD_OPTIONS: readonly {
+  readonly value: 'all' | 'private' | 'agency';
+  readonly label: string;
+}[] = [
+  { value: 'all', label: 'Tous' },
+  { value: 'private', label: 'Particuliers' },
+  { value: 'agency', label: 'Agences' },
+];
+
 export function FiltersPanel({ onSaved }: FiltersPanelProps): React.JSX.Element {
   const [filters, setFilters] = useState<FilterConfig | null>(null);
   const [saving, setSaving] = useState(false);
@@ -120,6 +130,34 @@ export function FiltersPanel({ onSaved }: FiltersPanelProps): React.JSX.Element 
             checked={filters.excludeStudent ?? false}
             onChange={(e) => set({ excludeStudent: e.target.checked })}
           />
+        </div>
+        <div className={ROW}>
+          <span>
+            Bailleur
+            <span className="ml-1 text-xs text-muted-foreground">
+              (« Particuliers » masque les agences)
+            </span>
+          </span>
+          <div
+            role="group"
+            aria-label="Nature du bailleur"
+            className="inline-flex overflow-hidden rounded-lg border border-input text-sm"
+          >
+            {LANDLORD_OPTIONS.map((opt) => {
+              const active = (filters.landlordFilter ?? 'all') === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => set({ landlordFilter: opt.value })}
+                  className={`px-3 py-1.5 ${active ? 'bg-primary text-primary-foreground' : 'bg-card text-foreground hover:bg-accent'}`}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </dl>
 

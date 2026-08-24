@@ -46,6 +46,18 @@ export interface SearchCriteria {
   readonly excludeFlatShare?: boolean;
   readonly districts?: readonly string[];
   /**
+   * Filtre sur la NATURE DU BAILLEUR (décision utilisateur) :
+   * - `'all'` (défaut) : aucune restriction.
+   * - `'private'` : masque les annonces d'AGENCE connue. Les particuliers ET
+   *   les bailleurs INCONNUS restent affichés — on n'élimine pas sur une donnée
+   *   absente (§17), et les alertes e-mail SeLoger/Bien'ici (souvent inconnues)
+   *   restent visibles.
+   * - `'agency'` : ne garde QUE les agences connues.
+   * `'private'` et `'agency'` partitionnent l'ensemble : chaque annonce est dans
+   * l'un ou l'autre, `'all'` est leur union.
+   */
+  readonly landlordFilter?: 'all' | 'private' | 'agency';
+  /**
    * Durée maximale acceptée du trajet DOMICILE → TRAVAIL, en minutes. Au-delà,
    * l'annonce est hors critères (§53). Comparée au temps de trajet réel en
    * transports en commun quand il est disponible (Navitia, §20), sinon à

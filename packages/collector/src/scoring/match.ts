@@ -244,6 +244,29 @@ export function scoreMatch(listing: AggregatedListing, criteria: SearchCriteria)
     });
   }
 
+  // --- Nature du bailleur : filtre particulier / agence (§17) ---------------
+  // Filtre binaire (dedans/dehors), pas une dimension notée. `'private'` masque
+  // les agences CONNUES mais garde les bailleurs inconnus (on n'élimine pas sur
+  // une donnée absente) ; `'agency'` ne garde que les agences. Les deux modes
+  // partitionnent l'ensemble.
+  const landlordFilter = criteria.landlordFilter ?? 'all';
+  const isAgency = listing.contact.kind === 'agency';
+  if (landlordFilter === 'private' && isAgency) {
+    matchesCriteria = false;
+    reasons.push({
+      code: 'landlord.agency',
+      label: 'Annonce d’agence — exclue (particuliers seulement)',
+      delta: 0,
+    });
+  } else if (landlordFilter === 'agency' && !isAgency) {
+    matchesCriteria = false;
+    reasons.push({
+      code: 'landlord.notAgency',
+      label: 'Hors agence — exclue (agences seulement)',
+      delta: 0,
+    });
+  }
+
   // --- Critères optionnels, inactifs dans le MVP (§2) -----------------------
   if (criteria.propertyTypes !== undefined && criteria.propertyTypes.length > 0) {
     maxTotal += 10;

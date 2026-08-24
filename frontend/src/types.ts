@@ -137,4 +137,6 @@ export interface FilterConfig {
   maxCommuteMinutes?: number;
   excludeFlatShare?: boolean;
   excludeStudent?: boolean;
+  /** Nature du bailleur : tous, particuliers (hors agences), ou agences. */
+  landlordFilter?: 'all' | 'private' | 'agency';
 }

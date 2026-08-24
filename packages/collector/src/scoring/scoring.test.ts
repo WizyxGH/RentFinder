@@ -118,6 +118,28 @@ describe('scoreMatch (§16)', () => {
     ).toBe(true);
   });
 
+  it('filtre par nature du bailleur (particulier / agence), inconnu = non-agence', () => {
+    const at = (kind: 'agency' | 'private' | 'unknown') =>
+      makeAggregated({ price: 650, area: 20, city: 'nice', contact: makeContact({ kind }) });
+    const withFilter = (f: 'all' | 'private' | 'agency') => ({
+      ...MVP_CRITERIA,
+      landlordFilter: f,
+    });
+
+    // « all » (défaut) : aucun bailleur exclu.
+    for (const k of ['agency', 'private', 'unknown'] as const) {
+      expect(scoreMatch(at(k), withFilter('all')).matchesCriteria).toBe(true);
+    }
+    // « private » : masque les agences, garde particuliers ET inconnus (§17).
+    expect(scoreMatch(at('agency'), withFilter('private')).matchesCriteria).toBe(false);
+    expect(scoreMatch(at('private'), withFilter('private')).matchesCriteria).toBe(true);
+    expect(scoreMatch(at('unknown'), withFilter('private')).matchesCriteria).toBe(true);
+    // « agency » : ne garde que les agences connues.
+    expect(scoreMatch(at('agency'), withFilter('agency')).matchesCriteria).toBe(true);
+    expect(scoreMatch(at('private'), withFilter('agency')).matchesCriteria).toBe(false);
+    expect(scoreMatch(at('unknown'), withFilter('agency')).matchesCriteria).toBe(false);
+  });
+
   it('détecte la location étudiante via l’URL de la source', () => {
     const listing = makeAggregated({
       occurrences: [

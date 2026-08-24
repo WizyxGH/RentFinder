@@ -7,5 +7,7 @@
   "maxCommuteMinutes": 60,
   "excludeFlatShare": true,
   "excludeStudent": true,
+  "landlordFilter": "all",
+  "_landlordFilter": "Nature du bailleur : 'all' (tous), 'private' (particuliers — masque les agences connues, garde les bailleurs inconnus dont les alertes e-mail), 'agency' (agences seulement).",
   "referencePricePerSqm": 20
 }

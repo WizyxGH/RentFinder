@@ -291,6 +291,7 @@ function demoFilters(): FilterConfig {
     ...(MVP_CRITERIA.excludeStudent !== undefined
       ? { excludeStudent: MVP_CRITERIA.excludeStudent }
       : {}),
+    landlordFilter: MVP_CRITERIA.landlordFilter ?? 'all',
   };
 }
 
