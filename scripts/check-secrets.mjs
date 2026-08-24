@@ -182,9 +182,21 @@ function listStagedFiles() {
     .map((line) => join(ROOT, line.split('/').join(sep)));
 }
 
+/**
+ * Fichiers de secrets LOCAUX (`.env`, `.env.local`, …) : gitignorés par
+ * convention, ils ne peuvent pas être committés et contiennent de VRAIES
+ * valeurs par nature — les scanner ne ferait que produire des faux positifs
+ * (même logique que le dossier `data/`). Seul `.env.example`, versionné et
+ * uniquement fictif, reste analysé.
+ */
+function isLocalSecretFile(relativePath) {
+  const base = relativePath.split(sep).pop() ?? '';
+  return (base === '.env' || base.startsWith('.env.')) && base !== '.env.example';
+}
+
 function scanFile(filePath) {
   const relativePath = relative(ROOT, filePath);
-  if (EXEMPT_FILES.has(relativePath)) return [];
+  if (EXEMPT_FILES.has(relativePath) || isLocalSecretFile(relativePath)) return [];
 
   let content;
   try {

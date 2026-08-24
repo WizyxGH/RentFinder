@@ -42,6 +42,7 @@ export function makeOccurrence(
     dpe: null,
     features: [],
     address: null,
+    district: null,
     city: 'nice',
     postalCode: '06000',
     latitude: null,
@@ -96,6 +97,7 @@ export interface AggregatedOverrides {
   readonly city?: string | null;
   readonly postalCode?: string | null;
   readonly address?: string | null;
+  readonly district?: string | null;
   readonly latitude?: number | null;
   readonly longitude?: number | null;
   readonly publishedAt?: string | null;
@@ -133,6 +135,7 @@ export function makeAggregated(overrides: AggregatedOverrides = {}): AggregatedL
     dpe: field(pick(overrides.dpe, null)),
     features: pick(overrides.features, []),
     address: field(pick(overrides.address, null)),
+    district: field(pick(overrides.district, null)),
     city: field(pick(overrides.city, 'nice')),
     postalCode: field(pick(overrides.postalCode, '06000')),
     latitude: field(pick(overrides.latitude, null)),

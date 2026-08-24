@@ -35,6 +35,7 @@ function listing(overrides: Partial<NormalizedListing> & { id: string }): Normal
     dpe: null,
     features: [],
     address: null,
+    district: null,
     city: 'nice',
     postalCode: '06000',
     latitude: null,
