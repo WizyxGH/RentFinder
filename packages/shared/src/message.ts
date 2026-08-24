@@ -35,6 +35,14 @@ export interface TenantProfile {
   readonly hasGuarantor: boolean;
   /** Date d'entrée souhaitée, au format `AAAA-MM-JJ`. */
   readonly moveInDate: string | null;
+  /**
+   * Message de candidature UNIQUE, écrit une fois et envoyé tel quel pour
+   * TOUTES les annonces (§22, §24 : l'utilisateur reste seul à l'envoyer). Vide
+   * ou absent → on retombe sur le modèle personnalisé par annonce.
+   */
+  readonly applicationMessage?: string;
+  /** Objet de l'e-mail de candidature ; vide → objet par défaut (avec réf.). */
+  readonly applicationSubject?: string;
 }
 
 /**
@@ -233,6 +241,17 @@ export function prepareMessage(
     template ?? (listing.contact.kind === 'private' ? PRIVATE_TEMPLATE : AGENCY_TEMPLATE);
   const context: TemplateContext = { listing, profile };
 
+  // Message UNIQUE : quand l'utilisateur en a défini un et qu'aucun modèle
+  // spécifique n'est imposé (ex. relance), on l'utilise tel quel pour toutes les
+  // annonces. L'objet garde la référence du bien (routage), le corps reste
+  // exactement celui écrit par l'utilisateur (§24).
+  const fixedBody = profile.applicationMessage?.trim() ?? '';
+  const useFixed = template === undefined && fixedBody !== '';
+  const subject = useFixed
+    ? profile.applicationSubject?.trim() || AGENCY_TEMPLATE.subject(context)
+    : chosen.subject(context);
+  const body = useFixed ? fixedBody : chosen.body(context);
+
   const { email, phone, formUrl } = listing.contact;
   let channel: PreparedChannel = 'manual';
   let recipient: string | null = null;
@@ -252,9 +271,9 @@ export function prepareMessage(
   }
 
   return {
-    templateId: chosen.id,
-    subject: chosen.subject(context),
-    body: chosen.body(context),
+    templateId: useFixed ? 'fixed' : chosen.id,
+    subject,
+    body,
     channel,
     recipient,
   };
