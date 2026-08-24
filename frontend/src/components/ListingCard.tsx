@@ -172,6 +172,39 @@ function CardActions({
   );
 }
 
+/** En-tête d'une carte : titre (rue ou ville), sous-ligne ville/CP, prix. */
+function CardHeading({
+  listing,
+  neighborhood,
+  cityLine,
+}: {
+  readonly listing: ListingView;
+  readonly neighborhood: string | null;
+  readonly cityLine: string;
+}): React.JSX.Element {
+  return (
+    <div className="min-w-0 flex-1">
+      {/* La RUE prime dans le titre quand on l'a (plus utile que « Nice »,
+          toujours identique) ; sinon la ville. La ville/CP reste en dessous. */}
+      <h2 className="truncate text-base font-semibold">
+        {formatPropertyType(listing.propertyType.value)} ·{' '}
+        {neighborhood ?? formatCity(listing.city.value)}
+      </h2>
+      {neighborhood !== null && (
+        <p className="truncate text-[0.8rem] text-muted-foreground">{cityLine}</p>
+      )}
+      <p className="mt-1 flex items-baseline gap-1.5">
+        <strong className="text-xl font-extrabold tracking-tight">
+          {formatPrice(listing.price.value)}
+        </strong>
+        <span className="text-[0.9rem] text-muted-foreground">
+          {formatArea(listing.area.value)} · {formatRooms(listing.rooms.value)}
+        </span>
+      </p>
+    </div>
+  );
+}
+
 export function ListingCard({
   listing,
   nowMs,
@@ -239,25 +272,7 @@ export function ListingCard({
       <header className="flex items-start gap-3">
         {photos.length === 0 && <PriorityBadge priority={listing.actionPriority} overlay={false} />}
 
-        <div className="min-w-0 flex-1">
-          {/* La RUE prime dans le titre quand on l'a (plus utile que « Nice »,
-              toujours identique) ; sinon la ville. La ville/CP reste en dessous. */}
-          <h2 className="truncate text-base font-semibold">
-            {formatPropertyType(listing.propertyType.value)} ·{' '}
-            {neighborhood ?? formatCity(listing.city.value)}
-          </h2>
-          {neighborhood !== null && (
-            <p className="truncate text-[0.8rem] text-muted-foreground">{cityLine}</p>
-          )}
-          <p className="mt-1 flex items-baseline gap-1.5">
-            <strong className="text-xl font-extrabold tracking-tight">
-              {formatPrice(listing.price.value)}
-            </strong>
-            <span className="text-[0.9rem] text-muted-foreground">
-              {formatArea(listing.area.value)} · {formatRooms(listing.rooms.value)}
-            </span>
-          </p>
-        </div>
+        <CardHeading listing={listing} neighborhood={neighborhood} cityLine={cityLine} />
 
         <span className="flex shrink-0 flex-col items-end gap-1">
           {onFavorite !== undefined && (
