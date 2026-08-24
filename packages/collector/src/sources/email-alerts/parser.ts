@@ -63,10 +63,9 @@ interface Resolved {
 function decodeEmbeddedUrl(segment: string): string | null {
   if (segment.length < 24 || !/^[A-Za-z0-9_-]+$/.test(segment)) return null;
   try {
-    const decoded = Buffer.from(
-      segment.replace(/-/g, '+').replace(/_/g, '/'),
-      'base64',
-    ).toString('utf8');
+    const decoded = Buffer.from(segment.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString(
+      'utf8',
+    );
     return /^https?:\/\//i.test(decoded) ? decoded : null;
   } catch {
     return null;
@@ -139,10 +138,7 @@ function findLocation(text: string): { city?: string; postalCode?: string } {
 }
 
 /** Référence de repli quand le portail n'expose pas d'identifiant (SeLoger). */
-function contentReference(
-  portalId: string,
-  parts: readonly (string | undefined)[],
-): string {
+function contentReference(portalId: string, parts: readonly (string | undefined)[]): string {
   const slug = parts
     .filter((p): p is string => p !== undefined && p !== '')
     .join('|')
@@ -168,9 +164,12 @@ function climbToBlock(anchor: Node): Node {
 }
 
 /** Construit l'annonce à partir de son lien-titre (celui qui porte « m² »). */
-function buildFromTitle($: cheerio.CheerioAPI, anchor: Node, title: string, resolved: Resolved):
-  | RawListing
-  | null {
+function buildFromTitle(
+  $: cheerio.CheerioAPI,
+  anchor: Node,
+  title: string,
+  resolved: Resolved,
+): RawListing | null {
   const { portal, url, canonical } = resolved;
   const block = climbToBlock(anchor);
   const blockText = cleanText(block.text().replace(/\s+/g, ' '));
