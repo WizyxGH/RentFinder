@@ -192,6 +192,10 @@ export function ListingCard({
   const favorite = listing.favorite === true;
   const publishedAt = listing.publishedAt.value;
   const neighborhood = listing.address.value !== null ? formatAddress(listing.address.value) : null;
+  // Sous-ligne ville + code postal (affichée sous le titre quand la rue occupe
+  // le titre). Précalculée pour garder le rendu simple.
+  const postal = listing.postalCode?.value ?? null;
+  const cityLine = `${formatCity(listing.city.value)}${postal !== null ? ` ${postal}` : ''}`;
 
   // La carte reste épurée : pas de pastilles DPE/atouts (réservées à la
   // fiche) ; seule la disponibilité, décisive pour agir, est affichée.
@@ -243,12 +247,7 @@ export function ListingCard({
             {neighborhood ?? formatCity(listing.city.value)}
           </h2>
           {neighborhood !== null && (
-            <p className="truncate text-[0.8rem] text-muted-foreground">
-              {formatCity(listing.city.value)}
-              {listing.postalCode?.value !== null &&
-                listing.postalCode?.value !== undefined &&
-                ` ${listing.postalCode.value}`}
-            </p>
+            <p className="truncate text-[0.8rem] text-muted-foreground">{cityLine}</p>
           )}
           <p className="mt-1 flex items-baseline gap-1.5">
             <strong className="text-xl font-extrabold tracking-tight">
