@@ -21,6 +21,20 @@ export interface EmailImportOptions {
   readonly clientFactory?: (config: ImapConfig) => ImapLike;
 }
 
+/**
+ * Expéditeurs des portails dont on lit les alertes. La recherche IMAP ne
+ * remonte QUE les e-mails d'un de ces expéditeurs — les mails personnels de
+ * l'utilisateur ne sont JAMAIS lus (§26), même si la boîte est INBOX.
+ */
+const ALERT_SENDERS: readonly string[] = [
+  'leboncoin',
+  'seloger',
+  'bienici',
+  'bien-ici',
+  'pap.fr',
+  'logic-immo',
+];
+
 /** Sous-ensemble d'ImapFlow réellement utilisé (facilite l'injection en test). */
 export interface ImapLike {
   connect(): Promise<void>;
@@ -68,7 +82,11 @@ export async function fetchAlertEmails(options: EmailImportOptions): Promise<str
     // Lecture seule : jamais de marquage « lu » ni d'altération de la boîte.
     const lock = await client.getMailboxLock(config.mailbox, { readOnly: true });
     try {
-      for await (const message of client.fetch({ since }, { source: true })) {
+      // VIE PRIVÉE (§26) : on ne lit QUE les e-mails PROVENANT des portails —
+      // jamais les mails personnels de l'utilisateur, même en lisant INBOX. Le
+      // filtrage se fait côté serveur IMAP (recherche par expéditeur).
+      const query = { since, or: ALERT_SENDERS.map((from) => ({ from })) };
+      for await (const message of client.fetch(query, { source: true })) {
         if (message.source === undefined) continue;
         const parsed = await simpleParser(message.source);
         const body = typeof parsed.html === 'string' ? parsed.html : (parsed.text ?? '');
