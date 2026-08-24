@@ -21,6 +21,23 @@ describe('resolvePortalUrl', () => {
   it('ignore un lien hors portail', () => {
     expect(resolvePortalUrl('https://exemple.fr/aide')).toBeNull();
   });
+
+  it('déplie l’URL Bien’ici encodée en base64 dans le lien de tracking', () => {
+    // Bien'ici enveloppe la vraie URL en base64url dans le dernier segment.
+    const real = 'https://www.bienici.com/annonce/ag123456-789?at_canal=CRM';
+    const b64 = Buffer.from(real).toString('base64url');
+    const wrapped = `https://link.bienici.com/lnk/AAAA/8/HASH/${b64}`;
+    const r = resolvePortalUrl(wrapped);
+    expect(r?.portal.id).toBe('bienici');
+    expect(r?.url.hostname).toBe('www.bienici.com');
+    expect(r?.canonical).toBe(true);
+  });
+
+  it('reconnaît un lien de tracking SeLoger opaque sans URL réelle', () => {
+    const r = resolvePortalUrl('https://click.by.seloger.com/?qs=ABB7InYiOjEsImQ9');
+    expect(r?.portal.id).toBe('seloger');
+    expect(r?.canonical).toBe(false); // sous-domaine de tracking → pas canonique
+  });
 });
 
 const EMAIL = `
@@ -77,5 +94,41 @@ describe('parseAlertEmail', () => {
     expect(
       listings.every((l) => l.sourceUrl.includes('leboncoin') || l.sourceUrl.includes('seloger')),
     ).toBe(true);
+  });
+});
+
+// Gabarit RÉEL des digests SeLoger : chaque annonce est un bloc « tableau » où
+// image, titre et prix sont des liens de TRACKING distincts (click.by.seloger),
+// et la ligne ville « Nice, 06000 » précède le prix « 570 € ».
+const SELOGER_DIGEST = `
+<table>
+  <tr>
+    <td><a href="https://click.by.seloger.com/?qs=IMG001"><img src="https://v.seloger.com/p.jpg" /></a></td>
+  </tr>
+  <tr>
+    <td><a href="https://click.by.seloger.com/?qs=TITLE01">Appartement • 1 pièce • 12 m² <br /> Nice, 06000</a></td>
+    <td align="right"><a href="https://click.by.seloger.com/?qs=PRICE01">570 €</a></td>
+  </tr>
+</table>`;
+
+describe('parseAlertEmail — digest SeLoger réel (liens de tracking)', () => {
+  const [listing, ...rest] = parseAlertEmail(SELOGER_DIGEST);
+
+  it('produit une seule annonce malgré les 3 liens de tracking distincts', () => {
+    expect(rest).toHaveLength(0);
+    expect(listing?.extra?.['portal']).toBe('seloger');
+  });
+
+  it('lit le prix sans avaler le code postal collé (« 06000 570 € » → « 570 € »)', () => {
+    expect(listing?.priceText).toBe('570 €');
+    expect(listing?.areaText).toBe('12 m²');
+    expect(listing?.cityText).toBe('Nice');
+    expect(listing?.postalCodeText).toBe('06000');
+  });
+
+  it('garde le lien de tracking comme URL (il redirige vers l’annonce)', () => {
+    expect(listing?.sourceUrl).toContain('click.by.seloger.com');
+    // Faute d'identifiant exposé, la référence est dérivée du contenu.
+    expect(listing?.sourceRef).toMatch(/^seloger:/);
   });
 });

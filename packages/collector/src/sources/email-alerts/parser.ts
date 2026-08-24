@@ -1,5 +1,5 @@
 /**
- * Source : ALERTES E-MAIL des portails (Leboncoin, SeLoger, …) — §6, §10.
+ * Source : ALERTES E-MAIL des portails (Leboncoin, SeLoger, Bien'ici…) — §6, §10.
  *
  * Voie 100 % conforme pour les portails qui interdisent l'accès automatisé
  * (DataDome) : ce n'est PAS du scraping. L'utilisateur crée une alerte de
@@ -10,21 +10,24 @@
  * Ce module ne fait QUE le parsing du HTML d'un e-mail (pur, testable). Le
  * transport IMAP vit dans `core/email-import.ts`.
  *
- * On extrait le strict fiable : le LIEN de l'annonce (dépiée des redirections
- * de tracking), sa référence, et — quand l'e-mail les présente — prix, surface,
- * titre et ville. Le détail complet reste sur le portail, ouvert par
- * l'utilisateur (§17 : on n'invente rien d'absent).
+ * Les e-mails sont des gabarits « tableau » : chaque annonce est un bloc
+ * contenant un lien-image, un lien-titre (« Appartement · 3 pièces · 67 m² »)
+ * et un prix, chacun pointant vers un lien de TRACKING distinct. On part donc
+ * du lien-TITRE (seul repérable de façon fiable), on remonte à son bloc, et on
+ * y lit prix / ville. Les liens de tracking sont dénoués : Bien'ici encode la
+ * vraie URL en base64 dans le lien ; SeLoger garde un jeton opaque (on retombe
+ * alors sur une référence de CONTENU). On n'invente jamais l'absent (§17).
  */
 
 import * as cheerio from 'cheerio';
 import type { RawListing } from '@rentfinder/shared';
 import { cleanText } from '../../normalization/text.js';
 
-/** Portail reconnu et comment en tirer une référence stable. */
+/** Portail reconnu et comment en tirer une référence stable depuis l'URL. */
 interface Portal {
   readonly id: string;
   readonly host: RegExp;
-  /** Extrait l'identifiant de l'annonce depuis l'URL. */
+  /** Extrait l'identifiant de l'annonce depuis l'URL réelle (canonique). */
   readonly reference: (url: URL) => string | null;
 }
 
@@ -37,33 +40,65 @@ const PORTALS: readonly Portal[] = [
   {
     id: 'seloger',
     host: /(^|\.)seloger\.com$/i,
-    reference: (url) => /(\d{6,})/.exec(url.pathname + url.search)?.[1] ?? null,
+    reference: (url) => /\/(\d{6,})/.exec(url.pathname)?.[1] ?? null,
   },
   {
     id: 'bienici',
     host: /(^|\.)bienici\.com$/i,
-    reference: (url) => /([a-z0-9_-]{6,})\/?$/i.exec(url.pathname)?.[1] ?? null,
+    reference: (url) => /\/annonce\/([a-z0-9-]+)/i.exec(url.pathname)?.[1] ?? null,
   },
 ];
 
-/**
- * Dénoue une URL de lien d'e-mail : les portails enveloppent leurs liens dans
- * un domaine de tracking (`clic.­…`, `url=…`, `redirect?...`). On cherche une
- * URL de portail dans l'href lui-même PUIS dans ses paramètres décodés.
- * `null` si aucun portail reconnu.
- */
-export function resolvePortalUrl(href: string): { portal: Portal; url: URL } | null {
-  const candidates: string[] = [href];
-  try {
-    const outer = new URL(href);
-    for (const value of outer.searchParams.values()) {
-      if (/^https?%3a|^https?:\/\//i.test(value)) candidates.push(decodeURIComponent(value));
-    }
-  } catch {
-    /* href non absolu : on tentera tel quel */
-  }
+/** Sous-domaines de tracking : l'href y pointe, la vraie URL est ailleurs. */
+const TRACKING_HOST = /(^|\.)(click|link|clic|url\d*|email|mail|t)\./i;
 
-  for (const candidate of candidates) {
+interface Resolved {
+  readonly portal: Portal;
+  readonly url: URL;
+  /** Vraie URL d'annonce (pas un sous-domaine de tracking). */
+  readonly canonical: boolean;
+}
+
+/** Décode un segment base64url s'il contient une URL http (cas Bien'ici). */
+function decodeEmbeddedUrl(segment: string): string | null {
+  if (segment.length < 24 || !/^[A-Za-z0-9_-]+$/.test(segment)) return null;
+  try {
+    const decoded = Buffer.from(
+      segment.replace(/-/g, '+').replace(/_/g, '/'),
+      'base64',
+    ).toString('utf8');
+    return /^https?:\/\//i.test(decoded) ? decoded : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Toutes les URL candidates cachées dans un href (params + segments base64). */
+function urlCandidates(href: string): string[] {
+  const out = [href];
+  let outer: URL | undefined;
+  try {
+    outer = new URL(href);
+  } catch {
+    return out;
+  }
+  for (const value of outer.searchParams.values()) {
+    if (/^https?%3a|^https?:\/\//i.test(value)) out.push(decodeURIComponent(value));
+  }
+  for (const segment of outer.pathname.split('/')) {
+    const embedded = decodeEmbeddedUrl(segment);
+    if (embedded !== null) out.push(embedded);
+  }
+  return out;
+}
+
+/**
+ * Dénoue une URL de lien d'e-mail vers son portail d'origine. On teste l'href,
+ * ses paramètres, puis ses segments base64. `null` si aucun portail reconnu.
+ */
+export function resolvePortalUrl(href: string): Resolved | null {
+  let fallback: Resolved | null = null;
+  for (const candidate of urlCandidates(href)) {
     let url: URL;
     try {
       url = new URL(candidate);
@@ -71,14 +106,24 @@ export function resolvePortalUrl(href: string): { portal: Portal; url: URL } | n
       continue;
     }
     const portal = PORTALS.find((p) => p.host.test(url.hostname));
-    if (portal !== undefined) return { portal, url };
+    if (portal === undefined) continue;
+    const resolved: Resolved = { portal, url, canonical: !TRACKING_HOST.test(url.hostname) };
+    // On préfère la vraie URL d'annonce (canonique) à un sous-domaine de
+    // tracking : Bien'ici encode la vraie URL en base64 APRÈS le lien `link.…`.
+    if (resolved.canonical) return resolved;
+    fallback ??= resolved;
   }
-  return null;
+  return fallback;
 }
 
-/** Premier montant « … € » trouvé dans un texte (loyer). */
+/**
+ * Premier montant « … € » trouvé (loyer). On n'accepte les espaces qu'entre
+ * milliers (« 1 890 € ») pour ne pas avaler un code postal collé au prix
+ * (« 06000 570 € » → « 570 € »).
+ */
 function findPrice(text: string): string | undefined {
-  return /(\d[\d\s.,]*)\s*€/.exec(text)?.[0];
+  const match = /(?<!\d)(\d{1,3}(?:[\s\u00a0 .]\d{3})+|\d{1,4})\s*\u20ac/.exec(text);
+  return match?.[0]?.replace(/[\s\u00a0 ]+/g, ' ').trim();
 }
 
 /** Première surface « … m² » trouvée dans un texte. */
@@ -86,10 +131,81 @@ function findArea(text: string): string | undefined {
   return /(\d[\d.,]*)\s*m²/i.exec(text)?.[0];
 }
 
+/** Ville + code postal depuis un texte « Nice, 06000 » ou « Nice 06000 ». */
+function findLocation(text: string): { city?: string; postalCode?: string } {
+  const match = /([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'’ -]{1,40}?)[,\s]+(\d{5})\b/.exec(text);
+  if (match === null) return {};
+  return { city: cleanText(match[1]).replace(/\s+/g, ' ').trim(), postalCode: match[2] };
+}
+
+/** Référence de repli quand le portail n'expose pas d'identifiant (SeLoger). */
+function contentReference(
+  portalId: string,
+  parts: readonly (string | undefined)[],
+): string {
+  const slug = parts
+    .filter((p): p is string => p !== undefined && p !== '')
+    .join('|')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
+  return slug !== '' ? slug : `${portalId}-inconnu`;
+}
+
+/** Type minimal d'un nœud cheerio (évite d'importer les types d'éléments). */
+type Node = ReturnType<cheerio.CheerioAPI>;
+
+/** Remonte jusqu'au bloc de l'annonce : 1er ancêtre dont le texte porte un prix. */
+function climbToBlock(anchor: Node): Node {
+  let node = anchor;
+  for (let depth = 0; depth < 6; depth += 1) {
+    const parent = node.parent();
+    if (parent.length === 0) break;
+    node = parent;
+    if (/€/.test(node.text())) break;
+  }
+  return node;
+}
+
+/** Construit l'annonce à partir de son lien-titre (celui qui porte « m² »). */
+function buildFromTitle($: cheerio.CheerioAPI, anchor: Node, title: string, resolved: Resolved):
+  | RawListing
+  | null {
+  const { portal, url, canonical } = resolved;
+  const block = climbToBlock(anchor);
+  const blockText = cleanText(block.text().replace(/\s+/g, ' '));
+
+  const priceText = findPrice(title) ?? findPrice(blockText);
+  const areaText = findArea(title) ?? findArea(blockText);
+  const { city, postalCode } = findLocation(blockText);
+  if (priceText === undefined && areaText === undefined) return null;
+
+  const reference =
+    (canonical ? portal.reference(url) : null) ??
+    contentReference(portal.id, [areaText, priceText, postalCode, city]);
+  // Lien ouvert par l'utilisateur : la vraie URL si on l'a dénouée, sinon le
+  // lien de tracking d'origine (qui redirige bien vers l'annonce).
+  const sourceUrl = canonical ? `${url.origin}${url.pathname}` : (anchor.attr('href') ?? url.href);
+  const image = block.find('img[src]').attr('src');
+
+  return {
+    sourceRef: `${portal.id}:${reference}`,
+    sourceUrl,
+    title,
+    ...(priceText !== undefined ? { priceText } : {}),
+    ...(areaText !== undefined ? { areaText } : {}),
+    ...(city !== undefined ? { cityText: city } : {}),
+    ...(postalCode !== undefined ? { postalCodeText: postalCode } : {}),
+    contactFormUrl: sourceUrl,
+    ...(image !== undefined && /^https?:/i.test(image) ? { imageUrls: [image] } : {}),
+    extra: { reference, portal: portal.id },
+  };
+}
+
 /**
- * Extrait les annonces d'un e-mail d'alerte (HTML). Retourne une occurrence par
- * annonce distincte (dédoublonnée sur la référence). Le `sourceId` de collecte
- * reste `email-alerts` ; le portail d'origine est porté par `sourceUrl` et
+ * Extrait les annonces d'un e-mail d'alerte (HTML). Une occurrence par annonce
+ * distincte (dédoublonnée sur la référence). Le `sourceId` de collecte reste
+ * `email-alerts` ; le portail d'origine est porté par `sourceUrl` et
  * `extra.portal` (§13, §38).
  */
 export function parseAlertEmail(html: string): RawListing[] {
@@ -97,38 +213,18 @@ export function parseAlertEmail(html: string): RawListing[] {
   const bySourceRef = new Map<string, RawListing>();
 
   $('a[href]').each((_i, el) => {
-    const href = $(el).attr('href') ?? '';
-    const resolved = resolvePortalUrl(href);
+    const anchor = $(el);
+    const title = cleanText(anchor.text().replace(/\s+/g, ' '));
+    // Seul le lien-TITRE d'une annonce porte surface/typologie : point d'entrée
+    // fiable pour délimiter un bloc (les liens image/prix sont ignorés ici).
+    if (!/\bm²|pièces?\b|studio/i.test(title)) return;
+    const resolved = resolvePortalUrl(anchor.attr('href') ?? '');
     if (resolved === null) return;
-    const { portal, url } = resolved;
-    const reference = portal.reference(url);
-    if (reference === null) return;
-    const sourceRef = `${portal.id}:${reference}`;
-    if (bySourceRef.has(sourceRef)) return;
 
-    // Contexte texte : le bloc de l'annonce (le lien, sinon sa cellule/rangée).
-    const container = $(el).closest('td, tr, table, div');
-    const anchorText = cleanText($(el).text().replace(/\s+/g, ' '));
-    const blockText = cleanText(
-      (container.length > 0 ? container : $(el)).text().replace(/\s+/g, ' '),
-    );
-    const title = anchorText !== '' ? anchorText : undefined;
-    const priceText = findPrice(anchorText) ?? findPrice(blockText);
-    const areaText = findArea(anchorText) ?? findArea(blockText);
-    const image = $(el).find('img[src]').attr('src') ?? container.find('img[src]').attr('src');
-
-    const listing: RawListing = {
-      sourceRef,
-      // URL canonique du portail (sans les paramètres de tracking).
-      sourceUrl: `${url.origin}${url.pathname}`,
-      ...(title !== undefined ? { title } : {}),
-      ...(priceText !== undefined ? { priceText } : {}),
-      ...(areaText !== undefined ? { areaText } : {}),
-      contactFormUrl: `${url.origin}${url.pathname}`,
-      ...(image !== undefined && /^https?:/i.test(image) ? { imageUrls: [image] } : {}),
-      extra: { reference, portal: portal.id },
-    };
-    bySourceRef.set(sourceRef, listing);
+    const listing = buildFromTitle($, anchor, title, resolved);
+    if (listing !== null && !bySourceRef.has(listing.sourceRef)) {
+      bySourceRef.set(listing.sourceRef, listing);
+    }
   });
 
   return [...bySourceRef.values()];
