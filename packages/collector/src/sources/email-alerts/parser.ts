@@ -196,9 +196,15 @@ type Node = ReturnType<cheerio.CheerioAPI>;
 
 /** URL qui pointe vraiment vers une photo (extension image, éventuel `?token`). */
 const IMAGE_URL = /\.(?:jpe?g|png|webp)(?:[?&#]|$)/i;
-/** Habillage d'e-mail à écarter : logos, icônes sociales, pixels de tracking. */
+/**
+ * Habillage d'e-mail à écarter : logos, icônes sociales, pixels de tracking, et
+ * surtout les ASSETS de gabarit marketing (badges « exclusivité », flèches
+ * « voir l'annonce », boutons). Les vraies photos sont sur les CDN photo des
+ * portails (`mms.seloger.com`, `file.bienici.com`, `img.leboncoin.fr`), jamais
+ * sur les hôtes d'e-mailing (`image.by.seloger.com/lib/…`, `mail-sender.…`).
+ */
 const IMAGE_DENY =
-  /mail-sender|\/static\/|facebook|instagram|linkedin|twitter|x_round|transparent|spacer|pixel|logo/i;
+  /mail-sender|by\.seloger|\/lib\/|\/static\/|facebook|instagram|linkedin|twitter|x_round|transparent|spacer|pixel|logo|badge|fleche|arrow|bouton|button|exclusiv/i;
 
 /**
  * Première photo d'annonce trouvée dans un nœud. Les digests placent la photo

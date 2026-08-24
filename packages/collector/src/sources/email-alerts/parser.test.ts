@@ -178,6 +178,27 @@ const BIENICI_FURNISHED = `
   <td><a href="https://www.bienici.com/annonce/ag99-88">567 € par mois charges comprises</a></td></tr>
 </tbody></table>`;
 
+// Piège image : SeLoger insère des ASSETS de gabarit (badge « exclusivité »,
+// flèche « voir l'annonce ») sur image.by.seloger.com/lib/… AVANT la vraie
+// photo. On ne doit jamais les prendre pour la photo de l'annonce.
+const SELOGER_BADGE = `
+<table><tbody>
+  <tr><td>
+    <img src="https://image.by.seloger.com/lib/abc/m/1/badge-exclusivite.png" />
+    <div style="background-image:url('https://mms.seloger.com/x/y/z/photo.jpg?ci_seal=s')"></div>
+  </td></tr>
+  <tr><td><a href="https://click.by.seloger.com/?qs=T">1 pièce • 20 m² <br /> Nice, 06000</a></td>
+  <td><a href="https://click.by.seloger.com/?qs=P">600 €</a></td></tr>
+</tbody></table>`;
+
+describe('parseAlertEmail — ignore les assets de gabarit SeLoger', () => {
+  const [l] = parseAlertEmail(SELOGER_BADGE);
+  it('prend la vraie photo mms.seloger, pas le badge image.by.seloger', () => {
+    expect(l?.imageUrls?.[0]).toBe('https://mms.seloger.com/x/y/z/photo.jpg?ci_seal=s');
+    expect(l?.imageUrls?.[0]).not.toContain('image.by.seloger');
+  });
+});
+
 describe('parseAlertEmail — Bien’ici meublé', () => {
   const [l] = parseAlertEmail(BIENICI_FURNISHED);
   it('détecte « meublé » et 4 pièces', () => {
