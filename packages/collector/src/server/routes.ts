@@ -149,9 +149,9 @@ async function listListings(db: Client, url: URL, filters?: LiveFilters): Promis
   if (url.searchParams.get('favorite') === 'true') {
     conditions.push('favorite = 1');
   }
-  // Un bien LOUÉ sort de la liste — sauf s'il est en favori (on le garde, grisé,
-  // pour que l'utilisateur voie qu'il est parti). §32/§33.
-  conditions.push('(rented = 0 OR favorite = 1)');
+  // Un bien LOUÉ sort de la liste, définitivement — même en favori (décision
+  // utilisateur : ni grisé, ni montré). §32/§33.
+  conditions.push('rented = 0');
 
   const filter = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 

@@ -157,7 +157,7 @@ function Shell({
           </div>
         </div>
         <nav
-          className="mt-3 flex gap-1 overflow-x-auto border-b border-border"
+          className="mt-3 flex gap-1 overflow-x-auto border-b border-border [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           aria-label="Navigation principale"
         >
           {tabs.map((tab) => (
