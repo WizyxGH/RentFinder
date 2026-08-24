@@ -28,10 +28,13 @@ import {
   loadReferencePoints,
   loadTelegramConfig,
   loadTransitConfig,
+  loadImapConfig,
 } from '../config.js';
 import { createGeocoder } from '../core/geocode.js';
 import { notifyNewListings, editRentedTelegramMessages } from '../notify/telegram.js';
 import { pollTelegramReactions } from '../notify/reactions.js';
+import { fetchAlertEmails } from '../core/email-import.js';
+import { findUndiscoveredAgencies } from '../sources/email-alerts/agency-discovery.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS_DIR = resolve(here, '../../../../database/migrations');
@@ -172,6 +175,28 @@ async function main(): Promise<void> {
       const reactions = await pollTelegramReactions({ repository, config: telegram, logger });
       if (reactions.favorited > 0 || reactions.unfavorited > 0) {
         logger.info('reactions.done', { ...reactions });
+      }
+    }
+
+    // §47 : repérage d'agences NON scrapées citées dans les e-mails de
+    // confirmation (candidates à ajouter). Lecture seule, à chaque collecte,
+    // silencieux si IMAP non configuré ou si rien de nouveau. Ne fait jamais
+    // échouer la collecte (§69).
+    const imap = loadImapConfig();
+    if (imap !== null) {
+      try {
+        const bodies = await fetchAlertEmails({
+          config: imap,
+          log: (event, fields) => logger.debug(event, fields),
+          sinceDays: 30,
+        });
+        const known = ALL_SCRAPERS.map((scraper) => scraper.descriptor.name);
+        const agencies = findUndiscoveredAgencies(bodies, known);
+        if (agencies.length > 0) logger.info('agencies.undiscovered', { agencies });
+      } catch (error) {
+        logger.debug('agencies.discovery_failed', {
+          error: error instanceof Error ? error.message : String(error),
+        });
       }
     }
   } finally {

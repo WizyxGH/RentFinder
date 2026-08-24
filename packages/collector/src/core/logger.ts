@@ -262,6 +262,15 @@ const NARRATION: Record<string, (f: Record<string, unknown>, c: boolean) => stri
       return `📱 Telegram : aucune nouveauté à notifier`;
     return `📱 Telegram : ${paint(`${sent} envoyée(s)`, GREEN, c)}`;
   },
+  'agencies.undiscovered': (f, c) => {
+    const agencies = Array.isArray(f['agencies']) ? f['agencies'] : [];
+    if (agencies.length === 0) return '';
+    return paint(
+      `🔎 Agences repérées dans les mails, non scrapées : ${shortList(agencies)}`,
+      CYAN,
+      c,
+    );
+  },
   'reactions.done': (f, c) =>
     `⭐ Favoris via Telegram : +${paint(String(num(f['favorited'])), GREEN, c)}` +
     (num(f['unfavorited']) > 0 ? ` · -${num(f['unfavorited'])}` : ''),
