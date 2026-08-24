@@ -60,16 +60,18 @@ export function formatListingMessage(
   const summary = summarize(listing);
   if (summary !== '') lines.push(escapeHtml(summary));
 
-  // Libellé affiché : adresse de rue si connue, complétée de la ville/CP.
+  // Localisation la plus précise : rue si connue, sinon quartier (ex. Orpi),
+  // toujours complétée de la ville/CP.
+  const place = listing.address ?? (listing.district ? `quartier ${listing.district}` : null);
   const cityPart = [listing.city, listing.postalCode]
     .filter((v) => v !== null && v !== '')
     .join(' ');
-  const label = [listing.address, cityPart].filter((v) => v !== null && v !== '').join(', ');
+  const label = [place, cityPart].filter((v) => v !== null && v !== '').join(', ');
 
   if (label !== '') {
-    // Requête Maps : l'adresse de rue prime (précise), sinon la ville. Une rue
-    // sans ville serait ambiguë → on ajoute toujours la ville à la requête.
-    const query = [listing.address, cityPart].filter((v) => v !== null && v !== '').join(', ');
+    // Requête Maps : le lieu précis prime, complété de la ville (une rue seule
+    // serait ambiguë).
+    const query = [place, cityPart].filter((v) => v !== null && v !== '').join(', ');
     const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
     lines.push(`📍 <a href="${escapeHtml(mapsUrl)}">${escapeHtml(label)}</a>`);
   }

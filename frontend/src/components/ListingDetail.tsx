@@ -82,10 +82,10 @@ export function ListingDetail({
 }: ListingDetailProps): React.JSX.Element {
   const charges = listing.charges.value;
 
-  // Requête Maps : la localisation la plus précise disponible (§20). Adresse de
-  // rue si connue, sinon ville + code postal.
+  // Requête Maps : la localisation la plus précise disponible (§20). Rue si
+  // connue, sinon quartier, sinon ville + code postal.
   const mapsQuery = [
-    listing.address.value,
+    listing.address.value ?? listing.district.value,
     listing.postalCode.value,
     formatCity(listing.city.value),
   ]
@@ -180,12 +180,15 @@ export function ListingDetail({
             >
               📍 {formatCity(listing.city.value)}
               {listing.postalCode.value !== null && ` (${listing.postalCode.value})`}
-              {listing.address.value !== null && ` — ${formatAddress(listing.address.value)}`}
+              {listing.address.value !== null
+                ? ` — ${formatAddress(listing.address.value)}`
+                : listing.district.value !== null && ` — quartier ${listing.district.value}`}
             </a>
           ) : (
             <>
               {formatCity(listing.city.value)}
               {listing.postalCode.value !== null && ` (${listing.postalCode.value})`}
+              {listing.district.value !== null && ` — quartier ${listing.district.value}`}
             </>
           )}
         </dd>

@@ -159,6 +159,13 @@ export interface ListingOccurrence {
   readonly features: readonly string[];
 
   readonly address: Maybe<string>;
+  /**
+   * Quartier/secteur si la source le publie (ex. Orpi « Madeleine »). N'est PAS
+   * une adresse de rue — tenu à part pour ne pas fausser le dédoublonnage
+   * « même adresse » (§14), mais affichable pour situer le bien mieux que la
+   * seule ville.
+   */
+  readonly district: Maybe<string>;
   readonly city: Maybe<string>;
   readonly postalCode: Maybe<string>;
   readonly latitude: Maybe<number>;
@@ -215,6 +222,7 @@ export interface AggregatedListing {
   readonly features: readonly string[];
 
   readonly address: MergedField<Maybe<string>>;
+  readonly district: MergedField<Maybe<string>>;
   readonly city: MergedField<Maybe<string>>;
   readonly postalCode: MergedField<Maybe<string>>;
   readonly latitude: MergedField<Maybe<number>>;

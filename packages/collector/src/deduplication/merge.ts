@@ -203,6 +203,7 @@ export function mergeGroup(occurrences: readonly NormalizedListing[]): Aggregate
     features: [...new Set(occurrences.flatMap((l) => l.features))],
 
     address: mergeField(occurrences, primary, (l) => l.address),
+    district: mergeField(occurrences, primary, (l) => l.district),
     city: mergeField(occurrences, primary, (l) => l.city),
     postalCode: mergeField(occurrences, primary, (l) => l.postalCode),
     latitude: mergeField(occurrences, primary, (l) => l.latitude, numbersEqual(0.001)),

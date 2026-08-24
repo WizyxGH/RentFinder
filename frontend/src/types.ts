@@ -53,6 +53,8 @@ export interface ListingView {
   /** Atouts affichables (« Ascenseur », « Balcon »…) — absent sur les fiches anciennes. */
   readonly features?: readonly string[];
   readonly address: MergedField<string | null>;
+  /** Quartier/secteur si publié (ex. Orpi « Madeleine ») — situe mieux que la ville. */
+  readonly district: MergedField<string | null>;
   readonly city: MergedField<string | null>;
   readonly postalCode: MergedField<string | null>;
   /** Coordonnées (source ou géocodage) — absentes si non localisable. */

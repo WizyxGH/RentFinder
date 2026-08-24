@@ -33,6 +33,7 @@ function listing(over: Partial<NotifiableListing> & { id: string }): NotifiableL
     city: pick('city', 'nice'),
     postalCode: pick('postalCode', '06000'),
     address: pick('address', null),
+    district: pick('district', null),
     availableAt: pick('availableAt', null),
     actionPriority: pick('actionPriority', 80),
     url: pick('url', 'https://exemple.fr/annonce/1'),

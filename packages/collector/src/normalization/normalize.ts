@@ -146,6 +146,7 @@ export function dedupeStreetAddress(address: string | null): string | null {
 /** Localisation résolue depuis les multiples champs bruts possibles (§14, §20). */
 function resolveLocation(raw: RawListing): {
   address: string | null;
+  district: string | null;
   city: string | null;
   postalCode: string | null;
   latitude: number | null;
@@ -156,6 +157,8 @@ function resolveLocation(raw: RawListing): {
     // Avenue… » — beaucoup d'agences l'y mettent en première ligne). Nettoyée
     // des voies saisies en double par certaines sources.
     address: dedupeStreetAddress(toNull(raw.addressText) ?? extractStreetAddress(raw.description)),
+    // Quartier/secteur si la source le publie (ex. Orpi `extra.quartier`).
+    district: toNull(raw.extra?.['quartier']),
     // Ville en forme comparable : les filtres et le dédoublonnage ignorent
     // ainsi casse et accents.
     city: raw.cityText !== undefined ? comparable(raw.cityText) || null : null,
@@ -248,6 +251,7 @@ export function normalizeListing(
 
     // Localisation : décisive pour la distance (§20) et le dédoublonnage (§14).
     address: location.address,
+    district: location.district,
     city: location.city,
     postalCode: location.postalCode,
     latitude: location.latitude,

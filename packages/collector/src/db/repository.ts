@@ -230,6 +230,8 @@ export interface NotifiableListing {
   readonly postalCode: string | null;
   /** Adresse de rue si publiée (numéro + voie) — pour un lien Maps précis (§20). */
   readonly address: string | null;
+  /** Quartier si publié (ex. Orpi « Madeleine »), à défaut de rue exacte. */
+  readonly district: string | null;
   /** Date d'emménagement possible (ISO) si publiée — pour l'afficher (§17, §20). */
   readonly availableAt: string | null;
   readonly actionPriority: number;
@@ -343,6 +345,7 @@ export function createRepository(db: Database): Repository {
           favorites: listing.favorites,
           chargesIncluded: listing.chargesIncluded,
           dpe: listing.dpe,
+          district: listing.district,
           features: listing.features,
           contactName: listing.contact.name,
           contactFormUrl: listing.contact.formUrl,
@@ -695,12 +698,14 @@ export function createRepository(db: Database): Repository {
         let url: string | null = null;
         let photoUrls: string[] = [];
         let address: string | null = null;
+        let district: string | null = null;
         let availableAt: string | null = null;
         try {
           const payload = JSON.parse(String(row['payload'] ?? '{}')) as {
             occurrences?: { sourceUrl?: unknown }[];
             imageUrls?: unknown[];
             address?: { value?: unknown };
+            district?: { value?: unknown };
             availableAt?: { value?: unknown };
           };
           const first = payload.occurrences?.[0]?.sourceUrl;
@@ -709,6 +714,7 @@ export function createRepository(db: Database): Repository {
             .filter((u): u is string => typeof u === 'string' && u.startsWith('http'))
             .slice(0, 10);
           if (typeof payload.address?.value === 'string') address = payload.address.value;
+          if (typeof payload.district?.value === 'string') district = payload.district.value;
           if (typeof payload.availableAt?.value === 'string')
             availableAt = payload.availableAt.value;
         } catch {
@@ -723,6 +729,7 @@ export function createRepository(db: Database): Repository {
           city: row['city'] === null ? null : String(row['city']),
           postalCode: row['postal_code'] === null ? null : String(row['postal_code']),
           address,
+          district,
           availableAt,
           actionPriority: Number(row['action_priority'] ?? 0),
           url,
@@ -902,6 +909,7 @@ function serializeListing(listing: ScoredListing): unknown {
     dpe: listing.dpe,
     features: listing.features,
     address: listing.address,
+    district: listing.district,
     city: listing.city,
     postalCode: listing.postalCode,
     latitude: listing.latitude,
@@ -957,6 +965,7 @@ function rowToOccurrence(row: Record<string, unknown>): NormalizedListing {
     dpe: (payload['dpe'] as string | null) ?? null,
     features: Array.isArray(payload['features']) ? (payload['features'] as string[]) : [],
     address: text('address'),
+    district: (payload['district'] as string | null) ?? null,
     city: text('city'),
     postalCode: text('postal_code'),
     latitude: num('latitude'),

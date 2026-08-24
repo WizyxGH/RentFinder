@@ -172,6 +172,12 @@ function CardActions({
   );
 }
 
+/** Localisation la plus précise disponible : rue > quartier > (rien). */
+function pickNeighborhood(listing: ListingView): string | null {
+  const street = listing.address.value !== null ? formatAddress(listing.address.value) : null;
+  return street ?? listing.district?.value ?? null;
+}
+
 /** En-tête d'une carte : titre (rue ou ville), sous-ligne ville/CP, prix. */
 function CardHeading({
   listing,
@@ -224,9 +230,11 @@ export function ListingCard({
   const uncertain = listing.lifecycle === 'possiblyInactive';
   const favorite = listing.favorite === true;
   const publishedAt = listing.publishedAt.value;
-  const neighborhood = listing.address.value !== null ? formatAddress(listing.address.value) : null;
-  // Sous-ligne ville + code postal (affichée sous le titre quand la rue occupe
-  // le titre). Précalculée pour garder le rendu simple.
+  // Localisation la plus précise pour le titre : rue si connue, sinon quartier
+  // (ex. Orpi « Madeleine »), sinon la ville seule.
+  const neighborhood = pickNeighborhood(listing);
+  // Sous-ligne ville + code postal (affichée sous le titre quand la rue/quartier
+  // occupe le titre). Précalculée pour garder le rendu simple.
   const postal = listing.postalCode?.value ?? null;
   const cityLine = `${formatCity(listing.city.value)}${postal !== null ? ` ${postal}` : ''}`;
 

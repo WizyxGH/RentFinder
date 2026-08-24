@@ -2,6 +2,21 @@ import { describe, expect, it } from 'vitest';
 import type { RawListing } from '@rentfinder/shared';
 import { dedupeStreetAddress, normalizeListing } from './normalize.js';
 
+describe('district (quartier)', () => {
+  it('reprend le quartier de extra.quartier (ex. Orpi)', () => {
+    const n = normalizeListing(
+      raw({ cityText: 'nice', extra: { reference: 'r1', quartier: 'Madeleine' } }),
+      OPTIONS,
+    );
+    expect(n?.district).toBe('Madeleine');
+  });
+
+  it('district null quand la source ne publie pas de quartier', () => {
+    const n = normalizeListing(raw({ cityText: 'nice' }), OPTIONS);
+    expect(n?.district).toBeNull();
+  });
+});
+
 describe('dedupeStreetAddress — voie saisie en double par la source', () => {
   it('supprime la voie répétée et garde le numéro', () => {
     expect(dedupeStreetAddress('Rue Edouard Scoffier 28 Rue Edouard Scoffier')).toBe(
