@@ -59,8 +59,12 @@ export const PUBLIC_CONFIG: PublicConfig = {
   criteria: MVP_CRITERIA,
   maxSourcesPerRun: 6,
   referencePricePerSqm: 20,
+  // Réactivité voulue (décision 2026-08-22, seuil assoupli à 2/3 pour éviter les
+  // faux « peut-être retirée » sur un simple raté de source) : absente 2
+  // collectes → « peut-être plus disponible » ; 3 → retirée de la liste. Une
+  // annonce qui réapparaît est automatiquement réactivée.
   missingRunsBeforePossiblyInactive: 2,
-  missingRunsBeforeInactive: 6,
+  missingRunsBeforeInactive: 3,
 };
 
 /**
@@ -76,6 +80,8 @@ export interface EditableFilters {
   readonly maxPrice: number;
   readonly minPrice?: number;
   readonly minArea: number;
+  /** Durée maximale du trajet domicile→travail, en minutes (§20). */
+  readonly maxCommuteMinutes?: number;
   readonly excludeFlatShare?: boolean;
   readonly excludeStudent?: boolean;
 }
@@ -88,6 +94,7 @@ export function readSearchFilters(): EditableFilters {
     maxPrice: c.maxPrice,
     minArea: c.minArea,
     ...(c.minPrice !== undefined ? { minPrice: c.minPrice } : {}),
+    ...(c.maxCommuteMinutes !== undefined ? { maxCommuteMinutes: c.maxCommuteMinutes } : {}),
     ...(c.excludeFlatShare !== undefined ? { excludeFlatShare: c.excludeFlatShare } : {}),
     ...(c.excludeStudent !== undefined ? { excludeStudent: c.excludeStudent } : {}),
   };
@@ -137,6 +144,7 @@ function validateFilters(input: unknown): EditableFilters {
     maxPrice,
     minPrice,
     minArea: num(o['minArea'], MVP_CRITERIA.minArea),
+    maxCommuteMinutes: num(o['maxCommuteMinutes'], MVP_CRITERIA.maxCommuteMinutes ?? 60),
     excludeFlatShare: o['excludeFlatShare'] === true,
     excludeStudent: o['excludeStudent'] === true,
   };
@@ -370,6 +378,40 @@ export function loadTransitConfig(env: NodeJS.ProcessEnv = process.env): Transit
   const arrival = (env['WORK_ARRIVAL_TIME'] ?? '').trim();
   const arrivalTime = /^\d{1,2}:\d{2}$/.test(arrival) ? arrival : '09:00';
   return { token: token.trim(), arrivalTime };
+}
+
+export interface ImapConfig {
+  readonly host: string;
+  readonly port: number;
+  readonly user: string;
+  /** Mot de passe D'APPLICATION (jamais le mot de passe principal, §26). */
+  readonly password: string;
+  /** Dossier/libellé à lire (ex. `Alertes`). Défaut `INBOX`. */
+  readonly mailbox: string;
+}
+
+/**
+ * Charge la configuration IMAP pour l'import des alertes e-mail (§6, §10).
+ *
+ * Voie conforme pour les portails qui interdisent le scraping : on lit la boîte
+ * mail de l'utilisateur (lecture seule), on ne se connecte jamais au portail.
+ * Le mot de passe d'application est PRIVÉ (`.env`, §26). `null` si non
+ * configuré → l'import est simplement désactivé. Gmail par défaut.
+ */
+export function loadImapConfig(env: NodeJS.ProcessEnv = process.env): ImapConfig | null {
+  const user = env['IMAP_USER'];
+  const password = env['IMAP_APP_PASSWORD'];
+  if (user === undefined || user.trim() === '' || password === undefined || password === '') {
+    return null;
+  }
+  const port = Number.parseInt(env['IMAP_PORT'] ?? '', 10);
+  return {
+    host: env['IMAP_HOST']?.trim() || 'imap.gmail.com',
+    port: Number.isFinite(port) && port > 0 ? port : 993,
+    user: user.trim(),
+    password,
+    mailbox: env['IMAP_MAILBOX']?.trim() || 'INBOX',
+  };
 }
 
 export interface TelegramConfig {

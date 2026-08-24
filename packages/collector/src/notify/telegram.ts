@@ -80,8 +80,10 @@ export function formatListingMessage(
   if (availability !== null) lines.push(`📅 ${availability}`);
 
   // L'album montre jusqu'à 10 photos ; au-delà, on signale le reste (fiche).
+  // Une seule photo (couverture) est jointe ; on signale les autres, à voir sur
+  // l'annonce d'origine.
   const photoCount = listing.photoUrls.length;
-  if (photoCount > 10) lines.push(`📷 ${photoCount} photos (10 ici, toutes sur la fiche)`);
+  if (photoCount > 1) lines.push(`📷 ${photoCount} photos sur l’annonce`);
 
   lines.push(`⭐ Priorité ${listing.actionPriority}/100`);
   return lines.join('\n');
@@ -160,25 +162,16 @@ export async function sendTelegramMessage(
   return firstMessageId(response);
 }
 
-/** Limite d'un album Telegram. */
-const ALBUM_MAX = 10;
-
 /**
  * Envoie une annonce en DEUX messages groupés (§29) :
  *
- *   - 0 photo  → un seul message texte + bouton « ⭐ Favori » ;
- *   - 1 photo  → `sendPhoto` : photo + fiche en légende + bouton (un message) ;
- *   - 2+       → `sendMediaGroup` (album de toutes les photos, groupé en UN
- *     bloc = en général une seule notification) PUIS un message détail qui
- *     porte le bouton (Telegram interdit un bouton sur un album).
+ * UN SEUL message par annonce (§29) : soit un texte (sans photo), soit une
+ * photo de COUVERTURE avec toute la fiche en légende et le bouton « ⭐ Favori ».
+ * On n'envoie PAS d'album : un album Telegram crée un message PAR photo, ce qui
+ * inondait la conversation (les autres photos se voient sur l'annonce d'origine).
  *
- * Ainsi : toutes les photos, et au plus 2 notifications par annonce — jamais
- * une notification par photo.
- *
- * @returns le `message_id` du message PORTANT LE BOUTON — celui que le tap
- *          « ⭐ Favori » identifiera.
- *
- * Si Telegram ne charge pas les photos, on se replie sur le texte + bouton.
+ * @returns le `message_id` du message envoyé — celui que le tap « ⭐ Favori »
+ *          identifiera. Si la photo ne passe pas, repli sur un message texte.
  */
 export async function sendTelegramListing(
   config: TelegramConfig,
@@ -186,39 +179,25 @@ export async function sendTelegramListing(
   fetchImpl: typeof fetch = fetch,
 ): Promise<number | null> {
   const text = formatListingMessage(listing);
-  const photos = listing.photoUrls.slice(0, ALBUM_MAX);
+  const cover = listing.photoUrls[0];
 
-  if (photos.length === 0) {
+  if (cover === undefined) {
     return sendTelegramMessage(config, text, fetchImpl, true);
   }
 
-  // Une seule photo : photo + légende + bouton sur le même message (1 notif).
-  if (photos.length === 1) {
-    const response = await fetchImpl(`${TELEGRAM_API}/bot${config.botToken}/sendPhoto`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        chat_id: config.chatId,
-        photo: photos[0],
-        caption: text,
-        parse_mode: 'HTML',
-        reply_markup: favoriteKeyboard(),
-      }),
-    });
-    if (response.ok) return firstMessageId(response);
-    return sendTelegramMessage(config, text, fetchImpl, true);
-  }
-
-  // Album des photos (bloc groupé), puis le message détail qui porte le bouton.
-  await fetchImpl(`${TELEGRAM_API}/bot${config.botToken}/sendMediaGroup`, {
+  // Photo de couverture + fiche en légende + bouton, sur un seul message.
+  const response = await fetchImpl(`${TELEGRAM_API}/bot${config.botToken}/sendPhoto`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
       chat_id: config.chatId,
-      media: photos.map((url) => ({ type: 'photo', media: url })),
+      photo: cover,
+      caption: text,
+      parse_mode: 'HTML',
+      reply_markup: favoriteKeyboard(),
     }),
   });
-  // Que l'album passe ou non, le message détail (avec bouton) doit partir.
+  if (response.ok) return firstMessageId(response);
   return sendTelegramMessage(config, text, fetchImpl, true);
 }
 

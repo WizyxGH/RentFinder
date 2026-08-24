@@ -142,31 +142,25 @@ describe('sendTelegramListing', () => {
     expect(body.reply_markup).toBeDefined();
   });
 
-  it('plusieurs photos → album (bloc groupé) + message détail avec bouton', async () => {
+  it('plusieurs photos → UN SEUL message : couverture + légende + bouton', async () => {
     const fetchImpl = okFetch();
     const urls = Array.from({ length: 5 }, (_, i) => `https://img.exemple/${i}.jpg`);
     await sendTelegramListing(CONFIG, listing({ id: 'a', photoUrls: urls }), fetchImpl);
 
     const calls = (fetchImpl as unknown as ReturnType<typeof vi.fn>).mock.calls;
-    // 1) album des 5 photos (un bloc), 2) message détail avec bouton.
-    expect(calls).toHaveLength(2);
-    expect(String(calls[0]?.[0])).toContain('sendMediaGroup');
-    const album = JSON.parse(calls[0]?.[1]?.body as string) as { media: unknown[] };
-    expect(album.media).toHaveLength(5);
-    expect(String(calls[1]?.[0])).toContain('sendMessage');
-    const details = JSON.parse(calls[1]?.[1]?.body as string) as { reply_markup: unknown };
-    expect(details.reply_markup).toBeDefined();
-  });
-
-  it('borne l’album à 10 photos et signale le surplus dans le détail', async () => {
-    const fetchImpl = okFetch();
-    const urls = Array.from({ length: 14 }, (_, i) => `https://img.exemple/${i}.jpg`);
-    await sendTelegramListing(CONFIG, listing({ id: 'a', photoUrls: urls }), fetchImpl);
-    const calls = (fetchImpl as unknown as ReturnType<typeof vi.fn>).mock.calls;
-    const album = JSON.parse(calls[0]?.[1]?.body as string) as { media: unknown[] };
-    expect(album.media).toHaveLength(10);
-    const details = JSON.parse(calls[1]?.[1]?.body as string) as { text: string };
-    expect(details.text).toContain('14 photos');
+    // Un seul appel : sendPhoto (pas d'album qui inonderait la conversation).
+    expect(calls).toHaveLength(1);
+    expect(String(calls[0]?.[0])).toContain('sendPhoto');
+    const body = JSON.parse(calls[0]?.[1]?.body as string) as {
+      photo: string;
+      caption: string;
+      reply_markup: unknown;
+    };
+    // La couverture = la première photo ; le bouton favori est présent.
+    expect(body.photo).toBe('https://img.exemple/0.jpg');
+    expect(body.reply_markup).toBeDefined();
+    // La légende signale les autres photos, à voir sur l'annonce.
+    expect(body.caption).toContain('5 photos');
   });
 
   it('sans photo, envoie un message texte avec bouton', async () => {
@@ -211,7 +205,7 @@ describe('notifyNewListings', () => {
 
   const logger = createLogger({ minLevel: 'error' });
 
-  it('chaque annonce multi-photos → un album + un message détail', async () => {
+  it('chaque annonce multi-photos → UN SEUL message (sendPhoto), pas d’album', async () => {
     const pending = Array.from({ length: 3 }, (_, i) =>
       listing({
         id: `l${i}`,
@@ -229,9 +223,9 @@ describe('notifyNewListings', () => {
     const urls = (fetchImpl as unknown as ReturnType<typeof vi.fn>).mock.calls.map((c) =>
       String(c[0]),
     );
-    // 3 annonces → 3 albums + 3 messages détail (2 messages par annonce).
-    expect(urls.filter((u) => u.includes('sendMediaGroup'))).toHaveLength(3);
-    expect(urls.filter((u) => u.includes('sendMessage'))).toHaveLength(3);
+    // 3 annonces → 3 messages (sendPhoto), aucun album.
+    expect(urls.filter((u) => u.includes('sendPhoto'))).toHaveLength(3);
+    expect(urls.filter((u) => u.includes('sendMediaGroup'))).toHaveLength(0);
   });
 
   it('envoie individuellement puis résume le surplus, et marque tout notifié', async () => {

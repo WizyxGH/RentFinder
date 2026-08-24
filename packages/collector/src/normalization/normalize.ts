@@ -118,6 +118,31 @@ function buildContact(raw: RawListing, sourceId: SourceId): Contact {
   };
 }
 
+/**
+ * Nettoie une adresse dont la voie est saisie EN DOUBLE par la source, ex.
+ * « Rue Edouard Scoffier 28 Rue Edouard Scoffier » → « 28 Rue Edouard Scoffier ».
+ * On ne touche à rien si les deux moitiés sont des voies distinctes (§17).
+ */
+export function dedupeStreetAddress(address: string | null): string | null {
+  if (address === null) return null;
+  const clean = address.replace(/\s+/g, ' ').trim();
+  // « <voie sans n°> <n° + voie> » : découpe au premier numéro interne.
+  const match = clean.match(/^(.+?)\s+(\d+\b.*)$/);
+  if (match?.[1] !== undefined && match[2] !== undefined) {
+    const before = match[1].toLowerCase();
+    const afterNoNumber = match[2].replace(/^\d+\s*/, '').toLowerCase();
+    // Si une moitié reprend l'autre (même voie), garder celle qui porte le n°.
+    if (
+      afterNoNumber === before ||
+      afterNoNumber.includes(before) ||
+      before.includes(afterNoNumber)
+    ) {
+      return match[2];
+    }
+  }
+  return clean;
+}
+
 /** Localisation résolue depuis les multiples champs bruts possibles (§14, §20). */
 function resolveLocation(raw: RawListing): {
   address: string | null;
@@ -128,8 +153,9 @@ function resolveLocation(raw: RawListing): {
 } {
   return {
     // Adresse : champ dédié, sinon repérée en tête de description (« 22-24
-    // Avenue… » — beaucoup d'agences l'y mettent en première ligne).
-    address: toNull(raw.addressText) ?? extractStreetAddress(raw.description),
+    // Avenue… » — beaucoup d'agences l'y mettent en première ligne). Nettoyée
+    // des voies saisies en double par certaines sources.
+    address: dedupeStreetAddress(toNull(raw.addressText) ?? extractStreetAddress(raw.description)),
     // Ville en forme comparable : les filtres et le dédoublonnage ignorent
     // ainsi casse et accents.
     city: raw.cityText !== undefined ? comparable(raw.cityText) || null : null,

@@ -1,6 +1,29 @@
 import { describe, expect, it } from 'vitest';
 import type { RawListing } from '@rentfinder/shared';
-import { normalizeListing } from './normalize.js';
+import { dedupeStreetAddress, normalizeListing } from './normalize.js';
+
+describe('dedupeStreetAddress — voie saisie en double par la source', () => {
+  it('supprime la voie répétée et garde le numéro', () => {
+    expect(dedupeStreetAddress('Rue Edouard Scoffier 28 Rue Edouard Scoffier')).toBe(
+      '28 Rue Edouard Scoffier',
+    );
+  });
+
+  it('laisse une adresse normale intacte', () => {
+    expect(dedupeStreetAddress('28 Rue Edouard Scoffier')).toBe('28 Rue Edouard Scoffier');
+    expect(dedupeStreetAddress('12 Avenue de la Californie')).toBe('12 Avenue de la Californie');
+  });
+
+  it('ne fusionne pas deux voies distinctes', () => {
+    expect(dedupeStreetAddress('Avenue de la Gare 12 Boulevard Victor Hugo')).toBe(
+      'Avenue de la Gare 12 Boulevard Victor Hugo',
+    );
+  });
+
+  it('gère null', () => {
+    expect(dedupeStreetAddress(null)).toBeNull();
+  });
+});
 
 const OPTIONS = { sourceId: 'test', nowMs: Date.parse('2026-08-19T12:00:00Z') };
 

@@ -683,7 +683,8 @@ export function createRepository(db: Database): Repository {
               FROM listings
               WHERE matches_criteria = 1
                 AND notified = 0
-                AND lifecycle = 'active'
+                AND lifecycle != 'inactive'
+                AND archived = 0
                 AND rented = 0
                 AND COALESCE(action_priority, 0) >= ?
               ORDER BY action_priority DESC`,
