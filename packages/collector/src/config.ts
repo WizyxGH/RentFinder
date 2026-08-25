@@ -337,6 +337,10 @@ export function loadTenantProfile(env: NodeJS.ProcessEnv = process.env): TenantP
   if (firstName === undefined || lastName === undefined) return null;
 
   const income = Number.parseFloat(env['TENANT_MONTHLY_INCOME'] ?? '');
+  // Message de candidature UNIQUE (identique pour toutes les annonces) : utilisé
+  // verbatim s'il est renseigné (§24). Multi-ligne accepté (guillemets dans .env).
+  const applicationMessage = env['TENANT_APPLICATION_MESSAGE']?.trim();
+  const applicationSubject = env['TENANT_APPLICATION_SUBJECT']?.trim();
 
   return {
     firstName,
@@ -347,6 +351,12 @@ export function loadTenantProfile(env: NodeJS.ProcessEnv = process.env): TenantP
     monthlyIncome: Number.isFinite(income) ? income : null,
     hasGuarantor: env['TENANT_HAS_GUARANTOR'] === 'true',
     moveInDate: env['TENANT_MOVE_IN_DATE'] ?? null,
+    ...(applicationMessage !== undefined && applicationMessage !== ''
+      ? { applicationMessage }
+      : {}),
+    ...(applicationSubject !== undefined && applicationSubject !== ''
+      ? { applicationSubject }
+      : {}),
   };
 }
 
