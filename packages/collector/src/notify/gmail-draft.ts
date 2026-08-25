@@ -17,7 +17,10 @@ import type { ImapConfig } from '../config.js';
 export interface DraftContent {
   readonly to: string;
   readonly subject: string;
+  /** Corps en texte brut (tel que composé par prepareMessage). */
   readonly body: string;
+  /** URL de l'annonce : « Votre annonce » y renvoie en hyperlien (§20). */
+  readonly sourceUrl?: string | null;
   /** Identifiant de l'annonce, pour tracer les brouillons réellement créés. */
   readonly listingId: string;
 }
@@ -42,21 +45,52 @@ function chunk76(base64: string): string {
   return (base64.match(/.{1,76}/g) ?? []).join('\r\n');
 }
 
+/** Échappe le texte pour un insert HTML sûr. */
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
 /**
- * Construit le message MIME (texte brut UTF-8, corps en base64) d'un brouillon.
+ * Corps HTML du brouillon : la 1re occurrence de « Votre annonce » devient un
+ * lien vers l'annonce ; à défaut, le lien est ajouté en pied. La ligne texte
+ * « Lien de l'annonce : … » (ajoutée au message brut) est retirée pour ne pas
+ * dupliquer le lien.
+ */
+export function toHtmlBody(plainBody: string, url: string | null): string {
+  const withoutFooter = plainBody.replace(/\n*\s*Lien de l['’]annonce\s*:.*$/i, '').trimEnd();
+  let html = escapeHtml(withoutFooter);
+  if (url !== null && url !== '') {
+    const href = escapeHtml(url);
+    if (/votre annonce/i.test(withoutFooter)) {
+      html = html.replace(/votre annonce/i, (match) => `<a href="${href}">${match}</a>`);
+    } else {
+      html += `<br><br>Lien de l’annonce : <a href="${href}">${href}</a>`;
+    }
+  }
+  return html.replace(/\r?\n/g, '<br>\n');
+}
+
+/**
+ * Construit le message MIME (HTML UTF-8, corps en base64) d'un brouillon.
  * Fonction PURE, testable sans réseau.
  */
 export function buildDraftMime(from: string, draft: DraftContent): string {
-  const body = chunk76(Buffer.from(draft.body, 'utf8').toString('base64'));
+  const html = chunk76(
+    Buffer.from(toHtmlBody(draft.body, draft.sourceUrl ?? null), 'utf8').toString('base64'),
+  );
   return [
     `From: ${from}`,
     `To: ${draft.to}`,
     `Subject: ${encodeHeader(draft.subject)}`,
     'MIME-Version: 1.0',
-    'Content-Type: text/plain; charset=utf-8',
+    'Content-Type: text/html; charset=utf-8',
     'Content-Transfer-Encoding: base64',
     '',
-    body,
+    html,
   ].join('\r\n');
 }
 

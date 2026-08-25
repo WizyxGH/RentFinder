@@ -135,6 +135,20 @@ function listingLink(listing: MessageListing): string {
   return url !== undefined && url !== null && url !== '' ? `Lien de l’annonce : ${url}` : '';
 }
 
+/** Nom complet du candidat, « Prénom NOM », vide si non renseigné. */
+function applicantName(profile: TenantProfile): string {
+  return [profile.firstName, profile.lastName]
+    .map((part) => part.trim())
+    .filter((part) => part !== '')
+    .join(' ');
+}
+
+/** Objet « {base} - {Nom} » ; sans le «  - Nom » si le nom n'est pas renseigné. */
+function subjectWithName(base: string, profile: TenantProfile): string {
+  const name = applicantName(profile);
+  return name !== '' ? `${base} - ${name}` : base;
+}
+
 /** Supprime les lignes vides consécutives laissées par un champ absent. */
 const tidy = (lines: readonly string[]): string =>
   lines.filter((line, index) => !(line === '' && lines[index - 1] === '')).join('\n');
@@ -143,10 +157,7 @@ const tidy = (lines: readonly string[]): string =>
 export const AGENCY_TEMPLATE: MessageTemplate = {
   id: 'agency-first-contact',
   label: 'Premier contact — agence',
-  subject: ({ listing }) => {
-    const reference = listing.contact.reference;
-    return reference !== null ? `Demande de visite (réf. ${reference})` : 'Demande de visite';
-  },
+  subject: ({ profile }) => subjectWithName('Demande de visite', profile),
   body: ({ listing, profile }) => {
     const availability =
       profile.moveInDate !== null
@@ -174,7 +185,7 @@ export const AGENCY_TEMPLATE: MessageTemplate = {
 export const PRIVATE_TEMPLATE: MessageTemplate = {
   id: 'private-first-contact',
   label: 'Premier contact — particulier',
-  subject: () => 'Votre annonce de location',
+  subject: ({ profile }) => subjectWithName('Votre annonce de location', profile),
   body: ({ listing, profile }) => {
     const availability =
       profile.moveInDate !== null
@@ -201,10 +212,7 @@ export const PRIVATE_TEMPLATE: MessageTemplate = {
 export const FOLLOW_UP_TEMPLATE: MessageTemplate = {
   id: 'follow-up',
   label: 'Relance',
-  subject: ({ listing }) => {
-    const reference = listing.contact.reference;
-    return reference !== null ? `Relance — réf. ${reference}` : 'Relance — demande de visite';
-  },
+  subject: ({ profile }) => subjectWithName('Relance — demande de visite', profile),
   body: ({ listing, profile }) =>
     tidy([
       'Bonjour,',

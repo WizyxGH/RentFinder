@@ -57,6 +57,7 @@ async function main(): Promise<void> {
         to: entry.email,
         subject: message.subject,
         body: message.body,
+        sourceUrl: entry.listing.sourceUrl,
       };
     });
 

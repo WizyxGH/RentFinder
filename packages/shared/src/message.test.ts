@@ -37,8 +37,9 @@ describe('prepareMessage — message unique', () => {
       `${fixed}\n\nLien de l’annonce : https://exemple.invalid/annonce/123`,
     );
     expect(prepared.templateId).toBe('fixed');
-    // L'objet garde la référence du bien pour le routage.
-    expect(prepared.subject).toContain('REF123');
+    // L'objet porte le nom du candidat, sans référence d'annonce.
+    expect(prepared.subject).toBe('Demande de visite - Jean Dupont');
+    expect(prepared.subject).not.toMatch(/réf/i);
     // Canal e-mail détecté.
     expect(prepared.channel).toBe('email');
     expect(prepared.recipient).toBe('contact@example.invalid');
