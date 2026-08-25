@@ -132,6 +132,88 @@ const cityReason = (suffix: string, label: string): ScoreReason => ({
   delta: suffix === 'match' ? 30 : 0,
 });
 
+/** Stationnement / box / garage : pas un logement (§16). */
+function parkingExclusion(listing: AggregatedListing): ScoreReason | null {
+  return listing.propertyType.value === 'parking'
+    ? { code: 'type.parking', label: 'Stationnement / box — pas un logement', delta: 0 }
+    : null;
+}
+
+/** Location EXCLUSIVEMENT étudiante, quand l'utilisateur l'exclut (§17). */
+function studentExclusion(
+  listing: AggregatedListing,
+  criteria: SearchCriteria,
+): ScoreReason | null {
+  return criteria.excludeStudent === true && isStudentHousing(listing)
+    ? { code: 'student.excluded', label: 'Location étudiante — exclue de la recherche', delta: 0 }
+    : null;
+}
+
+/** Colocation, quand l'utilisateur l'exclut. Un flatShare inconnu n'élimine pas (§17). */
+function flatShareExclusion(
+  listing: AggregatedListing,
+  criteria: SearchCriteria,
+): ScoreReason | null {
+  return criteria.excludeFlatShare === true && listing.flatShare.value === true
+    ? { code: 'flatshare.excluded', label: 'Colocation — exclue de la recherche', delta: 0 }
+    : null;
+}
+
+/**
+ * Exclusion éliminatoire selon la NATURE DU BAILLEUR (§17). `null` si l'annonce
+ * n'est pas exclue. `'private'` masque les agences connues (garde les bailleurs
+ * inconnus) ; `'agency'` ne garde que les agences.
+ */
+function landlordExclusion(
+  listing: AggregatedListing,
+  criteria: SearchCriteria,
+): ScoreReason | null {
+  const filter = criteria.landlordFilter ?? 'all';
+  const isAgency = listing.contact.kind === 'agency';
+  if (filter === 'private' && isAgency) {
+    return {
+      code: 'landlord.agency',
+      label: 'Annonce d’agence — exclue (particuliers seulement)',
+      delta: 0,
+    };
+  }
+  if (filter === 'agency' && !isAgency) {
+    return {
+      code: 'landlord.notAgency',
+      label: 'Hors agence — exclue (agences seulement)',
+      delta: 0,
+    };
+  }
+  return null;
+}
+
+/**
+ * Exclusion éliminatoire selon le caractère MEUBLÉ (§17). Un statut inconnu
+ * (null) n'exclut jamais.
+ */
+function furnishedExclusion(
+  listing: AggregatedListing,
+  criteria: SearchCriteria,
+): ScoreReason | null {
+  const filter = criteria.furnishedFilter ?? 'all';
+  const furnished = listing.furnished.value;
+  if (filter === 'furnished' && furnished === false) {
+    return {
+      code: 'furnished.excluded',
+      label: 'Non meublé — exclu (meublés seulement)',
+      delta: 0,
+    };
+  }
+  if (filter === 'unfurnished' && furnished === true) {
+    return {
+      code: 'unfurnished.excluded',
+      label: 'Meublé — exclu (non meublés seulement)',
+      delta: 0,
+    };
+  }
+  return null;
+}
+
 export function scoreMatch(listing: AggregatedListing, criteria: SearchCriteria): MatchOutcome {
   const reasons: ScoreReason[] = [];
   const unknownSignals: string[] = [];
@@ -208,84 +290,22 @@ export function scoreMatch(listing: AggregatedListing, criteria: SearchCriteria)
     });
   }
 
-  // --- Parking / box / garage : hors périmètre (bien non résidentiel) -------
-  // L'utilisateur cherche un logement, pas une place de stationnement. On
-  // exclut de la liste principale sans perdre l'annonce (§16, §53).
-  if (listing.propertyType.value === 'parking') {
-    matchesCriteria = false;
-    reasons.push({
-      code: 'type.parking',
-      label: 'Stationnement / box — pas un logement',
-      delta: 0,
-    });
-  }
-
-  // --- Location étudiante : filtre éliminatoire quand l'utilisateur l'exclut -
-  if (criteria.excludeStudent === true && isStudentHousing(listing)) {
-    matchesCriteria = false;
-    reasons.push({
-      code: 'student.excluded',
-      label: 'Location étudiante — exclue de la recherche',
-      delta: 0,
-    });
-  }
-
-  // --- Colocation : filtre éliminatoire quand l'utilisateur l'exclut --------
-  // C'est un filtre binaire (dedans/dehors), pas une dimension notée : il
-  // n'entre ni dans `total` ni dans `maxTotal`, et un flatShare inconnu
-  // n'élimine pas (§17) — inutile donc de le compter en signal manquant, ce
-  // qui fausserait le dénominateur pour toutes les annonces silencieuses.
-  if (criteria.excludeFlatShare === true && listing.flatShare.value === true) {
-    matchesCriteria = false;
-    reasons.push({
-      code: 'flatshare.excluded',
-      label: 'Colocation — exclue de la recherche',
-      delta: 0,
-    });
-  }
-
-  // --- Nature du bailleur : filtre particulier / agence (§17) ---------------
-  // Filtre binaire (dedans/dehors), pas une dimension notée. `'private'` masque
-  // les agences CONNUES mais garde les bailleurs inconnus (on n'élimine pas sur
-  // une donnée absente) ; `'agency'` ne garde que les agences. Les deux modes
-  // partitionnent l'ensemble.
-  const landlordFilter = criteria.landlordFilter ?? 'all';
-  const isAgency = listing.contact.kind === 'agency';
-  if (landlordFilter === 'private' && isAgency) {
-    matchesCriteria = false;
-    reasons.push({
-      code: 'landlord.agency',
-      label: 'Annonce d’agence — exclue (particuliers seulement)',
-      delta: 0,
-    });
-  } else if (landlordFilter === 'agency' && !isAgency) {
-    matchesCriteria = false;
-    reasons.push({
-      code: 'landlord.notAgency',
-      label: 'Hors agence — exclue (agences seulement)',
-      delta: 0,
-    });
-  }
-
-  // --- Meublé / non meublé : filtre éliminatoire, au choix (§17) -------------
-  // Un statut meublé INCONNU (null) n'est jamais exclu : on n'élimine pas sur
-  // une donnée absente. Les deux modes partitionnent le connu.
-  const furnishedFilter = criteria.furnishedFilter ?? 'all';
-  const furnished = listing.furnished.value;
-  if (furnishedFilter === 'furnished' && furnished === false) {
-    matchesCriteria = false;
-    reasons.push({
-      code: 'furnished.excluded',
-      label: 'Non meublé — exclu (meublés seulement)',
-      delta: 0,
-    });
-  } else if (furnishedFilter === 'unfurnished' && furnished === true) {
-    matchesCriteria = false;
-    reasons.push({
-      code: 'unfurnished.excluded',
-      label: 'Meublé — exclu (non meublés seulement)',
-      delta: 0,
-    });
+  // --- Filtres binaires éliminatoires (§16, §17) ----------------------------
+  // Chacun rend une raison d'exclusion ou `null`. Ce sont des filtres binaires
+  // (dedans/dehors), pas des dimensions notées : ils n'entrent ni dans `total`
+  // ni dans `maxTotal`, et un signal INCONNU n'élimine jamais (§17). L'annonce
+  // reste collectée et consultable hors critères (§53).
+  for (const exclusion of [
+    parkingExclusion(listing),
+    studentExclusion(listing, criteria),
+    flatShareExclusion(listing, criteria),
+    landlordExclusion(listing, criteria),
+    furnishedExclusion(listing, criteria),
+  ]) {
+    if (exclusion !== null) {
+      matchesCriteria = false;
+      reasons.push(exclusion);
+    }
   }
 
   // --- Critères optionnels, inactifs dans le MVP (§2) -----------------------

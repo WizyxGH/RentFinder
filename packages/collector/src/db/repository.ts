@@ -14,6 +14,7 @@
 
 import { createHash, randomUUID } from 'node:crypto';
 import type {
+  MessageListing,
   NormalizedListing,
   ScoredListing,
   SourceId,
@@ -198,6 +199,13 @@ export interface Repository {
   directListingSpecKeys(): Promise<ReadonlySet<string>>;
   /** Marque des annonces comme notifiées, pour ne jamais les re-signaler. */
   markNotified(ids: readonly string[]): Promise<void>;
+  /**
+   * Annonces pertinentes, actives, dotées d'un e-mail de contact et pour
+   * lesquelles aucun brouillon n'a encore été créé (§22). Triées par priorité.
+   */
+  pendingDrafts(): Promise<DraftableListing[]>;
+  /** Marque des annonces « brouillon créé », pour ne pas en recréer. */
+  markDrafted(ids: readonly string[]): Promise<void>;
   /** Retient qu'un message Telegram correspond à une annonce (§29). */
   recordTelegramMessage(chatId: string, messageId: number, listingId: string): Promise<void>;
   /**
@@ -249,6 +257,15 @@ export interface NotifiableListing {
   readonly photoUrls: readonly string[];
   /** Source de l'occurrence principale (ex. `email-alerts`), pour le dédoublonnage. */
   readonly sourceId: string | null;
+}
+
+/** Annonce éligible à un BROUILLON Gmail : pertinente et dotée d'un e-mail (§22). */
+export interface DraftableListing {
+  readonly id: string;
+  /** Adresse e-mail de contact (destinataire du brouillon). */
+  readonly email: string;
+  /** Vue minimale pour composer le message (structurellement un MessageListing). */
+  readonly listing: MessageListing;
 }
 
 /**
@@ -795,6 +812,66 @@ export function createRepository(db: Database): Repository {
       const placeholders = ids.map(() => '?').join(',');
       await db.execute({
         sql: `UPDATE listings SET notified = 1 WHERE id IN (${placeholders})`,
+        args: [...ids],
+      });
+    },
+
+    async pendingDrafts() {
+      const result = await db.execute(
+        `SELECT id, payload FROM listings
+         WHERE matches_criteria = 1 AND rented = 0 AND lifecycle != 'inactive'
+           AND archived = 0 AND drafted = 0
+         ORDER BY action_priority DESC`,
+      );
+      const out: DraftableListing[] = [];
+      for (const row of result.rows) {
+        let payload: {
+          propertyType?: MessageListing['propertyType'];
+          area?: MessageListing['area'];
+          city?: MessageListing['city'];
+          price?: MessageListing['price'];
+          contact?: MessageListing['contact'];
+          occurrences?: { sourceUrl?: unknown }[];
+        };
+        try {
+          payload = JSON.parse(String(row['payload'] ?? '{}'));
+        } catch {
+          continue;
+        }
+        const email = payload.contact?.email;
+        // Un brouillon a besoin d'un destinataire : sans e-mail, on n'en crée pas.
+        if (typeof email !== 'string' || email === '') continue;
+        if (
+          payload.propertyType === undefined ||
+          payload.area === undefined ||
+          payload.city === undefined ||
+          payload.price === undefined ||
+          payload.contact === undefined
+        ) {
+          continue;
+        }
+        const first = payload.occurrences?.[0]?.sourceUrl;
+        out.push({
+          id: String(row['id']),
+          email,
+          listing: {
+            propertyType: payload.propertyType,
+            area: payload.area,
+            city: payload.city,
+            price: payload.price,
+            contact: payload.contact,
+            sourceUrl: typeof first === 'string' ? first : null,
+          },
+        });
+      }
+      return out;
+    },
+
+    async markDrafted(ids) {
+      if (ids.length === 0) return;
+      const placeholders = ids.map(() => '?').join(',');
+      await db.execute({
+        sql: `UPDATE listings SET drafted = 1 WHERE id IN (${placeholders})`,
         args: [...ids],
       });
     },

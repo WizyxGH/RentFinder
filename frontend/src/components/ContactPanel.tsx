@@ -62,6 +62,17 @@ function portalOf(url: string | null): string | null {
   return null;
 }
 
+/** Libellé du bouton d'ouverture, explicite selon le canal disponible. */
+function openButtonLabel(channel: string, recipient: string | null): string {
+  if (channel === 'email') return 'Ouvrir l’e-mail';
+  if (channel === 'phone') return 'Appeler';
+  if (channel === 'form') {
+    const portal = portalOf(recipient);
+    return portal !== null ? `Contacter via ${portal}` : 'Ouvrir le formulaire';
+  }
+  return 'Ouvrir';
+}
+
 /**
  * Coordonnées publiques du bien et leur provenance (§21). Affiche ce qui est
  * réellement publié — jamais une coordonnée inventée (§17). Isolé de
@@ -194,19 +205,7 @@ export function ContactPanel({
   const subject = prepared?.subject ?? '';
   const channel = prepared?.channel ?? 'manual';
   const link = actionLink(channel, prepared?.recipient ?? null, subject, message);
-  // Libellé du bouton d'ouverture : explicite le canal (« Contacter via SeLoger »
-  // pour un lien de portail, « Appeler », « Ouvrir l'e-mail »…).
-  const portal = channel === 'form' ? portalOf(prepared?.recipient ?? null) : null;
-  const openLabel =
-    channel === 'email'
-      ? 'Ouvrir l’e-mail'
-      : channel === 'phone'
-        ? 'Appeler'
-        : portal !== null
-          ? `Contacter via ${portal}`
-          : channel === 'form'
-            ? 'Ouvrir le formulaire'
-            : 'Ouvrir';
+  const openLabel = openButtonLabel(channel, prepared?.recipient ?? null);
 
   const handleCopy = async (): Promise<void> => {
     try {

@@ -19,6 +19,7 @@
   "scripts": {
     "build": "tsc --build",
     "collect": "tsc --build && node dist/cli/collect.js",
+    "draft": "tsc --build && node dist/cli/draft.js",
     "db:migrate": "tsc --build && node dist/cli/migrate.js",
     "serve": "tsc --build && node dist/cli/serve.js"
   },
