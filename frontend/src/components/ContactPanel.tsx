@@ -46,6 +46,22 @@ function actionLink(
 
 const MUTED_NOTE = 'my-1.5 text-[0.82rem] text-muted-foreground';
 
+/** Portail d'origine déduit de l'URL de contact (ex. lien SeLoger d'une alerte). */
+function portalOf(url: string | null): string | null {
+  if (url === null) return null;
+  let host: string;
+  try {
+    host = new URL(url).hostname;
+  } catch {
+    return null;
+  }
+  if (/seloger\.com$/i.test(host)) return 'SeLoger';
+  if (/bienici\.com$/i.test(host)) return "Bien'ici";
+  if (/leboncoin\.fr$/i.test(host)) return 'Leboncoin';
+  if (/pap\.fr$/i.test(host)) return 'PAP';
+  return null;
+}
+
 /**
  * Coordonnées publiques du bien et leur provenance (§21). Affiche ce qui est
  * réellement publié — jamais une coordonnée inventée (§17). Isolé de
@@ -128,12 +144,18 @@ export function ContactPanel({
   const [followUp, setFollowUp] = useState(false);
   const alreadyContacted = listing.tracking === 'contacted';
 
+  // Lien direct de l'annonce (1re occurrence), inséré dans le brouillon.
+  const sourceUrl = listing.occurrences[0]?.sourceUrl ?? null;
   const prepared = useMemo(
     () =>
       profile === null
         ? null
-        : prepareMessage(listing, profile, followUp ? FOLLOW_UP_TEMPLATE : undefined),
-    [listing, profile, followUp],
+        : prepareMessage(
+            { ...listing, sourceUrl },
+            profile,
+            followUp ? FOLLOW_UP_TEMPLATE : undefined,
+          ),
+    [listing, profile, followUp, sourceUrl],
   );
 
   const [draft, setDraft] = useState<string | null>(null);
@@ -172,6 +194,19 @@ export function ContactPanel({
   const subject = prepared?.subject ?? '';
   const channel = prepared?.channel ?? 'manual';
   const link = actionLink(channel, prepared?.recipient ?? null, subject, message);
+  // Libellé du bouton d'ouverture : explicite le canal (« Contacter via SeLoger »
+  // pour un lien de portail, « Appeler », « Ouvrir l'e-mail »…).
+  const portal = channel === 'form' ? portalOf(prepared?.recipient ?? null) : null;
+  const openLabel =
+    channel === 'email'
+      ? 'Ouvrir l’e-mail'
+      : channel === 'phone'
+        ? 'Appeler'
+        : portal !== null
+          ? `Contacter via ${portal}`
+          : channel === 'form'
+            ? 'Ouvrir le formulaire'
+            : 'Ouvrir';
 
   const handleCopy = async (): Promise<void> => {
     try {
@@ -280,7 +315,7 @@ export function ContactPanel({
                 target={channel === 'form' ? '_blank' : undefined}
                 rel="noreferrer noopener"
               >
-                Ouvrir
+                {openLabel}
               </ButtonLink>
             )}
 

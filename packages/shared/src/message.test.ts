@@ -25,6 +25,7 @@ const listing = (kind: 'agency' | 'private'): MessageListing => ({
   city: { value: 'nice' },
   price: { value: 650 },
   contact: { ...EMPTY_CONTACT, kind, email: 'contact@example.invalid', reference: 'REF123' },
+  sourceUrl: 'https://exemple.invalid/annonce/123',
 });
 
 describe('prepareMessage — message unique', () => {
@@ -38,6 +39,20 @@ describe('prepareMessage — message unique', () => {
     // Canal e-mail détecté.
     expect(prepared.channel).toBe('email');
     expect(prepared.recipient).toBe('contact@example.invalid');
+  });
+
+  it('insère le lien de l’annonce dans le brouillon (modèle agence)', () => {
+    const prepared = prepareMessage(listing('agency'), PROFILE, AGENCY_TEMPLATE);
+    expect(prepared.body).toContain('Lien de l’annonce : https://exemple.invalid/annonce/123');
+  });
+
+  it('n’insère pas de ligne « lien » quand l’URL est absente (§17)', () => {
+    const prepared = prepareMessage(
+      { ...listing('agency'), sourceUrl: null },
+      PROFILE,
+      AGENCY_TEMPLATE,
+    );
+    expect(prepared.body).not.toContain('Lien de l’annonce');
   });
 
   it('respecte un objet personnalisé quand il est fourni', () => {

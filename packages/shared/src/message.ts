@@ -57,6 +57,8 @@ export interface MessageListing {
   readonly city: { readonly value: string | null };
   readonly price: { readonly value: number | null };
   readonly contact: Contact;
+  /** Lien direct de l'annonce, inséré dans le message pour lever l'ambiguïté. */
+  readonly sourceUrl?: string | null;
 }
 
 const TYPE_LABELS: Record<PropertyType, string> = {
@@ -127,6 +129,12 @@ export interface MessageTemplate {
   readonly body: (context: TemplateContext) => string;
 }
 
+/** Ligne « lien de l'annonce », vide si l'URL n'est pas connue (§17). */
+function listingLink(listing: MessageListing): string {
+  const url = listing.sourceUrl;
+  return url !== undefined && url !== null && url !== '' ? `Lien de l’annonce : ${url}` : '';
+}
+
 /** Supprime les lignes vides consécutives laissées par un champ absent. */
 const tidy = (lines: readonly string[]): string =>
   lines.filter((line, index) => !(line === '' && lines[index - 1] === '')).join('\n');
@@ -149,6 +157,7 @@ export const AGENCY_TEMPLATE: MessageTemplate = {
       'Bonjour,',
       '',
       `Votre annonce concernant ${describeListing(listing)} m’intéresse.`,
+      listingLink(listing),
       `${describeSolvency(profile)}${availability}`.trim(),
       '',
       'Serait-il possible de convenir d’une visite ? Je suis disponible rapidement, ' +
@@ -176,6 +185,7 @@ export const PRIVATE_TEMPLATE: MessageTemplate = {
       'Bonjour,',
       '',
       `Je vous contacte au sujet de ${describeListing(listing)}, qui correspond à ma recherche.`,
+      listingLink(listing),
       `${describeSolvency(profile)}${availability}`.trim(),
       '',
       'Seriez-vous disponible pour une visite prochainement ?',
