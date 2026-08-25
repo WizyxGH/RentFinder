@@ -286,7 +286,22 @@ export function parseDetailPage(
   if (parsedUrl === null) {
     return { listing: null, warnings: [`URL inattendue pour une fiche : ${pageUrl}`] };
   }
+  return parseApimoDetail(html, parsedUrl, defaultAgencyName);
+}
 
+/**
+ * Parse une fiche Apimo à partir d'une URL DÉJÀ analysée. Permet aux sites au
+ * schéma d'URL non standard (ex. Privilège : `/fr/propriété/{id}`, sans slug
+ * ville/type) de réutiliser toute l'extraction JSON-LD/HTML en fournissant une
+ * `ParsedListingUrl` construite à la main — `typeSlug`/`citySlug` peuvent être
+ * vides, la ville et le type viennent alors du JSON-LD et du titre.
+ */
+export function parseApimoDetail(
+  html: string,
+  parsedUrl: ParsedListingUrl,
+  defaultAgencyName: string,
+): ParsedDetail {
+  const pageUrl = parsedUrl.canonicalUrl;
   const $ = cheerio.load(html);
   const blocked = apimoBlockingStatus($, parsedUrl.typeSlug, pageUrl);
   if (blocked !== null) return blocked;
