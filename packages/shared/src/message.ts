@@ -260,7 +260,14 @@ export function prepareMessage(
   const subject = useFixed
     ? profile.applicationSubject?.trim() || AGENCY_TEMPLATE.subject(context)
     : chosen.subject(context);
-  const body = useFixed ? fixedBody : chosen.body(context);
+  // Message fixe : on le garde tel quel mais on annexe le LIEN de l'annonce en
+  // pied (demande utilisateur) — utile au destinataire pour identifier le bien.
+  const link = listingLink(listing);
+  const body = useFixed
+    ? link !== ''
+      ? `${fixedBody}\n\n${link}`
+      : fixedBody
+    : chosen.body(context);
 
   const { email, phone, formUrl } = listing.contact;
   let channel: PreparedChannel = 'manual';

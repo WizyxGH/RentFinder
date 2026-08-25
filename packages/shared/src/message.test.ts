@@ -29,16 +29,28 @@ const listing = (kind: 'agency' | 'private'): MessageListing => ({
 });
 
 describe('prepareMessage — message unique', () => {
-  it('utilise le message fixe VERBATIM pour toute annonce quand il est défini', () => {
+  it('utilise le message fixe pour toute annonce, avec le lien de l’annonce en pied', () => {
     const fixed = 'Bonjour, je suis intéressé. Cordialement, Jean.';
     const prepared = prepareMessage(listing('agency'), { ...PROFILE, applicationMessage: fixed });
-    expect(prepared.body).toBe(fixed);
+    // Le message reste intact ; seul le lien de l'annonce est annexé en pied.
+    expect(prepared.body).toBe(
+      `${fixed}\n\nLien de l’annonce : https://exemple.invalid/annonce/123`,
+    );
     expect(prepared.templateId).toBe('fixed');
     // L'objet garde la référence du bien pour le routage.
     expect(prepared.subject).toContain('REF123');
     // Canal e-mail détecté.
     expect(prepared.channel).toBe('email');
     expect(prepared.recipient).toBe('contact@example.invalid');
+  });
+
+  it('message fixe sans lien quand l’annonce n’a pas d’URL (verbatim strict)', () => {
+    const fixed = 'Bonjour, je suis intéressé. Cordialement, Jean.';
+    const prepared = prepareMessage(
+      { ...listing('agency'), sourceUrl: null },
+      { ...PROFILE, applicationMessage: fixed },
+    );
+    expect(prepared.body).toBe(fixed);
   });
 
   it('insère le lien de l’annonce dans le brouillon (modèle agence)', () => {
