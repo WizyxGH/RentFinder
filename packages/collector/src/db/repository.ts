@@ -264,6 +264,10 @@ export interface DraftableListing {
   readonly id: string;
   /** Adresse e-mail de contact (destinataire du brouillon). */
   readonly email: string;
+  /** Rue publiée (§20), pour situer le logement dans le message. `null` sinon. */
+  readonly address: string | null;
+  /** Quartier publié (§20), à défaut de rue. `null` sinon. */
+  readonly district: string | null;
   /** Vue minimale pour composer le message (structurellement un MessageListing). */
   readonly listing: MessageListing;
 }
@@ -831,6 +835,8 @@ export function createRepository(db: Database): Repository {
           city?: MessageListing['city'];
           price?: MessageListing['price'];
           contact?: MessageListing['contact'];
+          address?: { value?: unknown };
+          district?: { value?: unknown };
           occurrences?: { sourceUrl?: unknown }[];
         };
         try {
@@ -854,6 +860,8 @@ export function createRepository(db: Database): Repository {
         out.push({
           id: String(row['id']),
           email,
+          address: typeof payload.address?.value === 'string' ? payload.address.value : null,
+          district: typeof payload.district?.value === 'string' ? payload.district.value : null,
           listing: {
             propertyType: payload.propertyType,
             area: payload.area,

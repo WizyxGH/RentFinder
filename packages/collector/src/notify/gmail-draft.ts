@@ -21,8 +21,32 @@ export interface DraftContent {
   readonly body: string;
   /** URL de l'annonce : « Votre annonce » y renvoie en hyperlien (§20). */
   readonly sourceUrl?: string | null;
+  /**
+   * Localisation à insérer : « Votre annonce pour un logement {clause} ». Vide
+   * si aucune localisation fiable (§17). Voir `locationClause`.
+   */
+  readonly locationPhrase?: string;
   /** Identifiant de l'annonce, pour tracer les brouillons réellement créés. */
   readonly listingId: string;
+}
+
+/**
+ * Clause de localisation « pour un logement {clause} », avec la préposition qui
+ * convient : rue (« situé 12 rue… »), quartier (« dans le quartier… »), sinon
+ * ville (« à Nice »). Vide si aucune localisation fiable n'est publiée (§17).
+ */
+export function locationClause(
+  address: string | null,
+  district: string | null,
+  city: string | null,
+): string {
+  if (address !== null && address.trim() !== '') return `situé ${address.trim()}`;
+  if (district !== null && district.trim() !== '') return `dans le quartier ${district.trim()}`;
+  if (city !== null && city.trim() !== '') {
+    const c = city.trim();
+    return `à ${c.charAt(0).toUpperCase()}${c.slice(1)}`;
+  }
+  return '';
 }
 
 /** Sous-ensemble d'ImapFlow utilisé (facilite l'injection en test, §59). */
@@ -60,13 +84,15 @@ function escapeHtml(value: string): string {
  * « Lien de l'annonce : … » (ajoutée au message brut) est retirée pour ne pas
  * dupliquer le lien.
  */
-export function toHtmlBody(plainBody: string, url: string | null): string {
+export function toHtmlBody(plainBody: string, url: string | null, locationPhrase = ''): string {
   const withoutFooter = plainBody.replace(/\n*\s*Lien de l['’]annonce\s*:.*$/i, '').trimEnd();
   let html = escapeHtml(withoutFooter);
   if (url !== null && url !== '') {
     const href = escapeHtml(url);
     if (/votre annonce/i.test(withoutFooter)) {
-      html = html.replace(/votre annonce/i, (match) => `<a href="${href}">${match}</a>`);
+      // « Votre annonce [pour un logement {localisation}] » cliquable.
+      const suffix = locationPhrase !== '' ? ` pour un logement ${escapeHtml(locationPhrase)}` : '';
+      html = html.replace(/votre annonce/i, (match) => `<a href="${href}">${match}${suffix}</a>`);
     } else {
       html += `<br><br>Lien de l’annonce : <a href="${href}">${href}</a>`;
     }
@@ -80,7 +106,10 @@ export function toHtmlBody(plainBody: string, url: string | null): string {
  */
 export function buildDraftMime(from: string, draft: DraftContent): string {
   const html = chunk76(
-    Buffer.from(toHtmlBody(draft.body, draft.sourceUrl ?? null), 'utf8').toString('base64'),
+    Buffer.from(
+      toHtmlBody(draft.body, draft.sourceUrl ?? null, draft.locationPhrase ?? ''),
+      'utf8',
+    ).toString('base64'),
   );
   return [
     `From: ${from}`,

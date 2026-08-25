@@ -19,7 +19,7 @@ import { migrate } from '../db/migrate.js';
 import { createRepository } from '../db/repository.js';
 import { createLogger } from '../core/logger.js';
 import { loadDotEnv, loadImapConfig, loadTenantProfile } from '../config.js';
-import { createGmailDrafts, type DraftContent } from '../notify/gmail-draft.js';
+import { createGmailDrafts, locationClause, type DraftContent } from '../notify/gmail-draft.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS_DIR = resolve(here, '../../../../database/migrations');
@@ -58,6 +58,7 @@ async function main(): Promise<void> {
         subject: message.subject,
         body: message.body,
         sourceUrl: entry.listing.sourceUrl,
+        locationPhrase: locationClause(entry.address, entry.district, entry.listing.city.value),
       };
     });
 

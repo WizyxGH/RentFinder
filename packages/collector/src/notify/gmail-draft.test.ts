@@ -3,9 +3,25 @@ import {
   buildDraftMime,
   encodeHeader,
   toHtmlBody,
+  locationClause,
   createGmailDrafts,
   type DraftImapLike,
 } from './gmail-draft.js';
+
+describe('locationClause', () => {
+  it('rue → « situé … »', () => {
+    expect(locationClause('12 rue Foo', 'Madeleine', 'nice')).toBe('situé 12 rue Foo');
+  });
+  it('à défaut, quartier → « dans le quartier … »', () => {
+    expect(locationClause(null, 'Madeleine', 'nice')).toBe('dans le quartier Madeleine');
+  });
+  it('à défaut, ville capitalisée → « à Ville »', () => {
+    expect(locationClause(null, null, 'nice')).toBe('à Nice');
+  });
+  it('rien de fiable → vide (§17)', () => {
+    expect(locationClause(null, null, null)).toBe('');
+  });
+});
 
 describe('toHtmlBody', () => {
   const url = 'https://exemple.invalid/annonce/1';
@@ -16,6 +32,11 @@ describe('toHtmlBody', () => {
     expect(html).toContain(`<a href="${url}">Votre annonce</a>`);
     // Le lien n'est pas dupliqué en pied.
     expect(html).not.toContain('Lien de l’annonce');
+  });
+
+  it('insère la localisation dans « Votre annonce »', () => {
+    const html = toHtmlBody('Votre annonce m’intéresse.', url, 'à Nice');
+    expect(html).toContain(`<a href="${url}">Votre annonce pour un logement à Nice</a>`);
   });
 
   it('à défaut de « Votre annonce », ajoute le lien en pied', () => {
