@@ -20,8 +20,9 @@
 
 import type { Logger } from '../core/logger.js';
 import type { NotifiableListing, Repository } from '../db/repository.js';
-import { listingSpecKey } from '../db/repository.js';
+import { listingSpecKey, looseSpecKey } from '../db/repository.js';
 import { formatLocation } from '@rentfinder/shared';
+import { sourceDisplayNames } from '../sources/index.js';
 import type { TelegramConfig } from '../config.js';
 
 const TELEGRAM_API = 'https://api.telegram.org';
@@ -45,6 +46,19 @@ const PORTAL_LABELS: readonly (readonly [RegExp, string])[] = [
   [/pap\.fr$/i, 'PAP'],
   [/logic-immo\.com$/i, 'Logic-Immo'],
 ];
+
+/**
+ * Nom lisible d'une source à partir de son identifiant (« foncia » → « Foncia »).
+ * La table est construite une seule fois, à la demande, pour ne pas payer
+ * l'import du registre à chaque message.
+ */
+let sourceNamesCache: ReadonlyMap<string, string> | null = null;
+
+function sourceName(sourceId: string | null): string | null {
+  if (sourceId === null || sourceId === '') return null;
+  sourceNamesCache ??= sourceDisplayNames();
+  return sourceNamesCache.get(sourceId) ?? null;
+}
 
 function portalLabel(url: string | null): string | null {
   if (url === null) return null;
@@ -112,10 +126,12 @@ export function formatListingMessage(
   // canal le plus rapide pour être le premier à visiter (§21).
   if (listing.phone !== null) lines.push(`📞 ${escapeHtml(listing.phone)}`);
 
-  // Provenance : indispensable quand l'annonce vient d'une alerte e-mail, pour
-  // savoir de QUEL portail elle provient (SeLoger, Bien'ici…).
-  const portal = portalLabel(listing.url);
-  if (portal !== null) lines.push(`📨 via ${portal}`);
+  // Provenance, TOUJOURS affichée : savoir d'où sort l'annonce oriente l'action
+  // (rappeler l'agence, ouvrir le portail…). Pour une alerte e-mail, le
+  // `sourceId` générique ne dit rien : on affiche alors le PORTAIL déduit de
+  // l'URL (SeLoger, Bien'ici…). Sinon, le nom de la source (agence).
+  const origin = portalLabel(listing.url) ?? sourceName(listing.sourceId);
+  if (origin !== null) lines.push(`📨 via ${escapeHtml(origin)}`);
 
   lines.push(`⭐ Priorité ${listing.actionPriority}/100`);
   return lines.join('\n');
@@ -331,9 +347,17 @@ export async function notifyNewListings(deps: NotifyDeps): Promise<NotifyReport>
   const directKeys = await repository.directListingSpecKeys();
   const seenBySource = new Map<string, string>();
   const pending = raw.filter((listing) => {
-    const key = listingSpecKey(listing.price, listing.area, listing.city, listing.rooms);
+    const loose = looseSpecKey(listing.price, listing.area, listing.rooms);
+    // Signature : la ville quand on l'a, sinon le repli loyer|surface|pièces —
+    // les alertes e-mail ne publient pas toujours la commune.
+    const key = listingSpecKey(listing.price, listing.area, listing.city, listing.rooms) ?? loose;
     if (key === null) return true; // signature incalculable : on ne tait rien (§17)
-    if (listing.sourceId === 'email-alerts' && directKeys.has(key)) return false;
+    if (
+      listing.sourceId === 'email-alerts' &&
+      (directKeys.has(key) || (loose !== null && directKeys.has(loose)))
+    ) {
+      return false;
+    }
 
     const source = listing.sourceId ?? '?';
     const keptFrom = seenBySource.get(key);

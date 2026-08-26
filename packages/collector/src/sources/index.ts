@@ -48,6 +48,15 @@ import { winterScraper } from './winter/index.js';
 import { lodgisScraper } from './lodgis/index.js';
 import { privilegeScraper } from './privilege/index.js';
 
+/**
+ * Nom lisible de chaque source, par identifiant — dérivé des descripteurs pour
+ * qu'il n'existe qu'une seule vérité (ajouter une source suffit). Sert à
+ * afficher la provenance d'une annonce (notifications, interface).
+ */
+export function sourceDisplayNames(): ReadonlyMap<string, string> {
+  return new Map(ALL_SCRAPERS.map((s) => [s.descriptor.id, s.descriptor.name]));
+}
+
 export const ALL_SCRAPERS: readonly Scraper[] = [
   laforetScraper,
   orpiScraper,

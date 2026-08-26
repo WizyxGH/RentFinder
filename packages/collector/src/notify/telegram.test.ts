@@ -79,8 +79,15 @@ describe('formatListingMessage', () => {
       listing({ id: 'b', url: 'https://www.bienici.com/annonce/ag1-2' }),
     );
     expect(bienici).toContain("📨 via Bien'ici");
-    // URL d'agence non-portail → pas de ligne « via » (la source suffit).
-    expect(formatListingMessage(listing({ id: 'c' }))).not.toContain('📨 via');
+    // Source d'agence connue → son nom lisible est affiché (provenance TOUJOURS
+    // présente). Une source inconnue du registre n'affiche rien plutôt qu'un
+    // identifiant technique (§17).
+    expect(formatListingMessage(listing({ id: 'c', sourceId: 'foncia' }))).toContain(
+      '📨 via Foncia',
+    );
+    expect(formatListingMessage(listing({ id: 'd', sourceId: 'inconnue' }))).not.toContain(
+      '📨 via',
+    );
   });
 
   it('échappe le HTML du titre (§62)', () => {
@@ -272,6 +279,40 @@ describe('notifyNewListings', () => {
     expect(marked).toContain('e2');
     expect(marked).toContain('a1');
     expect(marked).not.toContain('e1');
+  });
+
+  it('tait un doublon e-mail SANS ville, via la clé de repli (cas réel §29)', async () => {
+    // Vécu : « STUDIO - BD DE CESSOLE » (SeLoger, sans commune publiée) et
+    // « Appartement NICE (06100) » (L'Adresse) — même 505 €, 24.14 m², 1 pièce.
+    // La clé stricte est nulle faute de ville : sans repli, les deux partaient.
+    const emailNoCity = listing({
+      id: 'e1',
+      sourceId: 'email-alerts',
+      price: 505,
+      area: 24.14,
+      rooms: 1,
+      city: null,
+      postalCode: null,
+    });
+    const agency = listing({ id: 'a1', sourceId: 'ladresse', price: 505, area: 24.14, rooms: 1 });
+    const marked: string[] = [];
+    const repo = {
+      pendingNotifications: vi.fn(async () => [emailNoCity, agency]),
+      // Repli indexé par directListingSpecKeys : « 505|24|1 ».
+      directListingSpecKeys: vi.fn(async () => new Set(['505|24|nice|1', '505|24|1'])),
+      markNotified: vi.fn(async (ids: readonly string[]) => marked.push(...ids)),
+      recordTelegramMessage: vi.fn(async () => {}),
+    } as unknown as Repository;
+
+    const report = await notifyNewListings({
+      repository: repo,
+      config: { botToken: 't', chatId: 'c', minPriority: 0, maxPerRun: 50 },
+      logger,
+      fetchImpl: okFetch(),
+    });
+
+    expect(report.candidates).toBe(1);
+    expect(marked).toEqual(['a1']);
   });
 
   it('chaque annonce multi-photos → UN SEUL message (sendPhoto), pas d’album', async () => {

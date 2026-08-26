@@ -290,6 +290,25 @@ export function listingSpecKey(
   return `${Math.round(price)}|${Math.round(area)}|${city.toLowerCase()}|${rooms ?? '?'}`;
 }
 
+/**
+ * Clé de REPLI, sans la ville : « loyer|surface|pièces ».
+ *
+ * Les alertes e-mail ne publient pas toujours la commune ; la clé stricte vaut
+ * alors `null` et aucun rapprochement n'était tenté — d'où des notifications en
+ * double (même bien vu par une agence ET par le portail). Toutes les sources du
+ * projet ne couvrent que l'agglomération niçoise, et cette clé ne sert QU'À
+ * taire une notification redondante (jamais à fusionner des fiches, §14) : le
+ * risque d'une confusion reste sans conséquence, la fiche restant visible.
+ */
+export function looseSpecKey(
+  price: number | null,
+  area: number | null,
+  rooms: number | null,
+): string | null {
+  if (price === null || area === null) return null;
+  return `${Math.round(price)}|${Math.round(area)}|${rooms ?? '?'}`;
+}
+
 export interface LifecycleThresholds {
   readonly possiblyInactiveAfter: number;
   readonly inactiveAfter: number;
@@ -811,13 +830,16 @@ export function createRepository(db: Database): Repository {
       );
       const keys = new Set<string>();
       for (const row of result.rows) {
-        const key = listingSpecKey(
-          row['price'] === null ? null : Number(row['price']),
-          row['area'] === null ? null : Number(row['area']),
-          row['city'] === null ? null : String(row['city']),
-          row['rooms'] === null ? null : Number(row['rooms']),
-        );
-        if (key !== null) keys.add(key);
+        const price = row['price'] === null ? null : Number(row['price']);
+        const area = row['area'] === null ? null : Number(row['area']);
+        const rooms = row['rooms'] === null ? null : Number(row['rooms']);
+        const city = row['city'] === null ? null : String(row['city']);
+        // On indexe les DEUX formes : la stricte (avec ville) et le repli sans
+        // ville, pour rattraper les annonces e-mail dont la commune manque.
+        const strict = listingSpecKey(price, area, city, rooms);
+        if (strict !== null) keys.add(strict);
+        const loose = looseSpecKey(price, area, rooms);
+        if (loose !== null) keys.add(loose);
       }
       return keys;
     },
