@@ -24,7 +24,10 @@ export const LODGIS_DESCRIPTOR: SourceDescriptor = {
   domain: 'lodgis.com',
   kind: 'agencyNetwork',
   method: 'html',
-  priority: 3,
+  // Même priorité que les autres sources d'agences (2). En 3, elle était
+  // systématiquement évincée : le planificateur trie par priorité croissante et
+  // les sources de priorité 2, toujours éligibles, remplissaient les 6 places.
+  priority: 2,
   schedule: scheduleFor('agencyNetwork'),
   budget: budgetFor('agencyNetwork', { maxPagesPerRun: 1, maxListingsPerRun: 30 }),
   enabled: true,
