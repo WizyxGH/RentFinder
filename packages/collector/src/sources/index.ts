@@ -45,6 +45,7 @@ import { climmoScraper } from './climmo/index.js';
 import { beaumontScraper } from './beaumont/index.js';
 import { immoSudScraper } from './immo-sud/index.js';
 import { winterScraper } from './winter/index.js';
+import { lodgisScraper } from './lodgis/index.js';
 import { privilegeScraper } from './privilege/index.js';
 
 export const ALL_SCRAPERS: readonly Scraper[] = [
@@ -80,6 +81,7 @@ export const ALL_SCRAPERS: readonly Scraper[] = [
   immoSudScraper,
   winterScraper,
   privilegeScraper,
+  lodgisScraper,
 ];
 
 export { laforetScraper } from './laforet/index.js';

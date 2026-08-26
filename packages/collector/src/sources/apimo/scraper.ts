@@ -28,6 +28,15 @@ export interface ApimoConfig {
   readonly priority?: number;
   readonly maxDetailsLive?: number;
   readonly maxDetailsBackfill?: number;
+  /**
+   * Âge maximum d'une entrée de sitemap, en jours. Au-delà, on ne visite pas :
+   * certains sites Apimo ne purgent jamais leur sitemap et y laissent des
+   * annonces supprimées depuis plus d'un an (personalimmo : 23 entrées de
+   * mars 2025 encore listées en août 2026, toutes en 404/301). Les visiter
+   * gaspille le budget de pages au détriment des annonces vivantes.
+   * Une entrée SANS `lastmod` n'est jamais écartée (§17). Défaut : 365 jours.
+   */
+  readonly maxEntryAgeDays?: number;
 }
 
 export function makeApimoDescriptor(config: ApimoConfig): SourceDescriptor {
@@ -61,6 +70,7 @@ export function makeApimoScraper(config: ApimoConfig): Scraper {
   const targetCities = new Set(config.citySlugs);
   const maxLive = config.maxDetailsLive ?? 8;
   const maxBackfill = config.maxDetailsBackfill ?? 20;
+  const maxEntryAgeDays = config.maxEntryAgeDays ?? 365;
 
   return {
     descriptor,
@@ -117,7 +127,21 @@ export function makeApimoScraper(config: ApimoConfig): Scraper {
       }
 
       // --- 2. Filtrer et prioriser ----------------------------------------
-      const targeted = entries.filter((entry) => targetCities.has(entry.url.citySlug));
+      // Les entrées trop anciennes sont écartées AVANT tout : un sitemap non
+      // purgé y garde des annonces supprimées, qui consommeraient le budget de
+      // pages pour rien. Sans `lastmod`, on ne juge pas (§17).
+      const staleBefore = Date.now() - maxEntryAgeDays * 86_400_000;
+      const fresh = entries.filter((entry) => {
+        if (entry.lastmod === undefined || entry.lastmod === null) return true;
+        const stamp = Date.parse(entry.lastmod);
+        return !Number.isFinite(stamp) || stamp >= staleBefore;
+      });
+      const skippedStale = entries.length - fresh.length;
+      if (skippedStale > 0) {
+        context.log('sitemap.stale_skipped', { skipped: skippedStale, maxEntryAgeDays });
+      }
+
+      const targeted = fresh.filter((entry) => targetCities.has(entry.url.citySlug));
       const confirmedRefs = targeted
         .filter((entry) => context.isKnown(entry.url.reference))
         .map((entry) => entry.url.reference);
