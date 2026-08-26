@@ -257,6 +257,8 @@ export interface NotifiableListing {
   readonly photoUrls: readonly string[];
   /** Source de l'occurrence principale (ex. `email-alerts`), pour le dédoublonnage. */
   readonly sourceId: string | null;
+  /** Téléphone publié : affiché dans la notif, tappable pour appeler (§21). */
+  readonly phone: string | null;
 }
 
 /** Annonce éligible à un BROUILLON Gmail : pertinente et dotée d'un e-mail (§22). */
@@ -729,11 +731,16 @@ export function createRepository(db: Database): Repository {
 
     async pendingNotifications(minPriority) {
       const result = await db.execute({
+        // `lifecycle = 'active'` (et non « != inactive ») : une annonce
+        // `possiblyInactive` a déjà disparu de sa source lors de plusieurs
+        // passages — la pousser en notification enverrait très probablement vers
+        // une annonce expirée. Elle reste VISIBLE sur le site (décision
+        // utilisateur), mais on ne la notifie pas (§29, §33).
         sql: `SELECT id, title, price, area, rooms, city, postal_code, action_priority, payload
               FROM listings
               WHERE matches_criteria = 1
                 AND notified = 0
-                AND lifecycle != 'inactive'
+                AND lifecycle = 'active'
                 AND archived = 0
                 AND rented = 0
                 AND COALESCE(action_priority, 0) >= ?
@@ -748,6 +755,7 @@ export function createRepository(db: Database): Repository {
         let district: string | null = null;
         let availableAt: string | null = null;
         let sourceId: string | null = null;
+        let phone: string | null = null;
         try {
           const payload = JSON.parse(String(row['payload'] ?? '{}')) as {
             occurrences?: { sourceUrl?: unknown; sourceId?: unknown }[];
@@ -755,11 +763,13 @@ export function createRepository(db: Database): Repository {
             address?: { value?: unknown };
             district?: { value?: unknown };
             availableAt?: { value?: unknown };
+            contact?: { phone?: unknown };
           };
           const first = payload.occurrences?.[0]?.sourceUrl;
           if (typeof first === 'string') url = first;
           const firstSource = payload.occurrences?.[0]?.sourceId;
           if (typeof firstSource === 'string') sourceId = firstSource;
+          if (typeof payload.contact?.phone === 'string') phone = payload.contact.phone;
           photoUrls = (payload.imageUrls ?? [])
             .filter((u): u is string => typeof u === 'string' && u.startsWith('http'))
             .slice(0, 10);
@@ -785,6 +795,7 @@ export function createRepository(db: Database): Repository {
           url,
           photoUrls,
           sourceId,
+          phone,
         };
       });
     },

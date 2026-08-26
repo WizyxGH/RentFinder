@@ -108,6 +108,11 @@ export function formatListingMessage(
   const availability = formatAvailability(listing.availableAt, nowMs);
   if (availability !== null) lines.push(`📅 ${availability}`);
 
+  // Téléphone : Telegram n'accepte pas les liens `tel:` dans les boutons, mais
+  // un numéro écrit dans le message est tappable sur mobile → appel direct, le
+  // canal le plus rapide pour être le premier à visiter (§21).
+  if (listing.phone !== null) lines.push(`📞 ${escapeHtml(listing.phone)}`);
+
   // Provenance : indispensable quand l'annonce vient d'une alerte e-mail, pour
   // savoir de QUEL portail elle provient (SeLoger, Bien'ici…).
   const portal = portalLabel(listing.url);
@@ -156,8 +161,15 @@ async function firstMessageId(response: Response): Promise<number | null> {
 export const FAVORITE_CALLBACK = 'fav';
 
 /** Clavier en ligne : un bouton pour mettre l'annonce en favori d'un tap. */
-function favoriteKeyboard(): Record<string, unknown> {
-  return { inline_keyboard: [[{ text: '⭐ Mettre en favori', callback_data: FAVORITE_CALLBACK }]] };
+function favoriteKeyboard(url: string | null = null): Record<string, unknown> {
+  const row: Record<string, unknown>[] = [{ text: '⭐ Favori', callback_data: FAVORITE_CALLBACK }];
+  // Telegram n'autorise que http(s) dans les boutons `url` (ni `tel:` ni
+  // `mailto:`) : on y met donc l'annonce, et le téléphone reste tappable dans
+  // le texte du message.
+  if (url !== null && /^https?:\/\//i.test(url)) {
+    row.push({ text: '🔗 Voir l’annonce', url });
+  }
+  return { inline_keyboard: [row] };
 }
 
 /**
@@ -222,7 +234,7 @@ export async function sendTelegramListing(
       photo: cover,
       caption: text,
       parse_mode: 'HTML',
-      reply_markup: favoriteKeyboard(),
+      reply_markup: favoriteKeyboard(listing.url),
     }),
   });
   if (response.ok) return firstMessageId(response);
@@ -307,15 +319,32 @@ export async function notifyNewListings(deps: NotifyDeps): Promise<NotifyReport>
   const { repository, config, logger, fetchImpl } = deps;
   const raw = await repository.pendingNotifications(config.minPriority);
 
-  // Anti-doublon inter-sources : une annonce d'alerte E-MAIL dont un équivalent
-  // direct (agence déjà scrapée) existe déjà n'est PAS notifiée — le lien direct
-  // est meilleur et l'e-mail dupliquait la notif (§29). L'annonce e-mail reste
-  // visible sur le site ; seule sa notification est tue.
+  // Anti-doublon des NOTIFICATIONS (§29). Le dédoublonnage des fiches reste
+  // volontairement prudent (§14 : ne jamais fusionner deux logements distincts,
+  // ce qui ferait disparaître une annonce réelle). Mais deux fiches de même
+  // loyer/surface/ville/pièces produisent une notification redondante. Ici le
+  // risque est inverse et réversible : taire une notification ne perd rien, la
+  // fiche reste visible sur le site. On applique donc deux règles :
+  //   1. une annonce d'alerte E-MAIL dont un équivalent DIRECT (agence scrapée)
+  //      existe n'est pas notifiée — le lien direct est meilleur ;
+  //   2. dans un même envoi, une seule notification par « signature » de bien,
+  //      la mieux notée en premier (les suivantes sont tues).
   const directKeys = await repository.directListingSpecKeys();
+  const seenBySource = new Map<string, string>();
   const pending = raw.filter((listing) => {
-    if (listing.sourceId !== 'email-alerts') return true;
     const key = listingSpecKey(listing.price, listing.area, listing.city, listing.rooms);
-    return key === null || !directKeys.has(key);
+    if (key === null) return true; // signature incalculable : on ne tait rien (§17)
+    if (listing.sourceId === 'email-alerts' && directKeys.has(key)) return false;
+
+    const source = listing.sourceId ?? '?';
+    const keptFrom = seenBySource.get(key);
+    // Suppression réservée aux doublons INTER-sources (même bien relayé par
+    // deux sources). Au sein d'une MÊME source, deux annonces de mêmes loyer/
+    // surface/ville/pièces sont bien plus souvent deux logements distincts d'un
+    // même immeuble : on les notifie toutes (§14, prudence).
+    if (keptFrom !== undefined && keptFrom !== source) return false;
+    if (keptFrom === undefined) seenBySource.set(key, source);
+    return true;
   });
 
   if (pending.length === 0) {

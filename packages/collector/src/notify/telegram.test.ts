@@ -39,6 +39,7 @@ function listing(over: Partial<NotifiableListing> & { id: string }): NotifiableL
     url: pick('url', 'https://exemple.fr/annonce/1'),
     photoUrls: pick('photoUrls', []),
     sourceId: pick('sourceId', 'test-agency'),
+    phone: pick('phone', null),
   };
 }
 
