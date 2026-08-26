@@ -24,20 +24,45 @@ interface MapViewProps {
   readonly onOpen: (id: string) => void;
 }
 
-/** Pastille de prix, teintée selon la priorité (cohérente avec les cartes). */
+/** Étapes de suivi qui signifient « j'ai déjà pris contact » (§35). */
+const CONTACTED_STATUSES = new Set([
+  'contacted',
+  'replied',
+  'visitOffered',
+  'visitScheduled',
+  'visited',
+]);
+
+/**
+ * Pastille de prix, teintée selon la priorité (cohérente avec les cartes).
+ *
+ * Deux repères visuels s'ajoutent, comme sur les cartes des grands portails :
+ * ⭐ pour un FAVORI, ✉️ pour une annonce déjà CONTACTÉE. Ils évitent de rouvrir
+ * une fiche pour se souvenir de son état, et de recontacter deux fois la même
+ * agence.
+ */
 function priceIcon(listing: ListingView): L.DivIcon {
   const hot = listing.actionPriority >= 85;
   const label = listing.price.value !== null ? `${listing.price.value} €` : '— €';
+  const favorite = listing.favorite === true;
+  const contacted = CONTACTED_STATUSES.has(listing.tracking);
+  // Le favori prime sur le contact : c'est le repère que l'œil cherche d'abord.
+  const badge = favorite ? '⭐' : contacted ? '✉️' : '';
+  // Un favori garde une bordure dorée même quand il n'est pas « chaud », pour
+  // rester repérable au milieu des autres pastilles.
+  const border = favorite ? '#f59e0b' : hot ? '#e00034' : '#d4d4d8';
+
   return L.divIcon({
     className: '', // pas de styles Leaflet par défaut
     html: `<div style="
         transform: translate(-50%, -100%);
         display: inline-block; padding: 3px 8px; border-radius: 999px;
         background: ${hot ? '#e00034' : '#ffffff'}; color: ${hot ? '#ffffff' : '#1a1a1a'};
-        border: 1px solid ${hot ? '#e00034' : '#d4d4d8'};
+        border: ${favorite ? '2px' : '1px'} solid ${border};
         font: 600 12px system-ui, sans-serif; white-space: nowrap;
         box-shadow: 0 1px 4px rgba(0,0,0,.25); cursor: pointer;
-      ">${label}</div>`,
+        ${contacted && !favorite ? 'opacity: .75;' : ''}
+      ">${badge === '' ? '' : `${badge} `}${label}</div>`,
     iconSize: [0, 0],
   });
 }

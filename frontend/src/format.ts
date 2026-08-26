@@ -7,6 +7,7 @@
  */
 
 import type { PropertyType, TrackingStatus } from '@rentfinder/shared';
+import { toTitleCase } from '@rentfinder/shared';
 
 /** Marque visuelle d'une valeur non fournie par la source. */
 export const UNKNOWN = '—';
@@ -40,11 +41,11 @@ export const formatPropertyType = (type: PropertyType): string => PROPERTY_TYPE_
 export function formatCity(city: string | null): string {
   if (city === null) return UNKNOWN;
   // La ville est stockée en forme comparable (minuscules, sans accent) pour le
-  // dédoublonnage ; on la recapitalise pour l'affichage.
-  return city
-    .split(' ')
-    .map((word) => (word.length === 0 ? word : word[0]!.toUpperCase() + word.slice(1)))
-    .join(' ');
+  // dédoublonnage ; on la recapitalise pour l'affichage. On délègue au
+  // formateur PARTAGÉ pour que l'interface, les notifications et les messages
+  // écrivent exactement la même chose (§20) — il gère aussi les tirets et les
+  // particules (« saint-laurent-du-var » → « Saint-Laurent-du-Var »).
+  return toTitleCase(city);
 }
 
 /** Particules françaises laissées en minuscules dans une adresse. */

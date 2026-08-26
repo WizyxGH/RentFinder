@@ -21,6 +21,7 @@
 import type { Logger } from '../core/logger.js';
 import type { NotifiableListing, Repository } from '../db/repository.js';
 import { listingSpecKey } from '../db/repository.js';
+import { formatLocation } from '@rentfinder/shared';
 import type { TelegramConfig } from '../config.js';
 
 const TELEGRAM_API = 'https://api.telegram.org';
@@ -87,19 +88,17 @@ export function formatListingMessage(
   const summary = summarize(listing);
   if (summary !== '') lines.push(escapeHtml(summary));
 
-  // Localisation la plus précise : rue si connue, sinon quartier (ex. Orpi),
-  // toujours complétée de la ville/CP.
-  const place = listing.address ?? (listing.district ? `quartier ${listing.district}` : null);
-  const cityPart = [listing.city, listing.postalCode]
-    .filter((v) => v !== null && v !== '')
-    .join(' ');
-  const label = [place, cityPart].filter((v) => v !== null && v !== '').join(', ');
+  // Localisation la plus précise (rue → quartier → commune), au format postal
+  // français commun à toute l'application : « 12 Rue de France, 06000 Nice ».
+  const label = formatLocation({
+    street: listing.address,
+    district: listing.district,
+    postalCode: listing.postalCode,
+    city: listing.city,
+  });
 
   if (label !== '') {
-    // Requête Maps : le lieu précis prime, complété de la ville (une rue seule
-    // serait ambiguë).
-    const query = [place, cityPart].filter((v) => v !== null && v !== '').join(', ');
-    const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+    const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(label)}`;
     lines.push(`📍 <a href="${escapeHtml(mapsUrl)}">${escapeHtml(label)}</a>`);
   }
 

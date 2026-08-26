@@ -236,7 +236,8 @@ export function ListingCard({
   // Sous-ligne ville + code postal (affichée sous le titre quand la rue/quartier
   // occupe le titre). Précalculée pour garder le rendu simple.
   const postal = listing.postalCode?.value ?? null;
-  const cityLine = `${formatCity(listing.city.value)}${postal !== null ? ` ${postal}` : ''}`;
+  // Format postal français, comme partout ailleurs (§20) : « 06000 Nice ».
+  const cityLine = `${postal !== null ? `${postal} ` : ''}${formatCity(listing.city.value)}`;
 
   // La carte reste épurée : pas de pastilles DPE/atouts (réservées à la
   // fiche) ; seule la disponibilité, décisive pour agir, est affichée.

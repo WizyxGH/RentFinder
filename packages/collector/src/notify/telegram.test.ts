@@ -54,7 +54,8 @@ describe('formatListingMessage', () => {
     expect(msg).toContain('640 € · 28 m² · 2 pièces');
     // Sans adresse de rue, le lieu (ville + CP) est un lien Maps.
     expect(msg).toContain('google.com/maps');
-    expect(msg).toContain('nice 06000');
+    // Format postal harmonisé (§20) : « CP Ville », ville en casse de titre.
+    expect(msg).toContain('06000 Nice');
     expect(msg).toContain('Priorité 80');
   });
 
@@ -62,10 +63,10 @@ describe('formatListingMessage', () => {
     const msg = formatListingMessage(
       listing({ id: 'a', address: '22-24 Avenue de la Californie' }),
     );
-    expect(msg).toContain('22-24 Avenue de la Californie, nice 06000');
+    expect(msg).toContain('22-24 Avenue de la Californie, 06000 Nice');
     expect(msg).toContain('google.com/maps');
     // La requête Maps contient l'adresse précise, encodée.
-    expect(msg).toContain(encodeURIComponent('22-24 Avenue de la Californie, nice 06000'));
+    expect(msg).toContain(encodeURIComponent('22-24 Avenue de la Californie, 06000 Nice'));
   });
 
   it('indique le portail d’origine pour une annonce d’alerte e-mail (§17)', () => {
