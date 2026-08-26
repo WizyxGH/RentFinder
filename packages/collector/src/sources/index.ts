@@ -46,6 +46,7 @@ import { beaumontScraper } from './beaumont/index.js';
 import { immoSudScraper } from './immo-sud/index.js';
 import { winterScraper } from './winter/index.js';
 import { lodgisScraper } from './lodgis/index.js';
+import { saviEsteveScraper } from './savi-esteve/index.js';
 import { privilegeScraper } from './privilege/index.js';
 
 /**
@@ -91,6 +92,7 @@ export const ALL_SCRAPERS: readonly Scraper[] = [
   winterScraper,
   privilegeScraper,
   lodgisScraper,
+  saviEsteveScraper,
 ];
 
 export { laforetScraper } from './laforet/index.js';

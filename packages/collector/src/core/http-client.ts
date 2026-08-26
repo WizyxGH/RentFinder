@@ -67,6 +67,38 @@ export class BlockedError extends Error {
   }
 }
 
+/**
+ * Lit le corps en respectant l'ENCODAGE réellement déclaré.
+ *
+ * `response.text()` décode toujours en UTF-8. Or plusieurs sites d'agences
+ * (plateforme AdaptImmo notamment) servent encore du `windows-1252` et ne le
+ * disent que dans une balise `<meta charset>`, pas dans l'en-tête HTTP : les
+ * accents deviendraient alors des caractères de remplacement, et les villes
+ * seraient mal normalisées. On lit donc les octets, puis on décode avec le jeu
+ * annoncé (en-tête d'abord, `<meta charset>` ensuite), UTF-8 par défaut.
+ */
+async function decodeBody(response: Response): Promise<string> {
+  const bytes = Buffer.from(await response.arrayBuffer());
+  const fromHeader = /charset=["']?([\w-]+)/i.exec(response.headers.get('content-type') ?? '')?.[1];
+  // Sans indication d'en-tête, on inspecte le début du document (les balises
+  // `<meta>` sont en ASCII, donc lisibles quel que soit le jeu réel).
+  // Fenêtre large : la spec HTML demande la déclaration dans le premier kio,
+  // mais des gabarits réels la repoussent bien plus loin (AdaptImmo : ~6 kio,
+  // derrière un gros bloc <script>). Trop court, on retombait sur UTF-8 et les
+  // accents devenaient des caractères de remplacement.
+  const head = bytes.subarray(0, 16_384).toString('latin1');
+  const fromMeta = /<meta[^>]+charset=["']?([\w-]+)/i.exec(head)?.[1];
+  const charset = (fromHeader ?? fromMeta ?? 'utf-8').toLowerCase();
+
+  if (charset === 'utf-8' || charset === 'utf8') return bytes.toString('utf8');
+  try {
+    return new TextDecoder(charset).decode(bytes);
+  } catch {
+    // Jeu inconnu de la plateforme : UTF-8 reste le choix le moins mauvais.
+    return bytes.toString('utf8');
+  }
+}
+
 export interface HttpClientOptions {
   readonly budget: RateLimitBudget;
   readonly userAgent: string;
@@ -149,7 +181,7 @@ export function createHttpClient(options: HttpClientOptions): HttpClient {
         throw new Error(`HTTP ${response.status} temporaire sur ${url}`);
       }
 
-      const responseBody = await response.text();
+      const responseBody = await decodeBody(response);
 
       // Mémorisation des validateurs pour la prochaine exécution (GET seulement :
       // une réponse POST n'est pas revalidable par ETag, §30).
