@@ -44,6 +44,59 @@ function toText(html: string): string {
   );
 }
 
+/**
+ * Communes desservies par le bulletin, les plus longues d'abord pour que
+ * « SAINT LAURENT DU VAR » l'emporte sur un éventuel préfixe plus court.
+ *
+ * Le bulletin écrit la localisation en un seul bloc — « NICE EST / MONT BORON »,
+ * « VILLENEUVE LOUBET PROXIMITE VILLAGE AU COEUR DE LA COTE D AZUR ». Tel quel,
+ * ce libellé était stocké comme NOM DE COMMUNE : impossible d'en déduire un code
+ * postal, et l'affichage montrait une phrase entière à la place d'une ville.
+ * On isole donc la commune, le reste devient le quartier (§20).
+ */
+const BEP_CITIES: readonly string[] = [
+  'VILLENEUVE LOUBET',
+  'SAINT LAURENT DU VAR',
+  'ROQUEBRUNE CAP MARTIN',
+  'VILLEFRANCHE SUR MER',
+  'BEAULIEU SUR MER',
+  'CAGNES SUR MER',
+  'MANDELIEU LA NAPOULE',
+  'JUAN LES PINS',
+  'GOLFE JUAN',
+  'SAINT JEAN CAP FERRAT',
+  'CAP D AIL',
+  'LA TRINITE',
+  'LE CANNET',
+  'VALLAURIS',
+  'ANTIBES',
+  'VENCE',
+  'GRASSE',
+  'CANNES',
+  'MENTON',
+  'MONACO',
+  'BIOT',
+  'NICE',
+];
+
+/** Sépare « NICE EST / MONT BORON » en commune + quartier. */
+export function splitLocation(label: string): { city: string; district?: string } {
+  const upper = cleanText(label).toUpperCase().replace(/\*+/g, ' ').replace(/\s+/g, ' ').trim();
+  const city = BEP_CITIES.find((name) => upper.startsWith(name));
+  if (city === undefined) return { city: cleanText(label) };
+
+  // Le reste : zone puis quartier, séparés par « / ». On garde le segment le
+  // plus parlant (après le dernier « / »), nettoyé des marqueurs du bulletin.
+  const rest = upper.slice(city.length).replace(/[/]+/g, ' / ').replace(/\s+/g, ' ').trim();
+  const district = rest
+    .split('/')
+    .map((part) => part.trim())
+    .filter((part) => part.length > 2 && !/^E$/i.test(part))
+    .at(-1);
+
+  return district !== undefined && district !== '' ? { city, district } : { city };
+}
+
 export interface ParsedBulletin {
   readonly listings: readonly RawListing[];
   readonly warnings: readonly string[];
@@ -74,12 +127,36 @@ function parseBulletinEntry(
   const description = text.match(/DESCRIPTION\s*:\s*(.+?)(?:\s*$)/i)?.[1] ?? text;
   const typeMatch = description.match(/^([A-ZÀ-Ý' ]+?)(?:,|\bEN\b|\d)/);
   const propertyTypeText = typeMatch?.[1] !== undefined ? cleanText(typeMatch[1]) : undefined;
+  // Nombre de pièces : notation « T2 »/« F3 » ou « 3 PIECES ». Sans cela, seuls
+  // les studios étaient comptés (le type s'arrête au premier chiffre).
+  const roomsText =
+    /\b[TF](\d)\b/i.exec(description)?.[0] ??
+    /\d+\s*PI[EÈ]CES?/i.exec(description)?.[0] ??
+    (/\bSTUDIO\b/i.test(description) ? 'studio' : undefined);
   const dpe = text.match(/CLASSE\s+ENERGETIQUE\s+([A-G])\b/i)?.[1];
 
   // Photos : uniquement les URLs (§11), jamais de téléchargement.
-  const imageUrls = [...block.matchAll(/href=["'](https?:\/\/[^"']+\.jpg)["']/gi)].map(
+  // Photos : liens ET balises <img>, en absolu (§11 : on ne stocke que l'URL).
+  // N'accepter que les `href` faisait perdre les annonces dont la vignette
+  // n'est portée que par un <img src>.
+  const rawImages = [...block.matchAll(/(?:href|src)=["']([^"']+\.(?:jpe?g|png|webp))["']/gi)].map(
     (m) => m[1] as string,
   );
+  const imageUrls = [
+    ...new Set(
+      rawImages
+        .map((raw) => {
+          try {
+            return new URL(raw, BULLETIN_URL).toString();
+          } catch {
+            return null;
+          }
+        })
+        .filter((url): url is string => url !== null && !/logo|banniere|pixel|spacer/i.test(url)),
+    ),
+  ];
+
+  const place = splitLocation(location);
 
   return compactListing({
     sourceRef: reference,
@@ -93,12 +170,18 @@ function parseBulletinEntry(
     propertyTypeText,
     furnishedText: description,
     // La localisation du bulletin sert de ville : le filtre ne garde que Nice.
-    cityText: location,
+    // Commune et quartier séparés : le libellé brut du bulletin mélangeait les
+    // deux, ce qui empêchait toute déduction de code postal (§20).
+    cityText: place.city,
+    roomsText,
     agencyName: 'BEP Logement',
     contactFormUrl: BULLETIN_URL,
     publishedAtText,
     imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
-    extra: dpe !== undefined ? { dpe: dpe.toUpperCase() } : undefined,
+    extra: {
+      ...(dpe !== undefined ? { dpe: dpe.toUpperCase() } : {}),
+      ...(place.district !== undefined ? { quartier: place.district } : {}),
+    },
   });
 }
 
