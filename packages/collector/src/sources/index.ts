@@ -48,6 +48,7 @@ import { winterScraper } from './winter/index.js';
 import { lodgisScraper } from './lodgis/index.js';
 import { saviEsteveScraper } from './savi-esteve/index.js';
 import { ashleyParkerScraper } from './ashley-parker/index.js';
+import { dinamyScraper } from './dinamy/index.js';
 import { privilegeScraper } from './privilege/index.js';
 
 /**
@@ -95,6 +96,7 @@ export const ALL_SCRAPERS: readonly Scraper[] = [
   lodgisScraper,
   saviEsteveScraper,
   ashleyParkerScraper,
+  dinamyScraper,
 ];
 
 export { laforetScraper } from './laforet/index.js';
