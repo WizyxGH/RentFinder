@@ -114,6 +114,13 @@ export interface RequestInitLite {
   readonly headers?: Record<string, string>;
   readonly method?: 'GET' | 'POST';
   readonly body?: string;
+  /**
+   * `'manual'` rend la réponse de redirection telle quelle (statut 30x et
+   * en-tête `location`) SANS suivre le saut. Sert à résoudre un lien de
+   * tracking en URL canonique sans jamais télécharger la page de destination
+   * — donc sans solliciter un portail qui interdit l'accès automatisé (§10).
+   */
+  readonly redirect?: 'follow' | 'manual';
 }
 
 export interface HttpClient {
@@ -145,6 +152,7 @@ export function createHttpClient(options: HttpClientOptions): HttpClient {
     headers: Record<string, string>,
     method: 'GET' | 'POST',
     body: string | undefined,
+    redirect: 'follow' | 'manual' = 'follow',
   ): Promise<FetchResult> {
     await limiter.acquire();
 
@@ -156,7 +164,7 @@ export function createHttpClient(options: HttpClientOptions): HttpClient {
         headers,
         ...(body !== undefined ? { body } : {}),
         signal: controller.signal,
-        redirect: 'follow',
+        redirect,
       });
       const responseHeaders = headersToObject(response.headers);
 
@@ -169,6 +177,12 @@ export function createHttpClient(options: HttpClientOptions): HttpClient {
       if (response.status === 401 || response.status === 403) {
         logger.warn('http.blocked', { url, status: response.status });
         throw new BlockedError(url, response.status);
+      }
+
+      // Redirection non suivie (`redirect: 'manual'`) : la cible est dans
+      // l'en-tête `location`, le corps est vide et sans intérêt.
+      if (redirect === 'manual' && response.status >= 300 && response.status < 400) {
+        return { status: response.status, body: '', headers: responseHeaders, notModified: false };
       }
 
       // 304 : rien n'a changé, on n'a même pas téléchargé le corps (§30).
@@ -229,7 +243,7 @@ export function createHttpClient(options: HttpClientOptions): HttpClient {
       let lastError: unknown;
       for (let tryIndex = 0; tryIndex <= budget.retryLimit; tryIndex += 1) {
         try {
-          return await attempt(url, headers, method, init?.body);
+          return await attempt(url, headers, method, init?.body, init?.redirect ?? 'follow');
         } catch (error) {
           // 429 et blocage ne sont jamais réessayés : ce sont des refus, pas
           // des incidents passagers (§10).

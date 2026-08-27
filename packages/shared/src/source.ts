@@ -163,6 +163,13 @@ export interface ScrapeContext {
       readonly headers?: Record<string, string>;
       readonly method?: 'GET' | 'POST';
       readonly body?: string;
+      /**
+       * `'manual'` rend la réponse de redirection telle quelle (statut 30x,
+       * en-tête `location`) SANS suivre le saut. Permet de résoudre un lien de
+       * tracking en URL canonique sans jamais télécharger la page de
+       * destination — donc sans accès automatisé au portail visé (§10).
+       */
+      readonly redirect?: 'follow' | 'manual';
     },
   ) => Promise<FetchResult>;
 
