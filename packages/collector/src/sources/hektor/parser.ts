@@ -86,12 +86,25 @@ export interface ParsedDetail {
   readonly warnings: readonly string[];
 }
 
-/** Lit la table clé/valeur `table-aria` de la fiche. */
+/**
+ * Lit la table clé/valeur `table-aria` de la fiche.
+ *
+ * La plateforme sert DEUX variantes de gabarit pour la même table :
+ *   - `class="table-aria__tr table-aria__tr--surface"`  (clé dans le modifieur)
+ *   - `class="table-aria__tr surf_carrez_loi_boutin"`   (clé en seconde classe)
+ * Ne lire que la première laissait des fiches entières sans prix ni surface
+ * (constaté sur immobiliere-nicoise.com : 26 lignes, aucune reconnue). On
+ * accepte donc les deux formes.
+ */
 function readAriaTable($: cheerio.CheerioAPI): Map<string, string> {
   const rows = new Map<string, string>();
-  $('[class*="table-aria__tr--"]').each((_i, el) => {
+  $('[class*="table-aria__tr"]').each((_i, el) => {
     const className = $(el).attr('class') ?? '';
-    const key = /table-aria__tr--([\w-]+)/.exec(className)?.[1];
+    // Variante « modifieur » d'abord ; sinon, la première classe qui n'est pas
+    // un nom de bloc de la plateforme fait office de clé.
+    const key =
+      /table-aria__tr--([\w-]+)/.exec(className)?.[1] ??
+      className.split(/\s+/).find((name) => name !== '' && !name.startsWith('table-aria'));
     if (key === undefined || rows.has(key)) return;
     const cells = $(el).find('[role="cell"]');
     const value = cleanText($(cells.get(cells.length - 1)).text());
@@ -159,7 +172,15 @@ export function parseDetailPage(html: string, pageUrl: string, agencyName: strin
     loyerCc !== undefined ? `${loyerCc} CC` : (pageTitle.match(/[\d\s.,]+\s*€/)?.[0] ?? undefined);
   if (priceText === undefined) warnings.push(`Fiche sans prix : ${pageUrl}`);
 
-  const areaText = `${pageTitle} ${h1}`.match(/\d+(?:[.,]\d+)?\s*m²/i)?.[0];
+  // Surface : d'abord le titre (le plus courant), sinon la table — certaines
+  // agences ne la mettent pas dans le titre mais la déclarent en loi Boutin ou
+  // Carrez (immobiliere-nicoise.com : clé `surf_carrez_loi_boutin`).
+  const areaFromTable = ['surface', 'surf_carrez_loi_boutin', 'surf_habitable', 'surface_habitable']
+    .map((key) => table.get(key))
+    .find((value) => value !== undefined && /\d/.test(value));
+  const areaText =
+    `${pageTitle} ${h1}`.match(/\d+(?:[.,]\d+)?\s*m²/i)?.[0] ??
+    (areaFromTable !== undefined ? `${areaFromTable.replace(/[^\d.,]/g, '')} m²` : undefined);
   const roomsFromTable = table.get('nbpiecees');
   const roomsText =
     roomsFromTable !== undefined
