@@ -49,8 +49,7 @@ import { ProfileForm } from './components/ProfileForm.js';
 import { SourcesPanel } from './components/SourcesPanel.js';
 import { FiltersPanel } from './components/FiltersPanel.js';
 import { StatsPanel } from './components/StatsPanel.js';
-import { SourceFilter } from './components/SourceFilter.js';
-import { Dropdown } from './components/Dropdown.js';
+import { SortFilterModal } from './components/SortFilterModal.js';
 import {
   QuickFilters,
   EMPTY_QUICK_FILTERS,
@@ -188,6 +187,7 @@ export function App(): React.JSX.Element {
   const [view, setView] = useState<View>('list');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sort, setSort] = useState<SortMode>('priority');
+  const [sortFilterOpen, setSortFilterOpen] = useState(false);
   const [includeOutOfCriteria, setIncludeOutOfCriteria] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [favoritesOnly, setFavoritesOnly] = useState(false);
@@ -497,9 +497,13 @@ export function App(): React.JSX.Element {
   const secondary = secondaryView();
   if (secondary !== null) return secondary;
 
-  // Nb de filtres d'affichage actifs, pour la pastille du menu « Affichage ».
+  // Pastille du bouton « Trier et filtrer » : nombre de réglages qui écartent
+  // l'affichage du réglage par défaut (tri par priorité, aucune bascule, toutes
+  // les sources).
   const activeFilterCount =
     (favoritesOnly ? 1 : 0) + (includeOutOfCriteria ? 1 : 0) + (showArchived ? 1 : 0);
+  const toolbarBadge =
+    activeFilterCount + (sort !== 'priority' ? 1 : 0) + (selectedSources.size > 0 ? 1 : 0);
 
   const toggleSource = (sourceId: string): void =>
     setSelectedSources((current) => {
@@ -585,69 +589,22 @@ export function App(): React.JSX.Element {
             </button>
           </div>
 
-          {/* Tri : même style de menu déroulant que les autres filtres. */}
-          <Dropdown
-            label={`Tri : ${SORT_OPTIONS.find((o) => o.value === sort)?.label ?? ''}`}
-            active={sort !== 'priority'}
-            panelClassName="w-52"
+          {/* Tri, affichage et sources sont regroupés dans une seule modale :
+            trois menus déroulants côte à côte tenaient mal sur mobile et rien
+            ne disait qu'ils formaient un même réglage (§36). */}
+          <button
+            type="button"
+            onClick={() => setSortFilterOpen(true)}
+            className="flex cursor-pointer items-center gap-2 rounded-full border border-input bg-card px-3 py-1.5 font-medium transition-colors hover:bg-accent"
           >
-            <ul className="flex flex-col gap-0.5">
-              {SORT_OPTIONS.map((option) => (
-                <li key={option.value}>
-                  <button
-                    type="button"
-                    onClick={() => setSort(option.value)}
-                    aria-pressed={sort === option.value}
-                    className={`flex w-full cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors ${
-                      sort === option.value
-                        ? 'bg-primary/10 font-semibold text-primary'
-                        : 'hover:bg-muted'
-                    }`}
-                  >
-                    <span aria-hidden="true" className="w-4">
-                      {sort === option.value ? '✓' : ''}
-                    </span>
-                    {option.label}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </Dropdown>
-
-          {/* Filtres d'affichage regroupés dans un menu (« Affichage » pour ne pas
-            confondre avec l'onglet « Filtres » qui règle les critères, §66). */}
-          <Dropdown label="Affichage" badge={activeFilterCount}>
-            <ul className="flex flex-col gap-0.5">
-              {(
-                [
-                  ['Favoris uniquement', favoritesOnly, setFavoritesOnly],
-                  ['Annonces hors critères', includeOutOfCriteria, setIncludeOutOfCriteria],
-                  ['Annonces archivées', showArchived, setShowArchived],
-                ] as const
-              ).map(([label, checked, setter]) => (
-                <li key={label}>
-                  <label className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-muted">
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={(event) => setter(event.target.checked)}
-                    />
-                    <span>{label}</span>
-                  </label>
-                </li>
-              ))}
-            </ul>
-          </Dropdown>
-
-          {/* Filtre par source (multi-sélection, §13). */}
-          {availableSources.length > 1 && (
-            <SourceFilter
-              sources={availableSources}
-              selected={selectedSources}
-              onToggle={toggleSource}
-              onClear={() => setSelectedSources(new Set())}
-            />
-          )}
+            <span aria-hidden="true">⇅</span>
+            Trier et filtrer
+            {toolbarBadge > 0 && (
+              <span className="rounded-full bg-primary px-1.5 text-xs font-semibold text-primary-foreground">
+                {toolbarBadge}
+              </span>
+            )}
+          </button>
 
           {/* Compteur de résultats, poussé à droite (repère façon SeLoger). */}
           {!loading && (
@@ -656,6 +613,23 @@ export function App(): React.JSX.Element {
             </span>
           )}
         </div>
+
+        <SortFilterModal
+          open={sortFilterOpen}
+          onClose={() => setSortFilterOpen(false)}
+          sort={sort}
+          onSortChange={setSort}
+          sortOptions={SORT_OPTIONS}
+          toggles={[
+            ['Favoris uniquement', favoritesOnly, setFavoritesOnly],
+            ['Annonces hors critères', includeOutOfCriteria, setIncludeOutOfCriteria],
+            ['Annonces archivées', showArchived, setShowArchived],
+          ]}
+          sources={availableSources}
+          selectedSources={selectedSources}
+          onToggleSource={toggleSource}
+          onClearSources={() => setSelectedSources(new Set())}
+        />
 
         {/* Rangée des filtres rapides. */}
         <QuickFilters

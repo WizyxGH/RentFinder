@@ -12,6 +12,7 @@ import { describe, expect, it, beforeEach, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { App } from './App.js';
+import { MVP_CRITERIA } from '@rentfinder/shared';
 import { MOCK_LISTINGS } from './api/mock-data.js';
 
 /**
@@ -48,8 +49,8 @@ describe('liste des annonces', () => {
     render(<App />);
     await screen.findAllByTestId('listing-card');
 
-    // Le réglage vit dans le menu déroulant « Affichage ».
-    await user.click(screen.getByRole('button', { name: /Affichage/ }));
+    // Le réglage vit dans la modale « Trier et filtrer ».
+    await user.click(screen.getByRole('button', { name: /Trier et filtrer/ }));
     await user.click(screen.getByLabelText(/hors critères/i));
 
     const cards = await screen.findAllByTestId('listing-card');
@@ -59,7 +60,13 @@ describe('liste des annonces', () => {
 
   it('rappelle les critères actifs (§36)', async () => {
     render(<App />);
-    expect(await screen.findByText(/≤ 700 € · ≥ 16 m²/)).toBeInTheDocument();
+    // On lit les critères depuis la configuration : les figer ici faisait
+    // échouer le test au moindre changement de surface minimale.
+    expect(
+      await screen.findByText(
+        new RegExp(`≤ ${MVP_CRITERIA.maxPrice} € · ≥ ${MVP_CRITERIA.minArea} m²`),
+      ),
+    ).toBeInTheDocument();
   });
 
   it('classe par priorité d’action, pas par prix (§36)', async () => {
@@ -77,7 +84,9 @@ describe('liste des annonces', () => {
     render(<App />);
     await screen.findAllByTestId('listing-card');
 
-    await user.selectOptions(screen.getByLabelText(/trier par/i), 'price');
+    await user.click(screen.getByRole('button', { name: /Trier et filtrer/ }));
+    await user.click(screen.getByRole('button', { name: /loyer/i }));
+    await user.click(screen.getByRole('button', { name: /Voir les résultats/ }));
 
     const cards = await screen.findAllByTestId('listing-card');
     // 420 € est le loyer le plus bas parmi les annonces dans les critères.
@@ -119,7 +128,7 @@ describe('fiche détaillée', () => {
     const user = userEvent.setup();
     render(<App />);
     const cards = await screen.findAllByTestId('listing-card');
-    await user.click(within(cards[0]!).getByRole('button', { name: 'Voir' }));
+    await user.click(within(cards[0]!).getByRole('button', { name: 'Contacter' }));
   };
 
   it('ouvre l’annonce et montre son titre', async () => {
@@ -232,7 +241,9 @@ describe('préparation du contact (§22)', () => {
 
     expect(await screen.findByRole('button', { name: 'Modifier' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Copier' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Ouvrir' })).toBeInTheDocument();
+    // Le libellé du lien explicite désormais le canal (« Ouvrir l'e-mail »,
+    // « Appeler », « Contacter via SeLoger »…) plutôt qu'un « Ouvrir » muet.
+    expect(screen.getByRole('link', { name: /Ouvrir|Appeler|Contacter via/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'J’ai envoyé' })).toBeInTheDocument();
   });
 
@@ -243,7 +254,7 @@ describe('préparation du contact (§22)', () => {
 
     // La deuxième annonce fictive n'a qu'un formulaire, aucun téléphone.
     const studio = cards.find((card) => within(card).queryByText(/650 €/) !== null);
-    await user.click(within(studio!).getByRole('button', { name: 'Voir' }));
+    await user.click(within(studio!).getByRole('button', { name: 'Contacter' }));
 
     expect(await screen.findByText('Formulaire')).toBeInTheDocument();
     expect(screen.queryByText('Téléphone')).not.toBeInTheDocument();
