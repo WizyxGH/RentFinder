@@ -50,6 +50,7 @@ import { saviEsteveScraper } from './savi-esteve/index.js';
 import { ashleyParkerScraper } from './ashley-parker/index.js';
 import { dinamyScraper } from './dinamy/index.js';
 import { immobiliereNicoiseScraper } from './immobiliere-nicoise/index.js';
+import { dragoScraper } from './drago/index.js';
 import { privilegeScraper } from './privilege/index.js';
 
 /**
@@ -99,6 +100,7 @@ export const ALL_SCRAPERS: readonly Scraper[] = [
   ashleyParkerScraper,
   dinamyScraper,
   immobiliereNicoiseScraper,
+  dragoScraper,
 ];
 
 export { laforetScraper } from './laforet/index.js';
