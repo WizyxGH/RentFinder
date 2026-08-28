@@ -209,11 +209,14 @@ export async function fetchSources(): Promise<{ sources: readonly SourceStateVie
 /** Statistiques, calculées localement en démo depuis les données fictives. */
 export async function fetchStats(): Promise<StatsData> {
   if (isDemoMode()) {
-    // « Pertinentes » = même filtre que la liste (in-criteria, non archivée,
-    // non louée), pour que le compteur Stats colle à l'onglet Annonces.
-    const matching = MOCK_LISTINGS.filter(
+    // « Pertinentes » = dans les critères, non archivée, non louée et ENCORE
+    // ACTIVE. Les annonces disparues de leur source sont comptées à part, sous
+    // « à vérifier » : les additionner gonflait le chiffre (§33).
+    const available = MOCK_LISTINGS.filter(
       (l) => l.matchesCriteria && l.archived !== true && l.rented !== true,
     );
+    const matching = available.filter((l) => l.lifecycle === 'active');
+    const uncertain = available.filter((l) => l.lifecycle === 'possiblyInactive');
     const byTracking: Record<string, number> = {};
     const bySource: Record<string, number> = {};
     for (const l of matching) byTracking[l.tracking] = (byTracking[l.tracking] ?? 0) + 1;
@@ -226,6 +229,7 @@ export async function fetchStats(): Promise<StatsData> {
       listings: {
         total: MOCK_LISTINGS.length,
         matching: matching.length,
+        uncertain: uncertain.length,
         active: MOCK_LISTINGS.filter((l) => l.lifecycle === 'active').length,
         viewed: matching.filter((l) => l.viewed === true).length,
         archived: MOCK_LISTINGS.filter((l) => l.archived === true).length,

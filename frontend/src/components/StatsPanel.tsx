@@ -89,9 +89,12 @@ export function StatsPanel(): React.JSX.Element {
       <div>
         <h3 className="mb-2 text-sm font-semibold text-muted-foreground">Annonces</h3>
         <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+          {/* « Pertinentes » ne compte que les annonces encore actives : y
+              ajouter les « à vérifier » doublait le chiffre affiché alors que
+              ces biens ont disparu de leur source (§33, §17). */}
           <Stat label="pertinentes" value={listings.matching} />
+          <Stat label="à vérifier" value={listings.uncertain ?? 0} />
           <Stat label="louées" value={listings.rented ?? 0} />
-          <Stat label="actives" value={listings.active} />
           <Stat label="consultées" value={listings.viewed} />
           <Stat label="archivées" value={listings.archived} />
           <Stat label="collectées" value={listings.total} />

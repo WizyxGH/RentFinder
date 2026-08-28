@@ -235,11 +235,17 @@ async function getStats(db: Client): Promise<unknown> {
   const [listings, engagement, contacts, outcomes, byTracking, bySource] = await Promise.all([
     db.execute(`
       SELECT COUNT(*) AS total,
-             -- « Pertinentes » = EXACTEMENT ce que montre l'onglet Annonces
-             -- (dans les critères, encore disponibles, non archivées), sinon
-             -- le compteur diverge de la liste (§33).
-             SUM(CASE WHEN matches_criteria = 1 AND lifecycle != 'inactive' AND archived = 0
+             -- « Pertinentes » ne compte QUE les annonces encore ACTIVES.
+             -- Auparavant ce total incluait aussi les « possiblement
+             -- inactives » — disparues de leur source depuis plusieurs
+             -- collectes, donc probablement louées : le chiffre annonçait
+             -- près du double d'opportunités réelles (§33, §17).
+             SUM(CASE WHEN matches_criteria = 1 AND lifecycle = 'active' AND archived = 0
                       AND rented = 0 THEN 1 ELSE 0 END) AS matching,
+             -- Comptées à part : toujours affichées et consultables, mais à
+             -- vérifier avant de s'en réjouir.
+             SUM(CASE WHEN matches_criteria = 1 AND lifecycle = 'possiblyInactive'
+                      AND archived = 0 AND rented = 0 THEN 1 ELSE 0 END) AS uncertain,
              SUM(CASE WHEN lifecycle = 'active' THEN 1 ELSE 0 END) AS active,
              SUM(CASE WHEN matches_criteria = 1 AND rented = 1 THEN 1 ELSE 0 END) AS rented
       FROM listings
@@ -268,6 +274,7 @@ async function getStats(db: Client): Promise<unknown> {
     listings: {
       total: Number(listings.rows[0]?.['total'] ?? 0),
       matching: Number(listings.rows[0]?.['matching'] ?? 0),
+      uncertain: Number(listings.rows[0]?.['uncertain'] ?? 0),
       rented: Number(listings.rows[0]?.['rented'] ?? 0),
       active: Number(listings.rows[0]?.['active'] ?? 0),
       viewed: Number(engagement.rows[0]?.['viewed'] ?? 0),

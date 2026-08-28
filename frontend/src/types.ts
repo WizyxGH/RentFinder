@@ -112,7 +112,13 @@ export type SortMode = 'priority' | 'recent' | 'price';
 export interface StatsData {
   readonly listings: {
     readonly total: number;
+    /** Annonces dans les critères et ENCORE ACTIVES : le vrai gisement. */
     readonly matching: number;
+    /**
+     * Dans les critères mais disparues de leur source depuis plusieurs
+     * collectes — affichées et consultables, mais à vérifier (§33).
+     */
+    readonly uncertain?: number;
     readonly active: number;
     readonly viewed: number;
     readonly archived: number;
