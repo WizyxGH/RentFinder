@@ -40,7 +40,12 @@ const PORTALS: readonly Portal[] = [
   {
     id: 'seloger',
     host: /(^|\.)seloger\.com$/i,
-    reference: (url) => /\/(\d{6,})/.exec(url.pathname)?.[1] ?? null,
+    // Deux générations d'identifiants coexistent : l'ancien tout numérique et
+    // l'actuel alphanumérique en capitales (« /annonce/262DQEQC5SVU »).
+    reference: (url) =>
+      /\/([0-9A-Z]{8,})\/?$/.exec(url.pathname)?.[1] ??
+      /\/(\d{6,})/.exec(url.pathname)?.[1] ??
+      null,
   },
   {
     id: 'bienici',
@@ -300,6 +305,28 @@ function buildFromTitle(
  * `email-alerts` ; le portail d'origine est porté par `sourceUrl` et
  * `extra.portal` (§13, §38).
  */
+/**
+ * Référence stable d'une annonce depuis son URL CANONIQUE (« seloger:262DQ… »).
+ *
+ * Les liens des e-mails sont des redirections opaques : au moment du parsing on
+ * ne peut que fabriquer une référence à partir du contenu (surface, prix,
+ * ville). Or ce contenu varie d'un e-mail à l'autre — l'un nomme la commune,
+ * l'autre non — et la MÊME annonce se retrouvait alors sous deux références,
+ * donc en doublon. Une fois le lien dénoué, on rétablit la vraie identité.
+ */
+export function referenceFromUrl(href: string): string | null {
+  let url: URL;
+  try {
+    url = new URL(href);
+  } catch {
+    return null;
+  }
+  const portal = PORTALS.find((candidate) => candidate.host.test(url.hostname));
+  if (portal === undefined) return null;
+  const reference = portal.reference(url);
+  return reference === null ? null : `${portal.id}:${reference}`;
+}
+
 export function parseAlertEmail(html: string): RawListing[] {
   const $ = cheerio.load(html);
   const bySourceRef = new Map<string, RawListing>();

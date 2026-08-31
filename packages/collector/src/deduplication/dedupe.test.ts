@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest';
 import type { NormalizedListing } from '@rentfinder/shared';
 import { EMPTY_CONTACT } from '@rentfinder/shared';
 import { similarity } from './similarity.js';
-import { dedupe } from './dedupe.js';
+import { blockingKeys, dedupe } from './dedupe.js';
 import { mergeGroup } from './merge.js';
 
 const BASE_TIME = '2026-08-14T12:00:00.000Z';
@@ -313,5 +313,67 @@ describe('mergeGroup — fusion des informations (§15)', () => {
     const merged = mergeGroup(occurrences);
     expect(merged.latitude.value).toBe(43.7);
     expect(merged.description.value).toBe('Bel appartement rénové');
+  });
+});
+
+describe('similarité — le quartier', () => {
+  it('renforce la confiance quand le quartier est identique', () => {
+    const base = { price: 660, area: 32, rooms: 1, city: 'nice' } as const;
+    const sans = similarity(
+      listing({ id: 'a:d1', sourceId: 'a', ...base }),
+      listing({ id: 'b:d1', sourceId: 'b', ...base }),
+    );
+    const avec = similarity(
+      listing({ id: 'a:d2', sourceId: 'a', ...base, district: 'Gambetta' }),
+      listing({ id: 'b:d2', sourceId: 'b', ...base, district: 'gambetta' }),
+    );
+    expect(avec.score).toBeGreaterThan(sans.score);
+    expect(avec.signals.map((s) => s.code)).toContain('district');
+  });
+
+  it('reconnaît le quartier nommé dans le TITRE de l’autre annonce', () => {
+    // Cas réel : « STUDIO GAMBETTA » (portail, sans champ quartier) face à
+    // l'annonce de l'agence, qui renseigne « Gambetta ».
+    const portail = listing({
+      id: 'p:d3',
+      sourceId: 'email-alerts',
+      title: 'STUDIO GAMBETTA',
+      price: 660,
+      area: 32,
+      rooms: 1,
+    });
+    const agence = listing({
+      id: 'a:d3',
+      sourceId: 'agence',
+      title: 'Appartement — Nice - Gambetta',
+      price: 660,
+      area: 32,
+      rooms: 1,
+      district: 'Gambetta',
+    });
+    expect(similarity(portail, agence).signals.map((s) => s.code)).toContain('district');
+  });
+
+  it('ne rapproche pas deux quartiers différents', () => {
+    const a = listing({ id: 'a:d4', sourceId: 'a', price: 660, area: 32, district: 'Gambetta' });
+    const b = listing({ id: 'b:d4', sourceId: 'b', price: 660, area: 32, district: 'Cimiez' });
+    expect(similarity(a, b).signals.map((s) => s.code)).not.toContain('district');
+  });
+});
+
+describe('blockingKeys — ville inconnue', () => {
+  it('compare quand même une annonce sans ville à une annonce localisée', () => {
+    // Les e-mails d'alerte ne portent pas toujours la commune : sans clé
+    // indépendante de la ville, ces annonces n'étaient JAMAIS comparées.
+    const sansVille = listing({ id: 'a:k', sourceId: 'email', price: 660, area: 32, city: null });
+    const avecVille = listing({
+      id: 'b:k',
+      sourceId: 'agence',
+      price: 660,
+      area: 32,
+      city: 'nice',
+    });
+    const communes = blockingKeys(sansVille).filter((k) => blockingKeys(avecVille).includes(k));
+    expect(communes.length).toBeGreaterThan(0);
   });
 });

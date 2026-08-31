@@ -91,6 +91,27 @@ export function blockingKeys(listing: NormalizedListing): string[] {
     keys.push(`price:${city}:${bucket - 1}`);
   }
 
+  // Clé SANS ville, croisant loyer ET surface.
+  //
+  // Indispensable : toutes les clés ci-dessus sont préfixées par la commune, si
+  // bien qu'une annonce dont la ville est inconnue — les e-mails d'alerte n'en
+  // portent pas toujours — n'était JAMAIS comparée à la même annonce publiée
+  // par l'agence avec sa ville. Elle ressortait en doublon visible.
+  //
+  // Croiser les deux tranches garde le seau étroit (un loyer À 50 € près ET une
+  // surface à 5 m² près) : on ne rouvre pas la comparaison à tout le stock. Et
+  // la comparaison fine tranche ensuite — elle refuse deux villes connues et
+  // différentes, donc cette clé ne peut pas provoquer de fusion abusive (§14).
+  if (listing.price !== null && listing.area !== null) {
+    const priceBucket = Math.round(listing.price / 50);
+    const areaBucket = Math.round(listing.area / 5);
+    for (const p of [priceBucket, priceBucket - 1]) {
+      for (const a of [areaBucket, areaBucket - 1]) {
+        keys.push(`pa:${p}:${a}`);
+      }
+    }
+  }
+
   return keys;
 }
 

@@ -18,7 +18,7 @@ import type {
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
 import { loadImapConfig } from '../../config.js';
 import { fetchAlertEmails } from '../../core/email-import.js';
-import { parseAlertEmail } from './parser.js';
+import { parseAlertEmail, referenceFromUrl } from './parser.js';
 
 export const EMAIL_ALERTS_DESCRIPTOR: SourceDescriptor = {
   id: 'email-alerts',
@@ -88,7 +88,17 @@ async function resolveCanonicalUrls(
         // humain partagerait.
         const url = new URL(target);
         url.search = '';
-        resolved.push({ ...listing, sourceUrl: url.toString(), contactFormUrl: url.toString() });
+        const canonical = url.toString();
+        // L'URL dénouée porte le VRAI identifiant de l'annonce : on l'adopte à
+        // la place de la référence fabriquée depuis le contenu de l'e-mail,
+        // qui variait d'un envoi à l'autre et créait des doublons.
+        const reference = referenceFromUrl(canonical);
+        resolved.push({
+          ...listing,
+          ...(reference !== null ? { sourceRef: reference } : {}),
+          sourceUrl: canonical,
+          contactFormUrl: canonical,
+        });
         continue;
       }
     } catch (error) {

@@ -182,6 +182,21 @@ function collectMediumSignals(
     push({ code: 'postalCode', label: 'même code postal', points: 4 });
   }
 
+  // Le QUARTIER situe bien plus finement que la commune : à Nice, « Gambetta »
+  // vaut mieux que « Nice ». Il n'était pas exploité du tout. On le lit aussi
+  // dans le titre de l'autre annonce (« STUDIO GAMBETTA »), les portails le
+  // mettant souvent là plutôt que dans un champ dédié.
+  const districtA = a.district;
+  const districtB = b.district;
+  if (districtA !== null && districtB !== null && comparable(districtA) === comparable(districtB)) {
+    push({ code: 'district', label: `même quartier (${districtA})`, points: 12 });
+  } else if (
+    (districtA !== null && tokenize(b.title).includes(comparable(districtA))) ||
+    (districtB !== null && tokenize(a.title).includes(comparable(districtB)))
+  ) {
+    push({ code: 'district', label: 'quartier nommé dans le titre', points: 8 });
+  }
+
   const titleScore = jaccard(tokenize(a.title), tokenize(b.title));
   if (titleScore > 0.4) {
     push({

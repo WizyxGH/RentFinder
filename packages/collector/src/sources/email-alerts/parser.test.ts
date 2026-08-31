@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseAlertEmail, resolvePortalUrl } from './parser.js';
+import { parseAlertEmail, referenceFromUrl, resolvePortalUrl } from './parser.js';
 
 describe('resolvePortalUrl', () => {
   it('reconnaît un lien Leboncoin direct', () => {
@@ -206,5 +206,36 @@ describe('parseAlertEmail — Bien’ici meublé', () => {
     expect(l?.roomsText).toContain('4 pièces');
     expect(l?.propertyTypeText).toBe('appartement');
     expect(l?.imageUrls?.[0]).toContain('file.bienici.com');
+  });
+});
+
+describe('referenceFromUrl', () => {
+  it('lit l’identifiant SeLoger moderne, alphanumérique', () => {
+    // Les URL canoniques actuelles ne sont plus numériques : l'ancien
+    // extracteur ne les reconnaissait pas.
+    expect(referenceFromUrl('https://www.seloger.com/annonce/262DQEQC5SVU')).toBe(
+      'seloger:262DQEQC5SVU',
+    );
+    expect(
+      referenceFromUrl(
+        'https://www.seloger.com/annonce/location/provence-alpes-cote-d-azur/alpes-maritimes-06/nice-06000/26DFQW7W1VRY',
+      ),
+    ).toBe('seloger:26DFQW7W1VRY');
+  });
+
+  it('reconnaît encore les anciens identifiants numériques', () => {
+    expect(
+      referenceFromUrl(
+        'https://www.seloger.com/annonces/locations/appartement/nice-06/123456789.htm',
+      ),
+    ).toBe('seloger:123456789');
+  });
+
+  it('gère les autres portails et rend null hors portail connu', () => {
+    expect(referenceFromUrl('https://www.leboncoin.fr/locations/2938451209.htm')).toBe(
+      'leboncoin:2938451209',
+    );
+    expect(referenceFromUrl('https://exemple.invalid/annonce/1')).toBeNull();
+    expect(referenceFromUrl('pas une url')).toBeNull();
   });
 });
