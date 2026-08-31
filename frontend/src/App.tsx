@@ -49,6 +49,7 @@ import { ProfileForm } from './components/ProfileForm.js';
 import { SourcesPanel } from './components/SourcesPanel.js';
 import { FiltersPanel } from './components/FiltersPanel.js';
 import { StatsPanel } from './components/StatsPanel.js';
+import { Search, SlidersHorizontal } from 'lucide-react';
 import { SortFilterModal } from './components/SortFilterModal.js';
 import {
   QuickFilters,
@@ -190,6 +191,7 @@ export function App(): React.JSX.Element {
   const [sort, setSort] = useState<SortMode>('priority');
   const [sortFilterOpen, setSortFilterOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const [hideUncertain, setHideUncertain] = useState(false);
   const [includeOutOfCriteria, setIncludeOutOfCriteria] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [favoritesOnly, setFavoritesOnly] = useState(false);
@@ -239,8 +241,11 @@ export function App(): React.JSX.Element {
         ? listings
         : listings.filter((l) => l.occurrences.some((o) => selectedSources.has(o.sourceId)));
     const byQuick = bySource.filter((l) => matchesQuickFilters(l, quickFilters));
-    return byQuick.filter((l) => matchesSearch(l, search));
-  }, [listings, selectedSources, quickFilters, search]);
+    const bySearch = byQuick.filter((l) => matchesSearch(l, search));
+    // « À vérifier » = disparue de sa source depuis plusieurs collectes. On peut
+    // les masquer pour ne garder que ce qui est encore publié (§33).
+    return hideUncertain ? bySearch.filter((l) => l.lifecycle !== 'possiblyInactive') : bySearch;
+  }, [listings, selectedSources, quickFilters, search, hideUncertain]);
   // §36 : en tri par priorité, on classe par priorité d'action AJUSTÉE de
   // l'affinité — les annonces proches de vos préférences remontent.
   const ranked = useMemo(
@@ -505,7 +510,10 @@ export function App(): React.JSX.Element {
   // l'affichage du réglage par défaut (tri par priorité, aucune bascule, toutes
   // les sources).
   const activeFilterCount =
-    (favoritesOnly ? 1 : 0) + (includeOutOfCriteria ? 1 : 0) + (showArchived ? 1 : 0);
+    (favoritesOnly ? 1 : 0) +
+    (includeOutOfCriteria ? 1 : 0) +
+    (showArchived ? 1 : 0) +
+    (hideUncertain ? 1 : 0);
   // Deux compteurs distincts pour la liste : les annonces encore actives, et
   // celles qui ont disparu de leur source (affichées, mais à vérifier).
   const activeCount = filtered.filter((l) => l.lifecycle === 'active').length;
@@ -598,21 +606,21 @@ export function App(): React.JSX.Element {
           </div>
 
           {/* Recherche libre : quartier, rue, agence, mot du titre (§36). */}
-          <div className="relative">
+          {/* Pleine largeur sur mobile (elle prend sa propre ligne), puis elle
+            occupe l'espace restant de la barre sur écran large. */}
+          <div className="relative w-full min-w-0 flex-1 sm:w-auto sm:max-w-xs">
             <input
               type="search"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Rechercher (quartier, rue, agence…)"
               aria-label="Rechercher une annonce"
-              className="w-48 rounded-full border border-input bg-card py-1.5 pl-8 pr-3 sm:w-64"
+              className="w-full rounded-full border border-input bg-card py-1.5 pl-8 pr-3"
             />
-            <span
+            <Search
               aria-hidden="true"
-              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-            >
-              ⌕
-            </span>
+              className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+            />
           </div>
 
           {/* Tri, affichage et sources sont regroupés dans une seule modale :
@@ -623,7 +631,7 @@ export function App(): React.JSX.Element {
             onClick={() => setSortFilterOpen(true)}
             className="flex cursor-pointer items-center gap-2 rounded-full border border-input bg-card px-3 py-1.5 font-medium transition-colors hover:bg-accent"
           >
-            <span aria-hidden="true">⇅</span>
+            <SlidersHorizontal aria-hidden="true" className="size-4" />
             Trier et filtrer
             {toolbarBadge > 0 && (
               <span className="rounded-full bg-primary px-1.5 text-xs font-semibold text-primary-foreground">
@@ -653,10 +661,14 @@ export function App(): React.JSX.Element {
           onSortChange={setSort}
           sortOptions={SORT_OPTIONS}
           toggles={[
+            ['Masquer les annonces à vérifier', hideUncertain, setHideUncertain],
             ['Favoris uniquement', favoritesOnly, setFavoritesOnly],
             ['Annonces hors critères', includeOutOfCriteria, setIncludeOutOfCriteria],
             ['Annonces archivées', showArchived, setShowArchived],
           ]}
+          quickFilters={quickFilters}
+          onQuickFiltersChange={setQuickFilters}
+          availableTypes={availableTypes}
           sources={availableSources}
           selectedSources={selectedSources}
           onToggleSource={toggleSource}
@@ -664,11 +676,7 @@ export function App(): React.JSX.Element {
         />
 
         {/* Rangée des filtres rapides. */}
-        <QuickFilters
-          values={quickFilters}
-          onChange={setQuickFilters}
-          availableTypes={availableTypes}
-        />
+        <QuickFilters values={quickFilters} onChange={setQuickFilters} />
       </div>
 
       {error !== null && (

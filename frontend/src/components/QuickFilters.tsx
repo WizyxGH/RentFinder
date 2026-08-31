@@ -1,19 +1,21 @@
 /**
- * Filtres rapides de la liste, façon SeLoger (§36, §39).
+ * Filtres rapides de la liste (§36, §39) : le MODÈLE et le rappel visuel.
  *
- * Une rangée de « pills » — Budget, Surface, Pièces, Type — qui affinent la
- * liste DÉJÀ chargée (filtrage d'affichage, sans toucher aux critères de
- * collecte réglés dans l'onglet « Filtres »). Une pill active est surlignée et
- * porte sa valeur ; sous la rangée, des puces rappellent les filtres posés et
- * permettent de les retirer un à un ou tous d'un coup.
+ * Ils affinent la liste DÉJÀ chargée, sans toucher aux critères de collecte
+ * réglés dans l'onglet « Filtres ». Les CONTRÔLES vivent dans la modale
+ * « Trier et filtrer » (voir `SortFilterModal.tsx`) ; ce composant n'affiche
+ * plus que les puces des filtres posés, pour les voir d'un coup d'œil et les
+ * retirer un à un ou tous d'un coup — les menus déroulants d'origine faisaient
+ * doublon avec la modale.
  */
 
 import type { PropertyType } from '@rentfinder/shared';
 import { formatPropertyType } from '../format.js';
-import { Dropdown } from './Dropdown.js';
 
 /** État des filtres rapides. `null`/vide = filtre inactif. */
 export interface QuickFilterValues {
+  /** Loyer plancher : écarte les annonces trop bon marché pour être crédibles. */
+  readonly minPrice: number | null;
   readonly maxPrice: number | null;
   readonly minArea: number | null;
   readonly minRooms: number | null;
@@ -21,6 +23,7 @@ export interface QuickFilterValues {
 }
 
 export const EMPTY_QUICK_FILTERS: QuickFilterValues = {
+  minPrice: null,
   maxPrice: null,
   minArea: null,
   minRooms: null,
@@ -29,7 +32,13 @@ export const EMPTY_QUICK_FILTERS: QuickFilterValues = {
 
 /** `true` si au moins un filtre rapide est posé. */
 export function hasActiveQuickFilters(v: QuickFilterValues): boolean {
-  return v.maxPrice !== null || v.minArea !== null || v.minRooms !== null || v.types.size > 0;
+  return (
+    v.minPrice !== null ||
+    v.maxPrice !== null ||
+    v.minArea !== null ||
+    v.minRooms !== null ||
+    v.types.size > 0
+  );
 }
 
 /** Champs d'une annonce que les filtres rapides inspectent (§17). */
@@ -48,6 +57,9 @@ export function matchesQuickFilters(listing: QuickFilterable, v: QuickFilterValu
   if (v.maxPrice !== null && (listing.price.value === null || listing.price.value > v.maxPrice)) {
     return false;
   }
+  if (v.minPrice !== null && (listing.price.value === null || listing.price.value < v.minPrice)) {
+    return false;
+  }
   if (v.minArea !== null && (listing.area.value === null || listing.area.value < v.minArea)) {
     return false;
   }
@@ -57,22 +69,14 @@ export function matchesQuickFilters(listing: QuickFilterable, v: QuickFilterValu
   return v.types.size === 0 || v.types.has(listing.propertyType.value);
 }
 
-const PRICE_PRESETS = [700, 900, 1100, 1300, 1500] as const;
-const AREA_PRESETS = [20, 30, 40, 50, 60] as const;
-const ROOM_PRESETS = [1, 2, 3, 4, 5] as const;
+export const ROOM_PRESETS = [1, 2, 3, 4, 5] as const;
 
 interface QuickFiltersProps {
   readonly values: QuickFilterValues;
   readonly onChange: (next: QuickFilterValues) => void;
-  /** Types de biens réellement présents dans la liste, pour ne proposer qu'eux. */
-  readonly availableTypes: readonly PropertyType[];
 }
 
-export function QuickFilters({
-  values,
-  onChange,
-  availableTypes,
-}: QuickFiltersProps): React.JSX.Element {
+export function QuickFilters({ values, onChange }: QuickFiltersProps): React.JSX.Element {
   const patch = (part: Partial<QuickFilterValues>): void => onChange({ ...values, ...part });
 
   const toggleType = (type: PropertyType): void => {
@@ -84,93 +88,6 @@ export function QuickFilters({
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex flex-wrap items-center gap-2">
-        {/* Budget (loyer maximum). */}
-        <Dropdown
-          label={values.maxPrice === null ? 'Budget' : `≤ ${values.maxPrice} €`}
-          active={values.maxPrice !== null}
-          panelClassName="w-56"
-        >
-          <PresetGrid
-            options={PRICE_PRESETS.map((p) => ({ value: p, label: `≤ ${p} €` }))}
-            selected={values.maxPrice}
-            onSelect={(v) => patch({ maxPrice: v })}
-          />
-          <CustomNumber
-            label="Loyer max (€)"
-            value={values.maxPrice}
-            onChange={(v) => patch({ maxPrice: v })}
-          />
-        </Dropdown>
-
-        {/* Surface (minimum). */}
-        <Dropdown
-          label={values.minArea === null ? 'Surface' : `≥ ${values.minArea} m²`}
-          active={values.minArea !== null}
-          panelClassName="w-56"
-        >
-          <PresetGrid
-            options={AREA_PRESETS.map((a) => ({ value: a, label: `≥ ${a} m²` }))}
-            selected={values.minArea}
-            onSelect={(v) => patch({ minArea: v })}
-          />
-          <CustomNumber
-            label="Surface min (m²)"
-            value={values.minArea}
-            onChange={(v) => patch({ minArea: v })}
-          />
-        </Dropdown>
-
-        {/* Pièces (minimum). */}
-        <Dropdown
-          label={values.minRooms === null ? 'Pièces' : `${values.minRooms}+ pièces`}
-          active={values.minRooms !== null}
-          panelClassName="w-48"
-        >
-          <div className="flex flex-wrap gap-1.5">
-            <PillButton
-              selected={values.minRooms === null}
-              onClick={() => patch({ minRooms: null })}
-            >
-              Indifférent
-            </PillButton>
-            {ROOM_PRESETS.map((r) => (
-              <PillButton
-                key={r}
-                selected={values.minRooms === r}
-                onClick={() => patch({ minRooms: r })}
-              >
-                {r}+
-              </PillButton>
-            ))}
-          </div>
-        </Dropdown>
-
-        {/* Type de bien (multi-sélection, limité aux types présents). */}
-        {availableTypes.length > 1 && (
-          <Dropdown
-            label={values.types.size === 0 ? 'Type' : `Type · ${values.types.size}`}
-            active={values.types.size > 0}
-            panelClassName="w-52"
-          >
-            <ul className="flex flex-col gap-0.5">
-              {availableTypes.map((type) => (
-                <li key={type}>
-                  <label className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-muted">
-                    <input
-                      type="checkbox"
-                      checked={values.types.has(type)}
-                      onChange={() => toggleType(type)}
-                    />
-                    <span>{formatPropertyType(type)}</span>
-                  </label>
-                </li>
-              ))}
-            </ul>
-          </Dropdown>
-        )}
-      </div>
-
       {/* Puces des filtres actifs, retirables. */}
       {hasActiveQuickFilters(values) && (
         <div className="flex flex-wrap items-center gap-1.5">
@@ -212,33 +129,8 @@ export function QuickFilters({
   );
 }
 
-/** Grille de valeurs prédéfinies ; re-cliquer la valeur active la désactive. */
-function PresetGrid({
-  options,
-  selected,
-  onSelect,
-}: {
-  readonly options: readonly { value: number; label: string }[];
-  readonly selected: number | null;
-  readonly onSelect: (value: number | null) => void;
-}): React.JSX.Element {
-  return (
-    <div className="mb-2 flex flex-wrap gap-1.5">
-      {options.map((option) => (
-        <PillButton
-          key={option.value}
-          selected={selected === option.value}
-          onClick={() => onSelect(selected === option.value ? null : option.value)}
-        >
-          {option.label}
-        </PillButton>
-      ))}
-    </div>
-  );
-}
-
 /** Petit bouton-pilule sélectionnable, réutilisé dans les panneaux. */
-function PillButton({
+export function PillButton({
   selected,
   onClick,
   children,
@@ -260,34 +152,6 @@ function PillButton({
     >
       {children}
     </button>
-  );
-}
-
-/** Saisie libre d'un nombre, avec bouton d'effacement. */
-function CustomNumber({
-  label,
-  value,
-  onChange,
-}: {
-  readonly label: string;
-  readonly value: number | null;
-  readonly onChange: (value: number | null) => void;
-}): React.JSX.Element {
-  return (
-    <label className="mt-1 flex items-center gap-2 border-t border-border pt-2 text-sm">
-      <span className="text-muted-foreground">{label}</span>
-      <input
-        type="number"
-        inputMode="numeric"
-        min={0}
-        value={value ?? ''}
-        onChange={(event) => {
-          const next = event.target.value.trim();
-          onChange(next === '' ? null : Number(next));
-        }}
-        className="w-20 rounded-lg border border-border px-2 py-1"
-      />
-    </label>
   );
 }
 

@@ -11,8 +11,11 @@
  */
 
 import { useEffect, useRef } from 'react';
+import { Check, X } from 'lucide-react';
 import type { SortMode } from '../types.js';
-import { formatSourceName } from '../format.js';
+import type { PropertyType } from '@rentfinder/shared';
+import { formatPropertyType, formatSourceName } from '../format.js';
+import { PillButton, ROOM_PRESETS, type QuickFilterValues } from './QuickFilters.js';
 import { Button } from '@/components/ui/button.js';
 
 export interface SortFilterModalProps {
@@ -25,6 +28,12 @@ export interface SortFilterModalProps {
 
   /** Bascules d'affichage : libellé, état, setter. */
   readonly toggles: readonly (readonly [string, boolean, (value: boolean) => void])[];
+
+  /** Budget, surface, pièces et type : les mêmes réglages que les pills. */
+  readonly quickFilters: QuickFilterValues;
+  readonly onQuickFiltersChange: (next: QuickFilterValues) => void;
+  /** Types réellement présents dans la liste, pour ne proposer qu'eux. */
+  readonly availableTypes: readonly PropertyType[];
 
   readonly sources: readonly string[];
   readonly selectedSources: ReadonlySet<string>;
@@ -39,12 +48,25 @@ export function SortFilterModal({
   onSortChange,
   sortOptions,
   toggles,
+  quickFilters,
+  onQuickFiltersChange,
+  availableTypes,
   sources,
   selectedSources,
   onToggleSource,
   onClearSources,
 }: SortFilterModalProps): React.JSX.Element | null {
   const panel = useRef<HTMLDivElement>(null);
+
+  const patch = (part: Partial<QuickFilterValues>): void =>
+    onQuickFiltersChange({ ...quickFilters, ...part });
+
+  const toggleType = (type: PropertyType): void => {
+    const next = new Set(quickFilters.types);
+    if (next.has(type)) next.delete(type);
+    else next.add(type);
+    patch({ types: next });
+  };
 
   useEffect(() => {
     if (!open) return undefined;
@@ -80,11 +102,86 @@ export function SortFilterModal({
             type="button"
             onClick={onClose}
             aria-label="Fermer"
-            className="cursor-pointer rounded-lg px-2 py-1 text-xl leading-none text-muted-foreground hover:bg-muted"
+            className="cursor-pointer rounded-lg p-1.5 text-muted-foreground hover:bg-muted"
           >
-            ×
+            <X aria-hidden="true" className="size-5" />
           </button>
         </div>
+
+        <fieldset className="mb-5">
+          <legend className="mb-2 text-sm font-semibold text-muted-foreground">Budget</legend>
+          {/* Fourchette libre plutôt que des paliers : chaque recherche a son
+            propre encadrement, et un plancher sert à écarter les annonces trop
+            bon marché pour être crédibles. */}
+          <div className="flex items-center gap-2">
+            <NumberField
+              label="de"
+              suffix="€"
+              value={quickFilters.minPrice}
+              onChange={(v) => patch({ minPrice: v })}
+            />
+            <NumberField
+              label="à"
+              suffix="€"
+              value={quickFilters.maxPrice}
+              onChange={(v) => patch({ maxPrice: v })}
+            />
+          </div>
+        </fieldset>
+
+        <fieldset className="mb-5">
+          <legend className="mb-2 text-sm font-semibold text-muted-foreground">Surface</legend>
+          {/* Un seul champ : une surface MINIMALE suffit à cet usage. */}
+          <NumberField
+            label="au moins"
+            suffix="m²"
+            value={quickFilters.minArea}
+            onChange={(v) => patch({ minArea: v })}
+          />
+        </fieldset>
+
+        <fieldset className="mb-5">
+          <legend className="mb-2 text-sm font-semibold text-muted-foreground">Pièces</legend>
+          <div className="flex flex-wrap gap-1.5">
+            <PillButton
+              selected={quickFilters.minRooms === null}
+              onClick={() => patch({ minRooms: null })}
+            >
+              Indifférent
+            </PillButton>
+            {ROOM_PRESETS.map((r) => (
+              <PillButton
+                key={r}
+                selected={quickFilters.minRooms === r}
+                onClick={() => patch({ minRooms: r })}
+              >
+                {r}+
+              </PillButton>
+            ))}
+          </div>
+        </fieldset>
+
+        {availableTypes.length > 1 && (
+          <fieldset className="mb-5">
+            <legend className="mb-2 text-sm font-semibold text-muted-foreground">
+              Type de bien
+            </legend>
+            <ul className="flex flex-col gap-0.5">
+              {availableTypes.map((type) => (
+                <li key={type}>
+                  <label className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-muted">
+                    <input
+                      type="checkbox"
+                      checked={quickFilters.types.has(type)}
+                      onChange={() => toggleType(type)}
+                    />
+                    <span>{formatPropertyType(type)}</span>
+                  </label>
+                </li>
+              ))}
+            </ul>
+          </fieldset>
+        )}
 
         <fieldset className="mb-5">
           <legend className="mb-2 text-sm font-semibold text-muted-foreground">Trier par</legend>
@@ -101,8 +198,8 @@ export function SortFilterModal({
                       : 'hover:bg-muted'
                   }`}
                 >
-                  <span aria-hidden="true" className="w-4">
-                    {sort === option.value ? '✓' : ''}
+                  <span aria-hidden="true" className="flex w-4 justify-center">
+                    {sort === option.value ? <Check className="size-4" /> : null}
                   </span>
                   {option.label}
                 </button>
@@ -165,5 +262,36 @@ export function SortFilterModal({
         </Button>
       </div>
     </div>
+  );
+}
+
+/** Champ numérique court, précédé d'un libellé et suivi de son unité. */
+function NumberField({
+  label,
+  suffix,
+  value,
+  onChange,
+}: {
+  readonly label: string;
+  readonly suffix: string;
+  readonly value: number | null;
+  readonly onChange: (value: number | null) => void;
+}): React.JSX.Element {
+  return (
+    <label className="flex items-center gap-1.5 text-sm">
+      <span className="text-muted-foreground">{label}</span>
+      <input
+        type="number"
+        inputMode="numeric"
+        min={0}
+        value={value ?? ''}
+        onChange={(event) => {
+          const next = event.target.value.trim();
+          onChange(next === '' ? null : Number(next));
+        }}
+        className="w-24 rounded-lg border border-border px-2 py-1.5"
+      />
+      <span className="text-muted-foreground">{suffix}</span>
+    </label>
   );
 }
