@@ -57,6 +57,7 @@ import {
   matchesQuickFilters,
   type QuickFilterValues,
 } from './components/QuickFilters.js';
+import { matchesSearch } from './search.js';
 
 // Leaflet n'entre dans le bundle que si la vue carte est ouverte (§65).
 const MapView = lazy(() => import('./components/MapView.js'));
@@ -188,6 +189,7 @@ export function App(): React.JSX.Element {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sort, setSort] = useState<SortMode>('priority');
   const [sortFilterOpen, setSortFilterOpen] = useState(false);
+  const [search, setSearch] = useState('');
   const [includeOutOfCriteria, setIncludeOutOfCriteria] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [favoritesOnly, setFavoritesOnly] = useState(false);
@@ -229,14 +231,16 @@ export function App(): React.JSX.Element {
       [...new Set(listings.map((l) => l.propertyType.value))].filter((t) => t !== 'unknown').sort(),
     [listings],
   );
-  // Filtre par source (§13) PUIS filtres rapides (budget/surface/pièces/type).
+  // Filtre par source (§13), puis filtres rapides (budget/surface/pièces/type),
+  // puis la recherche libre.
   const filtered = useMemo(() => {
     const bySource =
       selectedSources.size === 0
         ? listings
         : listings.filter((l) => l.occurrences.some((o) => selectedSources.has(o.sourceId)));
-    return bySource.filter((l) => matchesQuickFilters(l, quickFilters));
-  }, [listings, selectedSources, quickFilters]);
+    const byQuick = bySource.filter((l) => matchesQuickFilters(l, quickFilters));
+    return byQuick.filter((l) => matchesSearch(l, search));
+  }, [listings, selectedSources, quickFilters, search]);
   // §36 : en tri par priorité, on classe par priorité d'action AJUSTÉE de
   // l'affinité — les annonces proches de vos préférences remontent.
   const ranked = useMemo(
@@ -502,6 +506,10 @@ export function App(): React.JSX.Element {
   // les sources).
   const activeFilterCount =
     (favoritesOnly ? 1 : 0) + (includeOutOfCriteria ? 1 : 0) + (showArchived ? 1 : 0);
+  // Deux compteurs distincts pour la liste : les annonces encore actives, et
+  // celles qui ont disparu de leur source (affichées, mais à vérifier).
+  const activeCount = filtered.filter((l) => l.lifecycle === 'active').length;
+  const uncertainCount = filtered.filter((l) => l.lifecycle === 'possiblyInactive').length;
   const toolbarBadge =
     activeFilterCount + (sort !== 'priority' ? 1 : 0) + (selectedSources.size > 0 ? 1 : 0);
 
@@ -589,6 +597,24 @@ export function App(): React.JSX.Element {
             </button>
           </div>
 
+          {/* Recherche libre : quartier, rue, agence, mot du titre (§36). */}
+          <div className="relative">
+            <input
+              type="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Rechercher (quartier, rue, agence…)"
+              aria-label="Rechercher une annonce"
+              className="w-48 rounded-full border border-input bg-card py-1.5 pl-8 pr-3 sm:w-64"
+            />
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+            >
+              ⌕
+            </span>
+          </div>
+
           {/* Tri, affichage et sources sont regroupés dans une seule modale :
             trois menus déroulants côte à côte tenaient mal sur mobile et rien
             ne disait qu'ils formaient un même réglage (§36). */}
@@ -606,10 +632,16 @@ export function App(): React.JSX.Element {
             )}
           </button>
 
-          {/* Compteur de résultats, poussé à droite (repère façon SeLoger). */}
+          {/* Compteur de résultats, poussé à droite (repère façon SeLoger).
+            Il distingue les annonces ACTIVES de celles disparues de leur source :
+            un total unique laissait croire à deux fois plus d'opportunités, et
+            divergeait du compteur de l'onglet Statistiques (§33, §17). */}
           {!loading && (
             <span className="ml-auto font-semibold text-muted-foreground" aria-live="polite">
-              {filtered.length} résultat{filtered.length > 1 ? 's' : ''}
+              {activeCount} résultat{activeCount > 1 ? 's' : ''}
+              {uncertainCount > 0 && (
+                <span className="font-normal"> · {uncertainCount} à vérifier</span>
+              )}
             </span>
           )}
         </div>
