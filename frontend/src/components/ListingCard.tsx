@@ -321,10 +321,12 @@ export function ListingCard({
               </span>
             )}
             {formatDuration(distance.durationMinutes)}
-            <span className="text-muted-foreground">
-              {' '}
-              ({distance.distanceKm} km à vol d’oiseau)
-            </span>
+            {distance.distanceKm !== undefined && (
+              <span className="text-muted-foreground">
+                {' '}
+                ({distance.distanceKm} km à vol d’oiseau)
+              </span>
+            )}
           </span>
         ))}
       </div>

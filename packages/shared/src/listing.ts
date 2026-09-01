@@ -258,8 +258,12 @@ export interface AggregatedListing {
 export interface ReferenceDistance {
   /** Libellé neutre affiché dans l'interface, ex. `Travail`, `Gare`. */
   readonly label: string;
-  /** Distance à vol d'oiseau en kilomètres. */
-  readonly distanceKm: number;
+  /**
+   * Distance à vol d'oiseau en kilomètres. ABSENTE des données publiées vers
+   * le cloud : couplée aux coordonnées de l'annonce, elle permettrait de
+   * trilatérer le point de référence — donc de localiser l'utilisateur (§26).
+   */
+  readonly distanceKm?: number;
   /** Durée en minutes, selon le mode retenu. */
   readonly durationMinutes: number;
   /** Mode de déplacement utilisé pour l'estimation. */

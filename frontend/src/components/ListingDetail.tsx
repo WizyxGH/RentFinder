@@ -234,8 +234,13 @@ export function ListingDetail({
               )}
               {formatDuration(distance.durationMinutes)}{' '}
               <span className="text-sm text-muted-foreground">
-                ({distance.distanceKm} km à vol d’oiseau
-                {distance.durationSource === 'transit' ? ', durée réelle en transport' : ''})
+                {distance.distanceKm !== undefined
+                  ? `(${distance.distanceKm} km à vol d’oiseau${
+                      distance.durationSource === 'transit' ? ', durée réelle en transport' : ''
+                    })`
+                  : distance.durationSource === 'transit'
+                    ? '(durée réelle en transport)'
+                    : ''}
               </span>
             </li>
           ))}
