@@ -18,7 +18,7 @@ import type {
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
 import { loadImapConfig } from '../../config.js';
 import { fetchAlertEmails } from '../../core/email-import.js';
-import { parseAlertEmail, referenceFromUrl } from './parser.js';
+import { locationFromUrl, parseAlertEmail, referenceFromUrl } from './parser.js';
 
 export const EMAIL_ALERTS_DESCRIPTOR: SourceDescriptor = {
   id: 'email-alerts',
@@ -99,9 +99,22 @@ async function resolveCanonicalUrls(
         // la place de la référence fabriquée depuis le contenu de l'e-mail,
         // qui variait d'un envoi à l'autre et créait des doublons.
         const reference = referenceFromUrl(canonical);
+        // L'URL porte aussi la LOCALISATION, absente de la moitié des digests :
+        // sans elle, l'annonce n'était comparable à aucune autre au
+        // dédoublonnage (les clés sont préfixées par la commune). On ne
+        // remplace jamais ce que l'e-mail a publié, on complète (§17).
+        const place = locationFromUrl(canonical);
+        const quartier = place.districtText;
         resolved.push({
           ...listing,
           ...(reference !== null ? { sourceRef: reference } : {}),
+          ...(listing.cityText === undefined && place.cityText !== undefined
+            ? { cityText: place.cityText }
+            : {}),
+          ...(listing.postalCodeText === undefined && place.postalCodeText !== undefined
+            ? { postalCodeText: place.postalCodeText }
+            : {}),
+          ...(quartier !== undefined ? { extra: { ...(listing.extra ?? {}), quartier } } : {}),
           sourceUrl: canonical,
           contactFormUrl: canonical,
         });

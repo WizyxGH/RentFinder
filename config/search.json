@@ -1,37 +1,12 @@
 {
-  "_aide": "Filtres de recherche. Éditez ce fichier OU réglez-les depuis l'interface (bouton Filtres) — les deux écrivent ici. Voir config/README.md. Réglages PUBLICS : ce fichier est versionné dans un dépôt public, n'y mettez jamais d'adresse ni de coordonnée. Les points de référence privés (travail, gare) vont dans .env.",
-
   "cities": ["nice"],
-  "_cities": "Communes recherchées, en minuscules SANS accent (ex. « saint-laurent-du-var »). Une annonce hors de ces communes est écartée.",
-
   "minPrice": 250,
   "maxPrice": 700,
-  "_prix": "Fourchette de loyer mensuel en euros, charges comprises. Le plancher sert surtout à écarter les parkings et caves mal étiquetés « appartement » (~100 €). Une annonce SANS prix publié n'est jamais exclue (§17).",
-
   "minArea": 20,
-  "_minArea": "Surface minimum en m², comparaison inclusive (surface ≥ minArea).",
-
   "maxCommuteMinutes": 60,
-  "_maxCommuteMinutes": "Trajet maximum vers le point de référence « Travail » défini dans .env. Sans point de référence configuré, ce réglage est sans effet.",
-
   "excludeFlatShare": true,
-  "_excludeFlatShare": "true : écarte les colocations de la liste principale. Elles restent collectées et consultables en « hors critères ». Une annonce dont la source ne précise rien n'est PAS écartée (§17).",
-
   "excludeStudent": true,
-  "_excludeStudent": "true : écarte les logements étudiants (résidences, annonces « étudiant/erasmus »). Détecté par mots-clés dans le titre, la description et l'URL.",
-
   "landlordFilter": "all",
-  "_landlordFilter": "Nature du bailleur : « all » (tous), « private » (masque les agences connues, garde les particuliers ET les bailleurs inconnus dont les alertes e-mail), « agency » (agences connues uniquement).",
-
   "furnishedFilter": "all",
-  "_furnishedFilter": "« all » (tous), « furnished » (meublés seulement), « unfurnished » (non meublés seulement). Les biens au statut inconnu sont toujours conservés (§17).",
-
-  "_propertyTypes": "OPTIONNEL, absent par défaut. Restreint aux types cités, ex. [\"apartment\", \"studio\"]. Valeurs : apartment, house, studio, loft, duplex, other. Omettre la clé = tous les types.",
-
-  "referencePricePerSqm": 20,
-  "_referencePricePerSqm": "Prix de référence au m² du marché local, en €. Sert au score de RISQUE : une annonce très en dessous est signalée comme potentiellement trompeuse. Ne filtre rien.",
-
-  "_maxSourcesPerRun": "OPTIONNEL, 6 par défaut. Nombre de sources visitées par passage de collecte. Les 40 sources sont parcourues à tour de rôle, les moins récemment vues d'abord.",
-
-  "_non_implemente": "Ces clés existent dans le type mais ne sont PAS appliquées au scoring — les régler n'aurait aucun effet : minRooms, maxRooms, districts, energyClasses."
+  "referencePricePerSqm": 20
 }

@@ -8,6 +8,7 @@
 
 import { useEffect, useState } from 'react';
 import type { FilterConfig } from '../types.js';
+import { MVP_CRITERIA } from '@rentfinder/shared';
 import { fetchFilters, saveFilters } from '../api/client.js';
 import { Button } from '@/components/ui/button.js';
 
@@ -87,6 +88,25 @@ export function FiltersPanel({ onSaved }: FiltersPanelProps): React.JSX.Element 
   if (filters === null) return <p className="text-muted-foreground">Chargement des filtres…</p>;
 
   const set = (patch: Partial<FilterConfig>): void => setFilters({ ...filters, ...patch });
+
+  /** Remet les critères aux valeurs par défaut du projet, sans enregistrer :
+   * l'utilisateur voit le résultat et confirme avec « Enregistrer ». */
+  const handleReset = (): void => {
+    setFilters({
+      cities: [...MVP_CRITERIA.cities],
+      maxPrice: MVP_CRITERIA.maxPrice,
+      minArea: MVP_CRITERIA.minArea,
+      ...(MVP_CRITERIA.minPrice !== undefined ? { minPrice: MVP_CRITERIA.minPrice } : {}),
+      ...(MVP_CRITERIA.maxCommuteMinutes !== undefined
+        ? { maxCommuteMinutes: MVP_CRITERIA.maxCommuteMinutes }
+        : {}),
+      excludeFlatShare: MVP_CRITERIA.excludeFlatShare ?? true,
+      excludeStudent: MVP_CRITERIA.excludeStudent ?? true,
+      landlordFilter: 'all',
+      furnishedFilter: 'all',
+    });
+    setMessage('Valeurs par défaut restaurées — « Enregistrer » pour appliquer.');
+  };
 
   const handleSave = async (): Promise<void> => {
     setSaving(true);
@@ -217,6 +237,9 @@ export function FiltersPanel({ onSaved }: FiltersPanelProps): React.JSX.Element 
       <div className="mt-4 flex items-center gap-3">
         <Button onClick={() => void handleSave()} disabled={saving}>
           {saving ? 'Enregistrement…' : 'Enregistrer'}
+        </Button>
+        <Button variant="outline" onClick={handleReset} disabled={saving}>
+          Réinitialiser
         </Button>
         {message !== null && <p className="text-sm text-muted-foreground">{message}</p>}
       </div>

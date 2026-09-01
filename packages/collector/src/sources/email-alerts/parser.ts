@@ -327,6 +327,61 @@ export function referenceFromUrl(href: string): string | null {
   return reference === null ? null : `${portal.id}:${reference}`;
 }
 
+/** Localisation lue dans l'URL canonique d'une annonce. */
+export interface UrlLocation {
+  readonly cityText?: string;
+  readonly postalCodeText?: string;
+  readonly districtText?: string;
+}
+
+/**
+ * Extrait la localisation du CHEMIN de l'URL canonique.
+ *
+ * Les digests des portails existent en deux gabarits : l'un nomme la commune
+ * (« 1 pièce • 22 m² Nice, 06100 »), l'autre pas (« 1 pièce · 23,55 m² »). 72 %
+ * des annonces arrivaient donc sans ville — ce qui les rendait incomparables au
+ * dédoublonnage, dont les clés sont préfixées par la commune.
+ *
+ * L'URL, elle, la porte presque toujours, et fait autorité — c'est le portail
+ * qui l'écrit, on ne devine rien (§17). Deux formes rencontrées :
+ *
+ *   …/appartement/nice-06/baumettes/26A8CE41HBAQ.htm   → ville + QUARTIER
+ *   …/alpes-maritimes-06/nice-06000/26AUM6K            → ville + code postal
+ */
+export function locationFromUrl(href: string): UrlLocation {
+  let path: string;
+  try {
+    path = new URL(href).pathname;
+  } catch {
+    return {};
+  }
+
+  // « nice-06000 » (code postal complet) ou « nice-06 » (département seul).
+  //
+  // Le chemin peut en contenir PLUSIEURS : « /alpes-maritimes-06/nice-06000/ »
+  // porte le département avant la commune. On préfère donc la forme à cinq
+  // chiffres, et à défaut le dernier segment — le plus profond est le plus
+  // précis. Prendre le premier rendait « alpes maritimes » comme ville.
+  const matches = [...path.matchAll(/\/([a-z][a-z-]*?)-(\d{2}|\d{5})(?=\/)/g)];
+  if (matches.length === 0) return {};
+  const match = matches.find((m) => m[2]?.length === 5) ?? matches[matches.length - 1];
+  if (match?.[1] === undefined) return {};
+  const city = match[1].replace(/-/g, ' ');
+  const code = match[2] ?? '';
+
+  // Le segment qui suit immédiatement la commune est le quartier, quand il
+  // n'est pas déjà l'identifiant de l'annonce (majuscules et chiffres).
+  const after = path.slice((match.index ?? 0) + match[0].length + 1).split('/')[0] ?? '';
+  const district =
+    after !== '' && /^[a-z][a-z-]*$/.test(after) ? after.replace(/-/g, ' ') : undefined;
+
+  return {
+    cityText: city,
+    ...(code.length === 5 ? { postalCodeText: code } : {}),
+    ...(district !== undefined ? { districtText: district } : {}),
+  };
+}
+
 export function parseAlertEmail(html: string): RawListing[] {
   const $ = cheerio.load(html);
   const bySourceRef = new Map<string, RawListing>();

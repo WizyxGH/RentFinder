@@ -130,7 +130,10 @@ function Shell({
 }): React.JSX.Element {
   const tabs: readonly { key: View; label: string }[] = [
     { key: 'list', label: 'Annonces' },
-    { key: 'filters', label: 'Filtres' },
+    // « Alertes » plutôt que « Filtres » : ces critères décident de ce qui est
+    // COLLECTÉ et NOTIFIÉ, alors que la modale de la liste ne filtre que
+    // l'affichage. Deux choses différentes portaient le même nom.
+    { key: 'filters', label: 'Alertes' },
     { key: 'stats', label: 'Stats' },
     { key: 'profile', label: 'Profil' },
     { key: 'sources', label: 'Sources' },
@@ -606,20 +609,24 @@ export function App(): React.JSX.Element {
           </div>
 
           {/* Recherche libre : quartier, rue, agence, mot du titre (§36). */}
-          {/* Pleine largeur sur mobile (elle prend sa propre ligne), puis elle
-            occupe l'espace restant de la barre sur écran large. */}
-          <div className="relative w-full min-w-0 flex-1 sm:w-auto sm:max-w-xs">
+          {/* `basis-full` lui donne SA PROPRE LIGNE sur mobile — coincée entre
+            deux boutons, elle devenait trop étroite pour être utilisable. Sur
+            écran large elle repasse dans la rangée et occupe l'espace restant
+            (`sm:basis-0 sm:flex-1`), sans plafond de largeur. */}
+          <div className="relative min-w-0 basis-full sm:order-none sm:basis-0 sm:flex-1">
             <input
               type="search"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Rechercher (quartier, rue, agence…)"
               aria-label="Rechercher une annonce"
-              className="w-full rounded-full border border-input bg-card py-1.5 pl-8 pr-3"
+              // 16 px (`text-base`) sur mobile : en dessous, iOS zoome
+              // automatiquement à la mise au point et désaligne la page.
+              className="w-full rounded-full border border-input bg-card py-2.5 pl-9 pr-3 text-base sm:py-1.5 sm:text-sm"
             />
             <Search
               aria-hidden="true"
-              className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+              className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
             />
           </div>
 

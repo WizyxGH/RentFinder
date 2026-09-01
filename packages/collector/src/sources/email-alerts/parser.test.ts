@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseAlertEmail, referenceFromUrl, resolvePortalUrl } from './parser.js';
+import { locationFromUrl, parseAlertEmail, referenceFromUrl, resolvePortalUrl } from './parser.js';
 
 describe('resolvePortalUrl', () => {
   it('reconnaît un lien Leboncoin direct', () => {
@@ -237,5 +237,30 @@ describe('referenceFromUrl', () => {
     );
     expect(referenceFromUrl('https://exemple.invalid/annonce/1')).toBeNull();
     expect(referenceFromUrl('pas une url')).toBeNull();
+  });
+});
+
+describe('locationFromUrl', () => {
+  it('lit la commune ET le quartier de la forme courte', () => {
+    expect(
+      locationFromUrl(
+        'https://www.seloger.com/annonces/locations/appartement/nice-06/baumettes/26A8CE41HBAQ.htm',
+      ),
+    ).toEqual({ cityText: 'nice', districtText: 'baumettes' });
+  });
+
+  it('préfère la COMMUNE au département quand les deux figurent', () => {
+    // « /alpes-maritimes-06/nice-06000/ » : prendre le premier segment rendait
+    // « alpes maritimes » comme ville.
+    expect(
+      locationFromUrl(
+        'https://www.seloger.com/annonce/location/provence-alpes-cote-d-azur/alpes-maritimes-06/nice-06000/26AUM6K',
+      ),
+    ).toEqual({ cityText: 'nice', postalCodeText: '06000' });
+  });
+
+  it('rend un objet vide quand l’URL ne porte aucune localisation (§17)', () => {
+    expect(locationFromUrl('https://www.seloger.com/annonce/262DQEQC5SVU')).toEqual({});
+    expect(locationFromUrl('pas une url')).toEqual({});
   });
 });
