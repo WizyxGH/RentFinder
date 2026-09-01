@@ -270,7 +270,20 @@ async function getStats(db: Client): Promise<unknown> {
     return map;
   };
 
+  // Historique de l'inventaire, du plus ancien au plus récent (§33).
+  const history = await db.execute('SELECT * FROM daily_stats ORDER BY day DESC LIMIT 90');
+
   return {
+    history: history.rows
+      .map((r) => ({
+        day: String(r['day']),
+        matching: Number(r['matching']),
+        uncertain: Number(r['uncertain']),
+        rented: Number(r['rented']),
+        total: Number(r['total']),
+        activeSources: Number(r['active_sources']),
+      }))
+      .reverse(),
     listings: {
       total: Number(listings.rows[0]?.['total'] ?? 0),
       matching: Number(listings.rows[0]?.['matching'] ?? 0),

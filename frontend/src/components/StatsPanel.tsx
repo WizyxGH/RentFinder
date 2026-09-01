@@ -12,6 +12,7 @@ import type { StatsData } from '../types.js';
 import { fetchStats } from '../api/client.js';
 import { formatSourceName, formatTracking } from '../format.js';
 import type { TrackingStatus } from '../types.js';
+import { HistoryChart } from './HistoryChart.js';
 
 /** Tuile compteur. */
 function Stat({
@@ -85,6 +86,11 @@ export function StatsPanel(): React.JSX.Element {
   return (
     <section className="flex flex-col gap-5">
       <h2 className="text-lg font-semibold">Statistiques</h2>
+
+      <div>
+        <h3 className="mb-2 text-sm font-semibold text-muted-foreground">Évolution</h3>
+        <HistoryChart history={stats.history ?? []} />
+      </div>
 
       <div>
         <h3 className="mb-2 text-sm font-semibold text-muted-foreground">Annonces</h3>

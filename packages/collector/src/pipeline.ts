@@ -473,6 +473,10 @@ export async function runPipeline(options: PipelineOptions): Promise<PipelineRep
   const listingReport = await repository.saveListings(scored);
   logger.info('pipeline.listings_written', { ...listingReport });
 
+  // Instantané du jour : ces chiffres ne sont pas reconstituables après coup,
+  // il faut les mesurer au moment où ils sont vrais (§33).
+  await repository.recordDailyStat();
+
   // Biens signalés « déjà loués » : on les marque APRÈS l'écriture, pour que le
   // lien occurrence → fiche existe. Ils sortent de la liste active mais restent
   // en favori (grisés) et comptent dans les stats (§32, §33).

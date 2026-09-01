@@ -225,7 +225,22 @@ export async function fetchStats(): Promise<StatsData> {
         bySource[source] = (bySource[source] ?? 0) + 1;
       }
     }
+    // Historique fictif : trois points suffisent à montrer la courbe en démo.
+    const today = new Date();
+    const history = [4, 2, 0].map((back, i) => {
+      const day = new Date(today.getTime() - back * 86_400_000).toISOString().slice(0, 10);
+      return {
+        day,
+        matching: matching.length - (2 - i),
+        uncertain: uncertain.length,
+        rented: 0,
+        total: MOCK_LISTINGS.length,
+        activeSources: Object.keys(bySource).length,
+      };
+    });
+
     return {
+      history,
       listings: {
         total: MOCK_LISTINGS.length,
         matching: matching.length,

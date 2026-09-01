@@ -108,8 +108,20 @@ export interface SourceStateView {
 
 export type SortMode = 'priority' | 'recent' | 'price';
 
+/** Un point de l'historique de l'inventaire (§33). */
+export interface DailyStat {
+  readonly day: string;
+  readonly matching: number;
+  readonly uncertain: number;
+  readonly rented: number;
+  readonly total: number;
+  readonly activeSources: number;
+}
+
 /** Statistiques de suivi (§33). */
 export interface StatsData {
+  /** Évolution jour par jour — absente des API anciennes. */
+  readonly history?: readonly DailyStat[];
   readonly listings: {
     readonly total: number;
     /** Annonces dans les critères et ENCORE ACTIVES : le vrai gisement. */

@@ -164,7 +164,22 @@ export interface UpsertReport {
   readonly removed?: number;
 }
 
+/** Un point de l'historique de l'inventaire (§33). */
+export interface DailyStat {
+  readonly day: string;
+  readonly matching: number;
+  readonly uncertain: number;
+  readonly rented: number;
+  readonly total: number;
+  readonly activeSources: number;
+}
+
 export interface Repository {
+  /** Écrit l'instantané du jour (une ligne par jour, réécrite à chaque passage). */
+  readonly recordDailyStat: () => Promise<void>;
+  /** Historique de l'inventaire, du plus ancien au plus récent. */
+  readonly dailyStats: (limit?: number) => Promise<readonly DailyStat[]>;
+
   /** Références déjà connues pour une source — alimente l'arrêt anticipé (§9). */
   knownRefs(sourceId: SourceId): Promise<Set<string>>;
   upsertOccurrences(listings: readonly NormalizedListing[]): Promise<UpsertReport>;
@@ -635,6 +650,61 @@ export function createRepository(db: Database): Repository {
       const removed = orphans.rowsAffected ?? 0;
 
       return { inserted, updated, unchanged, ...(removed > 0 ? { removed } : {}) };
+    },
+
+    async recordDailyStat() {
+      const row = (
+        await db.execute(`
+          SELECT
+            SUM(CASE WHEN matches_criteria = 1 AND lifecycle = 'active'
+                      AND archived = 0 AND rented = 0 THEN 1 ELSE 0 END) AS matching,
+            SUM(CASE WHEN matches_criteria = 1 AND lifecycle = 'possiblyInactive'
+                      AND archived = 0 AND rented = 0 THEN 1 ELSE 0 END) AS uncertain,
+            SUM(CASE WHEN matches_criteria = 1 AND rented = 1 THEN 1 ELSE 0 END) AS rented,
+            COUNT(*) AS total
+          FROM listings
+        `)
+      ).rows[0];
+      const sources = (
+        await db.execute(
+          "SELECT COUNT(DISTINCT source_id) AS n FROM occurrences WHERE lifecycle = 'active'",
+        )
+      ).rows[0];
+
+      await db.execute({
+        sql: `INSERT INTO daily_stats (day, matching, uncertain, rented, total, active_sources, recorded_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?)
+              ON CONFLICT(day) DO UPDATE SET
+                matching = excluded.matching, uncertain = excluded.uncertain,
+                rented = excluded.rented, total = excluded.total,
+                active_sources = excluded.active_sources, recorded_at = excluded.recorded_at`,
+        args: [
+          new Date().toISOString().slice(0, 10),
+          Number(row?.['matching'] ?? 0),
+          Number(row?.['uncertain'] ?? 0),
+          Number(row?.['rented'] ?? 0),
+          Number(row?.['total'] ?? 0),
+          Number(sources?.['n'] ?? 0),
+          new Date().toISOString(),
+        ],
+      });
+    },
+
+    async dailyStats(limit = 90) {
+      const result = await db.execute({
+        sql: 'SELECT * FROM daily_stats ORDER BY day DESC LIMIT ?',
+        args: [limit],
+      });
+      return result.rows
+        .map((r) => ({
+          day: String(r['day']),
+          matching: Number(r['matching']),
+          uncertain: Number(r['uncertain']),
+          rented: Number(r['rented']),
+          total: Number(r['total']),
+          activeSources: Number(r['active_sources']),
+        }))
+        .reverse();
     },
 
     async markRented(sourceId, refs) {
