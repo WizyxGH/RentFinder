@@ -313,6 +313,11 @@ export function ContactPanel({
                 href={link}
                 target={channel === 'form' ? '_blank' : undefined}
                 rel="noreferrer noopener"
+                // Un formulaire web ne se pré-remplit pas : le message doit être
+                // collé à la main. On le met donc au presse-papiers AU MOMENT
+                // d'ouvrir, pour qu'il soit prêt quand le formulaire s'affiche —
+                // sinon il fallait penser à « Copier » d'abord, et revenir.
+                onClick={channel === 'form' ? () => void handleCopy() : undefined}
               >
                 {openLabel}
               </ButtonLink>
@@ -320,6 +325,14 @@ export function ContactPanel({
 
             <Button onClick={() => onRecorded(channel, message, [...selected])}>J’ai envoyé</Button>
           </div>
+
+          {channel === 'form' && (
+            <p className="mt-2 text-sm text-muted-foreground">
+              {copied
+                ? 'Message copié — il ne reste qu’à le coller dans le formulaire.'
+                : 'Ouvrir le formulaire copie le message : plus qu’à le coller.'}
+            </p>
+          )}
         </>
       )}
     </Card>
