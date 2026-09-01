@@ -113,28 +113,37 @@ export function FiltersPanel({ onSaved }: FiltersPanelProps): React.JSX.Element 
       </p>
 
       <dl className="divide-y divide-border">
+        {/* Une seule ligne « de … à … » : les deux bornes formaient deux
+          réglages distincts, présentés dans l'ordre inverse de la lecture
+          (maximum avant minimum), alors qu'elles décrivent UN budget. */}
         <div className={ROW}>
-          <label htmlFor="maxPrice">Budget maximum (€/mois)</label>
-          <input
-            id="maxPrice"
-            type="number"
-            min={0}
-            className={FIELD}
-            value={filters.maxPrice}
-            onChange={(e) => set({ maxPrice: Number(e.target.value) })}
-          />
+          <label htmlFor="minPrice">Budget (€/mois)</label>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">de</span>
+            <input
+              id="minPrice"
+              type="number"
+              min={0}
+              aria-label="Loyer minimum"
+              className={FIELD}
+              value={filters.minPrice ?? 0}
+              onChange={(e) => set({ minPrice: Number(e.target.value) })}
+            />
+            <span className="text-sm text-muted-foreground">à</span>
+            <input
+              id="maxPrice"
+              type="number"
+              min={0}
+              aria-label="Loyer maximum"
+              className={FIELD}
+              value={filters.maxPrice}
+              onChange={(e) => set({ maxPrice: Number(e.target.value) })}
+            />
+          </div>
         </div>
-        <div className={ROW}>
-          <label htmlFor="minPrice">Loyer minimum (€ — écarte les parkings)</label>
-          <input
-            id="minPrice"
-            type="number"
-            min={0}
-            className={FIELD}
-            value={filters.minPrice ?? 0}
-            onChange={(e) => set({ minPrice: Number(e.target.value) })}
-          />
-        </div>
+        <p className="pt-1 text-xs text-muted-foreground">
+          Le plancher écarte les annonces trop bon marché pour être un logement (parkings, caves).
+        </p>
         <div className={ROW}>
           <label htmlFor="minArea">Surface minimum (m²)</label>
           <input

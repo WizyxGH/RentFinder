@@ -33,7 +33,13 @@ export const EMAIL_ALERTS_DESCRIPTOR: SourceDescriptor = {
   // redirection — l'en-tête `location` seul, jamais la page — étalées par le
   // limiteur à 20/min. Au-delà du plafond, les annonces restantes gardent leur
   // lien d'origine plutôt que d'insister (§10, §69).
-  budget: budgetFor('portal', { maxPagesPerRun: 40, maxListingsPerRun: 200 }),
+  // 120 : le plafond doit couvrir la TOTALITÉ des annonces nouvelles d'un
+  // passage, car une annonce non résolue est enregistrée avec son lien de
+  // tracking, devient « connue », et n'est alors plus jamais résolue. Avec 40,
+  // un rattrapage (base repartie de zéro, ~160 annonces) en laissait les trois
+  // quarts avec une URL périssable. En régime courant un passage n'en consomme
+  // qu'une trentaine.
+  budget: budgetFor('portal', { maxPagesPerRun: 120, maxListingsPerRun: 200 }),
   enabled: true,
   // Premier contact via le lien du portail, à la main de l'utilisateur (§23).
   manualOnly: true,

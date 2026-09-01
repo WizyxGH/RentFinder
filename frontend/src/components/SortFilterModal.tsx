@@ -10,7 +10,7 @@
  * fond, et le focus part sur le premier contrôle.
  */
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Check, X } from 'lucide-react';
 import type { SortMode } from '../types.js';
 import type { PropertyType } from '@rentfinder/shared';
@@ -57,6 +57,22 @@ export function SortFilterModal({
   onClearSources,
 }: SortFilterModalProps): React.JSX.Element | null {
   const panel = useRef<HTMLDivElement>(null);
+  // Filtre de la liste des sources : elles sont une quarantaine, retrouver
+  // une agence à l'œil devenait pénible.
+  const [sourceQuery, setSourceQuery] = useState('');
+
+  const comparable = (value: string): string =>
+    value.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+
+  const shownSources = useMemo(() => {
+    const query = comparable(sourceQuery).trim();
+    if (query === '') return sources;
+    // On cherche dans le nom LISIBLE (« L'Adresse ») comme dans l'identifiant
+    // technique (« ladresse ») : l'un ou l'autre vient à l'esprit.
+    return sources.filter(
+      (id) => comparable(formatSourceName(id)).includes(query) || comparable(id).includes(query),
+    );
+  }, [sources, sourceQuery]);
 
   const patch = (part: Partial<QuickFilterValues>): void =>
     onQuickFiltersChange({ ...quickFilters, ...part });
@@ -68,23 +84,33 @@ export function SortFilterModal({
     patch({ types: next });
   };
 
+  // Échap ferme la modale. Cet effet dépend de `onClose`, que l'appelant
+  // recrée à chaque rendu : il se réexécute donc souvent, ce qui est sans
+  // conséquence ici (on ne fait qu'abonner un écouteur).
   useEffect(() => {
     if (!open) return undefined;
     const onKey = (event: KeyboardEvent): void => {
       if (event.key === 'Escape') onClose();
     };
     document.addEventListener('keydown', onKey);
-    // Le focus entre dans la modale, sinon la navigation au clavier resterait
-    // derrière, sur la page.
-    panel.current?.querySelector<HTMLElement>('button, input')?.focus();
     return () => document.removeEventListener('keydown', onKey);
   }, [open, onClose]);
+
+  // Le focus n'entre dans la modale QU'À L'OUVERTURE. Le placer dans l'effet
+  // ci-dessus le ramenait au premier contrôle à chaque rendu — donc à chaque
+  // frappe : impossible de saisir une surface ou un budget.
+  useEffect(() => {
+    if (!open) return;
+    panel.current?.querySelector<HTMLElement>('button, input')?.focus();
+  }, [open]);
 
   if (!open) return null;
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"
+      // Leaflet monte ses panneaux et contrôles jusqu'à z-index 1000 : en `z-50`
+      // la carte passait DEVANT la modale.
+      className="fixed inset-0 z-[2000] flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"
       onClick={onClose}
     >
       <div
@@ -240,8 +266,21 @@ export function SortFilterModal({
                 </button>
               )}
             </legend>
+            <input
+              type="search"
+              value={sourceQuery}
+              onChange={(event) => setSourceQuery(event.target.value)}
+              placeholder="Filtrer les sources…"
+              aria-label="Filtrer les sources par nom"
+              className="mb-2 w-full rounded-lg border border-border px-2 py-1.5 text-sm"
+            />
             <ul className="flex max-h-56 flex-col overflow-y-auto">
-              {sources.map((sourceId) => (
+              {shownSources.length === 0 && (
+                <li className="px-2 py-1.5 text-sm text-muted-foreground">
+                  Aucune source trouvée.
+                </li>
+              )}
+              {shownSources.map((sourceId) => (
                 <li key={sourceId}>
                   <label className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-muted">
                     <input
