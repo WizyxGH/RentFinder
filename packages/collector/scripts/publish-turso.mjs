@@ -46,38 +46,26 @@ function loadEnv() {
   return out;
 }
 
-/**
- * Neutralise ce qui permettrait de RETROUVER l'utilisateur.
+/*
+ * POURQUOI LES DISTANCES SONT PUBLIÉES TELLES QUELLES.
  *
- * Le risque n'est pas l'adresse en clair — elle n'est jamais publiée — mais la
- * TRILATÉRATION : chaque fiche porte ses coordonnées GPS et sa distance au
- * point « Travail » au centième de kilomètre. Trois fiches suffisent à résoudre
- * la position du point ; la base en compte plusieurs centaines. Publier tel
- * quel reviendrait à publier le lieu de travail.
+ * Chaque fiche porte ses coordonnées et sa distance au point « Travail » au
+ * centième de kilomètre : trois fiches suffisent, en principe, à retrouver ce
+ * point par trilatération. Une version de ce script arrondissait donc les
+ * durées et retirait la distance.
  *
- * On retire donc la distance métrique, et on arrondit la durée à une tranche de
- * 15 minutes. L'information utile pour décider (« environ 30-45 min ») est
- * conservée ; la précision géométrique qui permettait de recouper, non.
+ * Ce n'est plus le cas, sur décision de l'utilisateur : la protection est
+ * portée par l'ACCÈS, pas par la dégradation de la donnée. L'API (voir
+ * `packages/api`) exige un jeton porteur sur TOUTES les routes — le contrôle
+ * est fait à l'entrée, avant le routage, avec une comparaison à temps constant,
+ * une origine CORS explicite (jamais `*`), et un refus par défaut si le jeton
+ * n'est pas configuré côté serveur. Les données publiées ne sont donc jamais
+ * accessibles publiquement.
+ *
+ * Cette garantie repose entièrement sur le secret du jeton `API_ACCESS_TOKEN` :
+ * s'il fuite, le lieu de travail redevient calculable. À régénérer au moindre
+ * doute (`npx wrangler secret put API_ACCESS_TOKEN`).
  */
-function sanitizeListingPayload(raw) {
-  if (typeof raw !== 'string' || !raw.includes('distances')) return raw;
-  let listing;
-  try {
-    listing = JSON.parse(raw);
-  } catch {
-    return raw;
-  }
-  if (!Array.isArray(listing.distances) || listing.distances.length === 0) return raw;
-
-  listing.distances = listing.distances.map((entry) => {
-    // `distanceKm` est extraite pour être ÉCARTÉE : c'est elle qui, combinée
-    // aux coordonnées de l'annonce, rendait le point de référence calculable.
-    const { distanceKm: _distanceKm, durationMinutes, ...rest } = entry;
-    const band = typeof durationMinutes === 'number' ? Math.round(durationMinutes / 15) * 15 : null;
-    return { ...rest, ...(band === null ? {} : { durationMinutes: band }) };
-  });
-  return JSON.stringify(listing);
-}
 
 /** Les seules tables publiées, dans un ordre qui respecte les dépendances. */
 const PUBLISHED_TABLES = ['listings', 'occurrences', 'source_state'];
@@ -160,12 +148,7 @@ async function main() {
       await remote.batch(
         slice.map((row) => ({
           sql: insert,
-          args: columns.map((c) =>
-            // Seule la colonne `payload` des fiches porte les distances.
-            table === 'listings' && c === 'payload'
-              ? sanitizeListingPayload(row[c])
-              : (row[c] ?? null),
-          ),
+          args: columns.map((c) => row[c] ?? null),
         })),
         'write',
       );
