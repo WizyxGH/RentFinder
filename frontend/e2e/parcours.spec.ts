@@ -16,7 +16,7 @@ test('la liste répond à « que dois-je contacter maintenant ? » (§36)', asyn
   await expect(page.getByRole('heading', { name: 'Recherche Nice' })).toBeVisible();
 
   // Les critères actifs sont rappelés sans ambiguïté.
-  await expect(page.getByText('≤ 700 € · ≥ 16 m²')).toBeVisible();
+  await expect(page.getByText(/≤ 700 € · ≥ \d+ m²/)).toBeVisible();
 
   const cards = page.getByTestId('listing-card');
   await expect(cards.first()).toBeVisible();
@@ -49,9 +49,10 @@ test('scénario 3 — une annonce hors critères est écartée de la liste (§53
   // L'annonce à 750 € dépasse le budget : absente par défaut.
   await expect(page.getByText('750 €')).toHaveCount(0);
 
-  // Le réglage vit dans le menu « Affichage » de la barre de filtres.
-  await page.getByRole('button', { name: 'Affichage' }).click();
+  // Le réglage vit dans la modale « Trier et filtrer ».
+  await page.getByRole('button', { name: /Trier et filtrer/ }).click();
   await page.getByRole('checkbox', { name: 'Annonces hors critères' }).check();
+  await page.getByRole('button', { name: 'Voir les résultats' }).click();
   await expect(page.getByText('750 €').first()).toBeVisible();
 });
 
@@ -80,7 +81,7 @@ test('scénario 4 — le contact manuel n’envoie rien tout seul (§53)', async
   // Les quatre actions restent à la main de l'utilisateur.
   await expect(page.getByRole('button', { name: 'Modifier' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Copier' })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Ouvrir', exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: /Ouvrir|Appeler|Contacter via/ })).toBeVisible();
   await expect(page.getByRole('button', { name: 'J’ai envoyé' })).toBeVisible();
 });
 
@@ -121,10 +122,11 @@ test('une annonce risquée reste visible, avec ses raisons (§19)', async ({ pag
 });
 
 test('le tri et le changement de statut fonctionnent (§35, §54)', async ({ page }) => {
-  // Tri en menu déroulant (même style que les autres filtres).
+  // Le tri vit dans la modale « Trier et filtrer ».
   const toolbar = page.getByRole('group', { name: 'Barre de filtres' });
-  await toolbar.getByRole('button', { name: /^Tri :/ }).click();
+  await toolbar.getByRole('button', { name: /Trier et filtrer/ }).click();
   await page.getByRole('button', { name: 'Loyer croissant' }).click();
+  await page.getByRole('button', { name: 'Voir les résultats' }).click();
   await expect(page.getByTestId('listing-card').first()).toContainText('420 €');
 
   await page.getByTestId('listing-card').first().getByRole('button', { name: 'Contacter' }).click();
@@ -160,10 +162,10 @@ test('l’interface est utilisable sur mobile sans défilement horizontal (§39)
 });
 
 test('les filtres sont réglables depuis le site (§66)', async ({ page }) => {
-  await page.getByRole('button', { name: 'Filtres' }).click();
+  await page.getByRole('button', { name: 'Alertes' }).click();
 
   await expect(page.getByRole('heading', { name: 'Filtres de recherche' })).toBeVisible();
-  const budget = page.getByLabel('Budget maximum (€/mois)');
+  const budget = page.getByLabel('Loyer maximum');
   await expect(budget).toBeVisible();
   await budget.fill('600');
 
@@ -225,17 +227,21 @@ test('on peut filtrer la liste par source (menu déroulant)', async ({ page }) =
 
   // Ouvrir le menu « Sources » de la barre de filtres (distinct de l'onglet
   // de navigation du même nom).
+  // Le filtre par source vit dans la modale « Trier et filtrer ».
   const toolbar = page.getByRole('group', { name: 'Barre de filtres' });
-  await toolbar.getByRole('button', { name: 'Sources' }).click();
+  await toolbar.getByRole('button', { name: /Trier et filtrer/ }).click();
 
   // Cocher une source restreint la liste.
   await page.getByRole('checkbox', { name: 'Demo Agence' }).check();
+  await page.getByRole('button', { name: 'Voir les résultats' }).click();
   const filtered = await cards.count();
   expect(filtered).toBeGreaterThan(0);
   expect(filtered).toBeLessThanOrEqual(before);
 
-  // « Tout afficher » réinitialise.
-  await page.getByRole('button', { name: 'Tout afficher' }).click();
+  // « Tout afficher » réinitialise — il vit dans la modale, à rouvrir.
+  await toolbar.getByRole('button', { name: /Trier et filtrer/ }).click();
+  await page.getByRole('button', { name: /tout afficher/i }).click();
+  await page.getByRole('button', { name: 'Voir les résultats' }).click();
   await expect(cards).toHaveCount(before);
 });
 
@@ -249,8 +255,9 @@ test('les filtres rapides (façon SeLoger) affinent la liste et se retirent', as
   await expect(toolbar.getByText(/résultats?$/)).toBeVisible();
 
   // Filtre « Pièces » : au moins 2 pièces → la liste ne grandit pas.
-  await toolbar.getByRole('button', { name: 'Pièces' }).click();
+  await toolbar.getByRole('button', { name: /Trier et filtrer/ }).click();
   await page.getByRole('button', { name: '2+', exact: true }).click();
+  await page.getByRole('button', { name: 'Voir les résultats' }).click();
   const filtered = await cards.count();
   expect(filtered).toBeLessThanOrEqual(before);
 

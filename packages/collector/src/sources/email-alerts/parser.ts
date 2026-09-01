@@ -306,13 +306,11 @@ function buildFromTitle(
  * `extra.portal` (§13, §38).
  */
 /**
- * Référence stable d'une annonce depuis son URL CANONIQUE (« seloger:262DQ… »).
+ * Référence stable d'une annonce depuis son URL canonique (« seloger:262DQ… »).
  *
- * Les liens des e-mails sont des redirections opaques : au moment du parsing on
- * ne peut que fabriquer une référence à partir du contenu (surface, prix,
- * ville). Or ce contenu varie d'un e-mail à l'autre — l'un nomme la commune,
- * l'autre non — et la MÊME annonce se retrouvait alors sous deux références,
- * donc en doublon. Une fois le lien dénoué, on rétablit la vraie identité.
+ * Au parsing, le lien est encore une redirection opaque : la référence est alors
+ * fabriquée depuis le contenu de l'e-mail, qui varie d'un envoi à l'autre — la
+ * même annonce se retrouvait sous deux références, donc en doublon.
  */
 export function referenceFromUrl(href: string): string | null {
   let url: URL;
@@ -335,18 +333,14 @@ export interface UrlLocation {
 }
 
 /**
- * Extrait la localisation du CHEMIN de l'URL canonique.
+ * Extrait la localisation du chemin de l'URL canonique.
  *
- * Les digests des portails existent en deux gabarits : l'un nomme la commune
- * (« 1 pièce • 22 m² Nice, 06100 »), l'autre pas (« 1 pièce · 23,55 m² »). 72 %
- * des annonces arrivaient donc sans ville — ce qui les rendait incomparables au
- * dédoublonnage, dont les clés sont préfixées par la commune.
+ * La moitié des digests ne nomment pas la commune, ce qui rendait ces annonces
+ * incomparables au dédoublonnage (ses clés en sont préfixées). L'URL la porte
+ * presque toujours, et fait autorité — on ne devine rien (§17).
  *
- * L'URL, elle, la porte presque toujours, et fait autorité — c'est le portail
- * qui l'écrit, on ne devine rien (§17). Deux formes rencontrées :
- *
- *   …/appartement/nice-06/baumettes/26A8CE41HBAQ.htm   → ville + QUARTIER
- *   …/alpes-maritimes-06/nice-06000/26AUM6K            → ville + code postal
+ *   …/appartement/nice-06/baumettes/…   → commune + quartier
+ *   …/alpes-maritimes-06/nice-06000/…   → commune + code postal
  */
 export function locationFromUrl(href: string): UrlLocation {
   let path: string;

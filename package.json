@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "Agrégateur personnel d'annonces de location à Nice : collecte multi-sources, dédoublonnage, scoring et contact assisté.",
-  "license": "MIT",
+  "license": "UNLICENSED",
   "type": "module",
   "engines": {
     "node": ">=20.10.0"

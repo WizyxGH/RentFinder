@@ -13,21 +13,7 @@
 import * as cheerio from 'cheerio';
 import type { RawListing } from '@rentfinder/shared';
 import { cleanText } from '../../normalization/text.js';
-
-export interface ParsedList {
-  readonly listings: readonly RawListing[];
-  readonly warnings: readonly string[];
-}
-
-type RawDraft = { [K in keyof RawListing]?: RawListing[K] | undefined };
-
-function compact(draft: RawDraft): RawListing {
-  const out: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(draft)) {
-    if (value !== undefined) out[key] = value;
-  }
-  return out as unknown as RawListing;
-}
+import { compactListing, type ParsedList } from '../shared/raw-listing.js';
 
 /** Surface « 114-72-m » ou « 25-m » dans le slug → « 114.72 m² ». */
 function areaFromSlug(slug: string): string | undefined {
@@ -48,7 +34,7 @@ function buildListing(fields: {
 }): RawListing {
   const { reference, sourceUrl, slug, title, city, price, image, agencyName } = fields;
   const hay = `${title} ${slug}`;
-  return compact({
+  return compactListing({
     sourceRef: reference,
     sourceUrl,
     title: cleanText(title) || undefined,

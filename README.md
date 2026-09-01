@@ -205,6 +205,10 @@ Pour **contribuer / ajouter une source**, voir [CONTRIBUTING.md](CONTRIBUTING.md
 
 ## Licence
 
-[MIT](LICENSE). Le code est libre ; son **usage** doit rester conforme aux CGU
-des sites consultés et au droit applicable (RGPD compris). Ce projet est conçu
-pour un usage personnel de recherche de logement, à faible volume.
+**Tous droits réservés** — voir [LICENSE](LICENSE). Le dépôt est public pour
+être consultable et pour héberger son interface, mais le code n'est pas libre :
+sa copie, son exécution et sa réutilisation demandent un accord écrit.
+
+Quiconque l'exécuterait resterait seul responsable du respect des CGU des sites
+consultés, de leur robots.txt et du droit applicable (RGPD compris). Ce projet
+est conçu pour un usage personnel de recherche de logement, à faible volume.

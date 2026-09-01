@@ -17,27 +17,13 @@
 import * as cheerio from 'cheerio';
 import type { RawListing } from '@rentfinder/shared';
 import { cleanText } from '../../normalization/text.js';
+import { compactListing, type ParsedList } from '../shared/raw-listing.js';
 
 /** Type de bien depuis le libellé français de la carte. */
 const TYPE_LABELS = /appartement|maison|studio|villa|duplex|loft|chambre/i;
 
-export interface ParsedList {
-  readonly listings: readonly RawListing[];
-  readonly warnings: readonly string[];
-}
-
 /** Brouillon : champs de `RawListing` tous facultatifs, `undefined` toléré. */
-type RawDraft = { [K in keyof RawListing]?: RawListing[K] | undefined };
-
 /** Retire les champs `undefined` et fige en `RawListing`. */
-function compact(draft: RawDraft): RawListing {
-  const out: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(draft)) {
-    if (value !== undefined) out[key] = value;
-  }
-  return out as unknown as RawListing;
-}
-
 /**
  * Compose l'annonce à partir des champs déjà extraits d'une carte. Isolé pour
  * garder la boucle de parsing simple (complexité).
@@ -55,7 +41,7 @@ function buildListing(fields: {
 }): RawListing {
   const { reference, sourceUrl, alt, typeText, description, geo, price, image, agencyName } =
     fields;
-  return compact({
+  return compactListing({
     sourceRef: reference,
     sourceUrl,
     title: cleanText(alt) || undefined,

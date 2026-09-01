@@ -21,3 +21,16 @@ export function compactListing(draft: RawDraft): RawListing {
   }
   return out as unknown as RawListing;
 }
+
+/**
+ * Résultat d'un parseur de page de liste.
+ *
+ * Cette forme était redéclarée à l'identique dans quinze parseurs : la
+ * centraliser évite qu'ils divergent, et rend explicite le contrat commun —
+ * des annonces, et des avertissements qui remontent au journal sans interrompre
+ * la collecte (§69).
+ */
+export interface ParsedList {
+  readonly listings: readonly RawListing[];
+  readonly warnings: readonly string[];
+}

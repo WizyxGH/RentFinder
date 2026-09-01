@@ -21,21 +21,7 @@
 import * as cheerio from 'cheerio';
 import type { RawListing } from '@rentfinder/shared';
 import { cleanText } from '../../normalization/text.js';
-
-export interface ParsedList {
-  readonly listings: readonly RawListing[];
-  readonly warnings: readonly string[];
-}
-
-type RawDraft = { [K in keyof RawListing]?: RawListing[K] | undefined };
-
-function compact(draft: RawDraft): RawListing {
-  const out: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(draft)) {
-    if (value !== undefined) out[key] = value;
-  }
-  return out as unknown as RawListing;
-}
+import { compactListing, type ParsedList } from '../shared/raw-listing.js';
 
 /** Référence Lodgis (« LPA26747 ») lue dans l'URL de la fiche. */
 function referenceFrom(href: string): string | null {
@@ -80,7 +66,7 @@ function buildListing(fields: {
   // « Appartement meublé 3 chambres » : Lodgis compte les CHAMBRES, pas les
   // pièces — on ne convertit pas (§17), on laisse la normalisation lire le
   // nombre de chambres tel qu'il est publié.
-  return compact({
+  return compactListing({
     sourceRef: reference,
     sourceUrl,
     title: title || undefined,

@@ -33,12 +33,9 @@ export const EMAIL_ALERTS_DESCRIPTOR: SourceDescriptor = {
   // redirection — l'en-tête `location` seul, jamais la page — étalées par le
   // limiteur à 20/min. Au-delà du plafond, les annonces restantes gardent leur
   // lien d'origine plutôt que d'insister (§10, §69).
-  // 120 : le plafond doit couvrir la TOTALITÉ des annonces nouvelles d'un
-  // passage, car une annonce non résolue est enregistrée avec son lien de
-  // tracking, devient « connue », et n'est alors plus jamais résolue. Avec 40,
-  // un rattrapage (base repartie de zéro, ~160 annonces) en laissait les trois
-  // quarts avec une URL périssable. En régime courant un passage n'en consomme
-  // qu'une trentaine.
+  // Le plafond doit couvrir TOUTES les annonces nouvelles d'un passage : une
+  // annonce non résolue est enregistrée avec son lien de tracking, devient
+  // « connue », et n'est alors plus jamais résolue.
   budget: budgetFor('portal', { maxPagesPerRun: 120, maxListingsPerRun: 200 }),
   enabled: true,
   // Premier contact via le lien du portail, à la main de l'utilisateur (§23).
@@ -54,16 +51,12 @@ export const EMAIL_ALERTS_DESCRIPTOR: SourceDescriptor = {
 const TRACKING_HOSTS = /(^|\.)(click|link|clic|url\d*|email|mail|t)\./i;
 
 /**
- * Remplace un lien de TRACKING par l'URL canonique de l'annonce.
+ * Remplace un lien de tracking par l'URL canonique de l'annonce.
  *
- * Les digests SeLoger ne contiennent que des liens `click.by.seloger.com/?qs=…`
- * (vérifié : zéro URL directe sur 99 e-mails). Ces liens PÉRIMENT alors que
- * l'annonce, elle, reste en ligne — d'où des « l'URL ne mène à rien » (§17).
- *
- * On résout donc la redirection UNE FOIS, à la collecte, et on stocke la cible.
- * `redirect: 'manual'` : on lit l'en-tête `location` sans jamais télécharger la
- * page du portail — aucun accès automatisé à SeLoger (§10). Une seule requête
- * par annonce NOUVELLE ; en cas d'échec on garde le lien d'origine (§69).
+ * Ces liens périment alors que l'annonce reste en ligne, d'où des « l'URL ne
+ * mène à rien ». `redirect: 'manual'` lit le seul en-tête `location` : la page
+ * du portail n'est jamais téléchargée (§10). En cas d'échec, on garde le lien
+ * d'origine (§69).
  */
 async function resolveCanonicalUrls(
   listings: readonly RawListing[],

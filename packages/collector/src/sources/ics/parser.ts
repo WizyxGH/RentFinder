@@ -1,19 +1,11 @@
 /**
- * Parseur de la plateforme ICS (ics.fr) — §5, §47.
+ * Parseur de la plateforme ICS (ics.fr) — §5, §47. Adaptateur générique,
+ * paramétré par domaine.
  *
- * Quatrième éditeur rencontré sur Nice, après Apimo/Cello, Hektor/La Boîte Immo
- * et AdaptImmo/Ubiflow. ICS équipe des cabinets de syndic et de gérance depuis
- * longtemps : l'adaptateur est générique, paramétré par domaine.
- *
- * Particularité qui simplifie tout : la page de liste SÉRIALISE ses annonces en
- * JSON dans un `var properties = [...]`. Pas de cartes à parcourir, pas de
- * pagination côté serveur (le `<ul class="pagination">` est masqué et le
- * découpage se fait en JavaScript sur le tableau déjà chargé) : une seule
- * requête suffit, et aucune fiche n'a besoin d'être visitée (§30).
- *
- * Ce JSON n'est PAS analysable par `JSON.parse` : les valeurs contiennent du
- * HTML avec des échappements invalides. On lit donc champ par champ, puis on
- * décode les entités.
+ * La page de liste sérialise ses annonces dans un `var properties = [...]` et
+ * la pagination est purement visuelle : une requête suffit, aucune fiche à
+ * visiter (§30). Ce JSON n'est pas analysable par `JSON.parse` (HTML aux
+ * échappements invalides), d'où la lecture champ par champ.
  */
 
 import * as cheerio from 'cheerio';

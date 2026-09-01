@@ -28,40 +28,40 @@ que d'en perdre une bonne par manque d'information.
 
 ## Où l'on cherche
 
-| Champ               | Type            | Défaut     | Effet                                                                                                                   |
-| ------------------- | --------------- | ---------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `cities`            | liste de textes | `["nice"]` | Communes recherchées, **en minuscules sans accent** (`"saint-laurent-du-var"`). Hors de cette liste → hors critères.     |
+| Champ               | Type            | Défaut     | Effet                                                                                                                     |
+| ------------------- | --------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `cities`            | liste de textes | `["nice"]` | Communes recherchées, **en minuscules sans accent** (`"saint-laurent-du-var"`). Hors de cette liste → hors critères.      |
 | `maxCommuteMinutes` | nombre (min)    | `60`       | Trajet maximum vers le point « Travail » défini dans `.env`. Sans point de référence configuré, ce réglage est inopérant. |
 
 ## Combien, et quelle taille
 
-| Champ       | Type        | Défaut | Effet                                                                                                               |
-| ----------- | ----------- | ------ | ------------------------------------------------------------------------------------------------------------------- |
-| `minPrice`  | nombre (€)  | `250`  | Loyer plancher. Sert surtout à écarter parkings, box et caves mal étiquetés « appartement » (~100 €).                 |
-| `maxPrice`  | nombre (€)  | `700`  | Loyer plafond, charges comprises.                                                                                    |
-| `minArea`   | nombre (m²) | `20`   | Surface minimum, comparaison inclusive (`surface ≥ minArea`).                                                        |
+| Champ      | Type        | Défaut | Effet                                                                                                 |
+| ---------- | ----------- | ------ | ----------------------------------------------------------------------------------------------------- |
+| `minPrice` | nombre (€)  | `250`  | Loyer plancher. Sert surtout à écarter parkings, box et caves mal étiquetés « appartement » (~100 €). |
+| `maxPrice` | nombre (€)  | `700`  | Loyer plafond, charges comprises.                                                                     |
+| `minArea`  | nombre (m²) | `20`   | Surface minimum, comparaison inclusive (`surface ≥ minArea`).                                         |
 
 ## Quel type de bien
 
-| Champ              | Type    | Défaut  | Effet                                                                                                                          |
-| ------------------ | ------- | ------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `excludeFlatShare` | booléen | `true`  | Écarte les colocations de la liste principale. Elles restent collectées et consultables en « hors critères ».                   |
+| Champ              | Type    | Défaut  | Effet                                                                                                                              |
+| ------------------ | ------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `excludeFlatShare` | booléen | `true`  | Écarte les colocations de la liste principale. Elles restent collectées et consultables en « hors critères ».                      |
 | `excludeStudent`   | booléen | `true`  | Écarte les logements étudiants (résidences, annonces « étudiant/erasmus »), par mots-clés du titre, de la description et de l'URL. |
-| `furnishedFilter`  | texte   | `"all"` | `"all"`, `"furnished"` (meublés seulement) ou `"unfurnished"` (non meublés seulement).                                          |
-| `propertyTypes`    | liste   | absent  | Restreint aux types cités : `apartment`, `house`, `studio`, `loft`, `duplex`, `other`. Omettre la clé = tous les types.         |
+| `furnishedFilter`  | texte   | `"all"` | `"all"`, `"furnished"` (meublés seulement) ou `"unfurnished"` (non meublés seulement).                                             |
+| `propertyTypes`    | liste   | absent  | Restreint aux types cités : `apartment`, `house`, `studio`, `loft`, `duplex`, `other`. Omettre la clé = tous les types.            |
 
 ## Qui loue
 
-| Champ            | Type  | Défaut  | Effet                                                                                                                                         |
-| ---------------- | ----- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Champ            | Type  | Défaut  | Effet                                                                                                                                                  |
+| ---------------- | ----- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `landlordFilter` | texte | `"all"` | `"private"` masque les agences connues mais garde les particuliers **et les bailleurs inconnus** (dont les alertes e-mail). `"agency"` fait l'inverse. |
 
 ## Réglages techniques
 
-| Champ                  | Type          | Défaut | Effet                                                                                                        |
-| ---------------------- | ------------- | ------ | ------------------------------------------------------------------------------------------------------------ |
+| Champ                  | Type          | Défaut | Effet                                                                                                             |
+| ---------------------- | ------------- | ------ | ----------------------------------------------------------------------------------------------------------------- |
 | `referencePricePerSqm` | nombre (€/m²) | `20`   | Loyer de référence au m². Sert au score de RISQUE (une annonce très en dessous est signalée). **Ne filtre rien.** |
-| `maxSourcesPerRun`     | nombre        | `6`    | Sources visitées par passage. Les 40 sources sont parcourues à tour de rôle, les moins récemment vues d'abord. |
+| `maxSourcesPerRun`     | nombre        | `6`    | Sources visitées par passage. Les 40 sources sont parcourues à tour de rôle, les moins récemment vues d'abord.    |
 
 ## Clés à ne pas utiliser
 
