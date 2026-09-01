@@ -124,14 +124,15 @@ export function SortFilterModal({
       >
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold">Trier et filtrer</h2>
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={onClose}
             aria-label="Fermer"
-            className="cursor-pointer rounded-lg p-1.5 text-muted-foreground hover:bg-muted"
+            className="min-h-0 px-2 text-muted-foreground"
           >
             <X aria-hidden="true" className="size-5" />
-          </button>
+          </Button>
         </div>
 
         <fieldset className="mb-5">

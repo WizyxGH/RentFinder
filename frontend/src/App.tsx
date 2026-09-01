@@ -626,11 +626,7 @@ export function App(): React.JSX.Element {
           {/* Tri, affichage et sources sont regroupés dans une seule modale :
             trois menus déroulants côte à côte tenaient mal sur mobile et rien
             ne disait qu'ils formaient un même réglage (§36). */}
-          <button
-            type="button"
-            onClick={() => setSortFilterOpen(true)}
-            className="flex cursor-pointer items-center gap-2 rounded-full border border-input bg-card px-3 py-1.5 font-medium transition-colors hover:bg-accent"
-          >
+          <Button variant="outline" size="sm" onClick={() => setSortFilterOpen(true)}>
             <SlidersHorizontal aria-hidden="true" className="size-4" />
             Trier et filtrer
             {toolbarBadge > 0 && (
@@ -638,7 +634,7 @@ export function App(): React.JSX.Element {
                 {toolbarBadge}
               </span>
             )}
-          </button>
+          </Button>
 
           {/* Compteur de résultats, poussé à droite (repère façon SeLoger).
             Il distingue les annonces ACTIVES de celles disparues de leur source :
