@@ -115,7 +115,9 @@ Chaque étape marche seule : on peut s'arrêter après la première.
 
 #### Étape 1 — le site en ligne (2 minutes)
 
-Rien à faire : le workflow active Pages lui-même au premier passage.
+Settings → Pages → Source « **GitHub Actions** ». Une fois, et c'est tout — le
+workflow ne peut pas l'activer lui-même, son jeton peut déployer sur Pages mais
+pas créer le site.
 
 Le site se publie à chaque push en **mode démonstration** : il tourne sur des
 données fictives, aucune de vos annonces n'est exposée. De quoi vérifier que la

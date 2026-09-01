@@ -19,11 +19,11 @@
   },
   "dependencies": {
     "@libsql/client": "^0.14.0",
-    "@rentfinder/shared": "workspace:*",
-    "@rentfinder/collector": "workspace:*"
+    "@rentfinder/collector": "workspace:*",
+    "@rentfinder/shared": "workspace:*"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20241218.0",
-    "wrangler": "^3.99.0"
+    "wrangler": "^4.128.0"
   }
 }

@@ -70,12 +70,11 @@ jobs:
           fi
           echo "Aucun secret détecté dans le bundle."
 
+      # `enablement: true` ne marche pas ici : le jeton du workflow peut
+      # DÉPLOYER sur Pages mais pas CRÉER le site (« Resource not accessible by
+      # integration »). L'activation reste donc une action une fois pour toutes,
+      # dans Settings → Pages → Source « GitHub Actions ».
       - uses: actions/configure-pages@v5
-        with:
-          # Active Pages depuis le workflow : sans cela, la publication échoue
-          # tant qu'on n'est pas allé cocher l'option à la main dans Settings.
-          # Le job a déjà la permission `pages: write`.
-          enablement: true
 
       - uses: actions/upload-pages-artifact@v3
         with:
