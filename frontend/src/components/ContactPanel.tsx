@@ -326,15 +326,20 @@ export function ContactPanel({
             <Button onClick={() => onRecorded(channel, message, [...selected])}>J’ai envoyé</Button>
           </div>
 
-          {channel === 'form' && (
-            <p className="mt-2 text-sm text-muted-foreground">
-              {copied
-                ? 'Message copié — il ne reste qu’à le coller dans le formulaire.'
-                : 'Ouvrir le formulaire copie le message : plus qu’à le coller.'}
-            </p>
-          )}
+          {channel === 'form' && <FormHint copied={copied} />}
         </>
       )}
     </Card>
+  );
+}
+
+/** Rappel affiché sous les boutons quand le seul canal est un formulaire web. */
+function FormHint({ copied }: { readonly copied: boolean }): React.JSX.Element {
+  return (
+    <p className="mt-2 text-sm text-muted-foreground">
+      {copied
+        ? 'Message copié — il ne reste qu’à le coller dans le formulaire.'
+        : 'Ouvrir le formulaire copie le message : plus qu’à le coller.'}
+    </p>
   );
 }

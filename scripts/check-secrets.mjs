@@ -104,7 +104,7 @@ const RULES = [
     // Republier la clé d'un tiers dans un dépôt public est à éviter — et
     // GitHub alerte dessus. La détection nous évite de le découvrir après coup.
     label: 'Clé d’API Google (souvent celle d’un tiers, via une fixture)',
-    pattern: /AIza(?!-)[0-9A-Za-z_-]{20,}/g,
+    pattern: /\bAIza(?!-)[0-9A-Za-z_-]{20,}/g,
     severity: 'error',
   },
   {
