@@ -160,6 +160,8 @@ export interface UpsertReport {
   readonly inserted: number;
   readonly updated: number;
   readonly unchanged: number;
+  /** Fiches orphelines supprimées après fusion — absent si aucune. */
+  readonly removed?: number;
 }
 
 export interface Repository {
@@ -614,7 +616,25 @@ export function createRepository(db: Database): Repository {
       }
 
       if (statements.length > 0) await db.batch(statements, 'write');
-      return { inserted, updated, unchanged };
+
+      // Fiches ORPHELINES : quand deux fiches fusionnent, le groupe survivant
+      // reçoit un nouvel identifiant et les occurrences lui sont rattachées —
+      // l'ancienne ligne restait en base, plus référencée par rien. Elle
+      // continuait d'être comptée et affichée, donc de ressortir en doublon.
+      //
+      // La suppression ne perd rien : le contenu vit dans la fiche survivante.
+      // On épargne toutefois celles qui portent une décision de l'utilisateur
+      // (favori, archivage, suivi) — mieux vaut une ligne morte qu'un choix
+      // effacé (§14).
+      const orphans = await db.execute(`
+        DELETE FROM listings
+        WHERE id NOT IN (SELECT group_id FROM occurrences WHERE group_id IS NOT NULL)
+          AND favorite = 0 AND archived = 0
+          AND (tracking IS NULL OR tracking IN ('none', 'new'))
+      `);
+      const removed = orphans.rowsAffected ?? 0;
+
+      return { inserted, updated, unchanged, ...(removed > 0 ? { removed } : {}) };
     },
 
     async markRented(sourceId, refs) {
