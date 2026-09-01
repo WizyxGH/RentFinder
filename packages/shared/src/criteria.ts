@@ -91,9 +91,10 @@ export interface SearchCriteria {
 export const MVP_CRITERIA: SearchCriteria = {
   cities: ['nice'],
   maxPrice: 700,
-  // 18 m² depuis le 2026-08-25 (12 → 14 le 2026-08-15 → 16 le 2026-08-22 → 18) —
-  // décisions utilisateur successives. Comparaison inclusive (surface ≥ minArea).
-  minArea: 18,
+  // 20 m² depuis le 2026-09-01 (12 → 14 le 2026-08-15 → 16 le 2026-08-22 → 18 le
+  // 2026-08-25 → 20) — décisions utilisateur successives. Comparaison inclusive
+  // (surface ≥ minArea).
+  minArea: 20,
   // L'utilisateur ne cherche pas de colocation (décision du 2026-08-15).
   excludeFlatShare: true,
   // Écarte les parkings/box/caves mal étiquetés « appartement » (~100 €).
