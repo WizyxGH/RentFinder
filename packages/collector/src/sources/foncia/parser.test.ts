@@ -2,7 +2,13 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { normalizeListing } from '../../normalization/normalize.js';
-import { extractAddress, parseListingUrl, parseSearchPage } from './parser.js';
+import {
+  extractAddress,
+  parseAgencies,
+  parseAgencyByReference,
+  parseListingUrl,
+  parseSearchPage,
+} from './parser.js';
 
 const FIXTURES = join(import.meta.dirname, '../../../../../tests/fixtures/foncia');
 const PAGE_URL = 'https://fr.foncia.com/location/nice-06000/appartement';
@@ -103,5 +109,36 @@ describe('parseSearchPage — chaîne complète avec la normalisation', () => {
     expect(normalized?.area).toBe(15);
     expect(normalized?.furnished).toBe(true);
     expect(normalized?.propertyType).toBe('studio');
+  });
+});
+
+describe('parseAgencies (Foncia)', () => {
+  const html = readFileSync(join(FIXTURES, 'agences.html'), 'utf8');
+
+  it('lit nom, téléphone et e-mail de chaque agence', () => {
+    const agencies = parseAgencies(html);
+    expect(agencies.get('3443')).toEqual({
+      name: 'Foncia Nice Résidences',
+      phone: '+33400000002',
+      email: 'agence-b-location@example.invalid',
+    });
+  });
+
+  it('garde une agence sans coordonnées plutôt que de l’écarter (§17)', () => {
+    const agency = parseAgencies(html).get('9999');
+    expect(agency?.name).toBe('Agence sans contact');
+    expect(agency?.phone).toBeUndefined();
+    expect(agency?.email).toBeUndefined();
+  });
+});
+
+describe('parseAgencyByReference (Foncia)', () => {
+  it('relie chaque annonce à son agence', () => {
+    const html = readFileSync(join(FIXTURES, 'liste-agences.html'), 'utf8');
+    const map = parseAgencyByReference(html);
+    expect(map.get('331706221')).toBe('3443');
+    // Certaines annonces relèvent d'une agence absente de la page de la ville :
+    // elles gardent alors le formulaire, sans contact direct.
+    expect(map.get('331707068')).toBe('6674');
   });
 });

@@ -174,3 +174,60 @@ export function parseSearchPage(html: string, pageUrl: string): ParsedPage {
   // page couvre déjà tout Nice. `hasNextPage` est donc toujours faux.
   return { listings, hasNextPage: false, warnings };
 }
+
+/** Coordonnées d'une agence Foncia, lues sur la page des agences d'une ville. */
+export interface FonciaAgency {
+  readonly name: string;
+  readonly phone: string | undefined;
+  readonly email: string | undefined;
+}
+
+/**
+ * Associe chaque numéro d'agence à ses coordonnées.
+ *
+ * Les fiches Foncia ne publient AUCUN contact : candidater passe par un
+ * formulaire web. Elles portent en revanche un `numeroAgence`, et la page des
+ * agences de la ville publie, elle, le téléphone et une adresse dédiée à la
+ * location. Une requête suffit pour toute la ville.
+ *
+ * L'état Angular est sérialisé avec `&q;` en guise de guillemet.
+ */
+export function parseAgencies(html: string): Map<string, FonciaAgency> {
+  const decoded = html.replace(/&q;/g, '"');
+  const agencies = new Map<string, FonciaAgency>();
+
+  // Chaque agence est un objet portant nom, numéro, téléphone et e-mail. On
+  // découpe sur le numéro, seul champ garanti présent.
+  for (const block of decoded.split('"numeroAgence"').slice(1)) {
+    const number = /^\s*:\s*"(\d{3,6})"/.exec(block)?.[1];
+    if (number === undefined || agencies.has(number)) continue;
+    // La fenêtre suivant le numéro contient les champs de CETTE agence.
+    const window = block.slice(0, 4000);
+    const name = /"nom"\s*:\s*"([^"]{3,60})"/.exec(window)?.[1];
+    if (name === undefined) continue;
+    agencies.set(number, {
+      name,
+      phone: /"tel"\s*:\s*"(\+?\d{9,15})"/.exec(window)?.[1],
+      email: /"mail"\s*:\s*"([\w.%+-]+@[\w.-]+\.\w{2,})"/.exec(window)?.[1],
+    });
+  }
+
+  return agencies;
+}
+
+/** Numéro d'agence porté par chaque annonce de la page de liste. */
+export function parseAgencyByReference(html: string): Map<string, string> {
+  const decoded = html.replace(/&q;/g, '"');
+  const byReference = new Map<string, string>();
+  // « "reference":"331706221", … "numeroAgence":"3443" » — les deux champs
+  // appartiennent au même objet, séparés par quelques centaines d'octets.
+  for (const match of decoded.matchAll(
+    /"reference"\s*:\s*"(\d{6,})"[\s\S]{0,400}?"numeroAgence"\s*:\s*"(\d{3,6})"/g,
+  )) {
+    const [, reference, agency] = match;
+    if (reference !== undefined && agency !== undefined && !byReference.has(reference)) {
+      byReference.set(reference, agency);
+    }
+  }
+  return byReference;
+}

@@ -25,10 +25,17 @@ import type {
   StopReason,
 } from '@rentfinder/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
-import { parseSearchPage } from './parser.js';
+import { parseAgencies, parseAgencyByReference, parseSearchPage } from './parser.js';
 
 /** Une page = tout Nice (appartements). */
 const ENTRY_URL = 'https://fr.foncia.com/location/nice-06000/appartement';
+
+/**
+ * Page des agences de la ville : le SEUL endroit où Foncia publie un téléphone
+ * et une adresse e-mail. Les fiches, elles, n'offrent qu'un formulaire web.
+ * Une requête couvre toutes les agences de Nice.
+ */
+const AGENCIES_URL = 'https://fr.foncia.com/agence-immobiliere/agences-immo/nice-06_location';
 
 export const FONCIA_DESCRIPTOR: SourceDescriptor = {
   id: 'foncia',
@@ -75,10 +82,36 @@ export const fonciaScraper: Scraper = {
         const parsed = parseSearchPage(response.body, ENTRY_URL);
         warnings.push(...parsed.warnings);
 
+        // Coordonnées des agences : une requête pour toute la ville, et le
+        // formulaire web devient un e-mail direct. L'échec n'est pas bloquant —
+        // on retombe simplement sur le formulaire (§69).
+        let agencies = new Map<string, { name: string; phone?: string; email?: string }>();
+        const agencyOf = parseAgencyByReference(response.body);
+        try {
+          const page = await context.fetch(AGENCIES_URL);
+          requestCount += 1;
+          if (!page.notModified) agencies = parseAgencies(page.body);
+          context.log('agencies.parsed', { agencies: agencies.size });
+        } catch (error) {
+          context.log('agencies.failed', {
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+
         let known = 0;
         for (const listing of parsed.listings) {
           if (context.isKnown(listing.sourceRef)) known += 1;
-          listings.push(listing);
+          const agency = agencies.get(agencyOf.get(listing.sourceRef) ?? '');
+          listings.push(
+            agency === undefined
+              ? listing
+              : {
+                  ...listing,
+                  agencyName: agency.name,
+                  ...(agency.phone !== undefined ? { phoneText: agency.phone } : {}),
+                  ...(agency.email !== undefined ? { emailText: agency.email } : {}),
+                },
+          );
         }
         context.log('page.parsed', {
           url: ENTRY_URL,
