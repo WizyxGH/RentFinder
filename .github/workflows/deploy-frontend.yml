@@ -8,8 +8,11 @@
 # jeton d'accès, lui, est saisi par l'utilisateur dans l'interface et n'entre
 # jamais dans le bundle.
 #
-# Ne fait RIEN tant que la variable de dépôt CLOUD_COLLECT_ENABLED n'est pas
-# à `true` : un fork reste 100% local sans effort.
+# AUCUNE CONFIGURATION N'EST REQUISE pour publier le site : il suffit d'activer
+# Pages (Settings → Pages → Source « GitHub Actions »). Sans la variable
+# `API_URL`, le site se construit en mode DÉMONSTRATION — données fictives,
+# aucune donnée réelle exposée. Renseigner `API_URL` plus tard le branche sur
+# vos données, sans rien changer ici.
 
 name: Déploiement du frontend
 
@@ -36,7 +39,6 @@ jobs:
     name: Build
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    if: ${{ vars.CLOUD_COLLECT_ENABLED == 'true' }}
 
     steps:
       - uses: actions/checkout@v4

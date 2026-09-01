@@ -109,35 +109,66 @@ Cloudflare Worker (API, jeton obligatoire)
 GitHub Pages (le site, accessible partout)
 ```
 
-### Mise en place (une fois, ~20 min)
+### Mise en place, par étapes
+
+Chaque étape marche seule : on peut s'arrêter après la première.
+
+#### Étape 1 — le site en ligne (2 minutes)
+
+Settings → Pages → Source « **GitHub Actions** ». C'est tout.
+
+Le site se publie à chaque push en **mode démonstration** : il tourne sur des
+données fictives, aucune de vos annonces n'est exposée. De quoi vérifier que la
+publication fonctionne avant d'aller plus loin.
+
+#### Étape 2 — vos vraies données (~15 minutes)
 
 1. **Turso** ([turso.tech](https://turso.tech), palier gratuit) :
-   `turso db create rentfinder` puis `turso db show rentfinder --url` et
-   `turso db tokens create rentfinder`. Notez l'URL (`libsql://…`) et le jeton.
-2. **Secrets GitHub** (Dépôt → Settings → Secrets and variables → Actions) :
-   - Secrets : `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`, `TELEGRAM_BOT_TOKEN`,
-     `TELEGRAM_CHAT_ID`, `BEP_SUBSCRIBER_USER`/`_PASSWORD` (optionnel),
-     `REFERENCE_WORK_LAT`/`_LON` (ou `_ADDRESS`), `REFERENCE_STATION_*`.
-   - Variables : `CLOUD_COLLECT_ENABLED=true` (l'interrupteur général),
-     `COLLECTOR_USER_AGENT`, `API_URL` (l'URL du Worker, étape 3).
-3. **Worker Cloudflare** (compte gratuit) :
+
+   ```bash
+   turso db create rentfinder
+   turso db show rentfinder --url      # → libsql://…
+   turso db tokens create rentfinder   # → le jeton
+   ```
+
+   Puis, depuis votre machine : ces deux valeurs dans `.env`, et
+   `pnpm publish:turso` pour y envoyer l'inventaire.
+
+2. **Worker Cloudflare** (compte gratuit) — l'API qui protège vos données :
+
    ```bash
    cd packages/api
    npx wrangler secret put TURSO_DATABASE_URL
    npx wrangler secret put TURSO_AUTH_TOKEN
-   npx wrangler secret put API_ACCESS_TOKEN   # inventez un jeton fort
+   npx wrangler secret put API_ACCESS_TOKEN   # inventez un jeton long
    npx wrangler deploy
    ```
-   Renseignez `API_ALLOWED_ORIGIN` (votre URL GitHub Pages) dans
-   `packages/api/wrangler.toml`, et l'URL du Worker dans la variable GitHub
-   `API_URL`.
-4. **GitHub Pages** : Settings → Pages → Source « GitHub Actions ». Le workflow
-   `deploy-frontend.yml` publie l'interface à chaque push.
-5. Ouvrez le site → il demande votre **jeton d'accès** (`API_ACCESS_TOKEN`) —
-   saisi une fois, conservé dans le navigateur, jamais dans le dépôt (§26).
 
-Sans `CLOUD_COLLECT_ENABLED=true`, les workflows ne consomment RIEN : un fork
-du dépôt reste purement local.
+   Renseignez `API_ALLOWED_ORIGIN` (votre URL GitHub Pages) dans
+   `packages/api/wrangler.toml`.
+
+3. **Une seule variable GitHub** : `API_URL` = l'URL du Worker
+   (Settings → Secrets and variables → Actions → Variables).
+
+Au prochain push, le site quitte le mode démonstration. Le jeton d'accès vous
+est demandé une fois dans l'interface — il n'entre jamais dans le bundle.
+
+#### Étape 3 — collecter PC éteint (optionnel)
+
+Pour que la collecte et les notifications Telegram tournent 24/7 :
+
+- **Variable** `CLOUD_COLLECT_ENABLED=true` (l'interrupteur de la collecte
+  planifiée), et `COLLECTOR_USER_AGENT`.
+- **Secrets** : `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`, `TELEGRAM_BOT_TOKEN`,
+  `TELEGRAM_CHAT_ID`, `REFERENCE_WORK_LAT`/`_LON`, `REFERENCE_STATION_*`, et
+  `BEP_SUBSCRIBER_USER`/`_PASSWORD` si vous êtes abonné.
+
+Les points de référence vont en **secrets**, jamais en variables : les variables
+sont lisibles par quiconque voit le dépôt.
+
+Sans `CLOUD_COLLECT_ENABLED=true`, la collecte planifiée ne consomme RIEN : un
+fork du dépôt reste purement local. Cet interrupteur ne concerne QUE la
+collecte — la publication du site n'en dépend pas.
 
 ### Historique
 
