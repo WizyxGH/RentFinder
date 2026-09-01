@@ -20,6 +20,7 @@ import {
   fetchListings,
   fetchSources,
   isDemoMode,
+  isUnconfigured,
   markViewed,
   readToken,
   recordContact,
@@ -49,8 +50,9 @@ import { ProfileForm } from './components/ProfileForm.js';
 import { SourcesPanel } from './components/SourcesPanel.js';
 import { FiltersPanel } from './components/FiltersPanel.js';
 import { StatsPanel } from './components/StatsPanel.js';
-import { Search, SlidersHorizontal } from 'lucide-react';
+import { Flame, List, Map, Search, SlidersHorizontal } from 'lucide-react';
 import { SortFilterModal } from './components/SortFilterModal.js';
+import { NotConfigured } from './components/NotConfigured.js';
 import {
   QuickFilters,
   EMPTY_QUICK_FILTERS,
@@ -563,6 +565,16 @@ export function App(): React.JSX.Element {
     }
   };
 
+  // Site publié sans API : on explique ce qui manque, et on s'arrête là — une
+  // barre de filtres au-dessus d'une liste vide n'apprendrait rien.
+  if (isUnconfigured()) {
+    return (
+      <Shell view={view} onNavigate={navigate}>
+        <NotConfigured />
+      </Shell>
+    );
+  }
+
   return (
     <Shell view={view} onNavigate={navigate}>
       {isDemoMode() && (
@@ -592,7 +604,7 @@ export function App(): React.JSX.Element {
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              Liste
+              <List aria-hidden="true" className="size-4" /> Liste
             </button>
             <button
               type="button"
@@ -604,7 +616,7 @@ export function App(): React.JSX.Element {
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              🗺️ Carte
+              <Map aria-hidden="true" className="size-4" /> Carte
             </button>
           </div>
 
@@ -713,7 +725,7 @@ export function App(): React.JSX.Element {
           {hot.length > 0 && (
             <section aria-labelledby="hot-title" className="mb-6">
               <h2 id="hot-title" className="mb-2 text-lg font-bold">
-                🔥 À contacter maintenant
+                <Flame aria-hidden="true" className="size-4" /> À contacter maintenant
               </h2>
               <div className="grid gap-3 lg:grid-cols-2">
                 {hot.map((listing) => (

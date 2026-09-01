@@ -7,6 +7,7 @@
  */
 
 import { useState } from 'react';
+import { Bell, BellOff } from 'lucide-react';
 import {
   notificationPermission,
   notificationsSupported,
@@ -61,7 +62,11 @@ export function NotificationBell(): React.JSX.Element | null {
         active ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
       }`}
     >
-      {active ? '🔔' : '🔕'}
+      {active ? (
+        <Bell aria-hidden="true" className="size-4" />
+      ) : (
+        <BellOff aria-hidden="true" className="size-4" />
+      )}
     </button>
   );
 }

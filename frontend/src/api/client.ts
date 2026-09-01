@@ -31,6 +31,15 @@ export const API_URL: string = (import.meta.env['VITE_API_URL'] as string | unde
 export const isDemoMode = (): boolean => API_URL === '';
 
 /**
+ * Site PUBLIÉ sans API configurée.
+ *
+ * En développement, l'absence d'API fait tourner l'interface sur des données
+ * fictives — c'est commode. Sur un site en ligne, ces annonces inventées n'ont
+ * aucun intérêt et prêtent à confusion : mieux vaut dire ce qu'il manque.
+ */
+export const isUnconfigured = (): boolean => API_URL === '' && import.meta.env.PROD;
+
+/**
  * Mode LOCAL (`/`) : l'interface est servie par le serveur du mode zéro-cloud
  * (`pnpm local`), qui expose l'API sur la même origine, sans jeton — il
  * n'écoute que sur 127.0.0.1. Voir `packages/collector/src/cli/serve.ts`.
