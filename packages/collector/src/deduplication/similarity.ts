@@ -111,11 +111,44 @@ function findBlocker(a: NormalizedListing, b: NormalizedListing): string | null 
 }
 
 /** Signaux très forts : ils identifient presque à eux seuls le même bien (§14). */
+/**
+ * Identité d'une image, indépendante de sa signature d'accès.
+ *
+ * Les portails ajoutent un jeton par requête (`?ci_seal=…`) : deux liens vers le
+ * MÊME fichier ne se ressemblent pas caractère pour caractère. On ne garde donc
+ * que l'hôte et le chemin.
+ */
+function imageIdentity(url: string): string | null {
+  try {
+    const parsed = new URL(url);
+    return `${parsed.host}${parsed.pathname}`;
+  } catch {
+    return null;
+  }
+}
+
+/** `true` si les deux annonces publient au moins une image identique. */
+function sharesImage(a: NormalizedListing, b: NormalizedListing): boolean {
+  const left = new Set(a.imageUrls.map(imageIdentity).filter((x): x is string => x !== null));
+  if (left.size === 0) return false;
+  return b.imageUrls.some((url) => {
+    const identity = imageIdentity(url);
+    return identity !== null && left.has(identity);
+  });
+}
+
 function collectStrongSignals(
   a: NormalizedListing,
   b: NormalizedListing,
   push: (signal: SimilaritySignal) => void,
 ): void {
+  // Une PHOTO commune est le signal le plus sûr dont on dispose : une agence
+  // pousse les mêmes fichiers vers le portail et vers son propre site. Et c'est
+  // gratuit — on compare des URL déjà collectées, sans télécharger d'image.
+  if (sharesImage(a, b)) {
+    push({ code: 'image', label: 'photo identique', points: 45 });
+  }
+
   if (a.contact.phone !== null && a.contact.phone === b.contact.phone) {
     push({ code: 'phone', label: 'même téléphone', points: 40 });
   }

@@ -377,3 +377,47 @@ describe('blockingKeys — ville inconnue', () => {
     expect(communes.length).toBeGreaterThan(0);
   });
 });
+
+describe('similarité — la photo', () => {
+  const PHOTO = 'https://mms.seloger.com/0/4/2/5/0425e023-144e-4317.jpg';
+
+  it('reconnaît la même photo malgré une signature d’accès différente', () => {
+    // Les portails ajoutent un jeton par requête : deux liens vers le même
+    // fichier ne se ressemblent pas caractère pour caractère.
+    const a = listing({ id: 'a:i1', sourceId: 'a', imageUrls: [`${PHOTO}?ci_seal=aaa`] });
+    const b = listing({ id: 'b:i1', sourceId: 'b', imageUrls: [`${PHOTO}?ci_seal=zzz&w=500`] });
+    expect(similarity(a, b).signals.map((s) => s.code)).toContain('image');
+  });
+
+  it('fait basculer en DOUBLON une paire que prix et surface laissaient ambiguë', () => {
+    const base = { price: 660, area: 32, rooms: 1, city: 'nice' } as const;
+    const sans = similarity(
+      listing({ id: 'a:i2', sourceId: 'a', ...base }),
+      listing({ id: 'b:i2', sourceId: 'b', ...base }),
+    );
+    const avec = similarity(
+      listing({ id: 'a:i3', sourceId: 'a', ...base, imageUrls: [PHOTO] }),
+      listing({ id: 'b:i3', sourceId: 'b', ...base, imageUrls: [PHOTO] }),
+    );
+    expect(sans.verdict).not.toBe('duplicate');
+    expect(avec.verdict).toBe('duplicate');
+  });
+
+  it('ne fusionne PAS sur la seule photo : une façade sert à plusieurs lots', () => {
+    // Deux biens du même immeuble peuvent partager la photo d'extérieur.
+    const a = listing({ id: 'a:i4', sourceId: 'a', price: 500, area: 20, imageUrls: [PHOTO] });
+    const b = listing({ id: 'b:i4', sourceId: 'b', price: 1400, area: 75, imageUrls: [PHOTO] });
+    expect(similarity(a, b).verdict).not.toBe('duplicate');
+  });
+
+  it('ignore les URL invalides et l’absence de photo (§17)', () => {
+    const a = listing({ id: 'a:i5', sourceId: 'a', imageUrls: ['pas une url'] });
+    const b = listing({ id: 'b:i5', sourceId: 'b', imageUrls: ['pas une url'] });
+    expect(similarity(a, b).signals.map((s) => s.code)).not.toContain('image');
+    const vide = similarity(
+      listing({ id: 'a:i6', sourceId: 'a', imageUrls: [] }),
+      listing({ id: 'b:i6', sourceId: 'b', imageUrls: [] }),
+    );
+    expect(vide.signals.map((s) => s.code)).not.toContain('image');
+  });
+});
