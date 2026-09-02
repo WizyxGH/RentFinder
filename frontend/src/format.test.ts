@@ -4,7 +4,9 @@ import {
   formatAddress,
   formatAge,
   formatDay,
+  formatDistrict,
   formatPhone,
+  formatPostalAddress,
   formatTime,
   telHref,
 } from './format.js';
@@ -149,5 +151,84 @@ describe('formatDay', () => {
 describe('formatTime', () => {
   it('donne l’heure seule, la date étant portée par le jour', () => {
     expect(formatTime(new Date(2026, 8, 2, 14, 32).toISOString())).toBe('14:32');
+  });
+});
+
+describe('formatAddress — débordements de description', () => {
+  // Plusieurs sources déversent le début de l'annonce dans le champ adresse.
+  it('coupe la description accolée sans espace à la voie', () => {
+    expect(formatAddress("10 Avenue Sainte-MargueriteAu sein d'une résidence de s")).toBe(
+      '10 Avenue Sainte-Marguerite',
+    );
+  });
+
+  it('coupe au premier mot qui ne peut pas appartenir à une voie', () => {
+    expect(formatAddress('1 boulevard Lech Walesa Joli studio meublé')).toBe(
+      '1 Boulevard Lech Walesa',
+    );
+    expect(formatAddress('84 rue Barberis Très bel appartement de')).toBe('84 Rue Barberis');
+  });
+
+  it('n’ampute pas une voie dont les accents ressemblent à une majuscule', () => {
+    // `[A-ZÀ-Ÿ]` couvre aussi les minuscules accentuées : « Montée » se
+    // faisait couper après « Mont ».
+    expect(formatAddress('7 montée du coteau')).toBe('7 Montée du Coteau');
+    expect(formatAddress('17 Boulevard Général Louis Delfino')).toBe(
+      '17 Boulevard Général Louis Delfino',
+    );
+  });
+
+  it('garde en minuscules la conjonction qui ouvre une plage de numéros', () => {
+    expect(formatAddress('7 ET 9 RUE PAPON')).toBe('7 et 9 Rue Papon');
+    expect(formatAddress('11 ET 11 BIS RUE MEYERBEER')).toBe('11 et 11 bis Rue Meyerbeer');
+  });
+});
+
+describe('formatDistrict', () => {
+  it('capitalise et retire le tiret de liste', () => {
+    expect(formatDistrict('EST ACROPOLIS')).toBe('Est Acropolis');
+    expect(formatDistrict('- BELLET')).toBe('Bellet');
+    expect(formatDistrict('VIEUX NICE')).toBe('Vieux Nice');
+  });
+
+  it('rend N/A pour un quartier absent ou vide', () => {
+    expect(formatDistrict(null)).toBe(UNKNOWN);
+    expect(formatDistrict('  -  ')).toBe(UNKNOWN);
+  });
+});
+
+describe('formatPostalAddress — format Google Maps', () => {
+  it('écrit du plus précis au plus général, séparé par des virgules', () => {
+    expect(
+      formatPostalAddress({ address: '34 AVENUE AUBER', postalCode: '06000', city: 'nice' }),
+    ).toBe('34 Avenue Auber, 06000 Nice');
+  });
+
+  it('omet la voie inconnue plutôt que d’inventer (§17)', () => {
+    expect(formatPostalAddress({ address: null, postalCode: '06000', city: 'nice' })).toBe(
+      '06000 Nice',
+    );
+  });
+
+  it('situe par le quartier à défaut de voie', () => {
+    expect(
+      formatPostalAddress({
+        address: null,
+        postalCode: '06300',
+        city: 'nice',
+        district: 'VIEUX NICE',
+      }),
+    ).toBe('Vieux Nice, 06300 Nice');
+  });
+
+  it('ne garde pas le quartier quand la voie est connue : Maps n’en met pas', () => {
+    expect(
+      formatPostalAddress({
+        address: '19 RUE MICHELET',
+        postalCode: '06100',
+        city: 'nice',
+        district: 'GAMBETTA',
+      }),
+    ).toBe('19 Rue Michelet, 06100 Nice');
   });
 });

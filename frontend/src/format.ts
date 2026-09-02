@@ -7,7 +7,7 @@
  */
 
 import type { PropertyType, TrackingStatus } from '@rentfinder/shared';
-import { toTitleCase } from '@rentfinder/shared';
+import { formatCommune, formatLocation } from '@rentfinder/shared';
 
 /**
  * Valeur non fournie par la source.
@@ -48,12 +48,13 @@ export const formatPropertyType = (type: PropertyType): string => PROPERTY_TYPE_
 
 export function formatCity(city: string | null): string {
   if (city === null) return UNKNOWN;
-  // La ville est stockée en forme comparable (minuscules, sans accent) pour le
-  // dédoublonnage ; on la recapitalise pour l'affichage. On délègue au
-  // formateur PARTAGÉ pour que l'interface, les notifications et les messages
-  // écrivent exactement la même chose (§20) — il gère aussi les tirets et les
-  // particules (« saint-laurent-du-var » → « Saint-Laurent-du-Var »).
-  return toTitleCase(city);
+  // La ville est stockée en forme comparable (minuscules, sans accent ni
+  // tiret) pour le dédoublonnage. On délègue au formateur PARTAGÉ pour que
+  // l'interface, les notifications et les messages écrivent exactement la même
+  // chose (§20) : il rétablit l'orthographe officielle des communes
+  // (« cagnes sur mer » → « Cagnes-sur-Mer ») et détache le quartier que
+  // certaines sources y collent (« nice magnan » → « Nice »).
+  return formatCommune(city);
 }
 
 /** Particules françaises laissées en minuscules dans une adresse. */
@@ -141,10 +142,46 @@ function capitalizeAddressWord(word: string, isFirst: boolean): string {
  * chiffres romains en capitales, les abréviations de voies sont dépliées. Les
  * accents absents ne sont PAS restaurés — on n'invente pas de donnée (§17).
  */
+/**
+ * Mots par lesquels une DESCRIPTION commence, et qu'aucune voie ne porte.
+ *
+ * Plusieurs sources déversent le début de l'annonce dans le champ adresse —
+ * « 84 rue Barberis Très bel appartement de », parfois même collé au dernier
+ * mot : « 10 Avenue Sainte-MargueriteAu sein d'une résidence ». Le champ
+ * devient alors illisible et l'affichage perd toute uniformité.
+ *
+ * La coupe reste PRUDENTE : elle n'intervient qu'après au moins deux mots,
+ * pour ne jamais amputer une voie qui commencerait par l'un de ces termes.
+ */
+const DESCRIPTION_OPENERS =
+  /\b(joli|jolie|beau|bel|belle|magnifique|superbe|charmant|charmante|spacieux|spacieuse|lumineux|lumineuse|agréable|très|tres|idéalement|idealement|situé|située|situe|situee|venez|découvrez|decouvrez|exclusivité|exclusivite|entièrement|entierement|récemment|recemment|nouvellement|rénové|renove|rénovée|renovee|refait|comprenant|composé|compose|composée|composee|offrant|bénéficie|beneficie|disponible|au sein|à louer|a louer|coup de cœur|coup de coeur|dans une résidence|dans un immeuble)\b/iu;
+
+/**
+ * Coupe ce qui suit la voie quand une description a débordé dans le champ.
+ * Rend l'adresse telle quelle si rien ne trahit un débordement (§17 : on
+ * n'invente pas, on se contente de retirer ce qui n'est pas une adresse).
+ */
+function trimDescriptionBleed(address: string): string {
+  // Deux textes concaténés sans espace : « …MargueriteAu sein… ». Une voie
+  // française ne colle jamais une minuscule à une majuscule dans un mot.
+  //
+  // `\p{Ll}`/`\p{Lu}` et non `[a-zà-ÿ]`/`[A-ZÀ-Ÿ]` : la seconde plage couvre
+  // aussi les MINUSCULES accentuées (U+00E0–U+00FF), si bien que « Montée »
+  // était coupé après « Mont ».
+  const glued = /(\p{Ll})(\p{Lu})/u.exec(address);
+  const withoutGlue = glued?.index !== undefined ? address.slice(0, glued.index + 1) : address;
+
+  const opener = DESCRIPTION_OPENERS.exec(withoutGlue);
+  if (opener?.index === undefined || opener.index === 0) return withoutGlue;
+  const head = withoutGlue.slice(0, opener.index).trim();
+  // Moins de deux mots devant : ce n'est probablement pas un débordement.
+  return head.split(/\s+/).length >= 2 ? head : withoutGlue;
+}
+
 export function formatAddress(address: string | null): string {
   if (address === null || address.trim() === '') return UNKNOWN;
 
-  const words = address
+  const words = trimDescriptionBleed(address)
     .replace(/\s+/g, ' ')
     // Homogénéisation : certaines sources collent « … 06000 Nice » à la rue,
     // d'autres non. On retire le CODE POSTAL et tout ce qui suit pour ne garder
@@ -161,11 +198,13 @@ export function formatAddress(address: string | null): string {
       return ADDRESS_ABBREVIATIONS[stripped] ?? word;
     });
 
+  // « 7 ET 9 RUE PAPON » : la conjonction est le premier mot alphabétique et
+  // se retrouvait capitalisée. Une particule ne commence jamais une voie.
   let seenAlpha = false;
   return words
     .map((word) => {
-      const isFirst = !seenAlpha;
-      if (/[a-zà-ÿ]/i.test(word)) seenAlpha = true;
+      const isFirst = !seenAlpha && !ADDRESS_PARTICLES.has(word.toLowerCase());
+      if (/[a-zà-ÿ]/i.test(word)) seenAlpha = seenAlpha || isFirst;
       return capitalizeAddressWord(word, isFirst);
     })
     .join(' ');
@@ -297,4 +336,59 @@ export function formatDay(iso: string, nowMs: number): string {
 /** Heure seule (« 14:32 ») — la date est portée par l'en-tête du jour. */
 export function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+}
+
+/**
+ * Adresse complète au format Google Maps : « 34 Avenue Auber, 06000 Nice ».
+ *
+ * L'ASSEMBLAGE est délégué au formateur partagé, qui sert déjà aux
+ * notifications et aux messages (§20) — le refaire ici aurait fait diverger
+ * les deux à la première retouche. Ne reste ici que ce qui est propre à
+ * l'affichage : le nettoyage de la voie, où les sources déversent parfois leur
+ * description.
+ */
+export function formatPostalAddress(place: {
+  readonly address: string | null;
+  readonly postalCode: string | null;
+  readonly city: string | null;
+  readonly district?: string | null;
+}): string {
+  const street =
+    place.address !== null && place.address.trim() !== '' ? formatAddress(place.address) : null;
+
+  const line = formatLocation({
+    street,
+    postalCode: place.postalCode,
+    city: place.city,
+    district:
+      place.district !== null && place.district !== undefined
+        ? formatDistrict(place.district)
+        : null,
+  });
+  return line === '' ? UNKNOWN : line;
+}
+
+/**
+ * Quartier lisible : « EST ACROPOLIS » → « Est Acropolis », « - BELLET » →
+ * « Bellet ». Les sources les publient en capitales, parfois précédés d'un
+ * tiret de liste, ce qui jurait à côté d'adresses correctement capitalisées.
+ */
+export function formatDistrict(district: string | null): string {
+  if (district === null || district.trim() === '') return UNKNOWN;
+  const cleaned = district
+    .replace(/^[\s\-–—•]+/, '')
+    .replace(/[\s\-–—•]+$/, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (cleaned === '') return UNKNOWN;
+
+  let seenAlpha = false;
+  return cleaned
+    .split(' ')
+    .map((word) => {
+      const isFirst = !seenAlpha && !ADDRESS_PARTICLES.has(word.toLowerCase());
+      if (/[a-z]/i.test(word)) seenAlpha = seenAlpha || isFirst;
+      return capitalizeAddressWord(word, isFirst);
+    })
+    .join(' ');
 }
