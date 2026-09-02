@@ -46,7 +46,7 @@ import { ProfileForm } from './components/ProfileForm.js';
 import { SourcesPanel } from './components/SourcesPanel.js';
 import { FiltersPanel } from './components/FiltersPanel.js';
 import { StatsPanel } from './components/StatsPanel.js';
-import { Bell, Flame, List, Map, Search, SlidersHorizontal } from 'lucide-react';
+import { ArrowLeft, Bell, Flame, List, Map, Search, SlidersHorizontal } from 'lucide-react';
 import { SortFilterModal } from './components/SortFilterModal.js';
 import { ConnectPanel } from './components/ConnectPanel.js';
 import { NotificationsPanel } from './components/NotificationsPanel.js';
@@ -133,7 +133,6 @@ function Shell({
     // COLLECTÉ et NOTIFIÉ, alors que la modale de la liste ne filtre que
     // l'affichage. Deux choses différentes portaient le même nom.
     { key: 'filters', label: 'Alertes' },
-    { key: 'alerts', label: 'Notifications' },
     { key: 'stats', label: 'Stats' },
     { key: 'profile', label: 'Profil' },
     { key: 'sources', label: 'Sources' },
@@ -157,9 +156,10 @@ function Shell({
             <p className="text-sm font-medium text-muted-foreground">
               ≤ {MVP_CRITERIA.maxPrice} € · ≥ {MVP_CRITERIA.minArea} m²
             </p>
-            {/* La cloche mène désormais à la page, qui porte les réglages et
-              l'état des canaux : la garder cliquable ici dupliquerait la
-              commande, et son état n'y était pas explicable. */}
+            {/* Seule entrée vers les notifications : ce n'est pas un onglet.
+              Régler ses alertes n'est pas un endroit où l'on navigue, c'est un
+              aparté dont on revient — la page s'ouvre donc par-dessus, sans la
+              barre d'onglets, et se referme par « Retour ». */}
             <button
               type="button"
               onClick={() => onNavigate('alerts')}
@@ -460,9 +460,12 @@ export function App(): React.JSX.Element {
   const secondaryView = (): React.JSX.Element | null => {
     if (view === 'alerts') {
       return (
-        <Shell view={view} onNavigate={navigate}>
+        <main className="mx-auto max-w-[720px] px-3 py-4 pb-12 sm:px-4 sm:py-6 sm:pb-16">
+          <Button variant="ghost" className="mb-2" onClick={() => setView('list')}>
+            <ArrowLeft aria-hidden="true" className="size-4" /> Retour
+          </Button>
           <NotificationsPanel listings={listings} onOpen={openListing} />
-        </Shell>
+        </main>
       );
     }
     if (view === 'profile') {

@@ -10,8 +10,14 @@ on:
   schedule:
     # Toutes les 30 minutes. Le scheduler interne filtre ensuite : une source
     # dont l'intervalle n'est pas écoulé n'émet aucune requête.
-    # Note : GitHub Actions ne garantit pas la ponctualité des crons.
-    - cron: '*/30 * * * *'
+    #
+    # MINUTES DÉCALÉES, volontairement. GitHub ne garantit pas la ponctualité
+    # des crons et écarte les réveils quand la file est chargée : sur `*/30`,
+    # une seule collecte planifiée sur neuf est partie le 2026-09-02, toutes
+    # les autres ayant été demandées à `:00` et `:30`, les minutes les plus
+    # encombrées. Rien ne le garantit non plus ici, mais la file y est moins
+    # longue.
+    - cron: '7,37 * * * *'
   workflow_dispatch:
     inputs:
       backfill:

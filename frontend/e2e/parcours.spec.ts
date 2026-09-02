@@ -229,6 +229,12 @@ test('la page Notifications dit ce qui est actif (§29)', async ({ page }) => {
 
   // Rien ne sonne sans consentement explicite.
   await expect(page.getByRole('button', { name: /Activer les notifications/ })).toBeVisible();
+
+  // Page À PART, pas un onglet : la barre de navigation disparaît, et on en
+  // revient par « Retour » plutôt qu'en changeant d'onglet.
+  await expect(page.getByRole('navigation', { name: 'Navigation principale' })).toBeHidden();
+  await page.getByRole('button', { name: 'Retour' }).click();
+  await expect(page.getByRole('navigation', { name: 'Navigation principale' })).toBeVisible();
 });
 
 test('on peut mettre une annonce en favori', async ({ page }) => {
