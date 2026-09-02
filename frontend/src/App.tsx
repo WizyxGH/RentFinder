@@ -561,7 +561,7 @@ export function App(): React.JSX.Element {
               type="button"
               onClick={() => setDisplayMode('list')}
               aria-pressed={displayMode === 'list'}
-              className={`min-h-9 cursor-pointer rounded-md px-3 font-medium transition-colors ${
+              className={`flex min-h-9 cursor-pointer items-center gap-1.5 rounded-md px-3 font-medium transition-colors ${
                 displayMode === 'list'
                   ? 'bg-primary text-primary-foreground'
                   : 'text-muted-foreground hover:text-foreground'
@@ -573,7 +573,7 @@ export function App(): React.JSX.Element {
               type="button"
               onClick={() => setDisplayMode('map')}
               aria-pressed={displayMode === 'map'}
-              className={`min-h-9 cursor-pointer rounded-md px-3 font-medium transition-colors ${
+              className={`flex min-h-9 cursor-pointer items-center gap-1.5 rounded-md px-3 font-medium transition-colors ${
                 displayMode === 'map'
                   ? 'bg-primary text-primary-foreground'
                   : 'text-muted-foreground hover:text-foreground'
@@ -583,40 +583,49 @@ export function App(): React.JSX.Element {
             </button>
           </div>
 
-          {/* Recherche libre : quartier, rue, agence, mot du titre (§36). */}
-          {/* `basis-full` lui donne SA PROPRE LIGNE sur mobile — coincée entre
-            deux boutons, elle devenait trop étroite pour être utilisable. Sur
-            écran large elle repasse dans la rangée et occupe l'espace restant
-            (`sm:basis-0 sm:flex-1`), sans plafond de largeur. */}
-          <div className="relative min-w-0 basis-full sm:order-none sm:basis-0 sm:flex-1">
-            <input
-              type="search"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Rechercher (quartier, rue, agence…)"
-              aria-label="Rechercher une annonce"
-              // 16 px (`text-base`) sur mobile : en dessous, iOS zoome
-              // automatiquement à la mise au point et désaligne la page.
-              className="w-full rounded-full border border-input bg-card py-2.5 pl-9 pr-3 text-base sm:py-1.5 sm:text-sm"
-            />
-            <Search
-              aria-hidden="true"
-              className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-            />
-          </div>
+          {/* Recherche et réglages sur UNE MÊME LIGNE, qui leur est propre sur
+            mobile (`basis-full`) : la recherche prend la place restante, le
+            bouton se réduit à son icône. Coincée entre d'autres boutons, la
+            recherche devenait inutilisable ; reléguée seule sur sa ligne, elle
+            laissait le bouton loin de l'œil. */}
+          <div className="flex w-full basis-full items-center gap-2 sm:basis-0 sm:flex-1">
+            <div className="relative min-w-0 flex-1">
+              <input
+                type="search"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Rechercher (quartier, rue, agence…)"
+                aria-label="Rechercher une annonce"
+                // 16 px (`text-base`) sur mobile : en dessous, iOS zoome
+                // automatiquement à la mise au point et désaligne la page.
+                className="w-full rounded-full border border-input bg-card py-2.5 pl-9 pr-3 text-base sm:py-1.5 sm:text-sm"
+              />
+              <Search
+                aria-hidden="true"
+                className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+              />
+            </div>
 
-          {/* Tri, affichage et sources sont regroupés dans une seule modale :
-            trois menus déroulants côte à côte tenaient mal sur mobile et rien
-            ne disait qu'ils formaient un même réglage (§36). */}
-          <Button variant="outline" size="sm" onClick={() => setSortFilterOpen(true)}>
-            <SlidersHorizontal aria-hidden="true" className="size-4" />
-            Trier et filtrer
-            {toolbarBadge > 0 && (
-              <span className="rounded-full bg-primary px-1.5 text-xs font-semibold text-primary-foreground">
-                {toolbarBadge}
-              </span>
-            )}
-          </Button>
+            {/* Tri, affichage et sources dans une seule modale : trois menus
+              côte à côte tenaient mal, et rien ne disait qu'ils formaient un
+              même réglage (§36). Le libellé disparaît sur mobile — l'icône et
+              la pastille suffisent, et la recherche gagne la place. */}
+            <Button
+              variant="outline"
+              size="sm"
+              className="shrink-0"
+              aria-label="Trier et filtrer"
+              onClick={() => setSortFilterOpen(true)}
+            >
+              <SlidersHorizontal aria-hidden="true" className="size-4" />
+              <span className="hidden sm:inline">Trier et filtrer</span>
+              {toolbarBadge > 0 && (
+                <span className="rounded-full bg-primary px-1.5 text-xs font-semibold text-primary-foreground">
+                  {toolbarBadge}
+                </span>
+              )}
+            </Button>
+          </div>
 
           {/* Compteur de résultats, poussé à droite (repère façon SeLoger).
             Il distingue les annonces ACTIVES de celles disparues de leur source :
@@ -687,7 +696,7 @@ export function App(): React.JSX.Element {
           <StatsStrip listings={filtered} />
           {hot.length > 0 && (
             <section aria-labelledby="hot-title" className="mb-6">
-              <h2 id="hot-title" className="mb-2 text-lg font-bold">
+              <h2 id="hot-title" className="mb-2 flex items-center gap-1.5 text-lg font-bold">
                 <Flame aria-hidden="true" className="size-4" /> À contacter maintenant
               </h2>
               <div className="grid gap-3 lg:grid-cols-2">

@@ -193,20 +193,25 @@ export function SortFilterModal({
             <legend className="mb-2 text-sm font-semibold text-muted-foreground">
               Type de bien
             </legend>
-            <ul className="flex flex-col gap-0.5">
+            {/* Pilules plutôt que cases à cocher : même geste que « Pièces »
+              juste au-dessus, et une sélection lisible d'un coup d'œil. */}
+            <div className="flex flex-wrap gap-1.5">
+              <PillButton
+                selected={quickFilters.types.size === 0}
+                onClick={() => patch({ types: new Set() })}
+              >
+                Tous
+              </PillButton>
               {availableTypes.map((type) => (
-                <li key={type}>
-                  <label className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-muted">
-                    <input
-                      type="checkbox"
-                      checked={quickFilters.types.has(type)}
-                      onChange={() => toggleType(type)}
-                    />
-                    <span>{formatPropertyType(type)}</span>
-                  </label>
-                </li>
+                <PillButton
+                  key={type}
+                  selected={quickFilters.types.has(type)}
+                  onClick={() => toggleType(type)}
+                >
+                  {formatPropertyType(type)}
+                </PillButton>
               ))}
-            </ul>
+            </div>
           </fieldset>
         )}
 
