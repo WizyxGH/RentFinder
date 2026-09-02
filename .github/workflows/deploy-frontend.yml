@@ -49,6 +49,10 @@ jobs:
           # GitHub Pages sert le site depuis /<nom-du-depot>/.
           BASE_PATH: /${{ github.event.repository.name }}/
           VITE_API_URL: ${{ vars.API_URL }}
+          # Clé PUBLIQUE du serveur de push : elle doit entrer dans le bundle,
+          # sans quoi le navigateur ne peut pas s'abonner. Ce n'est pas un
+          # secret — la clé privée, elle, ne sert qu'à la collecte.
+          VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
 
       - name: Vérifier qu'aucun secret n'a été embarqué
         # Un jeton glissé dans le bundle serait publié définitivement (§26).

@@ -68,6 +68,12 @@ jobs:
           TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
 
           # §29 : notifications Telegram — absentes = notifieur désactivé.
+          # Web Push (§29) : la collecte émet elle-même vers les navigateurs
+          # abonnés. Sans ces clés, le canal reste silencieusement inactif.
+          VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          VAPID_SUBJECT: ${{ secrets.VAPID_SUBJECT }}
+          SITE_URL: ${{ vars.SITE_URL }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           TELEGRAM_MIN_PRIORITY: ${{ vars.TELEGRAM_MIN_PRIORITY }}
