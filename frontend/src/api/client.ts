@@ -21,6 +21,7 @@ import type {
   StatsData,
 } from '../types.js';
 import { MVP_CRITERIA } from '@rentfinder/shared';
+import * as turso from './turso.js';
 
 const TOKEN_STORAGE_KEY = 'rentfinder.apiToken';
 
@@ -59,8 +60,12 @@ const DEMO: boolean =
 
 export const isDemoMode = (): boolean => DEMO;
 
-/** Aucune API configurée, et pas de démonstration : il n'y a rien à afficher. */
-export const isUnconfigured = (): boolean => API_URL === '' && !isDemoMode();
+/** Accès direct à Turso : le navigateur interroge la base, sans intermédiaire. */
+export const isDirectMode = (): boolean =>
+  API_URL === '' && !DEMO && turso.readCredentials() !== null;
+
+/** Ni API, ni démonstration, ni identifiants Turso : rien à afficher. */
+export const isUnconfigured = (): boolean => API_URL === '' && !DEMO && !isDirectMode();
 
 /**
  * Mode LOCAL (`/`) : l'interface est servie par le serveur du mode zéro-cloud
@@ -178,23 +183,27 @@ export async function fetchListings(options: FetchListingsOptions = {}): Promise
 
 /** Marque une annonce comme consultée (posé automatiquement à l'ouverture). */
 export async function markViewed(id: string): Promise<void> {
+  if (isDirectMode()) return turso.patchListing(id, { viewed: true });
   if (DEMO) return;
   await request(`/api/listings/${id}`, { method: 'PATCH', body: JSON.stringify({ viewed: true }) });
 }
 
 /** Archive ou désarchive une annonce. */
 export async function setArchived(id: string, archived: boolean): Promise<void> {
+  if (isDirectMode()) return turso.patchListing(id, { archived });
   if (DEMO) return;
   await request(`/api/listings/${id}`, { method: 'PATCH', body: JSON.stringify({ archived }) });
 }
 
 /** Met ou retire une annonce des favoris. */
 export async function setFavorite(id: string, favorite: boolean): Promise<void> {
+  if (isDirectMode()) return turso.patchListing(id, { favorite });
   if (DEMO) return;
   await request(`/api/listings/${id}`, { method: 'PATCH', body: JSON.stringify({ favorite }) });
 }
 
 export async function fetchListing(id: string): Promise<ListingView> {
+  if (isDirectMode()) return turso.getListing(id);
   if (DEMO) {
     const { MOCK_LISTINGS } = await demoData();
     const listing = MOCK_LISTINGS.find((candidate) => candidate.id === id);
@@ -205,6 +214,7 @@ export async function fetchListing(id: string): Promise<ListingView> {
 }
 
 export async function updateTracking(id: string, tracking: string): Promise<void> {
+  if (isDirectMode()) return turso.patchListing(id, { tracking });
   if (DEMO) return;
   await request(`/api/listings/${encodeURIComponent(id)}`, {
     method: 'PATCH',
@@ -236,6 +246,7 @@ export async function recordContact(
 }
 
 export async function fetchSources(): Promise<{ sources: readonly SourceStateView[] }> {
+  if (isDirectMode()) return { sources: await turso.listSources() };
   if (DEMO) {
     const { MOCK_SOURCES } = await demoData();
     return { sources: MOCK_SOURCES };
@@ -245,6 +256,7 @@ export async function fetchSources(): Promise<{ sources: readonly SourceStateVie
 
 /** Statistiques, calculées localement en démo depuis les données fictives. */
 export async function fetchStats(): Promise<StatsData> {
+  if (isDirectMode()) return turso.getStats();
   if (DEMO) {
     const { MOCK_LISTINGS } = await demoData();
     // « Pertinentes » = dans les critères, non archivée, non louée et ENCORE

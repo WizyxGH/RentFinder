@@ -52,7 +52,7 @@ import { FiltersPanel } from './components/FiltersPanel.js';
 import { StatsPanel } from './components/StatsPanel.js';
 import { Flame, List, Map, Search, SlidersHorizontal } from 'lucide-react';
 import { SortFilterModal } from './components/SortFilterModal.js';
-import { NotConfigured } from './components/NotConfigured.js';
+import { ConnectPanel } from './components/ConnectPanel.js';
 import {
   QuickFilters,
   EMPTY_QUICK_FILTERS,
@@ -565,12 +565,12 @@ export function App(): React.JSX.Element {
     }
   };
 
-  // Site publié sans API : on explique ce qui manque, et on s'arrête là — une
-  // barre de filtres au-dessus d'une liste vide n'apprendrait rien.
+  // Pas d'accès à la base : on demande les identifiants et on s'arrête là.
+  // Sans eux, rien ne s'affiche — c'est la protection du site.
   if (isUnconfigured()) {
     return (
       <Shell view={view} onNavigate={navigate}>
-        <NotConfigured />
+        <ConnectPanel />
       </Shell>
     );
   }
