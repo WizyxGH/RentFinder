@@ -127,8 +127,19 @@ function imageIdentity(url: string): string | null {
   }
 }
 
-/** `true` si les deux annonces publient au moins une image identique. */
+/**
+ * `true` si les deux annonces publient au moins une image identique.
+ *
+ * ENTRE SOURCES DIFFÉRENTES uniquement. Le signal repose sur le fait qu'une
+ * agence pousse les mêmes fichiers vers le portail et vers son propre site ;
+ * au sein d'UNE source il ne dit rien, car certaines agences illustrent des
+ * dizaines d'annonces avec la même photo tamponnée — Citya en réutilise une
+ * sur quatorze biens distincts, Saint-Roch sur cinq. Combiné au téléphone de
+ * l'accueil, commun lui aussi, cela suffisait à faire disparaître une annonce
+ * bien réelle (§14).
+ */
 function sharesImage(a: NormalizedListing, b: NormalizedListing): boolean {
+  if (a.sourceId === b.sourceId) return false;
   const left = new Set(a.imageUrls.map(imageIdentity).filter((x): x is string => x !== null));
   if (left.size === 0) return false;
   return b.imageUrls.some((url) => {
@@ -142,18 +153,25 @@ function collectStrongSignals(
   b: NormalizedListing,
   push: (signal: SimilaritySignal) => void,
 ): void {
-  // Une PHOTO commune est le signal le plus sûr dont on dispose : une agence
-  // pousse les mêmes fichiers vers le portail et vers son propre site. Et c'est
-  // gratuit — on compare des URL déjà collectées, sans télécharger d'image.
+  // Une PHOTO commune entre deux sources est le signal le plus sûr dont on
+  // dispose, et il est gratuit : on compare des URL déjà collectées, sans
+  // télécharger d'image.
   if (sharesImage(a, b)) {
     push({ code: 'image', label: 'photo identique', points: 45 });
   }
 
-  if (a.contact.phone !== null && a.contact.phone === b.contact.phone) {
-    push({ code: 'phone', label: 'même téléphone', points: 40 });
-  }
-  if (a.contact.email !== null && a.contact.email === b.contact.email) {
-    push({ code: 'email', label: 'même e-mail', points: 35 });
+  // Coordonnées : signal fort ENTRE SOURCES seulement. Au sein d'une source,
+  // le numéro est le plus souvent le STANDARD de l'agence — porté à l'identique
+  // par une vingtaine d'annonces, et posé en repli par le pipeline sur celles
+  // qui n'en publient aucun. Il ne distingue donc rien, et additionné à
+  // l'adresse ou au GPS il franchissait le seuil de fusion (§14).
+  if (a.sourceId !== b.sourceId) {
+    if (a.contact.phone !== null && a.contact.phone === b.contact.phone) {
+      push({ code: 'phone', label: 'même téléphone', points: 40 });
+    }
+    if (a.contact.email !== null && a.contact.email === b.contact.email) {
+      push({ code: 'email', label: 'même e-mail', points: 35 });
+    }
   }
 
   // La référence d'agence n'est comparée qu'entre sources différentes : au sein

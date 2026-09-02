@@ -94,6 +94,47 @@ describe('similarity — signaux forts', () => {
   });
 });
 
+describe('similarity — bruit de niveau AGENCE, au sein d’une même source', () => {
+  // Observé en base : Citya illustre quatorze biens distincts avec la même
+  // photo tamponnée, Saint-Roch cinq ; et le standard de l’agence est porté
+  // par une vingtaine d’annonces — c’est le repli posé par le pipeline sur
+  // celles qui ne publient aucune coordonnée.
+  // Deux studios DIFFÉRENTS de la même agence, à 680 €/20 m² et 700 €/21 m² :
+  // l'écart reste dans les tolérances (±30 € et ±2 m²), donc aucun désaccord
+  // ne tranche. La photo tamponnée (45) et le standard (40) atteignaient alors
+  // 85 pour un seuil de 70, et l'un des deux disparaissait de la liste.
+  it('ne fusionne pas deux studios d’une même agence sur photo et standard partagés', () => {
+    const photo = 'https://citya.invalid/filigrane-sejour.webp';
+    const contact = { ...EMPTY_CONTACT, phone: '+33493000000' };
+    const a = listing({
+      id: 'citya:1',
+      sourceId: 'citya',
+      price: 680,
+      area: 20,
+      rooms: 1,
+      imageUrls: [photo],
+      contact,
+    });
+    const b = listing({
+      id: 'citya:2',
+      sourceId: 'citya',
+      price: 700,
+      area: 21,
+      rooms: 1,
+      imageUrls: [photo],
+      contact,
+    });
+    expect(similarity(a, b).verdict).not.toBe('duplicate');
+  });
+
+  it('mais garde le signal quand la photo vient de DEUX sources', () => {
+    const photo = 'https://agence.invalid/photo-1.jpg';
+    const a = listing({ id: 'age:9', sourceId: 'agencex', imageUrls: [photo] });
+    const b = listing({ id: 'lbc:9', sourceId: 'leboncoin', imageUrls: [photo] });
+    expect(similarity(a, b).verdict).toBe('duplicate');
+  });
+});
+
 describe('similarity — désaccords rédhibitoires', () => {
   it('refuse de fusionner deux villes différentes, même tout le reste identique', () => {
     const a = listing({ id: 'a:4', sourceId: 'a', city: 'nice' });
