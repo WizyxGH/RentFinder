@@ -9,6 +9,9 @@ export default defineConfig({
   },
   test: {
     environment: 'jsdom',
+    // Les tests s'appuient sur les données fictives : ce sont les SEULS à les
+    // activer. L'application, elle, affiche l'écran « non connectée ».
+    env: { VITE_DEMO: 'true' },
     globals: true,
     setupFiles: ['./src/test-setup.ts'],
     include: ['src/**/*.test.{ts,tsx}'],

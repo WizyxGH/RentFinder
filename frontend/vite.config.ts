@@ -26,7 +26,14 @@ export default defineConfig(({ mode }) => {
       // Alias shadcn/ui standard — permet `npx shadcn add <composant>`.
       alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
     },
-    ...(selfhost ? { define: { 'import.meta.env.VITE_API_URL': JSON.stringify('/') } } : {}),
+    define: {
+      // Figé à la compilation : dans un build applicatif, `__DEMO__` vaut
+      // `false`, la branche des données fictives devient du code mort et le
+      // fichier `mock-data.ts` n'entre pas dans le bundle. Seuls les tests, qui
+      // ne passent pas par ce build, le chargent.
+      __DEMO__: JSON.stringify(process.env['VITE_DEMO'] === 'true'),
+      ...(selfhost ? { 'import.meta.env.VITE_API_URL': JSON.stringify('/') } : {}),
+    },
     build: {
       // §39 : le frontend doit rester léger. Un dépassement signale une
       // dépendance lourde ajoutée sans y penser.

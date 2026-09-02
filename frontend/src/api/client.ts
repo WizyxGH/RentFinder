@@ -21,23 +21,46 @@ import type {
   StatsData,
 } from '../types.js';
 import { MVP_CRITERIA } from '@rentfinder/shared';
-import { MOCK_LISTINGS, MOCK_SOURCES } from './mock-data.js';
 
 const TOKEN_STORAGE_KEY = 'rentfinder.apiToken';
+
+/**
+ * Charge les données fictives À LA DEMANDE.
+ *
+ * En import statique, elles restaient dans le bundle publié même sans être
+ * affichées : plusieurs dizaines de ko d'annonces inventées livrées à chaque
+ * visiteur. En import dynamique, elles forment un fragment séparé que seuls les
+ * tests chargent.
+ */
+const demoData = async () => import('./mock-data.js');
 
 /** URL de l'API, injectée à la compilation. Vide = mode démo. */
 export const API_URL: string = (import.meta.env['VITE_API_URL'] as string | undefined) ?? '';
 
-export const isDemoMode = (): boolean => API_URL === '';
+/**
+ * Données fictives : uniquement sur demande EXPLICITE (`VITE_DEMO=true`).
+ *
+ * Auparavant, toute absence d'API y basculait — si bien que le site publié
+ * montrait des annonces inventées, et le développement local aussi. Des
+ * annonces qui n'existent pas n'apprennent rien et laissent croire que l'outil
+ * ne trouve que ça. Seuls les tests l'activent désormais.
+ */
+declare const __DEMO__: boolean | undefined;
 
 /**
- * Site PUBLIÉ sans API configurée.
- *
- * En développement, l'absence d'API fait tourner l'interface sur des données
- * fictives — c'est commode. Sur un site en ligne, ces annonces inventées n'ont
- * aucun intérêt et prêtent à confusion : mieux vaut dire ce qu'il manque.
+ * Constante, et non appel de fonction : Vite remplace `__DEMO__` par `false`
+ * dans un build applicatif, Rollup replie l'expression, et TOUTES les branches
+ * de démonstration — dont l'import du fichier de données fictives — deviennent
+ * du code mort supprimé. Avec un appel de fonction, il ne pouvait pas le
+ * prouver et embarquait les annonces inventées.
  */
-export const isUnconfigured = (): boolean => API_URL === '' && import.meta.env.PROD;
+const DEMO: boolean =
+  typeof __DEMO__ !== 'undefined' ? __DEMO__ : import.meta.env['VITE_DEMO'] === 'true';
+
+export const isDemoMode = (): boolean => DEMO;
+
+/** Aucune API configurée, et pas de démonstration : il n'y a rien à afficher. */
+export const isUnconfigured = (): boolean => API_URL === '' && !isDemoMode();
 
 /**
  * Mode LOCAL (`/`) : l'interface est servie par le serveur du mode zéro-cloud
@@ -133,7 +156,8 @@ export async function fetchListings(options: FetchListingsOptions = {}): Promise
   const includeArchived = options.includeArchived ?? false;
   const favoritesOnly = options.favoritesOnly ?? false;
 
-  if (isDemoMode()) {
+  if (DEMO) {
+    const { MOCK_LISTINGS } = await demoData();
     let filtered = includeAll
       ? MOCK_LISTINGS
       : MOCK_LISTINGS.filter((listing) => listing.matchesCriteria);
@@ -154,24 +178,25 @@ export async function fetchListings(options: FetchListingsOptions = {}): Promise
 
 /** Marque une annonce comme consultée (posé automatiquement à l'ouverture). */
 export async function markViewed(id: string): Promise<void> {
-  if (isDemoMode()) return;
+  if (DEMO) return;
   await request(`/api/listings/${id}`, { method: 'PATCH', body: JSON.stringify({ viewed: true }) });
 }
 
 /** Archive ou désarchive une annonce. */
 export async function setArchived(id: string, archived: boolean): Promise<void> {
-  if (isDemoMode()) return;
+  if (DEMO) return;
   await request(`/api/listings/${id}`, { method: 'PATCH', body: JSON.stringify({ archived }) });
 }
 
 /** Met ou retire une annonce des favoris. */
 export async function setFavorite(id: string, favorite: boolean): Promise<void> {
-  if (isDemoMode()) return;
+  if (DEMO) return;
   await request(`/api/listings/${id}`, { method: 'PATCH', body: JSON.stringify({ favorite }) });
 }
 
 export async function fetchListing(id: string): Promise<ListingView> {
-  if (isDemoMode()) {
+  if (DEMO) {
+    const { MOCK_LISTINGS } = await demoData();
     const listing = MOCK_LISTINGS.find((candidate) => candidate.id === id);
     if (listing === undefined) throw new ApiError('Annonce introuvable', 404);
     return listing;
@@ -180,7 +205,7 @@ export async function fetchListing(id: string): Promise<ListingView> {
 }
 
 export async function updateTracking(id: string, tracking: string): Promise<void> {
-  if (isDemoMode()) return;
+  if (DEMO) return;
   await request(`/api/listings/${encodeURIComponent(id)}`, {
     method: 'PATCH',
     body: JSON.stringify({ tracking }),
@@ -203,7 +228,7 @@ export async function recordContact(
     documents?: readonly string[];
   },
 ): Promise<void> {
-  if (isDemoMode()) return;
+  if (DEMO) return;
   await request(`/api/listings/${encodeURIComponent(id)}/contact`, {
     method: 'POST',
     body: JSON.stringify(payload),
@@ -211,13 +236,17 @@ export async function recordContact(
 }
 
 export async function fetchSources(): Promise<{ sources: readonly SourceStateView[] }> {
-  if (isDemoMode()) return { sources: MOCK_SOURCES };
+  if (DEMO) {
+    const { MOCK_SOURCES } = await demoData();
+    return { sources: MOCK_SOURCES };
+  }
   return request<{ sources: readonly SourceStateView[] }>('/api/sources');
 }
 
 /** Statistiques, calculées localement en démo depuis les données fictives. */
 export async function fetchStats(): Promise<StatsData> {
-  if (isDemoMode()) {
+  if (DEMO) {
+    const { MOCK_LISTINGS } = await demoData();
     // « Pertinentes » = dans les critères, non archivée, non louée et ENCORE
     // ACTIVE. Les annonces disparues de leur source sont comptées à part, sous
     // « à vérifier » : les additionner gonflait le chiffre (§33).
@@ -279,13 +308,13 @@ export interface DocumentInfo {
 }
 
 export async function fetchDocuments(): Promise<readonly DocumentInfo[]> {
-  if (isDemoMode()) return [];
+  if (DEMO) return [];
   const response = await request<{ documents: readonly DocumentInfo[] }>('/api/documents');
   return response.documents;
 }
 
 export async function uploadDocument(file: File): Promise<DocumentInfo> {
-  if (isDemoMode()) throw new ApiError('Indisponible en mode démonstration', 400);
+  if (DEMO) throw new ApiError('Indisponible en mode démonstration', 400);
   return request<DocumentInfo>(`/api/documents?name=${encodeURIComponent(file.name)}`, {
     method: 'POST',
     body: file,
@@ -294,7 +323,7 @@ export async function uploadDocument(file: File): Promise<DocumentInfo> {
 }
 
 export async function deleteDocument(name: string): Promise<void> {
-  if (isDemoMode()) return;
+  if (DEMO) return;
   await request(`/api/documents/${encodeURIComponent(name)}`, { method: 'DELETE' });
 }
 
@@ -325,12 +354,12 @@ function demoFilters(): FilterConfig {
 }
 
 export async function fetchFilters(): Promise<FilterConfig> {
-  if (isDemoMode()) return demoFilters();
+  if (DEMO) return demoFilters();
   return request<FilterConfig>('/api/config');
 }
 
 /** Enregistre les filtres (§66). En démo, no-op qui renvoie l'entrée. */
 export async function saveFilters(filters: FilterConfig): Promise<FilterConfig> {
-  if (isDemoMode()) return filters;
+  if (DEMO) return filters;
   return request<FilterConfig>('/api/config', { method: 'PUT', body: JSON.stringify(filters) });
 }
