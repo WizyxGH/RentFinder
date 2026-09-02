@@ -278,3 +278,23 @@ export function formatPhone(phone: string | null): string {
 export function telHref(phone: string): string {
   return `tel:${phone.replace(/[^\d+]/g, '')}`;
 }
+
+/**
+ * Libellé d'un JOUR pour l'historique : « Aujourd'hui », « Hier », sinon la
+ * date en toutes lettres. Comparaison sur la date locale, pas sur un écart en
+ * heures : une alerte de 23 h 50 doit rester « Hier » le lendemain matin.
+ */
+export function formatDay(iso: string, nowMs: number): string {
+  const day = new Date(iso);
+  const today = new Date(nowMs);
+  const same = (a: Date, b: Date): boolean => a.toDateString() === b.toDateString();
+  if (same(day, today)) return "Aujourd'hui";
+  const yesterday = new Date(nowMs - 24 * 60 * 60 * 1000);
+  if (same(day, yesterday)) return 'Hier';
+  return day.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+}
+
+/** Heure seule (« 14:32 ») — la date est portée par l'en-tête du jour. */
+export function formatTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+}

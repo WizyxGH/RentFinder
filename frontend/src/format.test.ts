@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { UNKNOWN, formatAddress, formatAge, formatPhone, telHref } from './format.js';
+import {
+  UNKNOWN,
+  formatAddress,
+  formatAge,
+  formatDay,
+  formatPhone,
+  formatTime,
+  telHref,
+} from './format.js';
 
 describe('formatAddress', () => {
   it('recapitalise une adresse en majuscules', () => {
@@ -112,5 +120,34 @@ describe('formatAge', () => {
   it('signale l’instant et l’absence de date', () => {
     expect(formatAge(ago(0), NOW)).toBe('à l’instant');
     expect(formatAge(null, NOW)).toBe(UNKNOWN);
+  });
+});
+
+describe('formatDay', () => {
+  // 14:00 heure locale, pour que les décalages ne fassent pas changer de jour.
+  const now = new Date(2026, 8, 2, 14, 0).getTime();
+
+  it('nomme aujourd’hui et hier plutôt qu’une date', () => {
+    expect(formatDay(new Date(2026, 8, 2, 9, 30).toISOString(), now)).toBe("Aujourd'hui");
+    expect(formatDay(new Date(2026, 8, 1, 9, 30).toISOString(), now)).toBe('Hier');
+  });
+
+  it('compare des JOURS, pas des écarts d’heures', () => {
+    // 23 h 50 la veille, soit 14 h plus tôt : « Hier », jamais « Aujourd'hui ».
+    expect(formatDay(new Date(2026, 8, 1, 23, 50).toISOString(), now)).toBe('Hier');
+    // 00 h 10 le jour même, soit 14 h plus tôt aussi.
+    expect(formatDay(new Date(2026, 8, 2, 0, 10).toISOString(), now)).toBe("Aujourd'hui");
+  });
+
+  it('écrit la date en toutes lettres au-delà', () => {
+    const label = formatDay(new Date(2026, 7, 30, 10, 0).toISOString(), now);
+    expect(label).toContain('août');
+    expect(label).toContain('30');
+  });
+});
+
+describe('formatTime', () => {
+  it('donne l’heure seule, la date étant portée par le jour', () => {
+    expect(formatTime(new Date(2026, 8, 2, 14, 32).toISOString())).toBe('14:32');
   });
 });

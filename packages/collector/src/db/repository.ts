@@ -1005,8 +1005,12 @@ export function createRepository(db: Database): Repository {
       if (ids.length === 0) return;
       const placeholders = ids.map(() => '?').join(',');
       await db.execute({
-        sql: `UPDATE listings SET notified = 1 WHERE id IN (${placeholders})`,
-        args: [...ids],
+        // `COALESCE` : la date retenue est celle de la PREMIÈRE alerte. Une
+        // annonce re-notifiée plus tard ne doit pas remonter l'historique.
+        sql: `UPDATE listings
+              SET notified = 1, notified_at = COALESCE(notified_at, ?)
+              WHERE id IN (${placeholders})`,
+        args: [new Date().toISOString(), ...ids],
       });
     },
 

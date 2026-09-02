@@ -225,7 +225,7 @@ test('la page Notifications dit ce qui est actif (§29)', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Notifications' })).toBeVisible();
   await expect(page.getByText('Permission du navigateur')).toBeVisible();
   await expect(page.getByText('Site fermé')).toBeVisible();
-  await expect(page.getByText('Nouveautés')).toBeVisible();
+  await expect(page.getByText('Historique')).toBeVisible();
 
   // Rien ne sonne sans consentement explicite.
   await expect(page.getByRole('button', { name: /Activer les notifications/ })).toBeVisible();

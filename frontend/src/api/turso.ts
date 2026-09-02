@@ -130,6 +130,7 @@ function rowToListing(row: Record<string, unknown>): ListingView {
     archived: Number(row['archived'] ?? 0) === 1,
     favorite: Number(row['favorite'] ?? 0) === 1,
     rented: Number(row['rented'] ?? 0) === 1,
+    notifiedAt: row['notified_at'] ?? null,
     ...payload,
   } as unknown as ListingView;
 }

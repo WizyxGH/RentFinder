@@ -464,7 +464,7 @@ export function App(): React.JSX.Element {
           <Button variant="ghost" className="mb-2" onClick={() => setView('list')}>
             <ArrowLeft aria-hidden="true" className="size-4" /> Retour
           </Button>
-          <NotificationsPanel listings={listings} onOpen={openListing} />
+          <NotificationsPanel listings={listings} nowMs={nowMs} onOpen={openListing} />
         </main>
       );
     }

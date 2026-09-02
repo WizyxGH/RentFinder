@@ -10,19 +10,22 @@ import { useEffect, useState } from 'react';
 import { Bell, BellOff, Check, TriangleAlert } from 'lucide-react';
 import type { ListingView } from '../types.js';
 import { Button } from '@/components/ui/button.js';
-import { formatArea, formatPrice, formatCity } from '../format.js';
+import { formatArea, formatPrice, formatCity, formatDay, formatTime } from '../format.js';
 import { disablePush, enablePush, pushEnabled, pushSupported } from '../push.js';
 import {
   notificationPermission,
   notificationsSupported,
   readOptIn,
-  readSeen,
   requestNotificationPermission,
   writeOptIn,
 } from '../notifications.js';
 
+/** Profondeur de l'historique. Au-delà, une annonce n'est plus d'actualité. */
+const HISTORY_DAYS = 30;
+
 interface NotificationsPanelProps {
   readonly listings: readonly ListingView[];
+  readonly nowMs: number;
   readonly onOpen: (id: string) => void;
 }
 
@@ -54,6 +57,7 @@ function Status({
 
 export function NotificationsPanel({
   listings,
+  nowMs,
   onOpen,
 }: NotificationsPanelProps): React.JSX.Element {
   const [permission, setPermission] = useState(notificationPermission());
@@ -90,15 +94,32 @@ export function NotificationsPanel({
     setBusy(false);
   };
 
-  // « Nouvelles » = jamais vues par le sondage de notification. C'est la même
-  // mémoire que celle des alertes : la page montre donc exactement ce qui a été
-  // (ou aurait été) signalé.
-  const seen = readSeen();
-  // Au tout premier passage, la mémoire est vide : tout paraîtrait « nouveau ».
-  // On n'annonce donc rien tant qu'elle n'a pas été amorcée.
-  const fresh = seen.initialized
-    ? listings.filter((listing) => !seen.ids.has(listing.id)).slice(0, 20)
-    : [];
+  // HISTORIQUE : les annonces réellement signalées, datées par la collecte.
+  // Auparavant cette section comparait la liste courante à une mémoire du
+  // navigateur — perdue au premier nettoyage, vide sur un autre appareil, et
+  // muette au tout premier passage. La date vient maintenant de la base, donc
+  // l'historique est le même partout.
+  //
+  // Les annonces sans date sont celles notifiées avant que l'horodatage
+  // n'existe : on ne les invente pas (§17). Celles devenues louées ou
+  // inactives ne sont plus rapatriées et sortent donc de l'historique — c'est
+  // le prix à payer pour ne coûter AUCUNE lecture Turso de plus.
+  const horizon = nowMs - HISTORY_DAYS * 24 * 60 * 60 * 1000;
+  const history = listings
+    .filter((listing) => {
+      const at = listing.notifiedAt;
+      return at !== null && at !== undefined && Date.parse(at) >= horizon;
+    })
+    .sort((a, b) => Date.parse(b.notifiedAt ?? '') - Date.parse(a.notifiedAt ?? ''));
+
+  // Regroupement par jour, l'ordre des annonces étant déjà décroissant.
+  const days: { label: string; items: ListingView[] }[] = [];
+  for (const listing of history) {
+    const label = formatDay(listing.notifiedAt ?? '', nowMs);
+    const last = days[days.length - 1];
+    if (last?.label === label) last.items.push(listing);
+    else days.push({ label, items: [listing] });
+  }
 
   return (
     <section className="flex flex-col gap-5">
@@ -165,30 +186,42 @@ export function NotificationsPanel({
 
       <div>
         <h3 className="mb-2 text-sm font-semibold text-muted-foreground">
-          {fresh.length > 0 ? `Nouveautés (${fresh.length})` : 'Nouveautés'}
+          {history.length > 0 ? `Historique (${history.length})` : 'Historique'}
         </h3>
-        {fresh.length === 0 ? (
+        {days.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            Rien de neuf depuis votre dernier passage. Les annonces apparues entre deux visites
-            s’afficheront ici, même si vous avez manqué l’alerte.
+            Aucune alerte sur les {HISTORY_DAYS} derniers jours. Les annonces signalées
+            s’afficheront ici, datées — même si vous avez manqué la notification.
           </p>
         ) : (
-          <ul className="flex flex-col gap-1.5">
-            {fresh.map((listing) => (
-              <li key={listing.id}>
-                <button
-                  type="button"
-                  onClick={() => onOpen(listing.id)}
-                  className="flex w-full cursor-pointer items-baseline gap-2 rounded-xl border border-border p-3 text-left transition-colors hover:bg-muted"
-                >
-                  <span className="font-semibold">{formatPrice(listing.price.value)}</span>
-                  <span className="text-sm text-muted-foreground">
-                    {formatArea(listing.area.value)} · {formatCity(listing.city.value)}
-                  </span>
-                </button>
-              </li>
+          <div className="flex flex-col gap-4">
+            {days.map((day) => (
+              <div key={day.label}>
+                <h4 className="mb-1.5 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                  {day.label}
+                </h4>
+                <ul className="flex flex-col gap-1.5">
+                  {day.items.map((listing) => (
+                    <li key={listing.id}>
+                      <button
+                        type="button"
+                        onClick={() => onOpen(listing.id)}
+                        className="flex w-full cursor-pointer items-baseline gap-2 rounded-xl border border-border p-3 text-left transition-colors hover:bg-muted"
+                      >
+                        <span className="font-semibold">{formatPrice(listing.price.value)}</span>
+                        <span className="text-sm text-muted-foreground">
+                          {formatArea(listing.area.value)} · {formatCity(listing.city.value)}
+                        </span>
+                        <span className="ml-auto shrink-0 text-xs text-muted-foreground">
+                          {formatTime(listing.notifiedAt ?? '')}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             ))}
-          </ul>
+          </div>
         )}
       </div>
 

@@ -19,7 +19,13 @@ self.addEventListener('push', (event) => {
   }
 
   const listingId = payload.listingId;
+  // Chemins ABSOLUS depuis la portée du worker : le site vit sous /<dépôt>/.
+  // Sans `icon`, Android affiche l'icône générique du navigateur ; `badge` est
+  // la petite silhouette de la barre d'état, qui doit être monochrome.
+  const base = self.registration.scope;
   const options = {
+    icon: `${base}icon-192.png`,
+    badge: `${base}icon-192.png`,
     body: payload.body || '',
     // `tag` dédoublonne : deux envois rapprochés ne s'empilent pas.
     tag: payload.tag || 'rentfinder',

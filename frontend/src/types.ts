@@ -85,6 +85,12 @@ export interface ListingView {
   readonly lifecycle: 'active' | 'possiblyInactive' | 'inactive';
   readonly firstSeenAt: string;
   readonly lastSeenAt: string;
+  /**
+   * Date de la PREMIÈRE alerte, si l'annonce en a fait l'objet. Absente pour
+   * celles notifiées avant que l'horodatage n'existe : la date est inconnue et
+   * ne s'invente pas (§17).
+   */
+  readonly notifiedAt?: string | null;
 }
 
 export interface ListingsResponse {
