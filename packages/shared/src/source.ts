@@ -101,6 +101,19 @@ export interface SourceDescriptor {
   readonly allowedPaths: readonly string[];
 
   /** Note libre : conditions d'accès, limites connues, points d'attention. */
+  /**
+   * Contact GÉNÉRAL de l'agence, tel qu'elle le publie sur son propre site.
+   *
+   * Beaucoup d'agences ne mettent aucune coordonnée sur leurs annonces — elles
+   * n'offrent qu'un formulaire — mais affichent leur ligne et leur adresse en
+   * pied de page. Ce contact ne sert qu'À DÉFAUT : une coordonnée portée par
+   * l'annonce elle-même prime toujours, car elle vise le bon interlocuteur.
+   */
+  readonly agencyContact?: {
+    readonly phone?: string;
+    readonly email?: string;
+  };
+
   readonly notes: string;
 }
 

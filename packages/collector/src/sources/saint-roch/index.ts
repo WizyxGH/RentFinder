@@ -36,6 +36,10 @@ export const SAINT_ROCH_DESCRIPTOR: SourceDescriptor = {
     maxPagesPerRun: 1 + MAX_DETAILS_BACKFILL,
     maxListingsPerRun: MAX_DETAILS_BACKFILL,
   }),
+  // Contact PUBLIC, publié par l'agence sur son propre site (relevé le
+  // 2026-09-02). Le scanner le signale comme donnée personnelle : c'est une
+  // coordonnée professionnelle, déjà publique, et c'est ici la fonctionnalité.
+  agencyContact: { email: 'contact@saintroch-immobilier.com' }, // secret-scan-ignore
   enabled: true,
   // Petite agence : premier contact téléphone/formulaire (§23).
   manualOnly: true,

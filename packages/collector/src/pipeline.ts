@@ -16,11 +16,12 @@
 
 import { randomUUID } from 'node:crypto';
 import type {
+  NormalizedListing,
   RawListing,
+  ScoredListing,
   ScrapeContext,
   ScrapeResult,
   Scraper,
-  ScoredListing,
   SourceHealth,
   SourceRuntimeState,
 } from '@rentfinder/shared';
@@ -298,6 +299,32 @@ async function resolveTransitMinutes(
 }
 
 /** Exécute un cycle complet de collecte. */
+/**
+ * Complète les annonces sans coordonnées par le contact GÉNÉRAL de l'agence.
+ *
+ * Beaucoup d'agences n'offrent qu'un formulaire sur leurs annonces, mais
+ * publient leur ligne en pied de page. Cette ligne vaut mieux que rien : elle
+ * permet d'appeler au lieu de remplir un formulaire et d'attendre.
+ *
+ * Ne remplace JAMAIS une coordonnée portée par l'annonce : celle-là vise le bon
+ * interlocuteur, celle-ci l'accueil (§17).
+ */
+function withAgencyContact(
+  listings: readonly NormalizedListing[],
+  sourceId: string,
+  scrapers: readonly Scraper[],
+): NormalizedListing[] {
+  const fallback = scrapers.find((s) => s.descriptor.id === sourceId)?.descriptor.agencyContact;
+  if (fallback === undefined) return [...listings];
+
+  return listings.map((listing) => {
+    const phone = listing.contact.phone ?? fallback.phone ?? null;
+    const email = listing.contact.email ?? fallback.email ?? null;
+    if (phone === listing.contact.phone && email === listing.contact.email) return listing;
+    return { ...listing, contact: { ...listing.contact, phone, email } };
+  });
+}
+
 export async function runPipeline(options: PipelineOptions): Promise<PipelineReport> {
   const { registry, repository, logger, clock, config } = options;
   const startedMs = clock.now();
@@ -385,7 +412,7 @@ export async function runPipeline(options: PipelineOptions): Promise<PipelineRep
   // --- 3. Normalisation -----------------------------------------------------
   const nowMs = clock.now();
   const normalized = [...rawBySource.entries()].flatMap(([sourceId, raws]) =>
-    normalizeAll(raws, { sourceId, nowMs }),
+    withAgencyContact(normalizeAll(raws, { sourceId, nowMs }), sourceId, scrapers),
   );
   logger.info('pipeline.normalized', { count: normalized.length });
 

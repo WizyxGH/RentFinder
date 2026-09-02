@@ -239,6 +239,14 @@ export async function recordContact(
   },
 ): Promise<void> {
   if (DEMO) return;
+  if (isDirectMode()) {
+    await turso.recordContact(id, {
+      channel: payload.channel,
+      message: payload.message,
+      sourceId: payload.sourceId,
+    });
+    return;
+  }
   await request(`/api/listings/${encodeURIComponent(id)}/contact`, {
     method: 'POST',
     body: JSON.stringify(payload),
@@ -320,13 +328,17 @@ export interface DocumentInfo {
 }
 
 export async function fetchDocuments(): Promise<readonly DocumentInfo[]> {
-  if (DEMO) return [];
+  // Les pièces de candidature ne quittent jamais la machine (§25) : en accès
+  // direct, il n'y en a simplement pas.
+  if (DEMO || isDirectMode()) return [];
   const response = await request<{ documents: readonly DocumentInfo[] }>('/api/documents');
   return response.documents;
 }
 
 export async function uploadDocument(file: File): Promise<DocumentInfo> {
-  if (DEMO) throw new ApiError('Indisponible en mode démonstration', 400);
+  if (DEMO || isDirectMode()) {
+    throw new ApiError('Les pièces de candidature restent sur votre machine (§25).', 400);
+  }
   return request<DocumentInfo>(`/api/documents?name=${encodeURIComponent(file.name)}`, {
     method: 'POST',
     body: file,
@@ -335,7 +347,7 @@ export async function uploadDocument(file: File): Promise<DocumentInfo> {
 }
 
 export async function deleteDocument(name: string): Promise<void> {
-  if (DEMO) return;
+  if (DEMO || isDirectMode()) return;
   await request(`/api/documents/${encodeURIComponent(name)}`, { method: 'DELETE' });
 }
 
@@ -366,12 +378,17 @@ function demoFilters(): FilterConfig {
 }
 
 export async function fetchFilters(): Promise<FilterConfig> {
-  if (DEMO) return demoFilters();
+  // Les critères vivent dans `config/search.json`, sur la machine — pas dans
+  // la base. En accès direct on montre les valeurs par défaut, en lecture.
+  if (DEMO || isDirectMode()) return demoFilters();
   return request<FilterConfig>('/api/config');
 }
 
 /** Enregistre les filtres (§66). En démo, no-op qui renvoie l'entrée. */
 export async function saveFilters(filters: FilterConfig): Promise<FilterConfig> {
   if (DEMO) return filters;
+  if (isDirectMode()) {
+    throw new ApiError('Les critères se règlent depuis votre machine (config/search.json).', 400);
+  }
   return request<FilterConfig>('/api/config', { method: 'PUT', body: JSON.stringify(filters) });
 }

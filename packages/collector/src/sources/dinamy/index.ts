@@ -41,6 +41,10 @@ export const DINAMY_DESCRIPTOR: SourceDescriptor = {
   priority: 2,
   schedule: scheduleFor('localAgency'),
   budget: budgetFor('localAgency', { maxPagesPerRun: 14, maxListingsPerRun: 60 }),
+  // Contact PUBLIC, publié par l'agence sur son propre site (relevé le
+  // 2026-09-02). Le scanner le signale comme donnée personnelle : c'est une
+  // coordonnée professionnelle, déjà publique, et c'est ici la fonctionnalité.
+  agencyContact: { phone: '04.89.92.04.50', email: 'info@dinamyimmobilier.com' }, // secret-scan-ignore
   enabled: true,
   // Petite structure : premier contact téléphonique/formulaire (§23).
   manualOnly: true,
