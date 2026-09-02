@@ -319,3 +319,32 @@ test('la barre basse mène aux quatre destinations (mobile)', async ({ page }) =
   await basse.getByRole('button', { name: 'Accueil' }).click();
   await expect(page.getByTestId('listing-card').first()).toBeVisible();
 });
+
+test('on peut archiver depuis la fiche, et l’annonce quitte la liste', async ({ page }) => {
+  // Le bouton a quitté la carte, dont la surface entière ouvre la fiche : sans
+  // ce chemin, l'archivage n'existerait plus nulle part.
+  const cards = page.getByTestId('listing-card');
+  const before = await cards.count();
+  await cards.first().click();
+  await page.getByRole('button', { name: 'Archiver' }).click();
+  await expect(cards).toHaveCount(before - 1);
+});
+
+test('« Favoris » est atteignable à toute largeur', async ({ page }) => {
+  // Ce que porte la barre basse du téléphone doit exister aussi à l'écran.
+  const basse = page.getByRole('navigation', { name: 'Navigation', exact: true });
+  const haut = page.getByRole('navigation', { name: 'Navigation principale' });
+  const barre = (await basse.isVisible()) ? basse : haut;
+
+  await barre.getByRole('button', { name: 'Favoris' }).click();
+  await expect(barre.getByRole('button', { name: 'Favoris' })).toHaveAttribute(
+    'aria-current',
+    'page',
+  );
+  // La page Favoris n'a ni recherche ni barre d'outils.
+  await expect(page.getByRole('group', { name: 'Barre de filtres' })).toBeHidden();
+
+  // Et l'on en ressort : sans cela, la bascule qui l'éteint est masquée.
+  await barre.getByRole('button', { name: /Accueil|Annonces/ }).click();
+  await expect(page.getByRole('group', { name: 'Barre de filtres' })).toBeVisible();
+});

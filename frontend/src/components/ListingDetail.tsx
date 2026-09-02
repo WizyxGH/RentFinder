@@ -27,13 +27,15 @@ import { ScoreDetail } from './Scores.js';
 import { ContactPanel } from './ContactPanel.js';
 import { Badge } from '@/components/ui/badge.js';
 import { Button } from '@/components/ui/button.js';
-import { ArrowLeft, MapPin, TrainFront } from 'lucide-react';
+import { Archive, ArchiveRestore, ArrowLeft, MapPin, TrainFront } from 'lucide-react';
 
 interface ListingDetailProps {
   readonly listing: ListingView;
   readonly profile: TenantProfile | null;
   readonly nowMs: number;
   readonly onBack: () => void;
+  /** Archive (`true`) ou désarchive (`false`) l'annonce. */
+  readonly onArchive?: (archived: boolean) => void;
   readonly onTrackingChange: (status: TrackingStatus) => void;
   readonly onContactRecorded: (
     channel: string,
@@ -79,11 +81,13 @@ export function ListingDetail({
   profile,
   nowMs,
   onBack,
+  onArchive,
   onTrackingChange,
   onContactRecorded,
   onConfigureProfile,
 }: ListingDetailProps): React.JSX.Element {
   const charges = listing.charges.value;
+  const archived = listing.archived === true;
 
   // Requête Maps : la localisation la plus précise disponible (§20). Rue si
   // connue, sinon quartier, sinon ville + code postal.
@@ -101,9 +105,26 @@ export function ListingDetail({
         <Button variant="ghost" onClick={onBack}>
           <ArrowLeft aria-hidden="true" className="size-4" /> Retour
         </Button>
-        <span className="flex gap-2">
+        <span className="flex items-center gap-2">
           {listing.priceDropped === true && <Badge variant="good">Prix en baisse</Badge>}
           {!listing.matchesCriteria && <Badge variant="warning">Hors critères de recherche</Badge>}
+          {/* L'archivage a quitté la carte, dont la surface entière ouvre
+            désormais la fiche. Sa place est ici : c'est le seul endroit
+            atteignable aussi bien au téléphone qu'à l'écran. */}
+          {onArchive !== undefined && (
+            <Button
+              variant="ghost"
+              onClick={() => onArchive(!archived)}
+              title={archived ? 'Désarchiver' : 'Archiver'}
+              aria-label={archived ? 'Désarchiver' : 'Archiver'}
+            >
+              {archived ? (
+                <ArchiveRestore aria-hidden="true" className="size-4" />
+              ) : (
+                <Archive aria-hidden="true" className="size-4" />
+              )}
+            </Button>
+          )}
         </span>
       </header>
 

@@ -21,6 +21,7 @@ import {
   isDemoMode,
   isUnconfigured,
   markViewed,
+  setArchived,
   recordContact,
   setFavorite,
   updateTracking,
@@ -66,6 +67,13 @@ import { matchesSearch } from './search.js';
 const MapView = lazy(() => import('./components/MapView.js'));
 
 type View = 'list' | 'detail' | 'filters' | 'stats' | 'profile' | 'sources' | 'alerts';
+
+/**
+ * Ce qu'un onglet peut viser. « favoris » n'est PAS une vue : c'est la liste
+ * assortie d'un filtre. Lui donner une vue à part aurait créé une seconde
+ * source de vérité à côté de `favoritesOnly`, que la modale règle aussi.
+ */
+type NavTarget = View | 'favorites';
 
 /** Seuil de mise en avant : au-delà, l'annonce mérite un contact immédiat. */
 const HOT_PRIORITY = 85;
@@ -123,20 +131,25 @@ function StatsStrip({
  */
 function Shell({
   view,
+  favoritesOnly,
   onNavigate,
   bottomTab,
   onBottomSelect,
   children,
 }: {
   readonly view: View;
-  readonly onNavigate: (view: View) => void;
+  readonly favoritesOnly: boolean;
+  readonly onNavigate: (target: NavTarget) => void;
   /** Onglet bas actif, ou `null` hors des quatre destinations. */
   readonly bottomTab?: BottomTab | null;
   readonly onBottomSelect?: (tab: BottomTab) => void;
   readonly children: React.ReactNode;
 }): React.JSX.Element {
-  const tabs: readonly { key: View; label: string }[] = [
+  const tabs: readonly { key: NavTarget; label: string }[] = [
     { key: 'list', label: 'Annonces' },
+    // Présent dans la barre basse du téléphone, il manquait à l'écran : la
+    // seule façon d'y venir était une bascule enfouie dans la modale.
+    { key: 'favorites', label: 'Favoris' },
     // « Alertes » plutôt que « Filtres » : ces critères décident de ce qui est
     // COLLECTÉ et NOTIFIÉ, alors que la modale de la liste ne filtre que
     // l'affichage. Deux choses différentes portaient le même nom.
@@ -145,8 +158,9 @@ function Shell({
     { key: 'profile', label: 'Profil' },
     { key: 'sources', label: 'Sources' },
   ];
-  // La fiche appartient à l'univers « Annonces ».
-  const active = view === 'detail' ? 'list' : view;
+  // La fiche appartient à l'univers « Annonces » ; le filtre favoris prime.
+  const active: NavTarget =
+    view === 'list' || view === 'detail' ? (favoritesOnly ? 'favorites' : 'list') : view;
 
   // La liste s'élargit sur grand écran pour afficher les cartes en grille ; les
   // autres vues (fiche, profil, stats) restent en colonne étroite, plus lisible.
@@ -440,7 +454,13 @@ export function App(): React.JSX.Element {
     };
   }, [openListing]);
 
-  const navigate = (next: View): void => {
+  const navigate = (next: NavTarget): void => {
+    if (next === 'favorites') {
+      setFavoritesOnly(true);
+      setSelectedId(null);
+      setView('list');
+      return;
+    }
     if (next === 'sources') {
       void openSources();
       return;
@@ -466,6 +486,22 @@ export function App(): React.JSX.Element {
 
   const selected = listings.find((listing) => listing.id === selectedId) ?? null;
 
+  const handleArchive = async (id: string, archived: boolean): Promise<void> => {
+    // Optimiste : si on archive et qu'on ne montre pas les archivées, l'annonce
+    // disparaît de la liste ; sinon on met simplement à jour son état.
+    setListings((current) =>
+      archived && !showArchived
+        ? current.filter((listing) => listing.id !== id)
+        : current.map((listing) => (listing.id === id ? { ...listing, archived } : listing)),
+    );
+    // Archiver depuis la fiche renvoie à la liste : l'annonce n'y est plus.
+    if (view === 'detail' && archived) setView('list');
+    try {
+      await setArchived(id, archived);
+    } catch {
+      setError('L’archivage n’a pas pu être enregistré');
+    }
+  };
   const handleTrackingChange = async (status: TrackingStatus): Promise<void> => {
     if (selected === null) return;
     setListings((current) =>
@@ -518,6 +554,7 @@ export function App(): React.JSX.Element {
     return (
       <Shell
         view={view}
+        favoritesOnly={favoritesOnly}
         onNavigate={navigate}
         bottomTab={bottomTab}
         onBottomSelect={selectBottomTab}
@@ -544,6 +581,7 @@ export function App(): React.JSX.Element {
       return (
         <Shell
           view={view}
+          favoritesOnly={favoritesOnly}
           onNavigate={navigate}
           bottomTab={bottomTab}
           onBottomSelect={selectBottomTab}
@@ -586,6 +624,7 @@ export function App(): React.JSX.Element {
       return (
         <Shell
           view={view}
+          favoritesOnly={favoritesOnly}
           onNavigate={navigate}
           bottomTab={bottomTab}
           onBottomSelect={selectBottomTab}
@@ -598,6 +637,7 @@ export function App(): React.JSX.Element {
       return (
         <Shell
           view={view}
+          favoritesOnly={favoritesOnly}
           onNavigate={navigate}
           bottomTab={bottomTab}
           onBottomSelect={selectBottomTab}
@@ -614,6 +654,7 @@ export function App(): React.JSX.Element {
       return (
         <Shell
           view={view}
+          favoritesOnly={favoritesOnly}
           onNavigate={navigate}
           bottomTab={bottomTab}
           onBottomSelect={selectBottomTab}
@@ -626,6 +667,7 @@ export function App(): React.JSX.Element {
       return (
         <Shell
           view={view}
+          favoritesOnly={favoritesOnly}
           onNavigate={navigate}
           bottomTab={bottomTab}
           onBottomSelect={selectBottomTab}
@@ -635,6 +677,7 @@ export function App(): React.JSX.Element {
             profile={profile}
             nowMs={nowMs}
             onBack={() => setView('list')}
+            onArchive={(archived) => void handleArchive(selected.id, archived)}
             onTrackingChange={(status) => void handleTrackingChange(status)}
             onContactRecorded={(channel, message, documents) =>
               void handleContactRecorded(channel, message, documents)
@@ -717,7 +760,13 @@ export function App(): React.JSX.Element {
   };
 
   return (
-    <Shell view={view} onNavigate={navigate} bottomTab={bottomTab} onBottomSelect={selectBottomTab}>
+    <Shell
+      view={view}
+      favoritesOnly={favoritesOnly}
+      onNavigate={navigate}
+      bottomTab={bottomTab}
+      onBottomSelect={selectBottomTab}
+    >
       {isDemoMode() && (
         <p
           className="my-2 rounded-xl border border-border bg-primary/10 px-3 py-2 text-[0.85rem]"
