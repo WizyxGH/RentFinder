@@ -18,6 +18,7 @@ import {
 } from '../api/client.js';
 import { Button } from '@/components/ui/button.js';
 import { Card } from '@/components/ui/card.js';
+import { Trash2 } from 'lucide-react';
 
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} o`;
@@ -110,7 +111,7 @@ export function DocumentsSection(): React.JSX.Element | null {
                   aria-label={`Supprimer ${doc.name}`}
                   title={`Supprimer ${doc.name}`}
                 >
-                  🗑
+                  <Trash2 aria-hidden="true" className="size-4" />
                 </Button>
               </li>
             ))}
@@ -142,7 +143,7 @@ export function DocumentsSection(): React.JSX.Element | null {
             disabled={busy}
             onClick={() => inputRef.current?.click()}
           >
-            {busy ? 'Dépôt en cours…' : '➕ Déposer des pièces'}
+            {busy ? 'Dépôt en cours…' : 'Déposer des pièces'}
           </Button>
         </div>
       </Card>

@@ -9,6 +9,7 @@
 
 import type { ExplainedScore, ListingScores } from '@rentfinder/shared';
 import { Card } from '@/components/ui/card.js';
+import { Check, Dot, TriangleAlert } from 'lucide-react';
 
 /** Palette par plage : vert au-dessus de 75, orange au-dessus de 50, rouge sinon. */
 function toneFor(value: number, invert: boolean): 'good' | 'medium' | 'bad' {
@@ -174,8 +175,8 @@ export function ScoreDetail({
           <ul className="mt-2 text-sm">
             {score.reasons.map((reason, index) => (
               <li key={`${reason.code}-${index}`} className="flex gap-2 py-0.5">
-                <span aria-hidden="true" className="w-4 shrink-0">
-                  {reason.delta > 0 ? (invert ? '⚠' : '✓') : reason.delta < 0 ? '⚠' : '·'}
+                <span aria-hidden="true" className="flex w-4 shrink-0 justify-center pt-0.5">
+                  <ReasonIcon delta={reason.delta} invert={invert} />
                 </span>
                 <span>{reason.label}</span>
               </li>
@@ -192,4 +193,21 @@ export function ScoreDetail({
       </details>
     </Card>
   );
+}
+
+/**
+ * Pictogramme d'une raison de score : un point quand elle est neutre, une
+ * coche quand elle joue en faveur, un avertissement quand elle pèse contre.
+ * Le score de RISQUE s'inverse — un delta positif y est une mauvaise nouvelle.
+ */
+function ReasonIcon({
+  delta,
+  invert,
+}: {
+  readonly delta: number;
+  readonly invert: boolean;
+}): React.JSX.Element {
+  if (delta === 0) return <Dot className="size-4" />;
+  const bad = delta < 0 || invert;
+  return bad ? <TriangleAlert className="size-3.5" /> : <Check className="size-3.5" />;
 }

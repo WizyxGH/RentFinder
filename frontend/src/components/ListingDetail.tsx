@@ -25,6 +25,7 @@ import { ScoreDetail } from './Scores.js';
 import { ContactPanel } from './ContactPanel.js';
 import { Badge } from '@/components/ui/badge.js';
 import { Button } from '@/components/ui/button.js';
+import { ArrowLeft, MapPin, TrainFront } from 'lucide-react';
 
 interface ListingDetailProps {
   readonly listing: ListingView;
@@ -96,7 +97,7 @@ export function ListingDetail({
     <div>
       <header className="mb-2 flex items-center justify-between">
         <Button variant="ghost" onClick={onBack}>
-          ← Retour
+          <ArrowLeft aria-hidden="true" className="size-4" /> Retour
         </Button>
         <span className="flex gap-2">
           {listing.priceDropped === true && <Badge variant="good">Prix en baisse</Badge>}
@@ -178,7 +179,8 @@ export function ListingDetail({
               className="text-primary underline"
               title="Ouvrir dans Maps"
             >
-              📍 {formatCity(listing.city.value)}
+              <MapPin aria-hidden="true" className="inline size-4" />{' '}
+              {formatCity(listing.city.value)}
               {listing.postalCode.value !== null && ` (${listing.postalCode.value})`}
               {listing.address.value !== null
                 ? ` — ${formatAddress(listing.address.value)}`
@@ -229,7 +231,7 @@ export function ListingDetail({
               <strong>{distance.label}</strong> :{' '}
               {distance.durationSource === 'transit' && (
                 <span aria-hidden="true" title="Temps réel en transports en commun">
-                  🚆{' '}
+                  <TrainFront aria-hidden="true" className="inline size-4" />{' '}
                 </span>
               )}
               {formatDuration(distance.durationMinutes)}{' '}

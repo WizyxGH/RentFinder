@@ -179,8 +179,9 @@ test('les filtres sont réglables depuis le site (§66)', async ({ page }) => {
 
 test('la localisation ouvre Maps facilement (§20)', async ({ page }) => {
   await page.getByTestId('listing-card').first().getByRole('button', { name: 'Contacter' }).click();
-  // La localisation elle-même est le lien : « 📍 Nice (06000) — … » → Maps.
-  const maps = page.getByRole('link', { name: /📍/ });
+  // Ciblé par sa DESTINATION, pas par son pictogramme : celui-ci a déjà changé
+  // une fois (emoji puis icône) et le test cassait sans que rien ne soit cassé.
+  const maps = page.locator('a[href*="google.com/maps"]').first();
   await expect(maps).toBeVisible();
   await expect(maps).toHaveAttribute('href', /google\.com\/maps/);
 });

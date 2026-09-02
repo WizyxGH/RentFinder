@@ -26,7 +26,7 @@ import { ScoreRow } from './Scores.js';
 import { Badge } from '@/components/ui/badge.js';
 import { Button, ButtonLink } from '@/components/ui/button.js';
 import { Card } from '@/components/ui/card.js';
-import { Star } from 'lucide-react';
+import { Archive, ArchiveRestore, Flame, Star, TrainFront } from 'lucide-react';
 
 interface ListingCardProps {
   readonly listing: ListingView;
@@ -74,7 +74,7 @@ function PriorityBadge({
     <div className={`flex w-14 shrink-0 flex-col items-center rounded-lg py-1.5 ${skin}`}>
       <span className="text-[1.6rem] leading-none font-bold">{priority}</span>
       <span className="mt-0.5 text-center text-[0.6rem] leading-tight tracking-wide uppercase">
-        {isHot && <span aria-hidden="true">🔥 </span>}
+        {isHot && <Flame aria-hidden="true" className="inline size-4" />}
         {tier.label}
       </span>
     </div>
@@ -166,7 +166,11 @@ function CardActions({
           title={archived ? 'Désarchiver' : 'Archiver'}
           aria-label={archived ? 'Désarchiver' : 'Archiver'}
         >
-          {archived ? '↩' : '🗄'}
+          {archived ? (
+            <ArchiveRestore aria-hidden="true" className="size-4" />
+          ) : (
+            <Archive aria-hidden="true" className="size-4" />
+          )}
         </Button>
       )}
     </div>
@@ -321,7 +325,7 @@ export function ListingCard({
             <span className="text-muted-foreground">{distance.label} </span>
             {distance.durationSource === 'transit' && (
               <span aria-hidden="true" title="Temps réel en transports en commun">
-                🚆{' '}
+                <TrainFront aria-hidden="true" className="inline size-4" />{' '}
               </span>
             )}
             {formatDuration(distance.durationMinutes)}

@@ -9,6 +9,7 @@
  */
 
 import { useState } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 export function PhotoCarousel({ urls }: { readonly urls: readonly string[] }): React.JSX.Element {
   const [index, setIndex] = useState(0);
@@ -53,7 +54,7 @@ export function PhotoCarousel({ urls }: { readonly urls: readonly string[] }): R
             }}
             className="absolute top-1/2 left-1.5 flex size-7 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-black/45 text-white transition-colors hover:bg-black/65"
           >
-            ‹
+            <ChevronLeft aria-hidden="true" className="size-4" />
           </button>
           <button
             type="button"
@@ -64,7 +65,7 @@ export function PhotoCarousel({ urls }: { readonly urls: readonly string[] }): R
             }}
             className="absolute top-1/2 right-1.5 flex size-7 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-black/45 text-white transition-colors hover:bg-black/65"
           >
-            ›
+            <ChevronRight aria-hidden="true" className="size-4" />
           </button>
 
           {/* Points de position, cliquables. */}

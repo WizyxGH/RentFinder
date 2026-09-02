@@ -11,6 +11,7 @@ import type { SourceStateView } from '../types.js';
 import { formatAge, formatSourceName } from '../format.js';
 import { Button } from '@/components/ui/button.js';
 import { Card } from '@/components/ui/card.js';
+import { ArrowLeft } from 'lucide-react';
 
 const HEALTH_LABELS: Record<SourceStateView['health'], string> = {
   healthy: 'OK',
@@ -40,7 +41,7 @@ export function SourcesPanel({ sources, nowMs, onBack }: SourcesPanelProps): Rea
     <div>
       <header className="mb-2 flex items-center justify-between">
         <Button variant="ghost" onClick={onBack}>
-          ← Retour
+          <ArrowLeft aria-hidden="true" className="size-4" /> Retour
         </Button>
       </header>
 
