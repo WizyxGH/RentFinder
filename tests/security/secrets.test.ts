@@ -115,8 +115,17 @@ describe('exposition au frontend', () => {
   it('n’expose aucun secret via une variable VITE_', () => {
     // Vite inline TOUTE variable préfixée VITE_ dans le bundle public :
     // y placer un jeton reviendrait à le publier sur GitHub Pages (§26).
+    //
+    // Exception explicite : un nom qui contient PUBLIC. Certaines clés sont
+    // faites pour être publiées — la clé VAPID du serveur de push doit être
+    // dans le bundle, sans quoi le navigateur ne peut pas s'abonner. La garde
+    // vise les fuites par inadvertance, et un auteur qui écrit PUBLIC déclare
+    // son intention ; la clé PRIVÉE, elle, n'entre jamais dans le frontend.
     const files = listFrontendFiles(resolve(ROOT, 'frontend/src'));
-    const forbidden = /import\.meta\.env\[?['"`]?VITE_[A-Z_]*(TOKEN|SECRET|KEY|PASSWORD)/i;
+    // `[.\[]` : l'accès par POINT (`env.VITE_X`) échappait à la garde, qui
+    // n'attendait que la forme entre crochets.
+    const forbidden =
+      /import\.meta\.env[.[]['"`]?VITE_(?![A-Z_]*PUBLIC)[A-Z_]*(TOKEN|SECRET|KEY|PASSWORD)/i;
 
     for (const file of files) {
       expect(readFileSync(file, 'utf8')).not.toMatch(forbidden);

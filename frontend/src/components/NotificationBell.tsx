@@ -8,6 +8,7 @@
 
 import { useState } from 'react';
 import { Bell, BellOff } from 'lucide-react';
+import { disablePush, enablePush, pushSupported } from '../push.js';
 import {
   notificationPermission,
   notificationsSupported,
@@ -31,6 +32,7 @@ export function NotificationBell(): React.JSX.Element | null {
     if (active) {
       writeOptIn(false);
       setOptIn(false);
+      void disablePush();
       return;
     }
     let granted = permission;
@@ -41,6 +43,10 @@ export function NotificationBell(): React.JSX.Element | null {
     if (granted === 'granted') {
       writeOptIn(true);
       setOptIn(true);
+      // On s'abonne AUSSI au push : sans lui, les notifications s'arrêtent dès
+      // que l'onglet se ferme. L'échec n'empêche pas les notifications site
+      // ouvert, qui viennent d'être activées (§69).
+      if (pushSupported()) void enablePush();
     }
   };
 

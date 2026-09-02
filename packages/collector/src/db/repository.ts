@@ -175,6 +175,13 @@ export interface DailyStat {
 }
 
 export interface Repository {
+  /** Abonnements Web Push actifs (§29). */
+  readonly pushSubscriptions: () => Promise<
+    readonly { endpoint: string; p256dh: string; auth: string }[]
+  >;
+  /** Retire un abonnement périmé — le service de push l'a déclaré mort. */
+  readonly removePushSubscription: (endpoint: string) => Promise<void>;
+
   /** Écrit l'instantané du jour (une ligne par jour, réécrite à chaque passage). */
   readonly recordDailyStat: () => Promise<void>;
   /** Historique de l'inventaire, du plus ancien au plus récent. */
@@ -650,6 +657,24 @@ export function createRepository(db: Database): Repository {
       const removed = orphans.rowsAffected ?? 0;
 
       return { inserted, updated, unchanged, ...(removed > 0 ? { removed } : {}) };
+    },
+
+    async pushSubscriptions() {
+      const result = await db.execute(
+        'SELECT endpoint, p256dh, auth FROM push_subscriptions ORDER BY created_at',
+      );
+      return result.rows.map((row) => ({
+        endpoint: String(row['endpoint']),
+        p256dh: String(row['p256dh']),
+        auth: String(row['auth']),
+      }));
+    },
+
+    async removePushSubscription(endpoint) {
+      await db.execute({
+        sql: 'DELETE FROM push_subscriptions WHERE endpoint = ?',
+        args: [endpoint],
+      });
     },
 
     async recordDailyStat() {

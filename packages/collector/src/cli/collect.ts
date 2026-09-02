@@ -32,6 +32,7 @@ import {
 } from '../config.js';
 import { createGeocoder } from '../core/geocode.js';
 import { notifyNewListings, editRentedTelegramMessages } from '../notify/telegram.js';
+import { loadVapidConfig, sendWebPush } from '../notify/web-push.js';
 import { pollTelegramReactions } from '../notify/reactions.js';
 import { fetchAlertEmails } from '../core/email-import.js';
 import { findUndiscoveredAgencies } from '../sources/email-alerts/agency-discovery.js';
@@ -158,6 +159,28 @@ async function main(): Promise<void> {
 
     // §29 : pousse les nouvelles annonces sur Telegram, si configuré. Absent →
     // silencieusement désactivé (le collecteur et la CI tournent sans).
+    // Web Push (§29) : second canal, indépendant de Telegram — il alerte
+    // téléphone rangé sans passer par une application tierce. On lit les
+    // candidates AVANT Telegram, qui les marque comme notifiées.
+    const vapid = loadVapidConfig();
+    if (vapid !== null) {
+      try {
+        const pending = await repository.pendingNotifications(0);
+        await sendWebPush({
+          repository,
+          config: vapid,
+          listings: pending,
+          siteUrl: process.env['SITE_URL'] ?? 'https://wizyxgh.github.io/RentFinder/',
+          logger,
+        });
+      } catch (error) {
+        // Un canal secondaire ne fait jamais échouer une collecte (§69).
+        logger.warn('push.failed', {
+          error: error instanceof Error ? error.message : 'erreur inconnue',
+        });
+      }
+    }
+
     const telegram = loadTelegramConfig();
     if (telegram !== null) {
       try {

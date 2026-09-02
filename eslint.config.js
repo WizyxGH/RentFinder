@@ -63,11 +63,12 @@ export default tseslint.config(
     },
   },
 
-  // Le Worker Cloudflare a ses propres globals.
+  // Le service worker des notifications tourne hors page : `self`, `clients`,
+  // `registration` y remplacent `window`.
   {
-    files: ['packages/api/**/*.ts'],
+    files: ['frontend/public/sw.js'],
     languageOptions: {
-      globals: { ...globals.browser, ...globals.worker },
+      globals: { ...globals.serviceworker },
     },
   },
 

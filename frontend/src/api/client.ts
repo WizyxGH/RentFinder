@@ -372,3 +372,19 @@ export async function saveFilters(filters: FilterConfig): Promise<FilterConfig> 
   }
   return request<FilterConfig>('/api/config', { method: 'PUT', body: JSON.stringify(filters) });
 }
+
+/** Abonnement Web Push : uniquement en accès direct, la base seule le stocke. */
+export async function subscribePush(sub: {
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+}): Promise<void> {
+  if (DEMO) return;
+  if (!isDirectMode()) throw new ApiError('Disponible sur le site connecté à votre base.', 400);
+  await turso.saveSubscription(sub);
+}
+
+export async function unsubscribePush(endpoint: string): Promise<void> {
+  if (DEMO || !isDirectMode()) return;
+  await turso.removeSubscription(endpoint);
+}

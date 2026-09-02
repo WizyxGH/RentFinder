@@ -28,9 +28,11 @@
     "@rentfinder/shared": "workspace:*",
     "cheerio": "^1.2.0",
     "imapflow": "^1.7.3",
-    "mailparser": "^3.9.20"
+    "mailparser": "^3.9.20",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
-    "@types/mailparser": "^3.4.6"
+    "@types/mailparser": "^3.4.6",
+    "@types/web-push": "^3.6.4"
   }
 }

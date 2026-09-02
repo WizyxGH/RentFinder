@@ -123,37 +123,30 @@ Le site se publie à chaque push en **mode démonstration** : il tourne sur des
 données fictives, aucune de vos annonces n'est exposée. De quoi vérifier que la
 publication fonctionne avant d'aller plus loin.
 
-#### Étape 2 — vos vraies données (~15 minutes)
+#### Étape 2 — vos vraies données (~10 minutes)
 
-1. **Turso** ([turso.tech](https://turso.tech), palier gratuit) :
+Le site interroge Turso DIRECTEMENT : aucun service intermédiaire, aucun compte
+de plus que Turso.
 
-   ```bash
-   turso db create rentfinder
-   turso db show rentfinder --url      # → libsql://…
-   turso db tokens create rentfinder   # → le jeton
+1. **Turso** ([turso.tech](https://turso.tech), palier gratuit) : créez une base
+   `rentfinder`, puis relevez son adresse et un jeton (bouton **Connect** sur la
+   page de la base). Placez-les dans `.env` :
+
+   ```
+   TURSO_DATABASE_URL=libsql://…turso.io
+   TURSO_AUTH_TOKEN=…
    ```
 
-   Puis, depuis votre machine : ces deux valeurs dans `.env`, et
-   `pnpm publish:turso` pour y envoyer l'inventaire.
+2. **Publiez l'inventaire** : `pnpm publish:turso`. Le schéma part en entier,
+   les données seulement pour les annonces et l'état des sources — jamais les
+   caches de géocodage, l'historique de contacts ni les identifiants Telegram.
 
-2. **Worker Cloudflare** (compte gratuit) — l'API qui protège vos données :
+3. **Ouvrez le site** : il demande ces deux mêmes valeurs, une fois. Elles
+   restent dans votre navigateur, jamais dans le dépôt.
 
-   ```bash
-   cd packages/api
-   npx wrangler secret put TURSO_DATABASE_URL
-   npx wrangler secret put TURSO_AUTH_TOKEN
-   npx wrangler secret put API_ACCESS_TOKEN   # inventez un jeton long
-   npx wrangler deploy
-   ```
-
-   Renseignez `API_ALLOWED_ORIGIN` (votre URL GitHub Pages) dans
-   `packages/api/wrangler.toml`.
-
-3. **Une seule variable GitHub** : `API_URL` = l'URL du Worker
-   (Settings → Secrets and variables → Actions → Variables).
-
-Au prochain push, le site quitte le mode démonstration. Le jeton d'accès vous
-est demandé une fois dans l'interface — il n'entre jamais dans le bundle.
+Ce jeton donne accès en lecture ET écriture — c'est ce qui permet de mettre un
+favori ou de noter un contact depuis le téléphone. En cas de fuite, le dommage
+reste réparable : les annonces se régénèrent, et rien de personnel n'est publié.
 
 #### Étape 3 — collecter PC éteint (optionnel)
 
@@ -185,21 +178,20 @@ Ce document décrit l'option **cloud gratuite** : la collecte tourne 24/7 sans
 que votre ordinateur soit allumé, et le site est accessible depuis votre
 téléphone, partout.
 
-Tout le code est déjà en place (Worker, workflows, support Turso). Il ne reste
-qu'à créer **vos** comptes gratuits et à coller quelques secrets — rien de tout
-cela n'est dans le dépôt public (§26).
+Tout le code est en place. Il ne reste qu'à créer **votre** compte Turso et à
+coller deux valeurs — rien de tout cela n'est dans le dépôt public (§26).
 
 ### Architecture
 
 ```
-GitHub Actions (cron, gratuit)   → collecte 24/7 + notifications Telegram
+GitHub Actions (cron, gratuit)  → collecte 24/7, Telegram et Web Push
         ↓ écrit
-Turso (SQLite cloud, gratuit)    → base PRIVÉE (jeton), jamais dans le dépôt
-        ↑ lit
-Cloudflare Worker (gratuit)      → API protégée par jeton (packages/api)
-        ↑ interroge
-GitHub Pages / Cloudflare Pages  → le site (bundle public, sans secret)
+Turso (SQLite cloud, gratuit)   → base PRIVÉE (jeton), jamais dans le dépôt
+        ↑ lit directement
+GitHub Pages                    → le site (bundle public, sans secret)
 ```
+
+Le site interroge Turso sans intermédiaire : pas de serveur d'API à héberger.
 
 Vos données (annonces suivies, statuts, favoris) vivent dans **Turso**, jamais
 dans le dépôt. Vos **documents de candidature restent locaux** : l'API cloud
@@ -222,19 +214,14 @@ Appliquez le schéma à la base cloud (une fois) :
 TURSO_DATABASE_URL="libsql://…" TURSO_AUTH_TOKEN="…" pnpm db:migrate
 ```
 
-#### 2. Worker Cloudflare (gratuit) — l'API
-
-Choisissez un **jeton d'accès** privé (une longue chaîne aléatoire) : c'est lui
-que le site vous demandera à la première ouverture.
+#### 2. Publier l'inventaire
 
 ```bash
-cd packages/api
-npx wrangler secret put TURSO_DATABASE_URL      # colle l'URL Turso
-npx wrangler secret put TURSO_AUTH_TOKEN         # colle le jeton Turso
-npx wrangler secret put API_ACCESS_TOKEN         # colle VOTRE jeton d'accès
-## API_ALLOWED_ORIGIN (l'URL publique du site) est dans wrangler.toml [vars]
-npx wrangler deploy                              # → URL publique du Worker
+pnpm publish:turso        # --dry-run pour voir sans écrire
 ```
+
+Le site demandera l'adresse de la base et son jeton à la première ouverture —
+les deux valeurs de votre `.env`. Elles restent dans le navigateur.
 
 #### 3. Collecte planifiée — GitHub Actions
 

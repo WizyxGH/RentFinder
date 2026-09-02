@@ -370,3 +370,37 @@ export async function getStats(): Promise<StatsData> {
     contacts: { total: 0, byOutcome: {} },
   };
 }
+
+/**
+ * Dépose un abonnement Web Push (§29).
+ *
+ * La table est créée à la demande : le site peut tourner sur une base publiée
+ * avant l'ajout de cette fonctionnalité.
+ */
+export async function saveSubscription(sub: {
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+}): Promise<void> {
+  const db = client();
+  await db.execute(
+    `CREATE TABLE IF NOT EXISTS push_subscriptions (
+       endpoint TEXT PRIMARY KEY, p256dh TEXT NOT NULL, auth TEXT NOT NULL,
+       created_at TEXT NOT NULL, last_sent_at TEXT, failures INTEGER NOT NULL DEFAULT 0
+     )`,
+  );
+  await db.execute({
+    sql: `INSERT INTO push_subscriptions (endpoint, p256dh, auth, created_at)
+          VALUES (?, ?, ?, ?)
+          ON CONFLICT(endpoint) DO UPDATE SET p256dh = excluded.p256dh,
+            auth = excluded.auth, failures = 0`,
+    args: [sub.endpoint, sub.p256dh, sub.auth, new Date().toISOString()],
+  });
+}
+
+export async function removeSubscription(endpoint: string): Promise<void> {
+  await client().execute({
+    sql: 'DELETE FROM push_subscriptions WHERE endpoint = ?',
+    args: [endpoint],
+  });
+}

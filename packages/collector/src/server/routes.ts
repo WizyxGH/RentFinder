@@ -3,7 +3,7 @@
  *
  * Consommé par DEUX transports : le serveur local (`cli/serve.ts`, fichier
  * SQLite, 127.0.0.1) et le Worker Cloudflare du mode cloud optionnel
- * (`packages/api`, Turso, jeton). Il ne dépend que des standards Web
+ * (le site publié interroge Turso directement). Il ne dépend que des standards Web
  * (`Request`, `Response`, `URL`) et de l'interface `Client` de libsql — JAMAIS
  * de `node:fs` : les fonctionnalités liées au disque (filtres éditables,
  * documents de candidature) sont INJECTÉES par le serveur local via
