@@ -11,7 +11,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Check, X } from 'lucide-react';
+import { Check, RotateCcw, X } from 'lucide-react';
 import type { SortMode } from '../types.js';
 import type { PropertyType } from '@rentfinder/shared';
 import { formatPropertyType, formatSourceName } from '../format.js';
@@ -39,6 +39,11 @@ export interface SortFilterModalProps {
   readonly selectedSources: ReadonlySet<string>;
   readonly onToggleSource: (sourceId: string) => void;
   readonly onClearSources: () => void;
+
+  /** Remet tri, filtres, bascules et sources à leur état d'origine. */
+  readonly onReset: () => void;
+  /** `true` si quelque chose s'écarte de cet état : le bouton reste sinon inerte. */
+  readonly dirty: boolean;
 }
 
 export function SortFilterModal({
@@ -55,6 +60,8 @@ export function SortFilterModal({
   selectedSources,
   onToggleSource,
   onClearSources,
+  onReset,
+  dirty,
 }: SortFilterModalProps): React.JSX.Element | null {
   const panel = useRef<HTMLDivElement>(null);
   // Filtre de la liste des sources : elles sont une quarantaine, retrouver
@@ -302,9 +309,20 @@ export function SortFilterModal({
           </fieldset>
         )}
 
-        <Button className="w-full" onClick={onClose}>
-          Voir les résultats
-        </Button>
+        {/* Réglages éparpillés sur quatre sections : les défaire un à un était
+          fastidieux. Le bouton s'efface quand il n'y a rien à défaire, plutôt
+          que de promettre une action sans effet. */}
+        <div className="flex gap-2">
+          {dirty && (
+            <Button variant="outline" onClick={onReset}>
+              <RotateCcw aria-hidden="true" className="size-4" />
+              Réinitialiser
+            </Button>
+          )}
+          <Button className="flex-1" onClick={onClose}>
+            Voir les résultats
+          </Button>
+        </div>
       </div>
     </div>
   );

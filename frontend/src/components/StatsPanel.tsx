@@ -13,6 +13,7 @@ import { fetchStats } from '../api/client.js';
 import { formatSourceName, formatTracking } from '../format.js';
 import type { TrackingStatus } from '../types.js';
 import { HistoryChart } from './HistoryChart.js';
+import { PanelSkeleton } from './Skeletons.js';
 
 /** Tuile compteur. */
 function Stat({
@@ -65,7 +66,7 @@ export function StatsPanel(): React.JSX.Element {
   }, []);
 
   if (error) return <p className="text-bad">Impossible de charger les statistiques.</p>;
-  if (stats === null) return <p className="text-muted-foreground">Chargement…</p>;
+  if (stats === null) return <PanelSkeleton rows={4} />;
 
   const { listings, byTracking, bySource, contacts } = stats;
   const sources = Object.entries(bySource).sort((a, b) => b[1] - a[1]);

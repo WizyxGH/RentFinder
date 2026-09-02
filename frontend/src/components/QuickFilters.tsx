@@ -9,7 +9,7 @@
  * doublon avec la modale.
  */
 
-import type { PropertyType } from '@rentfinder/shared';
+import { MVP_CRITERIA, type PropertyType } from '@rentfinder/shared';
 import { formatPropertyType } from '../format.js';
 
 /** État des filtres rapides. `null`/vide = filtre inactif. */
@@ -22,6 +22,7 @@ export interface QuickFilterValues {
   readonly types: ReadonlySet<PropertyType>;
 }
 
+/** Aucun filtre. Sert de base au calcul de « ce qui a été modifié ». */
 export const EMPTY_QUICK_FILTERS: QuickFilterValues = {
   minPrice: null,
   maxPrice: null,
@@ -30,14 +31,36 @@ export const EMPTY_QUICK_FILTERS: QuickFilterValues = {
   types: new Set(),
 };
 
-/** `true` si au moins un filtre rapide est posé. */
+/**
+ * Réglage d'ouverture : VOS critères de recherche, pas des champs vides.
+ *
+ * Les champs partaient vides alors que les critères existent et sont connus
+ * (250–700 €, ≥ 20 m²). Il fallait les ressaisir pour affiner, et rien à
+ * l'écran ne rappelait sur quoi la liste était bâtie.
+ */
+export const DEFAULT_QUICK_FILTERS: QuickFilterValues = {
+  minPrice: MVP_CRITERIA.minPrice ?? null,
+  maxPrice: MVP_CRITERIA.maxPrice,
+  minArea: MVP_CRITERIA.minArea,
+  minRooms: null,
+  types: new Set(),
+};
+
+/**
+ * `true` si les filtres S'ÉCARTENT des critères de recherche.
+ *
+ * On compare au réglage par défaut et non au vide : sans cela, la pastille
+ * « filtres actifs » s'allumerait en permanence, puisque les champs sont
+ * désormais pré-remplis.
+ */
 export function hasActiveQuickFilters(v: QuickFilterValues): boolean {
+  const d = DEFAULT_QUICK_FILTERS;
   return (
-    v.minPrice !== null ||
-    v.maxPrice !== null ||
-    v.minArea !== null ||
-    v.minRooms !== null ||
-    v.types.size > 0
+    v.minPrice !== d.minPrice ||
+    v.maxPrice !== d.maxPrice ||
+    v.minArea !== d.minArea ||
+    v.minRooms !== d.minRooms ||
+    v.types.size !== d.types.size
   );
 }
 

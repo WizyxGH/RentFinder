@@ -11,6 +11,7 @@ import type { FilterConfig } from '../types.js';
 import { MVP_CRITERIA } from '@rentfinder/shared';
 import { fetchFilters, saveFilters } from '../api/client.js';
 import { Button } from '@/components/ui/button.js';
+import { PanelSkeleton } from './Skeletons.js';
 
 interface FiltersPanelProps {
   /** Appelé après enregistrement, pour recharger la liste. */
@@ -85,7 +86,7 @@ export function FiltersPanel({ onSaved }: FiltersPanelProps): React.JSX.Element 
     void fetchFilters().then(setFilters);
   }, []);
 
-  if (filters === null) return <p className="text-muted-foreground">Chargement des filtres…</p>;
+  if (filters === null) return <PanelSkeleton rows={6} />;
 
   const set = (patch: Partial<FilterConfig>): void => setFilters({ ...filters, ...patch });
 

@@ -13,6 +13,7 @@ import {
   formatArea,
   formatAvailability,
   formatCity,
+  formatDistrict,
   formatDuration,
   formatPrice,
   formatPropertyType,
@@ -24,18 +25,14 @@ import { AFFINITY_BADGE_THRESHOLD } from '../affinity.js';
 import { PhotoCarousel } from './PhotoCarousel.js';
 import { ScoreRow } from './Scores.js';
 import { Badge } from '@/components/ui/badge.js';
-import { Button, ButtonLink } from '@/components/ui/button.js';
 import { Card } from '@/components/ui/card.js';
-import { Archive, ArchiveRestore, Flame, Heart, TrainFront } from 'lucide-react';
+import { Flame, Heart, TrainFront } from 'lucide-react';
 
 interface ListingCardProps {
   readonly listing: ListingView;
   readonly nowMs: number;
+  /** Ouvre la fiche. Toute la carte y mène — voir le commentaire du rendu. */
   readonly onOpen: (id: string) => void;
-  /** Marque l'annonce consultée sans naviguer (clic « Voir l'annonce »). */
-  readonly onView?: (id: string) => void;
-  /** Archive (`true`) ou désarchive (`false`) l'annonce. */
-  readonly onArchive?: (archived: boolean) => void;
   /** Met (`true`) ou retire (`false`) l'annonce des favoris. */
   readonly onFavorite?: (favorite: boolean) => void;
   /** Score d'affinité [0,1] avec vos préférences, si assez de signal (§33). */
@@ -120,67 +117,17 @@ function StatusBadges({
 }
 
 /**
- * Barre d'actions d'une carte : « Voir l'annonce » ouvre l'annonce D'ORIGINE
- * (nouvel onglet) ; « Contacter » ouvre la fiche interne ; archivage optionnel.
+ * Localisation la plus précise disponible : rue > quartier > (rien).
+ *
+ * Le quartier passe par le même formateur que la voie : les sources le
+ * publient en capitales, parfois précédé d'un tiret de liste (« - BELLET »),
+ * ce qui jurait à côté d'adresses correctement capitalisées.
  */
-function CardActions({
-  listing,
-  sourceUrl,
-  archived,
-  onOpen,
-  onView,
-  onArchive,
-}: {
-  readonly listing: ListingView;
-  readonly sourceUrl: string | null;
-  readonly archived: boolean;
-  readonly onOpen: (id: string) => void;
-  readonly onView?: (id: string) => void;
-  readonly onArchive?: (archived: boolean) => void;
-}): React.JSX.Element {
-  return (
-    <div className="mt-3 flex gap-2">
-      {sourceUrl !== null ? (
-        <ButtonLink
-          variant="outline"
-          className="flex-1"
-          href={sourceUrl}
-          target="_blank"
-          rel="noreferrer noopener"
-          onClick={() => onView?.(listing.id)}
-        >
-          Annonce d’origine
-        </ButtonLink>
-      ) : null}
-      {/* Deux destinations très différentes, que « Voir » et « Contacter » ne
-        distinguaient pas : l'une quitte le site pour l'annonce d'origine,
-        l'autre ouvre NOTRE fiche (photos, scores, message prêt à envoyer). Les
-        libellés le disent, et l'icône de lien externe prévient du départ. */}
-      <Button className="flex-1" onClick={() => onOpen(listing.id)}>
-        Fiche complète
-      </Button>
-      {onArchive !== undefined && (
-        <Button
-          variant="ghost"
-          onClick={() => onArchive(!archived)}
-          title={archived ? 'Désarchiver' : 'Archiver'}
-          aria-label={archived ? 'Désarchiver' : 'Archiver'}
-        >
-          {archived ? (
-            <ArchiveRestore aria-hidden="true" className="size-4" />
-          ) : (
-            <Archive aria-hidden="true" className="size-4" />
-          )}
-        </Button>
-      )}
-    </div>
-  );
-}
-
-/** Localisation la plus précise disponible : rue > quartier > (rien). */
 function pickNeighborhood(listing: ListingView): string | null {
   const street = listing.address.value !== null ? formatAddress(listing.address.value) : null;
-  return street ?? listing.district?.value ?? null;
+  if (street !== null) return street;
+  const district = listing.district?.value ?? null;
+  return district !== null ? formatDistrict(district) : null;
 }
 
 /** En-tête d'une carte : titre (rue ou ville), sous-ligne ville/CP, prix. */
@@ -220,15 +167,10 @@ export function ListingCard({
   listing,
   nowMs,
   onOpen,
-  onView,
-  onArchive,
   onFavorite,
   affinity,
 }: ListingCardProps): React.JSX.Element {
   const sources = [...new Set(listing.occurrences.map((occurrence) => occurrence.sourceId))];
-  // Lien direct vers l'annonce d'origine (première occurrence) — le « Voir »
-  // ouvre l'agence, pas la fiche interne.
-  const sourceUrl = listing.occurrences[0]?.sourceUrl ?? null;
   const isHot = listing.actionPriority >= 85;
   const archived = listing.archived === true;
   const rented = listing.rented === true;
@@ -264,9 +206,32 @@ export function ListingCard({
     })
     .slice(0, 6);
 
+  // Résumé lu à voix haute par les lecteurs d'écran : sans lui, la carte
+  // n'annoncerait qu'un amas de chiffres.
+  const label = `${formatPrice(listing.price.value)}, ${formatArea(listing.area.value)}, ${
+    neighborhood ?? cityLine
+  } — ouvrir la fiche`;
+
   return (
     <Card
-      className={`overflow-hidden transition-shadow hover:shadow-md ${
+      // TOUTE LA CARTE ouvre la fiche : c'est la seule action qu'elle porte,
+      // les boutons ayant été retirés. Les commandes qui restent (cœur, flèches
+      // du carrousel) arrêtent la propagation du clic, sinon les manipuler
+      // ferait aussi changer de page.
+      //
+      // `role`/`tabIndex`/`onKeyDown` plutôt qu'un `<button>` englobant : un
+      // bouton ne peut pas en contenir d'autres, et le cœur en est un.
+      role="button"
+      tabIndex={0}
+      aria-label={label}
+      onClick={() => onOpen(listing.id)}
+      onKeyDown={(event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        // La barre d'espace fait défiler la page par défaut.
+        event.preventDefault();
+        onOpen(listing.id);
+      }}
+      className={`cursor-pointer overflow-hidden transition-shadow hover:shadow-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
         isHot && !rented ? 'border-2 border-hot' : ''
       } ${archived || rented ? 'opacity-60' : uncertain ? 'opacity-70' : ''} ${
         rented ? 'grayscale' : ''
@@ -292,7 +257,10 @@ export function ListingCard({
           {onFavorite !== undefined && (
             <button
               type="button"
-              onClick={() => onFavorite(!favorite)}
+              onClick={(event) => {
+                event.stopPropagation();
+                onFavorite(!favorite);
+              }}
               title={favorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
               aria-label={favorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
               aria-pressed={favorite}
@@ -344,15 +312,6 @@ export function ListingCard({
         {sources.length === 1 ? '1 source' : `${sources.length} sources`} ·{' '}
         {sources.map(formatSourceName).join(', ')}
       </p>
-
-      <CardActions
-        listing={listing}
-        sourceUrl={sourceUrl}
-        archived={archived}
-        onOpen={onOpen}
-        onView={onView}
-        onArchive={onArchive}
-      />
     </Card>
   );
 }

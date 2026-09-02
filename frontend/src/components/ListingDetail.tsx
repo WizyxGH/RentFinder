@@ -5,10 +5,11 @@
  * le détail des scores et l'historique en dessous.
  */
 
+import { Fragment } from 'react';
 import type { TenantProfile } from '@rentfinder/shared';
 import type { ListingView, TrackingStatus } from '../types.js';
 import {
-  formatAddress,
+  formatPostalAddress,
   formatAge,
   formatArea,
   formatCity,
@@ -185,20 +186,45 @@ export function ListingDetail({
               title="Ouvrir dans Maps"
             >
               <MapPin aria-hidden="true" className="inline size-4" />{' '}
-              {formatCity(listing.city.value)}
-              {listing.postalCode.value !== null && ` (${listing.postalCode.value})`}
-              {listing.address.value !== null
-                ? ` — ${formatAddress(listing.address.value)}`
-                : listing.district.value !== null && ` — quartier ${listing.district.value}`}
+              {formatPostalAddress({
+                address: listing.address.value,
+                postalCode: listing.postalCode.value,
+                city: listing.city.value,
+                district: listing.district.value,
+              })}
             </a>
           ) : (
-            <>
-              {formatCity(listing.city.value)}
-              {listing.postalCode.value !== null && ` (${listing.postalCode.value})`}
-              {listing.district.value !== null && ` — quartier ${listing.district.value}`}
-            </>
+            formatPostalAddress({
+              address: listing.address.value,
+              postalCode: listing.postalCode.value,
+              city: listing.city.value,
+              district: listing.district.value,
+            })
           )}
         </dd>
+
+        {/* §20 : distances vers des points de référence privés, libellés
+          neutres. Elles vivaient dans une liste à part, dans un style qui leur
+          était propre ; ce sont des faits sur le logement comme les autres. */}
+        {listing.distances.map((distance) => (
+          <Fragment key={distance.label}>
+            <dt className={FACT_LABEL}>{distance.label}</dt>
+            <dd>
+              {distance.durationSource === 'transit' && (
+                <span aria-hidden="true" title="Temps réel en transports en commun">
+                  <TrainFront aria-hidden="true" className="inline size-4" />{' '}
+                </span>
+              )}
+              {formatDuration(distance.durationMinutes)}
+              {distance.distanceKm !== undefined && (
+                <span className="text-muted-foreground">
+                  {' '}
+                  ({distance.distanceKm} km à vol d’oiseau)
+                </span>
+              )}
+            </dd>
+          </Fragment>
+        ))}
 
         <dt className={FACT_LABEL}>Publiée</dt>
         <dd>{formatAge(listing.publishedAt.value, nowMs)}</dd>
@@ -223,32 +249,6 @@ export function ListingDetail({
               className="rounded-full border border-border bg-card px-2.5 py-0.5 text-[0.8rem]"
             >
               {feature}
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {/* §20 : distances vers des points de référence privés, libellés neutres. */}
-      {listing.distances.length > 0 && (
-        <ul className="mb-4">
-          {listing.distances.map((distance) => (
-            <li key={distance.label}>
-              <strong>{distance.label}</strong> :{' '}
-              {distance.durationSource === 'transit' && (
-                <span aria-hidden="true" title="Temps réel en transports en commun">
-                  <TrainFront aria-hidden="true" className="inline size-4" />{' '}
-                </span>
-              )}
-              {formatDuration(distance.durationMinutes)}{' '}
-              <span className="text-sm text-muted-foreground">
-                {distance.distanceKm !== undefined
-                  ? `(${distance.distanceKm} km à vol d’oiseau${
-                      distance.durationSource === 'transit' ? ', durée réelle en transport' : ''
-                    })`
-                  : distance.durationSource === 'transit'
-                    ? '(durée réelle en transport)'
-                    : ''}
-              </span>
             </li>
           ))}
         </ul>

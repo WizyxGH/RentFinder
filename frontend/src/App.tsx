@@ -22,7 +22,6 @@ import {
   isUnconfigured,
   markViewed,
   recordContact,
-  setArchived,
   setFavorite,
   updateTracking,
 } from './api/client.js';
@@ -50,9 +49,13 @@ import { ArrowLeft, Bell, Flame, List, Map, Search, SlidersHorizontal } from 'lu
 import { SortFilterModal } from './components/SortFilterModal.js';
 import { ConnectPanel } from './components/ConnectPanel.js';
 import { NotificationsPanel } from './components/NotificationsPanel.js';
+import { BottomNav, type BottomTab } from './components/BottomNav.js';
+import { ListingListSkeleton, MapSkeleton } from './components/Skeletons.js';
+import { SettingsLinks } from './components/SettingsLinks.js';
+import { ProfileSummary } from './components/ProfileSummary.js';
 import {
   QuickFilters,
-  EMPTY_QUICK_FILTERS,
+  DEFAULT_QUICK_FILTERS,
   hasActiveQuickFilters,
   matchesQuickFilters,
   type QuickFilterValues,
@@ -121,10 +124,15 @@ function StatsStrip({
 function Shell({
   view,
   onNavigate,
+  bottomTab,
+  onBottomSelect,
   children,
 }: {
   readonly view: View;
   readonly onNavigate: (view: View) => void;
+  /** Onglet bas actif, ou `null` hors des quatre destinations. */
+  readonly bottomTab?: BottomTab | null;
+  readonly onBottomSelect?: (tab: BottomTab) => void;
   readonly children: React.ReactNode;
 }): React.JSX.Element {
   const tabs: readonly { key: View; label: string }[] = [
@@ -176,7 +184,9 @@ function Shell({
           //    glissement vertical y est capté et fait rebondir la barre ;
           //  - `overscroll-contain` empêche ce rebond de se propager à la page ;
           //  - `select-none` évite de sélectionner le libellé en glissant.
-          className="mt-3 flex touch-pan-x gap-1 overflow-x-auto overscroll-contain border-b border-border select-none [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          // Masqués sur MOBILE : la barre basse les remplace, et une rangée
+          // coulissante dont la moitié vit hors de l'écran ne se découvre pas.
+          className="mt-3 hidden touch-pan-x gap-1 overflow-x-auto overscroll-contain border-b border-border select-none sm:flex [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           aria-label="Navigation principale"
         >
           {tabs.map((tab) => (
@@ -197,8 +207,49 @@ function Shell({
         </nav>
       </header>
       {children}
+      {/* `pb-20` sur mobile : sans cela, la barre fixe recouvre la fin de la
+        liste et le dernier élément reste inatteignable. */}
+      {onBottomSelect !== undefined && (
+        <>
+          <div aria-hidden="true" className="h-20 sm:hidden" />
+          <BottomNav active={bottomTab ?? null} onSelect={onBottomSelect} />
+        </>
+      )}
     </main>
   );
+}
+
+/**
+ * `true` si l'affichage S'ÉCARTE de son état d'ouverture — ce qui rend le
+ * bouton « Réinitialiser » utile. Hors du composant : ce n'est qu'un calcul,
+ * et l'y laisser alourdissait `App` au-delà de la complexité tolérée.
+ */
+function isDefaultView(view: {
+  readonly sort: SortMode;
+  readonly quickFilters: QuickFilterValues;
+  readonly sourceCount: number;
+  readonly search: string;
+  readonly toggles: readonly boolean[];
+}): boolean {
+  return (
+    view.sort !== 'priority' ||
+    hasActiveQuickFilters(view.quickFilters) ||
+    view.sourceCount > 0 ||
+    view.search !== '' ||
+    view.toggles.some(Boolean)
+  );
+}
+
+/**
+ * Onglet bas correspondant à la vue courante, ou `null` hors des quatre
+ * destinations. Hors du composant : ce n'est qu'une correspondance, et l'y
+ * laisser alourdissait `App` au-delà de la complexité tolérée.
+ */
+function bottomTabFor(view: View, favoritesOnly: boolean): BottomTab | null {
+  if (view === 'list' || view === 'detail') return favoritesOnly ? 'favorites' : 'home';
+  if (view === 'filters') return 'search';
+  if (view === 'profile') return 'settings';
+  return null;
 }
 
 export function App(): React.JSX.Element {
@@ -208,6 +259,7 @@ export function App(): React.JSX.Element {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sort, setSort] = useState<SortMode>('priority');
   const [sortFilterOpen, setSortFilterOpen] = useState(false);
+  const [editingProfile, setEditingProfile] = useState(false);
   const [search, setSearch] = useState('');
   const [hideUncertain, setHideUncertain] = useState(false);
   const [includeOutOfCriteria, setIncludeOutOfCriteria] = useState(false);
@@ -218,7 +270,7 @@ export function App(): React.JSX.Element {
   const [selectedSources, setSelectedSources] = useState<ReadonlySet<string>>(new Set());
   // Filtres rapides façon SeLoger (budget, surface, pièces, type) : affinent la
   // liste déjà chargée, sans toucher aux critères de collecte (§66).
-  const [quickFilters, setQuickFilters] = useState<QuickFilterValues>(EMPTY_QUICK_FILTERS);
+  const [quickFilters, setQuickFilters] = useState<QuickFilterValues>(DEFAULT_QUICK_FILTERS);
   // Liste ⇄ Carte : deux façons de parcourir les mêmes annonces (§36, §39).
   const [displayMode, setDisplayMode] = useState<'list' | 'map'>('list');
   const [profile, setProfile] = useState<TenantProfile | null>(() => loadProfile());
@@ -257,7 +309,12 @@ export function App(): React.JSX.Element {
       selectedSources.size === 0
         ? listings
         : listings.filter((l) => l.occurrences.some((o) => selectedSources.has(o.sourceId)));
-    const byQuick = bySource.filter((l) => matchesQuickFilters(l, quickFilters));
+    // Les champs AFFICHENT vos critères, mais ne filtrent qu'une fois modifiés.
+    // Les appliquer d'emblée aurait ré-exclu aussitôt les annonces demandées par
+    // la bascule « hors critères » — deux réglages qui se contredisent.
+    const byQuick = hasActiveQuickFilters(quickFilters)
+      ? bySource.filter((l) => matchesQuickFilters(l, quickFilters))
+      : bySource;
     const bySearch = byQuick.filter((l) => matchesSearch(l, search));
     // « À vérifier » = disparue de sa source depuis plusieurs collectes. On peut
     // les masquer pour ne garder que ce qui est encore publié (§33).
@@ -278,13 +335,16 @@ export function App(): React.JSX.Element {
     [filtered, sort, affinity],
   );
   // La section « à contacter maintenant » reste fondée sur l'urgence réelle.
+  // Pas de section « à contacter maintenant » dans les FAVORIS : on y vient
+  // revoir ce qu'on a retenu, pas se faire hiérarchiser sa propre sélection.
+  const grouped = sort === 'priority' && !favoritesOnly;
   const hot = useMemo(
-    () => (sort === 'priority' ? ranked.filter((l) => l.actionPriority >= HOT_PRIORITY) : []),
-    [ranked, sort],
+    () => (grouped ? ranked.filter((l) => l.actionPriority >= HOT_PRIORITY) : []),
+    [ranked, grouped],
   );
   const rest = useMemo(
-    () => (sort === 'priority' ? ranked.filter((l) => l.actionPriority < HOT_PRIORITY) : ranked),
-    [ranked, sort],
+    () => (grouped ? ranked.filter((l) => l.actionPriority < HOT_PRIORITY) : ranked),
+    [ranked, grouped],
   );
 
   const load = useCallback(async (): Promise<void> => {
@@ -351,17 +411,6 @@ export function App(): React.JSX.Element {
     });
   }, []);
 
-  // Consultée SANS navigation : clic « Voir l'annonce » (ouvre l'agence dans un
-  // nouvel onglet) — on marque quand même l'annonce comme vue (§37).
-  const markSeen = useCallback((id: string): void => {
-    setListings((current) =>
-      current.map((listing) => (listing.id === id ? { ...listing, viewed: true } : listing)),
-    );
-    void markViewed(id).catch(() => {
-      /* l'échec réseau n'empêche pas d'ouvrir l'annonce */
-    });
-  }, []);
-
   // Notifications navigateur des nouvelles annonces, site ouvert (§29). Sonde
   // périodiquement, indépendamment des filtres d'affichage, et ne notifie que
   // si l'utilisateur a donné sa permission ET activé la cloche. Le premier
@@ -396,7 +445,12 @@ export function App(): React.JSX.Element {
       void openSources();
       return;
     }
-    if (next === 'list') setSelectedId(null);
+    if (next === 'list') {
+      setSelectedId(null);
+      // Sans cela, on resterait coincé dans les favoris : la barre qui porte
+      // la bascule est masquée là-bas.
+      setFavoritesOnly(false);
+    }
     setView(next);
   };
 
@@ -445,11 +499,29 @@ export function App(): React.JSX.Element {
     }
   };
 
+  // Onglet bas actif. « Favoris » n'est pas une vue mais la liste filtrée :
+  // le même état sert au réglage de la modale, et deux sources de vérité
+  // auraient fini par diverger.
+  const bottomTab = bottomTabFor(view, favoritesOnly);
+
+  const selectBottomTab = (tab: BottomTab): void => {
+    if (tab === 'search') return setView('filters');
+    if (tab === 'settings') return setView('profile');
+    // Accueil et Favoris mènent à la même liste, filtrée ou non.
+    setFavoritesOnly(tab === 'favorites');
+    setView('list');
+  };
+
   // Pas d'accès à la base : on demande les identifiants et on s'arrête là.
   // Sans eux, rien ne s'affiche — c'est la protection du site.
   if (isUnconfigured()) {
     return (
-      <Shell view={view} onNavigate={navigate}>
+      <Shell
+        view={view}
+        onNavigate={navigate}
+        bottomTab={bottomTab}
+        onBottomSelect={selectBottomTab}
+      >
         <ConnectPanel />
       </Shell>
     );
@@ -470,35 +542,66 @@ export function App(): React.JSX.Element {
     }
     if (view === 'profile') {
       return (
-        <Shell view={view} onNavigate={navigate}>
-          <ProfileForm
-            initial={profile}
-            onSave={(next) => {
-              saveProfile(next);
-              setProfile(next);
-              setView(selectedId === null ? 'list' : 'detail');
-            }}
-            onCancel={() => setView(selectedId === null ? 'list' : 'detail')}
-            onClear={() => {
-              clearProfile();
-              setProfile(null);
-              setView('list');
-            }}
-          />
+        <Shell
+          view={view}
+          onNavigate={navigate}
+          bottomTab={bottomTab}
+          onBottomSelect={selectBottomTab}
+        >
+          {/* Le formulaire ne s'ouvre QUE pour modifier : huit champs dépliés
+            en permanence en haut des Paramètres, pour un profil qu'on remplit
+            une fois, occupaient l'écran sans rien apprendre. */}
+          {editingProfile ? (
+            <ProfileForm
+              initial={profile}
+              onSave={(next) => {
+                saveProfile(next);
+                setProfile(next);
+                setEditingProfile(false);
+                // On revient à l'annonce d'où l'on venait : le profil n'est
+                // presque jamais une fin en soi, il sert à écrire un message.
+                if (selectedId !== null) setView('detail');
+              }}
+              onCancel={() => {
+                setEditingProfile(false);
+                if (selectedId !== null) setView('detail');
+              }}
+              onClear={() => {
+                clearProfile();
+                setProfile(null);
+                setEditingProfile(false);
+              }}
+            />
+          ) : (
+            <ProfileSummary profile={profile} onEdit={() => setEditingProfile(true)} />
+          )}
           <DocumentsSection />
+          {/* `navigate` et non `setView` : certaines vues doivent CHARGER
+            leurs données avant d'apparaître (les sources, notamment). */}
+          <SettingsLinks onNavigate={(key) => navigate(key as View)} />
         </Shell>
       );
     }
     if (view === 'sources') {
       return (
-        <Shell view={view} onNavigate={navigate}>
+        <Shell
+          view={view}
+          onNavigate={navigate}
+          bottomTab={bottomTab}
+          onBottomSelect={selectBottomTab}
+        >
           <SourcesPanel sources={sources} nowMs={nowMs} onBack={() => setView('list')} />
         </Shell>
       );
     }
     if (view === 'filters') {
       return (
-        <Shell view={view} onNavigate={navigate}>
+        <Shell
+          view={view}
+          onNavigate={navigate}
+          bottomTab={bottomTab}
+          onBottomSelect={selectBottomTab}
+        >
           <FiltersPanel
             onSaved={() => {
               void load();
@@ -509,14 +612,24 @@ export function App(): React.JSX.Element {
     }
     if (view === 'stats') {
       return (
-        <Shell view={view} onNavigate={navigate}>
+        <Shell
+          view={view}
+          onNavigate={navigate}
+          bottomTab={bottomTab}
+          onBottomSelect={selectBottomTab}
+        >
           <StatsPanel />
         </Shell>
       );
     }
     if (view === 'detail' && selected !== null) {
       return (
-        <Shell view={view} onNavigate={navigate}>
+        <Shell
+          view={view}
+          onNavigate={navigate}
+          bottomTab={bottomTab}
+          onBottomSelect={selectBottomTab}
+        >
           <ListingDetail
             listing={selected}
             profile={profile}
@@ -526,7 +639,12 @@ export function App(): React.JSX.Element {
             onContactRecorded={(channel, message, documents) =>
               void handleContactRecorded(channel, message, documents)
             }
-            onConfigureProfile={() => setView('profile')}
+            onConfigureProfile={() => {
+              // Venir de « Configurer mon profil », c'est vouloir le remplir :
+              // le résumé ferait faire un clic de plus pour rien.
+              setEditingProfile(true);
+              setView('profile');
+            }}
           />
         </Shell>
       );
@@ -549,6 +667,29 @@ export function App(): React.JSX.Element {
   // celles qui ont disparu de leur source (affichées, mais à vérifier).
   const activeCount = filtered.filter((l) => l.lifecycle === 'active').length;
   const uncertainCount = filtered.filter((l) => l.lifecycle === 'possiblyInactive').length;
+  // RÉINITIALISATION. « Par défaut » = le tri par priorité, les critères de
+  // recherche dans les champs, aucune bascule, toutes les sources — c'est-à-dire
+  // exactement l'écran d'ouverture. La recherche textuelle en fait partie : la
+  // laisser en place après un « Réinitialiser » surprendrait.
+  const somethingChanged = isDefaultView({
+    sort,
+    quickFilters,
+    sourceCount: selectedSources.size,
+    search,
+    toggles: [favoritesOnly, includeOutOfCriteria, showArchived, hideUncertain],
+  });
+
+  const resetSortAndFilters = (): void => {
+    setSort('priority');
+    setQuickFilters(DEFAULT_QUICK_FILTERS);
+    setSelectedSources(new Set());
+    setSearch('');
+    setFavoritesOnly(false);
+    setIncludeOutOfCriteria(false);
+    setShowArchived(false);
+    setHideUncertain(false);
+  };
+
   const toolbarBadge =
     activeFilterCount + (sort !== 'priority' ? 1 : 0) + (selectedSources.size > 0 ? 1 : 0);
 
@@ -575,24 +716,8 @@ export function App(): React.JSX.Element {
     }
   };
 
-  const handleArchive = async (id: string, archived: boolean): Promise<void> => {
-    // Optimiste : si on archive et qu'on ne montre pas les archivées, l'annonce
-    // disparaît de la liste ; sinon on met simplement à jour son état.
-    setListings((current) =>
-      archived && !showArchived
-        ? current.filter((listing) => listing.id !== id)
-        : current.map((listing) => (listing.id === id ? { ...listing, archived } : listing)),
-    );
-    if (view === 'detail' && archived) setView('list');
-    try {
-      await setArchived(id, archived);
-    } catch {
-      setError('L’archivage n’a pas pu être enregistré');
-    }
-  };
-
   return (
-    <Shell view={view} onNavigate={navigate}>
+    <Shell view={view} onNavigate={navigate} bottomTab={bottomTab} onBottomSelect={selectBottomTab}>
       {isDemoMode() && (
         <p
           className="my-2 rounded-xl border border-border bg-primary/10 px-3 py-2 text-[0.85rem]"
@@ -603,17 +728,30 @@ export function App(): React.JSX.Element {
         </p>
       )}
 
-      {/* Barre d'outils façon SeLoger : une rangée « vue + tri + affichage +
-          sources » et son compteur, puis une rangée de filtres rapides (budget,
-          surface, pièces, type) avec puces actives. Se replie sur mobile (§39). */}
-      <div className="my-3 flex flex-col gap-2 text-sm" role="group" aria-label="Barre de filtres">
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Recherche et réglages sur UNE MÊME LIGNE, qui leur est propre sur
-            mobile (`basis-full`) : la recherche prend la place restante, le
-            bouton se réduit à son icône. Coincée entre d'autres boutons, la
-            recherche devenait inutilisable ; reléguée seule sur sa ligne, elle
-            laissait le bouton loin de l'œil. */}
-          <div className="flex w-full basis-full items-center gap-2 sm:basis-0 sm:flex-1">
+      {/* FAVORIS : rien que les cartes. Chercher, trier ou filtrer une liste
+        qu'on a soi-même constituée n'a pas de sens — on y vient pour revoir ce
+        qu'on a retenu, pas pour l'explorer. La barre entière disparaît donc,
+        recherche comprise. */}
+      {favoritesOnly ? (
+        <header className="my-3 flex items-baseline gap-2">
+          <h2 className="text-lg font-bold">Favoris</h2>
+          <span className="text-sm text-muted-foreground">
+            {filtered.length} annonce{filtered.length > 1 ? 's' : ''}
+          </span>
+        </header>
+      ) : (
+        <div
+          className="my-3 flex flex-col gap-2 text-sm"
+          role="group"
+          aria-label="Barre de filtres"
+        >
+          {/* Recherche et réglages occupent leur PROPRE RANGÉE, à toute largeur.
+          La bascule et le compteur ne passaient dessous que par un repli de
+          mobile ; sur grand écran tout s'alignait sur une seule ligne, et la
+          recherche s'y trouvait comprimée entre des commandes sans rapport.
+          Deux rangées explicites valent mieux qu'un `flex-wrap` dont le
+          résultat dépend de la largeur. */}
+          <div className="flex items-center gap-2">
             <div className="relative min-w-0 flex-1">
               <input
                 type="search"
@@ -652,72 +790,77 @@ export function App(): React.JSX.Element {
             </Button>
           </div>
 
-          {/* Bascule Liste ⇄ Carte. */}
-          <div className="inline-flex rounded-lg border border-border p-0.5" role="group">
-            <button
-              type="button"
-              onClick={() => setDisplayMode('list')}
-              aria-pressed={displayMode === 'list'}
-              className={`flex min-h-9 cursor-pointer items-center gap-1.5 rounded-md px-3 font-medium transition-colors ${
-                displayMode === 'list'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              <List aria-hidden="true" className="size-4" /> Liste
-            </button>
-            <button
-              type="button"
-              onClick={() => setDisplayMode('map')}
-              aria-pressed={displayMode === 'map'}
-              className={`flex min-h-9 cursor-pointer items-center gap-1.5 rounded-md px-3 font-medium transition-colors ${
-                displayMode === 'map'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              <Map aria-hidden="true" className="size-4" /> Carte
-            </button>
-          </div>
+          {/* Seconde rangée : bascule de vue à gauche, compteur à droite. */}
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Bascule Liste ⇄ Carte. */}
+            <div className="inline-flex rounded-lg border border-border p-0.5" role="group">
+              <button
+                type="button"
+                onClick={() => setDisplayMode('list')}
+                aria-pressed={displayMode === 'list'}
+                className={`flex min-h-9 cursor-pointer items-center gap-1.5 rounded-md px-3 font-medium transition-colors ${
+                  displayMode === 'list'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <List aria-hidden="true" className="size-4" /> Liste
+              </button>
+              <button
+                type="button"
+                onClick={() => setDisplayMode('map')}
+                aria-pressed={displayMode === 'map'}
+                className={`flex min-h-9 cursor-pointer items-center gap-1.5 rounded-md px-3 font-medium transition-colors ${
+                  displayMode === 'map'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <Map aria-hidden="true" className="size-4" /> Carte
+              </button>
+            </div>
 
-          {/* Compteur de résultats, poussé à droite (repère façon SeLoger).
+            {/* Compteur de résultats, poussé à droite (repère façon SeLoger).
             Il distingue les annonces ACTIVES de celles disparues de leur source :
             un total unique laissait croire à deux fois plus d'opportunités, et
             divergeait du compteur de l'onglet Statistiques (§33, §17). */}
-          {!loading && (
-            <span className="ml-auto font-semibold text-muted-foreground" aria-live="polite">
-              {activeCount} résultat{activeCount > 1 ? 's' : ''}
-              {uncertainCount > 0 && (
-                <span className="font-normal"> · {uncertainCount} à vérifier</span>
-              )}
-            </span>
-          )}
+            {!loading && (
+              <span className="ml-auto font-semibold text-muted-foreground" aria-live="polite">
+                {activeCount} résultat{activeCount > 1 ? 's' : ''}
+                {uncertainCount > 0 && (
+                  <span className="font-normal"> · {uncertainCount} à vérifier</span>
+                )}
+              </span>
+            )}
+          </div>
+
+          <SortFilterModal
+            open={sortFilterOpen}
+            onClose={() => setSortFilterOpen(false)}
+            sort={sort}
+            onSortChange={setSort}
+            sortOptions={SORT_OPTIONS}
+            toggles={[
+              ['Masquer les annonces à vérifier', hideUncertain, setHideUncertain],
+              ['Favoris uniquement', favoritesOnly, setFavoritesOnly],
+              ['Annonces hors critères', includeOutOfCriteria, setIncludeOutOfCriteria],
+              ['Annonces archivées', showArchived, setShowArchived],
+            ]}
+            quickFilters={quickFilters}
+            onQuickFiltersChange={setQuickFilters}
+            availableTypes={availableTypes}
+            sources={availableSources}
+            selectedSources={selectedSources}
+            onToggleSource={toggleSource}
+            onClearSources={() => setSelectedSources(new Set())}
+            dirty={somethingChanged}
+            onReset={resetSortAndFilters}
+          />
+
+          {/* Rangée des filtres rapides. */}
+          <QuickFilters values={quickFilters} onChange={setQuickFilters} />
         </div>
-
-        <SortFilterModal
-          open={sortFilterOpen}
-          onClose={() => setSortFilterOpen(false)}
-          sort={sort}
-          onSortChange={setSort}
-          sortOptions={SORT_OPTIONS}
-          toggles={[
-            ['Masquer les annonces à vérifier', hideUncertain, setHideUncertain],
-            ['Favoris uniquement', favoritesOnly, setFavoritesOnly],
-            ['Annonces hors critères', includeOutOfCriteria, setIncludeOutOfCriteria],
-            ['Annonces archivées', showArchived, setShowArchived],
-          ]}
-          quickFilters={quickFilters}
-          onQuickFiltersChange={setQuickFilters}
-          availableTypes={availableTypes}
-          sources={availableSources}
-          selectedSources={selectedSources}
-          onToggleSource={toggleSource}
-          onClearSources={() => setSelectedSources(new Set())}
-        />
-
-        {/* Rangée des filtres rapides. */}
-        <QuickFilters values={quickFilters} onChange={setQuickFilters} />
-      </div>
+      )}
 
       {error !== null && (
         <p className="rounded-xl border border-bad px-3 py-2 text-bad" role="alert">
@@ -726,27 +869,25 @@ export function App(): React.JSX.Element {
       )}
 
       {loading ? (
-        <p className="py-8 text-center text-muted-foreground">Chargement…</p>
+        <ListingListSkeleton />
       ) : filtered.length === 0 ? (
         <p className="py-8 text-center text-muted-foreground">
-          {hasActiveQuickFilters(quickFilters) || selectedSources.size > 0
-            ? 'Aucune annonce ne correspond à ces filtres.'
-            : 'Aucune annonce ne correspond à vos critères pour l’instant.'}
+          {favoritesOnly
+            ? 'Aucun favori. Touchez le cœur d’une annonce pour la retrouver ici.'
+            : hasActiveQuickFilters(quickFilters) || selectedSources.size > 0
+              ? 'Aucune annonce ne correspond à ces filtres.'
+              : 'Aucune annonce ne correspond à vos critères pour l’instant.'}
         </p>
       ) : displayMode === 'map' ? (
         <>
           <StatsStrip listings={filtered} />
-          <Suspense
-            fallback={
-              <p className="py-8 text-center text-muted-foreground">Chargement de la carte…</p>
-            }
-          >
+          <Suspense fallback={<MapSkeleton />}>
             <MapView listings={ranked} onOpen={openListing} />
           </Suspense>
         </>
       ) : (
         <>
-          <StatsStrip listings={filtered} />
+          {!favoritesOnly && <StatsStrip listings={filtered} />}
           {hot.length > 0 && (
             <section aria-labelledby="hot-title" className="mb-6">
               <h2 id="hot-title" className="mb-2 flex items-center gap-1.5 text-lg font-bold">
@@ -759,8 +900,6 @@ export function App(): React.JSX.Element {
                     listing={listing}
                     nowMs={nowMs}
                     onOpen={openListing}
-                    onView={markSeen}
-                    onArchive={(archived) => void handleArchive(listing.id, archived)}
                     onFavorite={(favorite) => void handleFavorite(listing.id, favorite)}
                     affinity={affinity.active ? affinity.scores.get(listing.id) : undefined}
                   />
@@ -782,8 +921,6 @@ export function App(): React.JSX.Element {
                   listing={listing}
                   nowMs={nowMs}
                   onOpen={openListing}
-                  onView={markSeen}
-                  onArchive={(archived) => void handleArchive(listing.id, archived)}
                   onFavorite={(favorite) => void handleFavorite(listing.id, favorite)}
                 />
               ))}

@@ -128,7 +128,7 @@ describe('fiche détaillée', () => {
     const user = userEvent.setup();
     render(<App />);
     const cards = await screen.findAllByTestId('listing-card');
-    await user.click(within(cards[0]!).getByRole('button', { name: 'Fiche complète' }));
+    await user.click(cards[0]!);
   };
 
   it('ouvre l’annonce et montre son titre', async () => {
@@ -190,7 +190,7 @@ describe('préparation du contact (§22)', () => {
     const user = userEvent.setup();
     render(<App />);
     const cards = await screen.findAllByTestId('listing-card');
-    await user.click(within(cards[0]!).getByRole('button', { name: 'Fiche complète' }));
+    await user.click(cards[0]!);
     return user;
   };
 
@@ -254,7 +254,7 @@ describe('préparation du contact (§22)', () => {
 
     // La deuxième annonce fictive n'a qu'un formulaire, aucun téléphone.
     const studio = cards.find((card) => within(card).queryByText(/650 €/) !== null);
-    await user.click(within(studio!).getByRole('button', { name: 'Fiche complète' }));
+    await user.click(studio!);
 
     expect(await screen.findByText('Formulaire')).toBeInTheDocument();
     expect(screen.queryByText('Téléphone')).not.toBeInTheDocument();
@@ -268,7 +268,10 @@ describe('état des sources (§63)', () => {
     await screen.findAllByTestId('listing-card');
 
     await user.click(
-      within(screen.getByRole('navigation')).getByRole('button', { name: 'Sources' }),
+      within(screen.getByRole('navigation', { name: 'Navigation principale' })).getByRole(
+        'button',
+        { name: 'Sources' },
+      ),
     );
 
     expect(await screen.findByRole('heading', { name: 'État des sources' })).toBeInTheDocument();
@@ -281,7 +284,10 @@ describe('état des sources (§63)', () => {
     render(<App />);
     await screen.findAllByTestId('listing-card');
     await user.click(
-      within(screen.getByRole('navigation')).getByRole('button', { name: 'Sources' }),
+      within(screen.getByRole('navigation', { name: 'Navigation principale' })).getByRole(
+        'button',
+        { name: 'Sources' },
+      ),
     );
 
     expect(await screen.findByText(/Aucune requête n’est émise/)).toBeInTheDocument();

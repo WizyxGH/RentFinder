@@ -6,7 +6,28 @@
  * inutilisable — pas une couverture exhaustive de l'interface.
  */
 
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
+
+/**
+ * Ouvre un écran secondaire comme le ferait un utilisateur, à sa largeur.
+ *
+ * Sur grand écran, les onglets du haut y mènent. Sur MOBILE ils sont masqués
+ * au profit de la barre basse, qui ne porte que quatre destinations : les
+ * autres passent par « Paramètres ». Sans cette distinction, les scénarios ne
+ * testaient qu'un des deux chemins réels.
+ */
+async function ouvrir(page: Page, onglet: string, lienMobile: string): Promise<void> {
+  const haut = page.getByRole('navigation', { name: 'Navigation principale' });
+  if (await haut.isVisible()) {
+    await haut.getByRole('button', { name: onglet }).click();
+    return;
+  }
+  await page
+    .getByRole('navigation', { name: 'Navigation' })
+    .getByRole('button', { name: 'Paramètres' })
+    .click();
+  await page.getByRole('button', { name: new RegExp(lienMobile) }).click();
+}
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
@@ -40,7 +61,7 @@ test('scénario 2 — une annonce multi-sources n’apparaît qu’une fois (§5
   // Une seule carte, mais quatre sources annoncées.
   await expect(first.getByText('4 sources')).toBeVisible();
 
-  await first.getByRole('button', { name: 'Fiche complète' }).click();
+  await first.click();
 
   // La fiche liste les quatre origines, avec leurs liens d'accès direct (§38).
   await expect(page.getByTestId('listing-sources')).toBeVisible();
@@ -61,11 +82,7 @@ test('scénario 3 — une annonce hors critères est écartée de la liste (§53
 });
 
 test('scénario 4 — le contact manuel n’envoie rien tout seul (§53)', async ({ page }) => {
-  await page
-    .getByTestId('listing-card')
-    .first()
-    .getByRole('button', { name: 'Fiche complète' })
-    .click();
+  await page.getByTestId('listing-card').first().click();
 
   // Les coordonnées disponibles sont affichées (§21).
   await expect(page.getByText('06 00 00 00 12')).toBeVisible();
@@ -94,11 +111,7 @@ test('scénario 4 — le contact manuel n’envoie rien tout seul (§53)', async
 });
 
 test('les scores exposent leurs raisons et leurs angles morts (§17, §19)', async ({ page }) => {
-  await page
-    .getByTestId('listing-card')
-    .first()
-    .getByRole('button', { name: 'Fiche complète' })
-    .click();
+  await page.getByTestId('listing-card').first().click();
 
   // Le détail des scores est repliable : on déplie ceux qu'on veut inspecter,
   // et on scope les assertions au bloc déplié (le même libellé peut exister
@@ -124,7 +137,7 @@ test('une annonce risquée reste visible, avec ses raisons (§19)', async ({ pag
   const risky = page.getByTestId('listing-card').filter({ hasText: '420 €' });
   await expect(risky).toBeVisible();
 
-  await risky.getByRole('button', { name: 'Fiche complète' }).click();
+  await risky.click();
 
   // Le détail « Risque » est repliable : on le déplie pour lire ses raisons.
   const risk = page.locator('details').filter({ hasText: 'Risque' });
@@ -141,18 +154,14 @@ test('le tri et le changement de statut fonctionnent (§35, §54)', async ({ pag
   await page.getByRole('button', { name: 'Voir les résultats' }).click();
   await expect(page.getByTestId('listing-card').first()).toContainText('420 €');
 
-  await page
-    .getByTestId('listing-card')
-    .first()
-    .getByRole('button', { name: 'Fiche complète' })
-    .click();
+  await page.getByTestId('listing-card').first().click();
   await page.getByLabel('Statut').selectOption('toContact');
   await expect(page.getByLabel('Statut')).toHaveValue('toContact');
 });
 
 test('la page d’état des sources est consultable (§63)', async ({ page }) => {
   // L'onglet « Sources » de la navigation (distinct du filtre par source).
-  await page.getByRole('navigation').getByRole('button', { name: 'Sources' }).click();
+  await ouvrir(page, 'Sources', 'Sources');
 
   await expect(page.getByRole('heading', { name: 'État des sources' })).toBeVisible();
   await expect(page.getByText('En repos (429)')).toBeVisible();
@@ -178,7 +187,7 @@ test('l’interface est utilisable sur mobile sans défilement horizontal (§39)
 });
 
 test('les filtres sont réglables depuis le site (§66)', async ({ page }) => {
-  await page.getByRole('button', { name: 'Alertes' }).click();
+  await ouvrir(page, 'Alertes', 'Critères de recherche');
 
   await expect(page.getByRole('heading', { name: 'Filtres de recherche' })).toBeVisible();
   const budget = page.getByLabel('Loyer maximum');
@@ -190,11 +199,7 @@ test('les filtres sont réglables depuis le site (§66)', async ({ page }) => {
 });
 
 test('la localisation ouvre Maps facilement (§20)', async ({ page }) => {
-  await page
-    .getByTestId('listing-card')
-    .first()
-    .getByRole('button', { name: 'Fiche complète' })
-    .click();
+  await page.getByTestId('listing-card').first().click();
   // Ciblé par sa DESTINATION, pas par son pictogramme : celui-ci a déjà changé
   // une fois (emoji puis icône) et le test cassait sans que rien ne soit cassé.
   const maps = page.locator('a[href*="google.com/maps"]').first();
@@ -202,15 +207,8 @@ test('la localisation ouvre Maps facilement (§20)', async ({ page }) => {
   await expect(maps).toHaveAttribute('href', /google\.com\/maps/);
 });
 
-test('on peut archiver une annonce et elle quitte la liste', async ({ page }) => {
-  const cards = page.getByTestId('listing-card');
-  const before = await cards.count();
-  await cards.first().getByRole('button', { name: 'Archiver' }).click();
-  await expect(cards).toHaveCount(before - 1);
-});
-
 test('la page Stats présente les compteurs et la couverture par source (§33)', async ({ page }) => {
-  await page.getByRole('button', { name: 'Stats' }).click();
+  await ouvrir(page, 'Stats', 'Statistiques');
   await expect(page.getByRole('heading', { name: 'Statistiques' })).toBeVisible();
   await expect(page.getByText('Couverture par source')).toBeVisible();
   await expect(page.getByText(/Taux de réponse/)).toBeVisible();
@@ -230,11 +228,13 @@ test('la page Notifications dit ce qui est actif (§29)', async ({ page }) => {
   // Rien ne sonne sans consentement explicite.
   await expect(page.getByRole('button', { name: /Activer les notifications/ })).toBeVisible();
 
-  // Page À PART, pas un onglet : la barre de navigation disparaît, et on en
-  // revient par « Retour » plutôt qu'en changeant d'onglet.
+  // Page À PART, pas un onglet : aucune barre de navigation ne subsiste — ni
+  // les onglets du haut sur grand écran, ni la barre basse sur mobile — et on
+  // en revient par « Retour ».
   await expect(page.getByRole('navigation', { name: 'Navigation principale' })).toBeHidden();
+  await expect(page.getByRole('navigation', { name: 'Navigation', exact: true })).toBeHidden();
   await page.getByRole('button', { name: 'Retour' }).click();
-  await expect(page.getByRole('navigation', { name: 'Navigation principale' })).toBeVisible();
+  await expect(page.getByTestId('listing-card').first()).toBeVisible();
 });
 
 test('on peut mettre une annonce en favori', async ({ page }) => {
@@ -291,4 +291,31 @@ test('les filtres rapides (façon SeLoger) affinent la liste et se retirent', as
   await expect(toolbar.getByRole('button', { name: 'Retirer le filtre 2+ pièces' })).toBeVisible();
   await page.getByRole('button', { name: 'Effacer tout' }).click();
   await expect(cards).toHaveCount(before);
+});
+
+test('la barre basse mène aux quatre destinations (mobile)', async ({ page }) => {
+  const basse = page.getByRole('navigation', { name: 'Navigation', exact: true });
+  // Elle n'existe QUE sur mobile : sur grand écran, les onglets du haut règnent.
+  if (!(await basse.isVisible())) {
+    await expect(page.getByRole('navigation', { name: 'Navigation principale' })).toBeVisible();
+    return;
+  }
+
+  // Favoris filtre la liste au lieu d'ouvrir une vue à part : c'est le même
+  // état que la bascule de la modale, pour n'avoir qu'une source de vérité.
+  await basse.getByRole('button', { name: 'Favoris' }).click();
+  await expect(basse.getByRole('button', { name: 'Favoris' })).toHaveAttribute(
+    'aria-current',
+    'page',
+  );
+
+  await basse.getByRole('button', { name: 'Recherche' }).click();
+  await expect(page.getByRole('heading', { name: 'Filtres de recherche' })).toBeVisible();
+
+  await basse.getByRole('button', { name: 'Paramètres' }).click();
+  // Les écrans que la barre ne porte pas restent atteignables depuis ici.
+  await expect(page.getByRole('navigation', { name: 'Autres réglages' })).toBeVisible();
+
+  await basse.getByRole('button', { name: 'Accueil' }).click();
+  await expect(page.getByTestId('listing-card').first()).toBeVisible();
 });
