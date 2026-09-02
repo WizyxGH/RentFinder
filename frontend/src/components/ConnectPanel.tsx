@@ -8,7 +8,7 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button.js';
-import { testCredentials, writeCredentials } from '../api/turso.js';
+import { normalizeUrl, testCredentials, urlProblem, writeCredentials } from '../api/turso.js';
 
 const FIELD = 'w-full rounded-lg border border-border bg-card px-3 py-2';
 
@@ -21,6 +21,14 @@ export function ConnectPanel(): React.JSX.Element {
   const connect = async (): Promise<void> => {
     setBusy(true);
     setError(null);
+    // Diagnostic AVANT l'appel : une adresse de tableau de bord renvoie un
+    // « 405 Not Allowed » d'un serveur sans rapport, illisible pour qui le lit.
+    const problem = urlProblem(normalizeUrl(url));
+    if (problem !== null) {
+      setError(problem);
+      setBusy(false);
+      return;
+    }
     try {
       // On VÉRIFIE avant d'enregistrer : sinon l'interface se rechargerait sur
       // des identifiants faux, avec une erreur bien plus loin et moins claire.

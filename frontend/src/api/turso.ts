@@ -37,7 +37,7 @@ export function readCredentials(): TursoCredentials | null {
 
 export function writeCredentials({ url, token }: TursoCredentials): void {
   try {
-    localStorage.setItem(URL_KEY, url.trim());
+    localStorage.setItem(URL_KEY, normalizeUrl(url));
     localStorage.setItem(TOKEN_KEY, token.trim());
   } catch {
     /* stockage indisponible — vaudra pour la session courante */
@@ -66,9 +66,46 @@ function client(): Client {
   return cached.client;
 }
 
+/**
+ * Nettoie l'adresse saisie.
+ *
+ * On colle rarement la valeur exacte : ligne entière du `.env`, guillemets,
+ * schéma `https://`, barre finale, ou carrément l'URL du tableau de bord. Sans
+ * ce nettoyage, l'erreur qui remonte est incompréhensible — un « 405 Not
+ * Allowed » d'un serveur qui n'a rien à voir.
+ */
+export function normalizeUrl(raw: string): string {
+  let value = raw.trim().replace(/^TURSO_DATABASE_URL\s*=\s*/i, '');
+  value = value.replace(/^["']|["']$/g, '').replace(/\/+$/, '');
+  // Le client web accepte les deux schémas ; on garde celui de Turso.
+  value = value.replace(/^https?:\/\//i, 'libsql://');
+  if (!/^libsql:\/\//i.test(value)) value = `libsql://${value}`;
+  return value;
+}
+
+/** Message clair quand l'adresse ne peut pas être celle d'une base Turso. */
+export function urlProblem(url: string): string | null {
+  let host: string;
+  try {
+    host = new URL(url.replace(/^libsql:/i, 'https:')).hostname;
+  } catch {
+    return 'Adresse illisible. Attendu : libsql://votre-base.turso.io';
+  }
+  if (host.startsWith('app.') || host.startsWith('web.')) {
+    return 'C’est l’adresse du tableau de bord Turso, pas celle de la base. Ouvrez votre base, bouton « Connect ».';
+  }
+  if (!/\.turso\.io$/i.test(host)) {
+    return `« ${host} » n’est pas une base Turso. L’adresse se termine par .turso.io`;
+  }
+  return null;
+}
+
 /** Vérifie que les identifiants donnent bien accès à la base. */
 export async function testCredentials(credentials: TursoCredentials): Promise<void> {
-  const probe = createClient({ url: credentials.url.trim(), authToken: credentials.token.trim() });
+  const url = normalizeUrl(credentials.url);
+  const problem = urlProblem(url);
+  if (problem !== null) throw new Error(problem);
+  const probe = createClient({ url, authToken: credentials.token.trim() });
   // On lit une table du projet, pas seulement `SELECT 1` : des identifiants
   // valides sur une base VIDE ne serviraient à rien, autant le dire tout de
   // suite plutôt qu'afficher une liste vide sans explication.
