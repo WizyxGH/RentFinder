@@ -23,8 +23,6 @@ import type {
 import { MVP_CRITERIA } from '@rentfinder/shared';
 import * as turso from './turso.js';
 
-const TOKEN_STORAGE_KEY = 'rentfinder.apiToken';
-
 /**
  * Charge les données fictives À LA DEMANDE.
  *
@@ -74,31 +72,6 @@ export const isUnconfigured = (): boolean => API_URL === '' && !DEMO && !isDirec
  */
 export const isLocalMode = (): boolean => API_URL === '/';
 
-export function readToken(): string | null {
-  try {
-    return localStorage.getItem(TOKEN_STORAGE_KEY);
-  } catch {
-    // Navigation privée ou stockage désactivé : on dégrade sans casser.
-    return null;
-  }
-}
-
-export function writeToken(token: string): void {
-  try {
-    localStorage.setItem(TOKEN_STORAGE_KEY, token);
-  } catch {
-    /* stockage indisponible — le jeton vaudra pour la session courante */
-  }
-}
-
-export function clearToken(): void {
-  try {
-    localStorage.removeItem(TOKEN_STORAGE_KEY);
-  } catch {
-    /* rien à faire */
-  }
-}
-
 /** Erreur d'API portant le statut HTTP, pour que l'interface réagisse finement. */
 export class ApiError extends Error {
   constructor(
@@ -111,15 +84,12 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  // En mode local, l'API est sur la même origine et sans jeton.
-  const local = isLocalMode();
-  const token = local ? null : readToken();
-  if (!local && token === null) throw new ApiError('Jeton d’accès absent', 401);
-
-  const response = await fetch(`${local ? '' : API_URL}${path}`, {
+  // Ne sert plus qu'au mode LOCAL (`pnpm local`), où l'API est sur la même
+  // origine et n'exige aucun jeton — le serveur n'écoute que sur 127.0.0.1.
+  // L'accès distant, lui, passe directement par Turso.
+  const response = await fetch(`${isLocalMode() ? '' : API_URL}${path}`, {
     ...init,
     headers: {
-      ...(token !== null ? { authorization: `Bearer ${token}` } : {}),
       ...(init.body !== undefined ? { 'content-type': 'application/json' } : {}),
       ...init.headers,
     },

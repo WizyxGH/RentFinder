@@ -16,18 +16,15 @@ import type { TenantProfile } from '@rentfinder/shared';
 import { MVP_CRITERIA } from '@rentfinder/shared';
 import type { ListingView, SortMode, SourceStateView, TrackingStatus } from './types.js';
 import {
-  ApiError,
   fetchListings,
   fetchSources,
   isDemoMode,
   isUnconfigured,
   markViewed,
-  readToken,
   recordContact,
   setArchived,
   setFavorite,
   updateTracking,
-  writeToken,
 } from './api/client.js';
 import { clearProfile, loadProfile, saveProfile } from './profile.js';
 import { AFFINITY_BOOST, computeAffinity } from './affinity.js';
@@ -211,7 +208,6 @@ export function App(): React.JSX.Element {
   const [profile, setProfile] = useState<TenantProfile | null>(() => loadProfile());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [needsToken, setNeedsToken] = useState(false);
 
   // Instant de rendu, figé par chargement : évite que chaque carte recalcule
   // « il y a X min » à partir d'une horloge légèrement différente.
@@ -287,13 +283,8 @@ export function App(): React.JSX.Element {
       });
       setListings(response.listings);
       setNowMs(Date.now());
-      setNeedsToken(false);
     } catch (caught) {
-      if (caught instanceof ApiError && caught.status === 401) {
-        setNeedsToken(true);
-      } else {
-        setError(caught instanceof Error ? caught.message : 'Erreur inconnue');
-      }
+      setError(caught instanceof Error ? caught.message : 'Erreur inconnue');
     } finally {
       setLoading(false);
     }
@@ -412,44 +403,12 @@ export function App(): React.JSX.Element {
   };
 
   // Pas d'accès à la base : on demande les identifiants et on s'arrête là.
-  //
-  // CE TEST DOIT PRÉCÉDER celui du jeton d'API : sans identifiants, le premier
-  // chargement emprunte l'ancienne voie API, échoue en 401 et lève
-  // `needsToken`. L'écran « jeton d'API » s'affichait alors à la place de la
-  // connexion — en réclamant un jeton qui n'existe plus.
+  // Sans eux, rien ne s'affiche — c'est la protection du site.
   if (isUnconfigured()) {
     return (
       <Shell view={view} onNavigate={navigate}>
         <ConnectPanel />
       </Shell>
-    );
-  }
-
-  // --- Saisie du jeton d'accès (§26) ----------------------------------------
-  if (needsToken) {
-    return (
-      <main className="mx-auto max-w-[720px] px-3 py-4 pb-12 sm:px-4 sm:py-6 sm:pb-16">
-        <h1 className="mb-3 text-2xl font-bold tracking-tight">RentFinder</h1>
-        <form
-          className="flex max-w-[380px] flex-col gap-2"
-          onSubmit={(event) => {
-            event.preventDefault();
-            const input = new FormData(event.currentTarget).get('token');
-            if (typeof input === 'string' && input.trim() !== '') {
-              writeToken(input.trim());
-              void load();
-            }
-          }}
-        >
-          <label htmlFor="token-input">Jeton d’accès à l’API</label>
-          <input id="token-input" name="token" type="password" autoComplete="off" required />
-          <p className="border-l-3 border-primary pl-2.5 text-[0.85rem] text-muted-foreground">
-            Le jeton est conservé dans ce navigateur uniquement. Il n’est jamais inclus dans le code
-            publié.
-          </p>
-          <Button type="submit">Se connecter</Button>
-        </form>
-      </main>
     );
   }
 
@@ -773,6 +732,3 @@ export function App(): React.JSX.Element {
     </Shell>
   );
 }
-
-/** Réexporté pour les tests, qui vérifient la présence d'un jeton. */
-export { readToken };
