@@ -41,7 +41,13 @@ async function registration(): Promise<ServiceWorkerRegistration> {
   // `import.meta.env.BASE_URL` : le site vit sous /<dépôt>/ sur GitHub Pages,
   // et un service worker ne couvre que son propre répertoire.
   const base = import.meta.env.BASE_URL;
-  return navigator.serviceWorker.register(`${base}sw.js`, { scope: base });
+  await navigator.serviceWorker.register(`${base}sw.js`, { scope: base });
+
+  // ATTENDRE QU'IL SOIT ACTIF : `register()` rend la main pendant l'INSTALLATION,
+  // et s'abonner sur un worker pas encore actif échoue avec un « Failed to
+  // execute subscribe » qui ne dit pas pourquoi. `ready` ne résout qu'une fois
+  // le worker en service.
+  return navigator.serviceWorker.ready;
 }
 
 /** `true` si un abonnement est déjà actif dans ce navigateur. */
@@ -69,9 +75,14 @@ export async function enablePush(): Promise<string | null> {
     return 'Permission refusée. Elle se réactive dans les réglages du navigateur.';
   }
   try {
-    const subscription = await (
-      await registration()
-    ).pushManager.subscribe({
+    const registered = await registration();
+
+    // Un abonnement d'un essai PRÉCÉDENT, créé avec une autre clé, fait
+    // échouer `subscribe()` sans expliquer pourquoi. On repart proprement.
+    const existing = await registered.pushManager.getSubscription();
+    if (existing !== null) await existing.unsubscribe();
+
+    const subscription = await registered.pushManager.subscribe({
       // Exigé par les navigateurs : une notification doit être VISIBLE, on ne
       // peut pas s'en servir pour réveiller le site en silence.
       userVisibleOnly: true,
@@ -85,7 +96,15 @@ export async function enablePush(): Promise<string | null> {
     });
     return null;
   } catch (error) {
-    return `Abonnement impossible : ${error instanceof Error ? error.message : String(error)}`;
+    const message = error instanceof Error ? error.message : String(error);
+    // Les navigateurs rendent des messages opaques ; on traduit les cas connus.
+    if (/permission/i.test(message)) {
+      return 'Notifications refusées pour ce site. Réautorisez-les dans les réglages du navigateur.';
+    }
+    if (/applicationServerKey|InvalidAccessError/i.test(message)) {
+      return 'Un abonnement existe déjà avec une autre clé. Désactivez puis réactivez les notifications.';
+    }
+    return `Abonnement impossible : ${message}`;
   }
 }
 
