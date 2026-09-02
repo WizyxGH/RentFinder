@@ -22,6 +22,7 @@ import type {
 } from '../types.js';
 import { MVP_CRITERIA } from '@rentfinder/shared';
 import * as turso from './turso.js';
+import { byRecency } from '../recency.js';
 
 /**
  * Charge les données fictives À LA DEMANDE.
@@ -109,7 +110,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 function sortMock(listings: readonly ListingView[], sort: SortMode): ListingView[] {
   const copy = [...listings];
   if (sort === 'recent') {
-    return copy.sort((a, b) => Date.parse(b.lastSeenAt) - Date.parse(a.lastSeenAt));
+    return copy.sort(byRecency);
   }
   if (sort === 'price') {
     return copy.sort((a, b) => (a.price.value ?? Infinity) - (b.price.value ?? Infinity));

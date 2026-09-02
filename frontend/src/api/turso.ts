@@ -13,6 +13,7 @@
  */
 
 import { createClient, type Client } from '@libsql/client/web';
+import { byRecency } from '../recency.js';
 import type { ListingView, SourceStateView, StatsData } from '../types.js';
 
 const URL_KEY = 'rentfinder.tursoUrl';
@@ -242,7 +243,7 @@ export async function listListings(options: ListOptions = {}): Promise<readonly 
   if (options.sort === 'price') {
     sorted.sort((a, b) => (a.price.value ?? Infinity) - (b.price.value ?? Infinity));
   } else if (options.sort === 'recent') {
-    sorted.sort((a, b) => Date.parse(b.lastSeenAt) - Date.parse(a.lastSeenAt));
+    sorted.sort(byRecency);
   }
   // Le tri par priorité vient déjà de la requête.
   return sorted;
