@@ -58,7 +58,8 @@ export function NotificationBell(): React.JSX.Element | null {
       aria-pressed={active}
       title={label}
       aria-label={label}
-      className={`shrink-0 cursor-pointer rounded-lg border border-border px-2 py-1 text-base leading-none transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+      // `size-9` : 36 px, seuil en deçà duquel une cible se vise mal au doigt.
+      className={`flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-border transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
         active ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
       }`}
     >

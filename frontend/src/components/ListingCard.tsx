@@ -26,6 +26,7 @@ import { ScoreRow } from './Scores.js';
 import { Badge } from '@/components/ui/badge.js';
 import { Button, ButtonLink } from '@/components/ui/button.js';
 import { Card } from '@/components/ui/card.js';
+import { Star } from 'lucide-react';
 
 interface ListingCardProps {
   readonly listing: ListingView;
@@ -291,11 +292,14 @@ export function ListingCard({
               title={favorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
               aria-label={favorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
               aria-pressed={favorite}
-              className={`-mt-1 cursor-pointer text-xl leading-none transition-colors ${
+              // L'étoile seule ne faisait que ~20 px de haut : trop petit pour
+              // être visé au doigt. La zone cliquable est portée à 36 px sans
+              // grossir le symbole.
+              className={`-mt-1 flex size-9 cursor-pointer items-center justify-center text-xl leading-none transition-colors ${
                 favorite ? 'text-hot' : 'text-muted-foreground hover:text-hot'
               }`}
             >
-              {favorite ? '★' : '☆'}
+              <Star aria-hidden="true" className={`size-5 ${favorite ? 'fill-current' : ''}`} />
             </button>
           )}
           <StatusBadges listing={listing} rented={rented} archived={archived} affinity={affinity} />

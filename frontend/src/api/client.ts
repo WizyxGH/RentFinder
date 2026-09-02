@@ -131,6 +131,16 @@ export async function fetchListings(options: FetchListingsOptions = {}): Promise
   const includeArchived = options.includeArchived ?? false;
   const favoritesOnly = options.favoritesOnly ?? false;
 
+  if (isDirectMode()) {
+    const listings = await turso.listListings({
+      sort,
+      includeOutOfCriteria: includeAll,
+      includeArchived,
+      favoritesOnly,
+    });
+    return { listings, total: listings.length, limit: listings.length, offset: 0 };
+  }
+
   if (DEMO) {
     const { MOCK_LISTINGS } = await demoData();
     let filtered = includeAll
