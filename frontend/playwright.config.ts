@@ -32,6 +32,10 @@ export default defineConfig({
     // tandis que Playwright interroge l'IPv4 — le démarrage semble alors ne
     // jamais aboutir.
     command: 'pnpm run build && npx vite preview --host 127.0.0.1 --port 4173 --strictPort',
+    // Les scénarios s'appuient sur les données fictives : sans ce drapeau,
+    // l'application affiche l'écran de connexion — elle n'embarque plus
+    // d'annonces par défaut — et tous les scénarios échouent.
+    env: { VITE_DEMO: 'true' },
     url: 'http://127.0.0.1:4173',
     reuseExistingServer: !process.env['CI'],
     timeout: 120_000,

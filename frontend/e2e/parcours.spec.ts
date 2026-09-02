@@ -10,6 +10,10 @@ import { expect, test } from '@playwright/test';
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
+  // Les annonces arrivent de façon ASYNCHRONE. Sans cette attente, un scénario
+  // qui compte les cartes dès l'ouverture en trouve zéro, puis les voit
+  // apparaître — d'où des comptages faux et des échecs intermittents.
+  await expect(page.getByTestId('listing-card').first()).toBeVisible();
 });
 
 test('la liste répond à « que dois-je contacter maintenant ? » (§36)', async ({ page }) => {
