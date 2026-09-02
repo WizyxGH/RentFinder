@@ -109,7 +109,7 @@ export function ListingDetail({
       {/* Photos : affichées directement depuis le site d'origine (§11 : jamais
           téléchargées ni stockées), en bandeau défilant façon galerie. */}
       {listing.imageUrls.length > 0 && (
-        <div className="mb-3 flex snap-x gap-2 overflow-x-auto">
+        <div className="mb-3 flex touch-pan-x snap-x gap-2 overflow-x-auto overscroll-contain select-none">
           {listing.imageUrls.slice(0, 8).map((url) => (
             <img
               key={url}

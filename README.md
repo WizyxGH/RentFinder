@@ -83,7 +83,7 @@ budgets s'appliquent). `data/` est ignoré par git.
 ### Mode démo (sans réseau, sans base)
 
 ```bash
-pnpm dev          # → http://localhost:5173, interface sur données fictives
+pnpm dev          # → http://localhost:5173, interface seule (pas de base)
 ```
 
 C'est aussi l'environnement des tests. Installation détaillée et configuration
@@ -139,7 +139,7 @@ Sans ces variables, le notifieur reste silencieusement désactivé.
 | --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
 | [architecture.md](docs/architecture.md) | composants et flux, puis par sections : scoring, détection de risque, dédoublonnage, scheduler, scraping, base de données, contact |
 | [sources.md](docs/sources.md)           | étude datée des sources (robots.txt, verdicts, priorités)                                                                          |
-| [deployment.md](docs/deployment.md)     | installation locale, `.env`, notifications Telegram, et option cloud gratuite (Turso + Worker + Actions + Pages)                   |
+| [deployment.md](docs/deployment.md)     | installation locale, `.env`, notifications, et option cloud gratuite (Turso + Actions + Pages)                                     |
 | [privacy.md](docs/privacy.md)           | cartographie des données, les six barrières anti-fuite                                                                             |
 
 Pour **ajouter une source**, le mode d'emploi vit dans l'en-tête de

@@ -171,7 +171,12 @@ function Shell({
           </div>
         </div>
         <nav
-          className="mt-3 flex gap-1 overflow-x-auto border-b border-border [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          // La barre ne défile qu'en HORIZONTAL :
+          //  - `touch-pan-x` cantonne le geste tactile à cet axe, sinon un
+          //    glissement vertical y est capté et fait rebondir la barre ;
+          //  - `overscroll-contain` empêche ce rebond de se propager à la page ;
+          //  - `select-none` évite de sélectionner le libellé en glissant.
+          className="mt-3 flex touch-pan-x gap-1 overflow-x-auto overscroll-contain border-b border-border select-none [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           aria-label="Navigation principale"
         >
           {tabs.map((tab) => (

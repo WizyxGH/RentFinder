@@ -81,7 +81,7 @@ prochaine collecte.
 | `pnpm collect -- --verbose`  | collecte avec journalisation détaillée                    |
 | `pnpm collect -- --backfill` | descend dans l'historique (exige `BACKFILL_ENABLED=true`) |
 | `pnpm local`                 | construit l'interface et lance le serveur local           |
-| `pnpm dev`                   | interface en mode démo (données fictives, sans base)      |
+| `pnpm dev`                   | interface seule ; écran de connexion tant qu'aucune base  |
 | `pnpm verify`                | format + lint + types + tests + secrets                   |
 
 ## Vérifier que tout fonctionne
@@ -97,15 +97,13 @@ le local ne peut pas couvrir : **collecter et notifier PC éteint**, et
 **consulter le site depuis le téléphone, partout**. Coût : 0 € (paliers
 gratuits). Vos données vivent alors dans une base Turso **privée** (jeton) —
 jamais dans le dépôt public ; les documents de candidature, eux, restent
-STRICTEMENT locaux (§25 : l'API cloud répond 501 sur ces routes).
+STRICTEMENT locaux (§25) : le site publié n'y a pas accès.
 
 ```
-GitHub Actions (cron 30 min)  →  collecte + notifs Telegram, 24/7
+GitHub Actions (cron 30 min)  →  collecte, Telegram et Web Push, 24/7
         ↓
 Turso (base SQLite cloud privée)
-        ↓
-Cloudflare Worker (API, jeton obligatoire)
-        ↓
+        ↑  lu directement par le site
 GitHub Pages (le site, accessible partout)
 ```
 
@@ -119,9 +117,9 @@ Settings → Pages → Source « **GitHub Actions** ». Une fois, et c'est tout 
 workflow ne peut pas l'activer lui-même, son jeton peut déployer sur Pages mais
 pas créer le site.
 
-Le site se publie à chaque push en **mode démonstration** : il tourne sur des
-données fictives, aucune de vos annonces n'est exposée. De quoi vérifier que la
-publication fonctionne avant d'aller plus loin.
+Le site se publie à chaque push. Tant qu'il n'est relié à aucune base, il
+affiche un écran de connexion — jamais de données fictives. De quoi vérifier
+que la publication fonctionne avant d'aller plus loin.
 
 #### Étape 2 — vos vraies données (~10 minutes)
 
@@ -148,7 +146,36 @@ Ce jeton donne accès en lecture ET écriture — c'est ce qui permet de mettre 
 favori ou de noter un contact depuis le téléphone. En cas de fuite, le dommage
 reste réparable : les annonces se régénèrent, et rien de personnel n'est publié.
 
-#### Étape 3 — collecter PC éteint (optionnel)
+#### Étape 3 — notifications sur le téléphone (optionnel)
+
+Deux canaux, indépendants et cumulables.
+
+**Telegram** — le plus complet (photo, loyer, téléphone, bouton favori) et le
+plus fiable. Voir la section « Notifications Telegram » plus haut.
+
+**Web Push** — alerte même application fermée, sans installer d'application.
+Générez une paire de clés puis placez-les dans `.env` et dans les secrets du
+dépôt :
+
+```bash
+npx web-push generate-vapid-keys
+```
+
+```
+VAPID_PUBLIC_KEY=…      # part dans le site : ce n'est PAS un secret
+VAPID_PRIVATE_KEY=…     # reste privée, côté collecte
+VAPID_SUBJECT=mailto:vous@example.invalid
+```
+
+Puis, sur le site : onglet **Notifications** → **Activer**. La page indique
+ensuite ce qui fonctionne et ce qui bloque.
+
+Sur **Android**, la notification porte la photo, le loyer, le quartier, le
+téléphone et deux boutons. Sur **iPhone**, il faut d'abord ajouter le site à
+l'écran d'accueil (iOS 16.4+), et Apple n'affiche ni image ni boutons : titre
+et texte seulement.
+
+#### Étape 4 — collecter PC éteint (optionnel)
 
 Pour que la collecte et les notifications Telegram tournent 24/7 :
 
@@ -240,10 +267,10 @@ Le workflow `collect.yml` (cron toutes les 20 min) **ne fait rien** tant que
 
 #### 4. Le site — GitHub Pages
 
-`deploy-frontend.yml` publie le bundle à chaque push. Réglez la variable
-`VITE_API_URL` (l'URL du Worker) et activez Pages (**Settings → Pages**). À la
-première ouverture, le site demande votre `API_ACCESS_TOKEN`, conservé dans le
-navigateur — jamais dans le bundle (§26).
+`deploy-frontend.yml` publie le bundle à chaque push ; il suffit d'activer Pages
+(**Settings → Pages**, source « GitHub Actions »). À la première ouverture, le
+site demande l'adresse de votre base et son jeton — conservés dans le
+navigateur, jamais dans le bundle (§26).
 
 ### Revenir au 100 % local
 
