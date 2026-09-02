@@ -39,11 +39,30 @@ export function loadVapidConfig(env: NodeJS.ProcessEnv = process.env): VapidConf
   };
 }
 
-/** Corps d'une notification : court, l'essentiel pour décider d'ouvrir. */
+/** Ce que le service worker reçoit et affiche. */
+export interface PushPayload {
+  readonly title: string;
+  readonly body: string;
+  readonly url: string;
+  readonly tag: string;
+  /** Photo de couverture — affichée par Android, ignorée par iOS. */
+  readonly image?: string;
+  /** Identifiant de l'annonce, pour l'action « Favori ». */
+  readonly listingId?: string;
+}
+
+/**
+ * Contenu d'une notification.
+ *
+ * On vise ce que Telegram apporte : la photo, le loyer, la surface, le
+ * quartier, et le téléphone quand il existe — de quoi décider SANS ouvrir.
+ * Android affiche l'image et les actions ; iOS n'en tient pas compte et se
+ * contente du titre et du texte, ce qui reste utilisable (§69).
+ */
 export function pushContentFor(
   listings: readonly NotifiableListing[],
   siteUrl: string,
-): { title: string; body: string; url: string; tag: string } {
+): PushPayload {
   const first = listings[0];
   if (listings.length > 1 || first === undefined) {
     return {
@@ -53,16 +72,29 @@ export function pushContentFor(
       tag: 'rentfinder-lot',
     };
   }
-  const parts = [
+
+  const facts = [
     first.price !== null ? `${first.price} €` : null,
     first.area !== null ? `${first.area} m²` : null,
-    first.city,
+    first.rooms !== null ? `${first.rooms} pièce${first.rooms > 1 ? 's' : ''}` : null,
+  ].filter((part): part is string => part !== null);
+
+  const place = first.district ?? first.city;
+  // Le téléphone en clair dans la notification : c'est LE geste qui fait
+  // gagner une visite, et il évite d'ouvrir quoi que ce soit.
+  const lines = [
+    facts.join(' · '),
+    place !== null && place !== '' ? place : null,
+    first.phone !== null ? `☎ ${first.phone}` : null,
   ].filter((part): part is string => part !== null && part !== '');
+
   return {
-    title: 'Nouvelle annonce',
-    body: parts.join(' · '),
-    url: siteUrl,
+    title: first.title ?? 'Nouvelle annonce',
+    body: lines.join('\n'),
+    url: `${siteUrl}?listing=${encodeURIComponent(first.id)}`,
     tag: `rentfinder-${first.id}`,
+    ...(first.photoUrls[0] !== undefined ? { image: first.photoUrls[0] } : {}),
+    listingId: first.id,
   };
 }
 

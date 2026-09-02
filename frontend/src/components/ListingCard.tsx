@@ -26,15 +26,7 @@ import { ScoreRow } from './Scores.js';
 import { Badge } from '@/components/ui/badge.js';
 import { Button, ButtonLink } from '@/components/ui/button.js';
 import { Card } from '@/components/ui/card.js';
-import {
-  Archive,
-  ArchiveRestore,
-  ExternalLink,
-  FileText,
-  Flame,
-  Heart,
-  TrainFront,
-} from 'lucide-react';
+import { Archive, ArchiveRestore, Flame, Heart, TrainFront } from 'lucide-react';
 
 interface ListingCardProps {
   readonly listing: ListingView;
@@ -157,7 +149,6 @@ function CardActions({
           rel="noreferrer noopener"
           onClick={() => onView?.(listing.id)}
         >
-          <ExternalLink aria-hidden="true" className="size-4" />
           Annonce d’origine
         </ButtonLink>
       ) : null}
@@ -166,7 +157,6 @@ function CardActions({
         l'autre ouvre NOTRE fiche (photos, scores, message prêt à envoyer). Les
         libellés le disent, et l'icône de lien externe prévient du départ. */}
       <Button className="flex-1" onClick={() => onOpen(listing.id)}>
-        <FileText aria-hidden="true" className="size-4" />
         Fiche complète
       </Button>
       {onArchive !== undefined && (

@@ -216,20 +216,19 @@ test('la page Stats présente les compteurs et la couverture par source (§33)',
   await expect(page.getByText(/Taux de réponse/)).toBeVisible();
 });
 
-test('l’interrupteur de notifications est proposé (§29)', async ({ page }) => {
-  // Chromium headless refuse les notifications quoi qu'il arrive : selon
-  // l'environnement, la cloche est activable ou honnêtement marquée bloquée.
-  // Dans les deux cas elle est visible et inactive : rien ne sonne sans opt-in.
-  const bell = page.getByRole('button', { name: /[Nn]otifications/ });
-  await expect(bell).toBeVisible();
-  await expect(bell).toHaveAttribute('aria-pressed', 'false');
+test('la page Notifications dit ce qui est actif (§29)', async ({ page }) => {
+  // Chromium headless refuse les notifications quoi qu'il arrive. On ne teste
+  // donc pas l'activation, mais le fait que la page RENDE COMPTE de l'état —
+  // c'est précisément ce que la cloche seule ne savait pas dire.
+  await page.getByRole('button', { name: 'Notifications' }).first().click();
 
-  if (await bell.isEnabled()) {
-    await bell.click();
-    await expect(
-      page.getByRole('button', { name: 'Désactiver les notifications de nouvelles annonces' }),
-    ).toHaveAttribute('aria-pressed', 'true');
-  }
+  await expect(page.getByRole('heading', { name: 'Notifications' })).toBeVisible();
+  await expect(page.getByText('Permission du navigateur')).toBeVisible();
+  await expect(page.getByText('Site fermé')).toBeVisible();
+  await expect(page.getByText('Nouveautés')).toBeVisible();
+
+  // Rien ne sonne sans consentement explicite.
+  await expect(page.getByRole('button', { name: /Activer les notifications/ })).toBeVisible();
 });
 
 test('on peut mettre une annonce en favori', async ({ page }) => {

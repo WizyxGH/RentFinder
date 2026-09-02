@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { UNKNOWN, formatAddress, formatPhone, telHref } from './format.js';
+import { UNKNOWN, formatAddress, formatAge, formatPhone, telHref } from './format.js';
 
 describe('formatAddress', () => {
   it('recapitalise une adresse en majuscules', () => {
@@ -84,5 +84,33 @@ describe('telHref', () => {
   it('retire espaces et ponctuation, que certains téléphones refusent', () => {
     expect(telHref('06 00 00 00 12')).toBe('tel:0600000012');
     expect(telHref('+33 6.00.00.00.12')).toBe('tel:+33600000012');
+  });
+});
+
+describe('formatAge', () => {
+  const NOW = Date.parse('2026-09-02T12:00:00.000Z');
+  const ago = (minutes: number): string => new Date(NOW - minutes * 60_000).toISOString();
+
+  it('arrondit VERS LE BAS : 90 minutes ne font pas deux heures', () => {
+    expect(formatAge(ago(90), NOW)).toBe('il y a 1 h');
+    expect(formatAge(ago(59), NOW)).toBe('il y a 59 min');
+  });
+
+  it('garde les heures jusqu’à deux jours, plus parlant que « hier »', () => {
+    // 20 h devenait « hier », ce qui faisait paraître vieille une annonce
+    // encore fraîche — décisif quand quelques heures font la différence.
+    expect(formatAge(ago(20 * 60), NOW)).toBe('il y a 20 h');
+    expect(formatAge(ago(30 * 60), NOW)).toBe('il y a 30 h');
+    expect(formatAge(ago(47 * 60), NOW)).toBe('il y a 47 h');
+  });
+
+  it('passe aux jours au-delà', () => {
+    expect(formatAge(ago(48 * 60), NOW)).toBe('il y a 2 j');
+    expect(formatAge(ago(5 * 24 * 60), NOW)).toBe('il y a 5 j');
+  });
+
+  it('signale l’instant et l’absence de date', () => {
+    expect(formatAge(ago(0), NOW)).toBe('à l’instant');
+    expect(formatAge(null, NOW)).toBe(UNKNOWN);
   });
 });

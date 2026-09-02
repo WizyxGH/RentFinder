@@ -41,15 +41,15 @@ import {
 import { Button } from '@/components/ui/button.js';
 import { DocumentsSection } from './components/DocumentsSection.js';
 import { ListingCard } from './components/ListingCard.js';
-import { NotificationBell } from './components/NotificationBell.js';
 import { ListingDetail } from './components/ListingDetail.js';
 import { ProfileForm } from './components/ProfileForm.js';
 import { SourcesPanel } from './components/SourcesPanel.js';
 import { FiltersPanel } from './components/FiltersPanel.js';
 import { StatsPanel } from './components/StatsPanel.js';
-import { Flame, List, Map, Search, SlidersHorizontal } from 'lucide-react';
+import { Bell, Flame, List, Map, Search, SlidersHorizontal } from 'lucide-react';
 import { SortFilterModal } from './components/SortFilterModal.js';
 import { ConnectPanel } from './components/ConnectPanel.js';
+import { NotificationsPanel } from './components/NotificationsPanel.js';
 import {
   QuickFilters,
   EMPTY_QUICK_FILTERS,
@@ -62,7 +62,7 @@ import { matchesSearch } from './search.js';
 // Leaflet n'entre dans le bundle que si la vue carte est ouverte (§65).
 const MapView = lazy(() => import('./components/MapView.js'));
 
-type View = 'list' | 'detail' | 'filters' | 'stats' | 'profile' | 'sources';
+type View = 'list' | 'detail' | 'filters' | 'stats' | 'profile' | 'sources' | 'alerts';
 
 /** Seuil de mise en avant : au-delà, l'annonce mérite un contact immédiat. */
 const HOT_PRIORITY = 85;
@@ -133,6 +133,7 @@ function Shell({
     // COLLECTÉ et NOTIFIÉ, alors que la modale de la liste ne filtre que
     // l'affichage. Deux choses différentes portaient le même nom.
     { key: 'filters', label: 'Alertes' },
+    { key: 'alerts', label: 'Notifications' },
     { key: 'stats', label: 'Stats' },
     { key: 'profile', label: 'Profil' },
     { key: 'sources', label: 'Sources' },
@@ -156,7 +157,17 @@ function Shell({
             <p className="text-sm font-medium text-muted-foreground">
               ≤ {MVP_CRITERIA.maxPrice} € · ≥ {MVP_CRITERIA.minArea} m²
             </p>
-            <NotificationBell />
+            {/* La cloche mène désormais à la page, qui porte les réglages et
+              l'état des canaux : la garder cliquable ici dupliquerait la
+              commande, et son état n'y était pas explicable. */}
+            <button
+              type="button"
+              onClick={() => onNavigate('alerts')}
+              aria-label="Notifications"
+              className="flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <Bell aria-hidden="true" className="size-4" />
+            </button>
           </div>
         </div>
         <nav
@@ -294,6 +305,33 @@ export function App(): React.JSX.Element {
     void load();
   }, [load]);
 
+  // Intentions venues d'une NOTIFICATION (§29). Le service worker ne peut pas
+  // écrire en base — les identifiants de connexion vivent dans le stockage de
+  // la page — il transmet donc l'action par l'URL, et c'est ici qu'on l'exécute.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const favori = params.get('favori');
+    const listing = params.get('listing');
+    if (favori === null && listing === null) return;
+
+    // L'URL est nettoyée tout de suite : un rechargement ne doit pas rejouer
+    // l'action, et le lien reste partageable.
+    window.history.replaceState({}, '', window.location.pathname);
+    if (favori !== null) {
+      void setFavorite(favori, true).catch(() => {
+        setError('Le favori n’a pas pu être enregistré');
+      });
+      setListings((current) =>
+        current.map((l) => (l.id === favori ? { ...l, favorite: true } : l)),
+      );
+    }
+    const target = listing ?? favori;
+    if (target !== null) {
+      setSelectedId(target);
+      setView('detail');
+    }
+  }, []);
+
   // Ouvre une fiche et la marque « consultée » (§37). En `useCallback` car
   // partagée par le rendu ET le sondage de notifications (hook ci-dessous).
   const openListing = useCallback((id: string): void => {
@@ -415,6 +453,13 @@ export function App(): React.JSX.Element {
   // Vues « secondaires » (plein écran), regroupées hors du corps principal pour
   // garder App lisible : chacune rend sa coquille ou `null` si non concernée.
   const secondaryView = (): React.JSX.Element | null => {
+    if (view === 'alerts') {
+      return (
+        <Shell view={view} onNavigate={navigate}>
+          <NotificationsPanel listings={listings} onOpen={openListing} />
+        </Shell>
+      );
+    }
     if (view === 'profile') {
       return (
         <Shell view={view} onNavigate={navigate}>

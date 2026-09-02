@@ -200,15 +200,19 @@ export function formatAge(iso: string | null, nowMs: number): string {
   const timestamp = Date.parse(iso);
   if (!Number.isFinite(timestamp)) return UNKNOWN;
 
-  const minutes = Math.max(0, Math.round((nowMs - timestamp) / 60_000));
+  // ARRONDI VERS LE BAS partout : une annonce vue il y a 90 minutes n'a pas
+  // « 2 h », et 20 heures ne sont pas « hier ». Sur une recherche où quelques
+  // heures décident d'une visite, surestimer l'âge fait renoncer à tort.
+  const minutes = Math.max(0, Math.floor((nowMs - timestamp) / 60_000));
   if (minutes < 1) return 'à l’instant';
   if (minutes < 60) return `il y a ${minutes} min`;
 
-  const hours = Math.round(minutes / 60);
-  if (hours < 24) return `il y a ${hours} h`;
+  // Les heures vont jusqu'à DEUX jours : « il y a 30 h » dit encore quelque
+  // chose d'actionnable, « hier » ne dit plus rien entre 24 et 48 heures.
+  const hours = Math.floor(minutes / 60);
+  if (hours < 48) return `il y a ${hours} h`;
 
-  const days = Math.round(hours / 24);
-  return days === 1 ? 'hier' : `il y a ${days} j`;
+  return `il y a ${Math.floor(hours / 24)} j`;
 }
 
 /** Durée de trajet : « 17 min ». */
