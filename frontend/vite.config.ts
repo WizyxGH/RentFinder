@@ -3,20 +3,12 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
-/**
- * Le site est publié sur GitHub Pages, servi depuis `/<repo>/`.
- * `BASE_PATH` est fourni par le workflow de déploiement ; en local, la racine
- * suffit.
- */
+/** GitHub Pages sert depuis `/<repo>/` ; `BASE_PATH` vient du workflow. */
 const base = process.env['BASE_PATH'] ?? '/';
 
 export default defineConfig(({ mode }) => {
-  /**
-   * Mode `selfhost` : build destiné au serveur local du mode zéro-cloud
-   * (`pnpm local`). L'API est servie par la même origine (`/`), aucun jeton
-   * n'est demandé — le serveur n'écoute que sur 127.0.0.1. La sortie va dans
-   * `dist-local` pour ne jamais être confondue avec le bundle GitHub Pages.
-   */
+  // Mode `selfhost` : build du serveur local (`pnpm local`). API sur la même
+  // origine, sans jeton — il n'écoute que sur 127.0.0.1. Sortie séparée.
   const selfhost = mode === 'selfhost';
 
   return {
@@ -27,10 +19,8 @@ export default defineConfig(({ mode }) => {
       alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
     },
     define: {
-      // Figé à la compilation : dans un build applicatif, `__DEMO__` vaut
-      // `false`, la branche des données fictives devient du code mort et le
-      // fichier `mock-data.ts` n'entre pas dans le bundle. Seuls les tests, qui
-      // ne passent pas par ce build, le chargent.
+      // Figé à la compilation : `false` rend les branches de démonstration
+      // mortes, donc `mock-data.ts` n'entre pas dans le bundle.
       __DEMO__: JSON.stringify(process.env['VITE_DEMO'] === 'true'),
       ...(selfhost ? { 'import.meta.env.VITE_API_URL': JSON.stringify('/') } : {}),
     },

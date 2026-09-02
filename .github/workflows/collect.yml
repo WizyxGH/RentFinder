@@ -1,12 +1,8 @@
-# Collecte planifiée dans le cloud (§29) — mode cloud OPTIONNEL.
+# Collecte planifiée dans le cloud (§29) — optionnel.
 #
-# UN SEUL workflow pour toutes les sources : le scheduler interne décide, à
-# chaque réveil, quelles sources méritent d'être interrogées (§7). Augmenter le
-# nombre de sources n'augmente donc ni les workflows ni le coût (§30).
-#
-# Ce workflow ne fait RIEN tant que le secret TURSO_DATABASE_URL n'est pas
-# configuré : un fork ou un clone du dépôt reste 100% local sans effort.
-# Les notifications Telegram partent d'ici si les secrets TELEGRAM_* existent.
+# Un seul workflow pour toutes les sources : le scheduler interne choisit
+# lesquelles interroger à chaque réveil (§7, §30). Inactif tant que
+# CLOUD_COLLECT_ENABLED n'est pas à `true` — un fork reste 100% local.
 
 name: Collecte
 
