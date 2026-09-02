@@ -555,34 +555,6 @@ export function App(): React.JSX.Element {
           surface, pièces, type) avec puces actives. Se replie sur mobile (§39). */}
       <div className="my-3 flex flex-col gap-2 text-sm" role="group" aria-label="Barre de filtres">
         <div className="flex flex-wrap items-center gap-2">
-          {/* Bascule Liste ⇄ Carte. */}
-          <div className="inline-flex rounded-lg border border-border p-0.5" role="group">
-            <button
-              type="button"
-              onClick={() => setDisplayMode('list')}
-              aria-pressed={displayMode === 'list'}
-              className={`flex min-h-9 cursor-pointer items-center gap-1.5 rounded-md px-3 font-medium transition-colors ${
-                displayMode === 'list'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              <List aria-hidden="true" className="size-4" /> Liste
-            </button>
-            <button
-              type="button"
-              onClick={() => setDisplayMode('map')}
-              aria-pressed={displayMode === 'map'}
-              className={`flex min-h-9 cursor-pointer items-center gap-1.5 rounded-md px-3 font-medium transition-colors ${
-                displayMode === 'map'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              <Map aria-hidden="true" className="size-4" /> Carte
-            </button>
-          </div>
-
           {/* Recherche et réglages sur UNE MÊME LIGNE, qui leur est propre sur
             mobile (`basis-full`) : la recherche prend la place restante, le
             bouton se réduit à son icône. Coincée entre d'autres boutons, la
@@ -625,6 +597,34 @@ export function App(): React.JSX.Element {
                 </span>
               )}
             </Button>
+          </div>
+
+          {/* Bascule Liste ⇄ Carte. */}
+          <div className="inline-flex rounded-lg border border-border p-0.5" role="group">
+            <button
+              type="button"
+              onClick={() => setDisplayMode('list')}
+              aria-pressed={displayMode === 'list'}
+              className={`flex min-h-9 cursor-pointer items-center gap-1.5 rounded-md px-3 font-medium transition-colors ${
+                displayMode === 'list'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <List aria-hidden="true" className="size-4" /> Liste
+            </button>
+            <button
+              type="button"
+              onClick={() => setDisplayMode('map')}
+              aria-pressed={displayMode === 'map'}
+              className={`flex min-h-9 cursor-pointer items-center gap-1.5 rounded-md px-3 font-medium transition-colors ${
+                displayMode === 'map'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Map aria-hidden="true" className="size-4" /> Carte
+            </button>
           </div>
 
           {/* Compteur de résultats, poussé à droite (repère façon SeLoger).

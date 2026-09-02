@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatAddress, UNKNOWN } from './format.js';
+import { UNKNOWN, formatAddress, formatPhone, telHref } from './format.js';
 
 describe('formatAddress', () => {
   it('recapitalise une adresse en majuscules', () => {
@@ -54,5 +54,35 @@ describe('formatAddress', () => {
   it('affiche le marqueur « inconnu » si absente', () => {
     expect(formatAddress(null)).toBe(UNKNOWN);
     expect(formatAddress('  ')).toBe(UNKNOWN);
+  });
+});
+
+describe('formatPhone', () => {
+  it('rend la forme française usuelle, par paires', () => {
+    expect(formatPhone('0600000012')).toBe('06 00 00 00 12');
+    expect(formatPhone('06.00.00.00.34')).toBe('06 00 00 00 34');
+  });
+
+  it('ramène l’international au format national', () => {
+    expect(formatPhone('+33600000012')).toBe('06 00 00 00 12');
+    expect(formatPhone('0033600000012')).toBe('06 00 00 00 12');
+  });
+
+  it('laisse INTACT ce qui n’est pas un numéro français (§17)', () => {
+    // Mieux vaut un format inhabituel qu'un numéro déformé.
+    expect(formatPhone('+41 22 000 00 00')).toBe('+41 22 000 00 00');
+    expect(formatPhone('numéro sur demande')).toBe('numéro sur demande');
+  });
+
+  it('signale l’absence plutôt que de rendre une chaîne vide', () => {
+    expect(formatPhone(null)).toBe(UNKNOWN);
+    expect(formatPhone('   ')).toBe(UNKNOWN);
+  });
+});
+
+describe('telHref', () => {
+  it('retire espaces et ponctuation, que certains téléphones refusent', () => {
+    expect(telHref('06 00 00 00 12')).toBe('tel:0600000012');
+    expect(telHref('+33 6.00.00.00.12')).toBe('tel:+33600000012');
   });
 });

@@ -15,6 +15,7 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
+import { formatPhone, telHref } from '../format.js';
 import { FOLLOW_UP_TEMPLATE, prepareMessage, type TenantProfile } from '@rentfinder/shared';
 import type { ListingView } from '../types.js';
 import { fetchDocuments, isDemoMode, type DocumentInfo } from '../api/client.js';
@@ -78,6 +79,17 @@ function openButtonLabel(channel: string, recipient: string | null): string {
  * réellement publié — jamais une coordonnée inventée (§17). Isolé de
  * `ContactPanel` pour la clarté.
  */
+/** « Foncia » et « foncia » désignent la même source. */
+function sameName(a: string | undefined, b: string): boolean {
+  const plain = (v: string): string =>
+    v
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, '');
+  return a !== undefined && plain(a) === plain(b);
+}
+
 function ContactDetails({
   contact,
   hasAnyContact,
@@ -105,7 +117,7 @@ function ContactDetails({
           <>
             <dt className="text-muted-foreground">Téléphone</dt>
             <dd>
-              <a href={`tel:${phone}`}>{phone}</a>
+              <a href={telHref(phone)}>{formatPhone(phone)}</a>
             </dd>
           </>
         )}
@@ -122,16 +134,22 @@ function ContactDetails({
             <dt className="text-muted-foreground">Formulaire</dt>
             <dd>
               <a href={formUrl} target="_blank" rel="noreferrer noopener">
-                Ouvrir le formulaire de l’annonce
+                Ouvrir sur le site
               </a>
             </dd>
           </>
         )}
       </dl>
 
-      {providedBy.length > 0 && (
-        <p className={MUTED_NOTE}>Coordonnées issues de : {providedBy.join(', ')}</p>
-      )}
+      {/* La provenance ne s'affiche que si elle APPREND quelque chose : quand
+        l'agence est déjà nommée au-dessus, « issues de : foncia » ne fait que
+        répéter la même ligne (§15). */}
+      {providedBy.length > 0 &&
+        !(
+          providedBy.length === 1 &&
+          agencyName !== null &&
+          sameName(providedBy[0], agencyName)
+        ) && <p className={MUTED_NOTE}>Coordonnées issues de : {providedBy.join(', ')}</p>}
 
       {/* §17 : ne pas faire croire à une coordonnée qui n'existe pas. */}
       {!hasAnyContact && (

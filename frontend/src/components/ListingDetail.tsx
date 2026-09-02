@@ -20,6 +20,7 @@ import {
   formatTracking,
   TRACKING_ORDER,
   UNKNOWN,
+  UNKNOWN_LABEL,
 } from '../format.js';
 import { ScoreDetail } from './Scores.js';
 import { ContactPanel } from './ContactPanel.js';
@@ -152,7 +153,11 @@ export function ListingDetail({
 
         <dt className={FACT_LABEL}>Meublé</dt>
         <dd>
-          {listing.furnished.value === null ? UNKNOWN : listing.furnished.value ? 'Oui' : 'Non'}
+          {listing.furnished.value === null
+            ? UNKNOWN_LABEL
+            : listing.furnished.value
+              ? 'Oui'
+              : 'Non'}
         </dd>
 
         <dt className={FACT_LABEL}>Colocation</dt>
@@ -165,7 +170,7 @@ export function ListingDetail({
         </dd>
 
         <dt className={FACT_LABEL}>DPE</dt>
-        <dd>{listing.dpe?.value ? `Classe ${listing.dpe.value}` : UNKNOWN}</dd>
+        <dd>{listing.dpe?.value ? `Classe ${listing.dpe.value}` : UNKNOWN_LABEL}</dd>
 
         <dt className={FACT_LABEL}>Localisation</dt>
         <dd>
@@ -275,7 +280,7 @@ export function ListingDetail({
 
       {/* §38 : toutes les sources, avec leurs URLs d'origine. */}
       <section data-testid="listing-sources">
-        <h3 className="font-semibold">Cette annonce a été trouvée sur</h3>
+        <h3 className="font-semibold">{listing.occurrences.length > 1 ? 'Sources' : 'Source'}</h3>
         <ul className="mt-1.5 list-disc pl-5">
           {listing.occurrences.map((occurrence) => (
             <li key={occurrence.id}>

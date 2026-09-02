@@ -128,7 +128,7 @@ describe('fiche détaillée', () => {
     const user = userEvent.setup();
     render(<App />);
     const cards = await screen.findAllByTestId('listing-card');
-    await user.click(within(cards[0]!).getByRole('button', { name: 'Contacter' }));
+    await user.click(within(cards[0]!).getByRole('button', { name: 'Fiche complète' }));
   };
 
   it('ouvre l’annonce et montre son titre', async () => {
@@ -141,7 +141,8 @@ describe('fiche détaillée', () => {
   it('liste toutes les sources avec leurs URLs d’origine (§38)', async () => {
     await openFirstListing();
 
-    expect(await screen.findByText(/Cette annonce a été trouvée sur/)).toBeInTheDocument();
+    const section = await screen.findByTestId('listing-sources');
+    expect(within(section).getByRole('heading', { name: /^Sources?$/ })).toBeInTheDocument();
     const link = screen.getByRole('link', { name: 'Demo Portail' });
     expect(link).toHaveAttribute('href', 'https://portail.example.invalid/a/1');
   });
@@ -151,9 +152,8 @@ describe('fiche détaillée', () => {
     // Ici, le champ fusionné des données fictives n'a pas de conflit ; on
     // vérifie que les occurrences conservent bien leur propre valeur.
     await openFirstListing();
-    const sourcesSection = await screen.findByText(/Cette annonce a été trouvée sur/);
-    const list = sourcesSection.parentElement;
-    expect(list?.textContent).toContain('715 €');
+    const section = await screen.findByTestId('listing-sources');
+    expect(section.textContent).toContain('715 €');
   });
 
   it('détaille les raisons de chaque score (§19)', async () => {
@@ -190,13 +190,13 @@ describe('préparation du contact (§22)', () => {
     const user = userEvent.setup();
     render(<App />);
     const cards = await screen.findAllByTestId('listing-card');
-    await user.click(within(cards[0]!).getByRole('button', { name: 'Contacter' }));
+    await user.click(within(cards[0]!).getByRole('button', { name: 'Fiche complète' }));
     return user;
   };
 
   it('affiche les coordonnées disponibles (§21)', async () => {
     await openAndConfigureProfile();
-    expect(await screen.findByText('+33600000012')).toBeInTheDocument();
+    expect(await screen.findByText('06 00 00 00 12')).toBeInTheDocument();
     expect(screen.getByText('Agence Fictive Nice')).toBeInTheDocument();
   });
 
@@ -254,7 +254,7 @@ describe('préparation du contact (§22)', () => {
 
     // La deuxième annonce fictive n'a qu'un formulaire, aucun téléphone.
     const studio = cards.find((card) => within(card).queryByText(/650 €/) !== null);
-    await user.click(within(studio!).getByRole('button', { name: 'Contacter' }));
+    await user.click(within(studio!).getByRole('button', { name: 'Fiche complète' }));
 
     expect(await screen.findByText('Formulaire')).toBeInTheDocument();
     expect(screen.queryByText('Téléphone')).not.toBeInTheDocument();

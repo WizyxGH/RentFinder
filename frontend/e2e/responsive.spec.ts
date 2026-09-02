@@ -43,7 +43,7 @@ for (const { name, width, height } of WIDTHS) {
     await page
       .getByTestId('listing-card')
       .first()
-      .getByRole('button', { name: 'Contacter' })
+      .getByRole('button', { name: 'Fiche complète' })
       .click();
     expect(await overflow(page)).toBeLessThanOrEqual(1);
   });

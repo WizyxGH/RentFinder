@@ -9,8 +9,16 @@
 import type { PropertyType, TrackingStatus } from '@rentfinder/shared';
 import { toTitleCase } from '@rentfinder/shared';
 
-/** Marque visuelle d'une valeur non fournie par la source. */
+/**
+ * Valeur non fournie par la source.
+ *
+ * Deux formes, selon la place : le tiret dans les lignes DENSES d'une carte
+ * (« 650 € · — · 1 pièce »), où une phrase noierait l'information utile ; le
+ * libellé « N/A » dans les listes de caractéristiques, où un tiret laisse le
+ * lecteur se demander si la donnée manque ou vaut zéro.
+ */
 export const UNKNOWN = '—';
+export const UNKNOWN_LABEL = 'N/A';
 
 export function formatPrice(price: number | null): string {
   return price === null ? UNKNOWN : `${Math.round(price)} €`;
@@ -240,4 +248,29 @@ export function formatSourceName(sourceId: string): string {
     .split(/[-_]/)
     .map((part) => (part.length === 0 ? part : part[0]!.toUpperCase() + part.slice(1)))
     .join(' ');
+}
+
+/**
+ * Numéro de téléphone français, lisible et cliquable.
+ *
+ * Les sources publient toutes les variantes : international, séparé par des
+ * points, déjà espacé. On rend la forme française usuelle, par paires. Ce qui
+ * n'est pas un numéro français reconnaissable est laissé TEL QUEL — mieux vaut
+ * un format inhabituel qu'un numéro déformé (§17).
+ */
+export function formatPhone(phone: string | null): string {
+  if (phone === null || phone.trim() === '') return UNKNOWN;
+  const digits = phone.replace(/[^\d+]/g, '');
+  const national = digits.startsWith('+33')
+    ? `0${digits.slice(3)}`
+    : digits.startsWith('0033')
+      ? `0${digits.slice(4)}`
+      : digits;
+  if (!/^0\d{9}$/.test(national)) return phone.trim();
+  return national.replace(/(\d{2})(?=\d)/g, '$1 ').trim();
+}
+
+/** Lien `tel:` : sans espace ni ponctuation, sinon certains téléphones échouent. */
+export function telHref(phone: string): string {
+  return `tel:${phone.replace(/[^\d+]/g, '')}`;
 }

@@ -40,7 +40,8 @@ Obligatoires dans les fixtures, mocks, tests et captures d'écran (§26, §50) :
 - jetons d'exemple : préfixe manifeste (`EXEMPLE`, `remplacer-par-…`).
 
 Une fixture se construit à partir d'une page réelle dont on **remplace tout le
-contenu personnel** en conservant la structure — voir `tests/fixtures/README.md`.
+contenu personnel** en conservant la structure : ni nom, ni téléphone, ni e-mail,
+ni adresse réelle — des valeurs d'exemple suffisent à tester.
 
 ## Données des tiers
 

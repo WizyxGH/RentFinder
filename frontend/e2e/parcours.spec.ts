@@ -40,10 +40,10 @@ test('scénario 2 — une annonce multi-sources n’apparaît qu’une fois (§5
   // Une seule carte, mais quatre sources annoncées.
   await expect(first.getByText('4 sources')).toBeVisible();
 
-  await first.getByRole('button', { name: 'Contacter' }).click();
+  await first.getByRole('button', { name: 'Fiche complète' }).click();
 
   // La fiche liste les quatre origines, avec leurs liens d'accès direct (§38).
-  await expect(page.getByText('Cette annonce a été trouvée sur')).toBeVisible();
+  await expect(page.getByTestId('listing-sources')).toBeVisible();
   const sourceLinks = page.getByTestId('listing-sources').getByRole('link');
   await expect(sourceLinks).toHaveCount(4);
   await expect(sourceLinks.first()).toHaveAttribute('href', /^https:\/\//);
@@ -61,10 +61,14 @@ test('scénario 3 — une annonce hors critères est écartée de la liste (§53
 });
 
 test('scénario 4 — le contact manuel n’envoie rien tout seul (§53)', async ({ page }) => {
-  await page.getByTestId('listing-card').first().getByRole('button', { name: 'Contacter' }).click();
+  await page
+    .getByTestId('listing-card')
+    .first()
+    .getByRole('button', { name: 'Fiche complète' })
+    .click();
 
   // Les coordonnées disponibles sont affichées (§21).
-  await expect(page.getByText('+33600000012')).toBeVisible();
+  await expect(page.getByText('06 00 00 00 12')).toBeVisible();
 
   // Le profil est requis avant toute génération de message.
   await page.getByRole('button', { name: /Configurer mon profil/ }).click();
@@ -90,7 +94,11 @@ test('scénario 4 — le contact manuel n’envoie rien tout seul (§53)', async
 });
 
 test('les scores exposent leurs raisons et leurs angles morts (§17, §19)', async ({ page }) => {
-  await page.getByTestId('listing-card').first().getByRole('button', { name: 'Contacter' }).click();
+  await page
+    .getByTestId('listing-card')
+    .first()
+    .getByRole('button', { name: 'Fiche complète' })
+    .click();
 
   // Le détail des scores est repliable : on déplie ceux qu'on veut inspecter,
   // et on scope les assertions au bloc déplié (le même libellé peut exister
@@ -116,7 +124,7 @@ test('une annonce risquée reste visible, avec ses raisons (§19)', async ({ pag
   const risky = page.getByTestId('listing-card').filter({ hasText: '420 €' });
   await expect(risky).toBeVisible();
 
-  await risky.getByRole('button', { name: 'Contacter' }).click();
+  await risky.getByRole('button', { name: 'Fiche complète' }).click();
 
   // Le détail « Risque » est repliable : on le déplie pour lire ses raisons.
   const risk = page.locator('details').filter({ hasText: 'Risque' });
@@ -133,7 +141,11 @@ test('le tri et le changement de statut fonctionnent (§35, §54)', async ({ pag
   await page.getByRole('button', { name: 'Voir les résultats' }).click();
   await expect(page.getByTestId('listing-card').first()).toContainText('420 €');
 
-  await page.getByTestId('listing-card').first().getByRole('button', { name: 'Contacter' }).click();
+  await page
+    .getByTestId('listing-card')
+    .first()
+    .getByRole('button', { name: 'Fiche complète' })
+    .click();
   await page.getByLabel('Statut').selectOption('toContact');
   await expect(page.getByLabel('Statut')).toHaveValue('toContact');
 });
@@ -178,7 +190,11 @@ test('les filtres sont réglables depuis le site (§66)', async ({ page }) => {
 });
 
 test('la localisation ouvre Maps facilement (§20)', async ({ page }) => {
-  await page.getByTestId('listing-card').first().getByRole('button', { name: 'Contacter' }).click();
+  await page
+    .getByTestId('listing-card')
+    .first()
+    .getByRole('button', { name: 'Fiche complète' })
+    .click();
   // Ciblé par sa DESTINATION, pas par son pictogramme : celui-ci a déjà changé
   // une fois (emoji puis icône) et le test cassait sans que rien ne soit cassé.
   const maps = page.locator('a[href*="google.com/maps"]').first();

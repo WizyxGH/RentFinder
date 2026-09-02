@@ -134,11 +134,37 @@ function rowToListing(row: Record<string, unknown>): ListingView {
   } as unknown as ListingView;
 }
 
-const ORDER_BY: Record<string, string> = {
-  price: "COALESCE(json_extract(payload, '$.price.value'), 1e9) ASC",
-  recent: 'last_seen_at DESC',
-  priority: 'action_priority DESC, last_seen_at DESC',
-};
+/**
+ * Cache court de l'inventaire.
+ *
+ * Chaque appel rapatriait ~350 ko, et l'application relance à chaque
+ * changement de tri ou de bascule d'affichage : basculer « Favoris » puis
+ * revenir coûtait trois fois ce volume, sur données mobiles et sur le quota
+ * Turso. On rapatrie donc l'ENSEMBLE une fois, et les filtres s'appliquent en
+ * mémoire — ils portent tous sur des champs déjà rapatriés.
+ *
+ * Durée volontairement courte : le sondage des nouvelles annonces tourne à la
+ * minute et doit voir arriver ce que la collecte publie.
+ */
+const CACHE_MS = 60_000;
+let cache: { at: number; rows: readonly ListingView[] } | null = null;
+
+/** Vide le cache — après une écriture, pour que l'affichage suive. */
+export function invalidate(): void {
+  cache = null;
+}
+
+async function loadAll(): Promise<readonly ListingView[]> {
+  if (cache !== null && Date.now() - cache.at < CACHE_MS) return cache.rows;
+  // Le SURENSEMBLE : archivées et hors critères comprises, puisque des
+  // bascules d'affichage peuvent les demander sans nouvelle requête.
+  const result = await client().execute(
+    "SELECT * FROM listings WHERE rented = 0 AND lifecycle != 'inactive' ORDER BY action_priority DESC, last_seen_at DESC LIMIT 1000",
+  );
+  const rows = result.rows.map((row) => rowToListing(row as Record<string, unknown>));
+  cache = { at: Date.now(), rows };
+  return rows;
+}
 
 export interface ListOptions {
   readonly sort?: string;
@@ -148,18 +174,22 @@ export interface ListOptions {
 }
 
 export async function listListings(options: ListOptions = {}): Promise<readonly ListingView[]> {
-  const conditions: string[] = ['rented = 0'];
-  if (options.includeOutOfCriteria !== true) {
-    conditions.push('matches_criteria = 1', "lifecycle != 'inactive'");
-  }
-  if (options.includeArchived !== true) conditions.push('archived = 0');
-  if (options.favoritesOnly === true) conditions.push('favorite = 1');
+  const all = await loadAll();
+  const kept = all.filter((l) => {
+    if (options.includeOutOfCriteria !== true && !l.matchesCriteria) return false;
+    if (options.includeArchived !== true && l.archived === true) return false;
+    if (options.favoritesOnly === true && l.favorite !== true) return false;
+    return true;
+  });
 
-  const order = ORDER_BY[options.sort ?? 'priority'] ?? ORDER_BY['priority'];
-  const result = await client().execute(
-    `SELECT * FROM listings WHERE ${conditions.join(' AND ')} ORDER BY ${order} LIMIT 500`,
-  );
-  return result.rows.map((row) => rowToListing(row as Record<string, unknown>));
+  const sorted = [...kept];
+  if (options.sort === 'price') {
+    sorted.sort((a, b) => (a.price.value ?? Infinity) - (b.price.value ?? Infinity));
+  } else if (options.sort === 'recent') {
+    sorted.sort((a, b) => Date.parse(b.lastSeenAt) - Date.parse(a.lastSeenAt));
+  }
+  // Le tri par priorité vient déjà de la requête.
+  return sorted;
 }
 
 export async function getListing(id: string): Promise<ListingView> {
@@ -190,6 +220,7 @@ export async function patchListing(
     sql: `UPDATE listings SET ${assignments.join(', ')} WHERE id = ?`,
     args,
   });
+  invalidate();
 }
 
 /**

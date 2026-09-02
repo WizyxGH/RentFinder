@@ -142,7 +142,8 @@ Sans ces variables, le notifieur reste silencieusement désactivé.
 | [deployment.md](docs/deployment.md)     | installation locale, `.env`, notifications Telegram, et option cloud gratuite (Turso + Worker + Actions + Pages)                   |
 | [privacy.md](docs/privacy.md)           | cartographie des données, les six barrières anti-fuite                                                                             |
 
-Pour **contribuer / ajouter une source**, voir [CONTRIBUTING.md](CONTRIBUTING.md).
+Pour **ajouter une source**, le mode d'emploi vit dans l'en-tête de
+[`packages/collector/src/sources/index.ts`](packages/collector/src/sources/index.ts).
 
 ## Principes non négociables
 

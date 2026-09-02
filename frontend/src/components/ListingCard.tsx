@@ -26,7 +26,15 @@ import { ScoreRow } from './Scores.js';
 import { Badge } from '@/components/ui/badge.js';
 import { Button, ButtonLink } from '@/components/ui/button.js';
 import { Card } from '@/components/ui/card.js';
-import { Archive, ArchiveRestore, Flame, Star, TrainFront } from 'lucide-react';
+import {
+  Archive,
+  ArchiveRestore,
+  ExternalLink,
+  FileText,
+  Flame,
+  Heart,
+  TrainFront,
+} from 'lucide-react';
 
 interface ListingCardProps {
   readonly listing: ListingView;
@@ -149,15 +157,17 @@ function CardActions({
           rel="noreferrer noopener"
           onClick={() => onView?.(listing.id)}
         >
-          Voir l’annonce
+          <ExternalLink aria-hidden="true" className="size-4" />
+          Annonce d’origine
         </ButtonLink>
-      ) : (
-        <Button variant="outline" className="flex-1" onClick={() => onOpen(listing.id)}>
-          Voir
-        </Button>
-      )}
+      ) : null}
+      {/* Deux destinations très différentes, que « Voir » et « Contacter » ne
+        distinguaient pas : l'une quitte le site pour l'annonce d'origine,
+        l'autre ouvre NOTRE fiche (photos, scores, message prêt à envoyer). Les
+        libellés le disent, et l'icône de lien externe prévient du départ. */}
       <Button className="flex-1" onClick={() => onOpen(listing.id)}>
-        Contacter
+        <FileText aria-hidden="true" className="size-4" />
+        Fiche complète
       </Button>
       {onArchive !== undefined && (
         <Button
@@ -303,7 +313,7 @@ export function ListingCard({
                 favorite ? 'text-hot' : 'text-muted-foreground hover:text-hot'
               }`}
             >
-              <Star aria-hidden="true" className={`size-5 ${favorite ? 'fill-current' : ''}`} />
+              <Heart aria-hidden="true" className={`size-5 ${favorite ? 'fill-current' : ''}`} />
             </button>
           )}
           <StatusBadges listing={listing} rented={rented} archived={archived} affinity={affinity} />
