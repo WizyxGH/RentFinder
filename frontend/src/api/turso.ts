@@ -89,7 +89,7 @@ export function urlProblem(url: string): string | null {
   try {
     host = new URL(url.replace(/^libsql:/i, 'https:')).hostname;
   } catch {
-    return 'Adresse illisible. Attendu : libsql://votre-base.turso.io';
+    return 'Adresse illisible. Elle ressemble à « libsql://… » et finit par turso.io';
   }
   if (host.startsWith('app.') || host.startsWith('web.')) {
     return 'C’est l’adresse du tableau de bord Turso, pas celle de la base. Ouvrez votre base, bouton « Connect ».';
