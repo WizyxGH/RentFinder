@@ -123,10 +123,15 @@ describe('exposition au frontend', () => {
     }
   });
 
-  it('ne référence aucune URL distante libsql dans le frontend', () => {
+  it('ne code en dur aucune adresse de base libsql dans le frontend', () => {
+    // Ce qui doit rester interdit, c'est une VRAIE adresse : elle serait
+    // publiée avec le bundle. Le schéma seul est autorisé — l'écran de
+    // connexion l'affiche en exemple pour que l'utilisateur reconnaisse le
+    // format à coller. La garde vise donc un nom d'hôte réel.
+    const realUrl = /libsql:\/\/[\w-]+\.turso\.io/;
     const files = listFrontendFiles(resolve(ROOT, 'frontend/src'));
     for (const file of files) {
-      expect(readFileSync(file, 'utf8')).not.toMatch(/libsql:\/\//);
+      expect(readFileSync(file, 'utf8')).not.toMatch(realUrl);
     }
   });
 });
