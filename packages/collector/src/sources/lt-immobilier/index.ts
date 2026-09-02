@@ -16,5 +16,3 @@ export const ltImmobilierScraper = makeHektorScraper({
   domain: 'lt-immobilier.com',
   listUrls: ['https://www.lt-immobilier.com/a-louer/1'],
 });
-
-export const LT_IMMOBILIER_DESCRIPTOR = ltImmobilierScraper.descriptor;

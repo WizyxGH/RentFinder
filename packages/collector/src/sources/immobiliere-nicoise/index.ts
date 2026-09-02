@@ -25,5 +25,3 @@ export const immobiliereNicoiseScraper = makeHektorScraper({
   domain: 'immobiliere-nicoise.com',
   listUrls: ['https://www.immobiliere-nicoise.com/location/1'],
 });
-
-export const IMMOBILIERE_NICOISE_DESCRIPTOR = immobiliereNicoiseScraper.descriptor;

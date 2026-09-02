@@ -14,5 +14,3 @@ export const agenceDuCentreScraper = makeHektorScraper({
   domain: 'agenceducentrenice.com',
   listUrls: ['https://www.agenceducentrenice.com/location/1'],
 });
-
-export const AGENCE_DU_CENTRE_DESCRIPTOR = agenceDuCentreScraper.descriptor;

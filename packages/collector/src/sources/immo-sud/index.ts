@@ -17,5 +17,3 @@ export const immoSudScraper = makeHektorScraper({
   domain: 'agenceimmosud.com',
   listUrls: ['https://www.agenceimmosud.com/location/1-nice/appartement/1'],
 });
-
-export const IMMO_SUD_DESCRIPTOR = immoSudScraper.descriptor;

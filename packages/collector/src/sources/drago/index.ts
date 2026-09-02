@@ -24,5 +24,3 @@ export const dragoScraper = makeIcsScraper({
   domain: 'cabinet-drago.com',
   listUrl: 'https://www.cabinet-drago.com/location?transac=location',
 });
-
-export const DRAGO_DESCRIPTOR = dragoScraper.descriptor;

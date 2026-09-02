@@ -24,6 +24,7 @@ import type {
   Scraper,
   SourceHealth,
   SourceRuntimeState,
+  StopReason,
 } from '@rentfinder/shared';
 import type { Clock } from './core/clock.js';
 import type { Logger } from './core/logger.js';
@@ -300,6 +301,92 @@ async function resolveTransitMinutes(
 
 /** Exécute un cycle complet de collecte. */
 /**
+ * Dit pourquoi il ne faut PAS conclure à l'absence, ou `null` si on le peut.
+ *
+ * Une annonce ne devient douteuse que si la source a été consultée ET a rendu
+ * son inventaire. Deux situations trompaient ce raisonnement :
+ *
+ *  - un passage qui ÉCHOUE ou ne télécharge rien rend zéro annonce, ce qui
+ *    faisait passer tout le stock pour disparu ;
+ *  - un passage PARTIEL — identifiants refusés, quota atteint — en rend une
+ *    poignée. C'est ce qui est arrivé à une source d'abonné : 18 annonces
+ *    rendues au lieu de 83, et 65 biens bien vivants marqués « à vérifier ».
+ *
+ * Un inventaire ne perd pas la moitié de ses annonces d'un passage à l'autre ;
+ * un passage cassé, si.
+ */
+async function missingWouldBeUnfounded(
+  sourceId: string,
+  seenCount: number,
+  reason: StopReason | undefined,
+  repository: Repository,
+): Promise<string | null> {
+  // Rien n'a été observé : aucune information sur ce qui existe encore.
+  if (reason === undefined) return 'aucun résultat';
+  if (reason === 'notModified') return 'page inchangée, rien de retéléchargé';
+  if (reason === 'rateLimited' || reason === 'blocked' || reason === 'tooManyErrors') {
+    return `passage interrompu (${reason})`;
+  }
+
+  const known = await repository.activeOccurrenceCount(sourceId);
+  if (known >= 10 && seenCount * 2 < known) {
+    return `chute suspecte : ${seenCount} annonces rendues pour ${known} connues`;
+  }
+  return null;
+}
+
+/**
+ * Péremption des sources qui n'annoncent qu'une fois : au-delà, l'annonce a
+ * toutes les chances d'être partie, sans qu'aucun passage ne puisse le dire.
+ */
+const ONE_SHOT_EXPIRY = { possiblyInactiveAfterDays: 10, inactiveAfterDays: 21 } as const;
+
+interface LifecycleDeps {
+  readonly rawBySource: ReadonlyMap<string, readonly RawListing[]>;
+  readonly confirmedBySource: ReadonlyMap<string, readonly string[]>;
+  readonly outcomes: readonly SourceOutcome[];
+  readonly registry: SourceRegistry;
+  readonly repository: Repository;
+  readonly config: PublicConfig;
+  readonly logger: Logger;
+}
+
+/**
+ * Vieillit les annonces non revues, source par source (§32).
+ *
+ * Les refs confirmées par la source sans re-téléchargement (sitemap) comptent
+ * comme vues : leur fiche n'a pas été visitée, mais la source les dit publiées.
+ */
+async function applyLifecycle(deps: LifecycleDeps): Promise<void> {
+  const { rawBySource, confirmedBySource, outcomes, registry, repository, config, logger } = deps;
+
+  for (const [sourceId, raws] of rawBySource) {
+    // Source qui n'annonce qu'une fois : le temps remplace le décompte.
+    if (registry.get(sourceId)?.descriptor.oneShotListings === true) {
+      await repository.expireByAge(sourceId, ONE_SHOT_EXPIRY);
+      continue;
+    }
+
+    const seen = new Set(raws.map((raw) => raw.sourceRef));
+    for (const ref of confirmedBySource.get(sourceId) ?? []) seen.add(ref);
+
+    const reason = outcomes.find((o) => o.sourceId === sourceId)?.result?.stopReason;
+    const skip = await missingWouldBeUnfounded(sourceId, seen.size, reason, repository);
+    if (skip !== null) {
+      // Conclure à l'absence sans avoir regardé ferait passer des annonces
+      // bien vivantes pour douteuses (§17).
+      logger.warn('lifecycle.skipped', { sourceId, reason: skip });
+      continue;
+    }
+
+    await repository.markMissing(sourceId, seen, {
+      possiblyInactiveAfter: config.missingRunsBeforePossiblyInactive,
+      inactiveAfter: config.missingRunsBeforeInactive,
+    });
+  }
+}
+
+/**
  * Complète les annonces sans coordonnées par le contact GÉNÉRAL de l'agence.
  *
  * Beaucoup d'agences n'offrent qu'un formulaire sur leurs annonces, mais
@@ -423,14 +510,15 @@ export async function runPipeline(options: PipelineOptions): Promise<PipelineRep
   // Cycle de vie des annonces non revues, source par source (§32). Les refs
   // confirmées par la source sans re-téléchargement (sitemap) comptent comme
   // vues : leur fiche n'a pas été visitée, mais la source les dit publiées.
-  for (const [sourceId, raws] of rawBySource) {
-    const seen = new Set(raws.map((raw) => raw.sourceRef));
-    for (const ref of confirmedBySource.get(sourceId) ?? []) seen.add(ref);
-    await repository.markMissing(sourceId, seen, {
-      possiblyInactiveAfter: config.missingRunsBeforePossiblyInactive,
-      inactiveAfter: config.missingRunsBeforeInactive,
-    });
-  }
+  await applyLifecycle({
+    rawBySource,
+    confirmedBySource,
+    outcomes,
+    registry,
+    repository,
+    config,
+    logger,
+  });
 
   // --- 5. Dédoublonnage sur l'ensemble du corpus ----------------------------
   // Le regroupement porte sur toutes les annonces vivantes, pas seulement sur

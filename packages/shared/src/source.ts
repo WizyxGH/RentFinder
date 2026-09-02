@@ -102,6 +102,19 @@ export interface SourceDescriptor {
 
   /** Note libre : conditions d'accès, limites connues, points d'attention. */
   /**
+   * `true` si la source annonce une annonce UNE FOIS et ne la re-liste jamais.
+   *
+   * C'est le cas des alertes e-mail : le portail envoie l'annonce le jour de
+   * sa parution, puis plus rien. Son absence des envois suivants ne dit RIEN
+   * sur le bien — il peut être encore disponible des semaines après.
+   *
+   * Le décompte d'absences, conçu pour des pages de liste qu'on relit, n'a
+   * donc aucun sens ici : il condamnait toutes ces annonces en trois passages.
+   * Elles vieillissent à la place, sur le TEMPS écoulé.
+   */
+  readonly oneShotListings?: boolean;
+
+  /**
    * Contact GÉNÉRAL de l'agence, tel qu'elle le publie sur son propre site.
    *
    * Beaucoup d'agences ne mettent aucune coordonnée sur leurs annonces — elles

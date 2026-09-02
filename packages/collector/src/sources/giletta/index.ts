@@ -20,5 +20,3 @@ export const gilettaScraper = makeHektorScraper({
     'https://www.giletta-properties.com/location/3',
   ],
 });
-
-export const GILETTA_DESCRIPTOR = gilettaScraper.descriptor;

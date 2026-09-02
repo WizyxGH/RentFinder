@@ -17,5 +17,3 @@ export const groupeFochScraper = makeApimoScraper({
   sitemapUrl: 'https://groupe-foch.com/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
 });
-
-export const GROUPE_FOCH_DESCRIPTOR = groupeFochScraper.descriptor;

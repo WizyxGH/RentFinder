@@ -175,6 +175,18 @@ export interface DailyStat {
 }
 
 export interface Repository {
+  /**
+   * Fait vieillir les annonces d'une source qui ne les re-liste jamais (§32).
+   * Le temps écoulé remplace le décompte d'absences, qui n'a pas de sens ici.
+   */
+  readonly expireByAge: (
+    sourceId: string,
+    thresholds: { possiblyInactiveAfterDays: number; inactiveAfterDays: number },
+  ) => Promise<void>;
+
+  /** Combien d'occurrences vivantes cette source compte aujourd'hui. */
+  readonly activeOccurrenceCount: (sourceId: string) => Promise<number>;
+
   /** Abonnements Web Push actifs (§29). */
   readonly pushSubscriptions: () => Promise<
     readonly { endpoint: string; p256dh: string; auth: string }[]
@@ -657,6 +669,36 @@ export function createRepository(db: Database): Repository {
       const removed = orphans.rowsAffected ?? 0;
 
       return { inserted, updated, unchanged, ...(removed > 0 ? { removed } : {}) };
+    },
+
+    async expireByAge(sourceId, thresholds) {
+      // `last_seen_at` est la dernière fois que la source l'a MENTIONNÉE : pour
+      // une annonce annoncée une seule fois, c'est sa date de parution.
+      await db.batch(
+        [
+          {
+            sql: `UPDATE occurrences SET lifecycle = 'possiblyInactive'
+                  WHERE source_id = ? AND lifecycle = 'active'
+                    AND julianday('now') - julianday(last_seen_at) >= ?`,
+            args: [sourceId, thresholds.possiblyInactiveAfterDays],
+          },
+          {
+            sql: `UPDATE occurrences SET lifecycle = 'inactive'
+                  WHERE source_id = ? AND lifecycle != 'inactive'
+                    AND julianday('now') - julianday(last_seen_at) >= ?`,
+            args: [sourceId, thresholds.inactiveAfterDays],
+          },
+        ],
+        'write',
+      );
+    },
+
+    async activeOccurrenceCount(sourceId) {
+      const result = await db.execute({
+        sql: "SELECT COUNT(*) AS n FROM occurrences WHERE source_id = ? AND lifecycle != 'inactive'",
+        args: [sourceId],
+      });
+      return Number(result.rows[0]?.['n'] ?? 0);
     },
 
     async pushSubscriptions() {

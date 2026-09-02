@@ -17,5 +17,3 @@ export const dgimmoScraper = makeApimoScraper({
   sitemapUrl: 'https://dgimmo.fr/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
 });
-
-export const DGIMMO_DESCRIPTOR = dgimmoScraper.descriptor;

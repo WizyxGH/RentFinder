@@ -16,7 +16,7 @@
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import type { AutoContactLimits, SearchCriteria, TenantProfile } from '@rentfinder/shared';
+import type { SearchCriteria, TenantProfile } from '@rentfinder/shared';
 import { MVP_CRITERIA } from '@rentfinder/shared';
 import type { TravelMode } from './core/geo.js';
 
@@ -223,27 +223,6 @@ export function loadPublicConfig(onWarn?: (message: string) => void): PublicConf
     onWarn?.('config/search.json illisible (JSON invalide) — filtres par défaut appliqués');
     return PUBLIC_CONFIG;
   }
-}
-
-/**
- * Garde-fous du contact automatique (§23).
- * L'interrupteur global est piloté par `AUTO_CONTACT_ENABLED` et vaut `false`
- * tant qu'il n'est pas explicitement mis à `true`.
- */
-export function autoContactLimits(env: NodeJS.ProcessEnv = process.env): AutoContactLimits {
-  return {
-    enabled: env['AUTO_CONTACT_ENABLED'] === 'true',
-    maxPerHour: 3,
-    maxPerDay: 10,
-    maxPerSourcePerDay: 5,
-    cooldownSeconds: 600,
-    thresholds: {
-      minMatch: 90,
-      minOpportunity: 90,
-      minVisitProbability: 80,
-      maxRisk: 20,
-    },
-  };
 }
 
 // ---------------------------------------------------------------------------

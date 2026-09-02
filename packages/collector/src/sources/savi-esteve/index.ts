@@ -22,5 +22,3 @@ export const saviEsteveScraper = makeAdaptImmoScraper({
   // saisonnier) sont sans stock chez cette agence.
   listUrl: 'https://www.saviesteve-nice.com/fr/liste.htm?tdp=5&page=1',
 });
-
-export const SAVI_ESTEVE_DESCRIPTOR = saviEsteveScraper.descriptor;

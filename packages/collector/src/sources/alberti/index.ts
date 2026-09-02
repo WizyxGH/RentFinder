@@ -18,5 +18,3 @@ export const albertiScraper = makeApimoScraper({
   sitemapUrl: 'https://agencealbertinice.com/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
 });
-
-export const ALBERTI_DESCRIPTOR = albertiScraper.descriptor;

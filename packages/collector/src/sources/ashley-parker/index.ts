@@ -25,5 +25,3 @@ export const ashleyParkerScraper = makeApimoScraper({
   sitemapUrl: 'https://ashley-parker.fr/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
 });
-
-export const ASHLEY_PARKER_DESCRIPTOR = ashleyParkerScraper.descriptor;

@@ -18,5 +18,3 @@ export const climmoScraper = makeApimoScraper({
   sitemapUrl: 'https://climmo.com/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
 });
-
-export const CLIMMO_DESCRIPTOR = climmoScraper.descriptor;

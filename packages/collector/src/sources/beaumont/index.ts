@@ -18,5 +18,3 @@ export const beaumontScraper = makeApimoScraper({
   sitemapUrl: 'https://beaumontimmo.com/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
 });
-
-export const BEAUMONT_DESCRIPTOR = beaumontScraper.descriptor;

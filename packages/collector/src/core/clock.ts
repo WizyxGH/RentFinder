@@ -61,8 +61,3 @@ export function createTestClock(options: { startMs?: number; random?: number } =
     },
   };
 }
-
-/** Formate un instant en ISO 8601 UTC. */
-export function isoFrom(clock: Clock): string {
-  return new Date(clock.now()).toISOString();
-}

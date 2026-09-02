@@ -37,6 +37,9 @@ export const EMAIL_ALERTS_DESCRIPTOR: SourceDescriptor = {
   // annonce non résolue est enregistrée avec son lien de tracking, devient
   // « connue », et n'est alors plus jamais résolue.
   budget: budgetFor('portal', { maxPagesPerRun: 120, maxListingsPerRun: 200 }),
+  // Le portail envoie chaque annonce une fois : son absence des digests
+  // suivants ne prouve rien (voir `oneShotListings`).
+  oneShotListings: true,
   enabled: true,
   // Premier contact via le lien du portail, à la main de l'utilisateur (§23).
   manualOnly: true,

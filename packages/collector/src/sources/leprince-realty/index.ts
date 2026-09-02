@@ -17,5 +17,3 @@ export const leprinceRealtyScraper = makeApimoScraper({
   sitemapUrl: 'https://leprincerealty.com/sitemap.xml',
   citySlugs: NICE_AREA_SLUGS,
 });
-
-export const LEPRINCE_REALTY_DESCRIPTOR = leprinceRealtyScraper.descriptor;
