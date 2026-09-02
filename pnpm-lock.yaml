@@ -41,6 +41,9 @@ importers:
 
   frontend:
     dependencies:
+      '@libsql/client':
+        specifier: ^0.14.0
+        version: 0.14.0
       '@rentfinder/shared':
         specifier: workspace:*
         version: link:../packages/shared
