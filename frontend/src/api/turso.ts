@@ -135,34 +135,89 @@ function rowToListing(row: Record<string, unknown>): ListingView {
 }
 
 /**
- * Cache court de l'inventaire.
+ * Cache de l'inventaire, avec SONDE avant tout rapatriement.
  *
- * Chaque appel rapatriait ~350 ko, et l'application relance à chaque
- * changement de tri ou de bascule d'affichage : basculer « Favoris » puis
- * revenir coûtait trois fois ce volume, sur données mobiles et sur le quota
- * Turso. On rapatrie donc l'ENSEMBLE une fois, et les filtres s'appliquent en
- * mémoire — ils portent tous sur des champs déjà rapatriés.
+ * Turso facture les lignes lues. Rapatrier l'inventaire — ~700 lignes, 350 ko —
+ * à chaque minute d'ouverture du site était une dépense inutile : la collecte
+ * ne publie que quelques fois par jour, l'immense majorité de ces lectures ne
+ * rapportait rien de neuf.
  *
- * Durée volontairement courte : le sondage des nouvelles annonces tourne à la
- * minute et doit voir arriver ce que la collecte publie.
+ * On interroge donc d'abord une SONDE : un agrégat qui ne lit qu'une ligne et
+ * dit si quelque chose a bougé (combien de fiches, et la plus récemment vue).
+ * Le rapatriement complet n'a lieu que si cette empreinte a changé.
+ *
+ * Le cache survit au rechargement (`localStorage`) : rouvrir le site ne coûte
+ * alors que la sonde.
  */
-const CACHE_MS = 60_000;
-let cache: { at: number; rows: readonly ListingView[] } | null = null;
+const STORE_KEY = 'rentfinder.inventory';
+const PROBE_MS = 30_000;
+
+interface Snapshot {
+  readonly mark: string;
+  readonly rows: readonly ListingView[];
+}
+
+let memo: Snapshot | null = null;
+let probedAt = 0;
+
+function readStore(): Snapshot | null {
+  if (memo !== null) return memo;
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (raw === null) return null;
+    memo = JSON.parse(raw) as Snapshot;
+    return memo;
+  } catch {
+    return null;
+  }
+}
+
+function writeStore(snapshot: Snapshot): void {
+  memo = snapshot;
+  try {
+    localStorage.setItem(STORE_KEY, JSON.stringify(snapshot));
+  } catch {
+    // Quota dépassé ou stockage refusé : le cache mémoire suffit à la session.
+  }
+}
 
 /** Vide le cache — après une écriture, pour que l'affichage suive. */
 export function invalidate(): void {
-  cache = null;
+  memo = null;
+  probedAt = 0;
+  try {
+    localStorage.removeItem(STORE_KEY);
+  } catch {
+    /* rien à faire */
+  }
+}
+
+/** Empreinte de l'inventaire : une seule ligne lue. */
+async function probe(): Promise<string> {
+  const result = await client().execute(
+    "SELECT COUNT(*) AS n, MAX(last_seen_at) AS seen, MAX(updated_at) AS upd FROM listings WHERE rented = 0 AND lifecycle != 'inactive'",
+  );
+  const row = (result.rows[0] ?? {}) as Record<string, unknown>;
+  return `${String(row['n'])}|${String(row['seen'])}|${String(row['upd'])}`;
 }
 
 async function loadAll(): Promise<readonly ListingView[]> {
-  if (cache !== null && Date.now() - cache.at < CACHE_MS) return cache.rows;
+  const cached = readStore();
+  // La sonde elle-même est espacée : deux appels rapprochés (liste puis
+  // statistiques) n'ont pas à la relancer.
+  if (cached !== null && Date.now() - probedAt < PROBE_MS) return cached.rows;
+
+  const mark = await probe();
+  probedAt = Date.now();
+  if (cached !== null && cached.mark === mark) return cached.rows;
+
   // Le SURENSEMBLE : archivées et hors critères comprises, puisque des
   // bascules d'affichage peuvent les demander sans nouvelle requête.
   const result = await client().execute(
     "SELECT * FROM listings WHERE rented = 0 AND lifecycle != 'inactive' ORDER BY action_priority DESC, last_seen_at DESC LIMIT 1000",
   );
   const rows = result.rows.map((row) => rowToListing(row as Record<string, unknown>));
-  cache = { at: Date.now(), rows };
+  writeStore({ mark, rows });
   return rows;
 }
 
@@ -193,6 +248,12 @@ export async function listListings(options: ListOptions = {}): Promise<readonly 
 }
 
 export async function getListing(id: string): Promise<ListingView> {
+  // L'inventaire est déjà en cache : ouvrir une fiche ne doit rien coûter.
+  // On ne redescend en base que pour une annonce absente du surensemble
+  // (inactive ou louée), cas rare mais atteignable par un lien direct.
+  const known = (await loadAll()).find((listing) => listing.id === id);
+  if (known !== undefined) return known;
+
   const result = await client().execute({
     sql: 'SELECT * FROM listings WHERE id = ?',
     args: [id],
@@ -266,34 +327,32 @@ export async function listSources(): Promise<readonly SourceStateView[]> {
 }
 
 export async function getStats(): Promise<StatsData> {
-  const db = client();
-  const [counts, tracking, sources] = await Promise.all([
-    db.execute(`
-      SELECT COUNT(*) AS total,
-        SUM(CASE WHEN matches_criteria = 1 AND lifecycle = 'active'
-                  AND archived = 0 AND rented = 0 THEN 1 ELSE 0 END) AS matching,
-        SUM(CASE WHEN matches_criteria = 1 AND lifecycle = 'possiblyInactive'
-                  AND archived = 0 AND rented = 0 THEN 1 ELSE 0 END) AS uncertain,
-        SUM(CASE WHEN matches_criteria = 1 AND rented = 1 THEN 1 ELSE 0 END) AS rented,
-        SUM(CASE WHEN lifecycle = 'active' THEN 1 ELSE 0 END) AS active,
-        SUM(viewed) AS viewed, SUM(archived) AS archived
-      FROM listings
-    `),
-    db.execute(
-      'SELECT tracking, COUNT(*) AS n FROM listings WHERE matches_criteria = 1 GROUP BY tracking',
-    ),
-    db.execute(
-      "SELECT source_id, COUNT(*) AS n FROM occurrences WHERE lifecycle IN ('active', 'possiblyInactive') GROUP BY source_id",
-    ),
-  ]);
+  // Une seule requête, et un agrégat : elle ne lit qu'une ligne. La répartition
+  // par statut et par source se DÉDUIT de l'inventaire déjà en cache — la
+  // calculer côté base coûtait deux balayages complets à chaque affichage.
+  const counts = await client().execute(`
+    SELECT COUNT(*) AS total,
+      SUM(CASE WHEN matches_criteria = 1 AND lifecycle = 'active'
+                AND archived = 0 AND rented = 0 THEN 1 ELSE 0 END) AS matching,
+      SUM(CASE WHEN matches_criteria = 1 AND lifecycle = 'possiblyInactive'
+                AND archived = 0 AND rented = 0 THEN 1 ELSE 0 END) AS uncertain,
+      SUM(CASE WHEN matches_criteria = 1 AND rented = 1 THEN 1 ELSE 0 END) AS rented,
+      SUM(CASE WHEN lifecycle = 'active' THEN 1 ELSE 0 END) AS active,
+      SUM(viewed) AS viewed, SUM(archived) AS archived
+    FROM listings
+  `);
 
-  const toMap = (rows: readonly unknown[], key: string): Record<string, number> => {
-    const map: Record<string, number> = {};
-    for (const row of rows as Record<string, unknown>[]) {
-      map[String(row[key])] = Number(row['n'] ?? 0);
+  const inventory = await loadAll();
+  const byTracking: Record<string, number> = {};
+  const bySource: Record<string, number> = {};
+  for (const listing of inventory) {
+    if (listing.matchesCriteria) {
+      byTracking[listing.tracking] = (byTracking[listing.tracking] ?? 0) + 1;
     }
-    return map;
-  };
+    for (const source of new Set(listing.occurrences.map((o) => o.sourceId))) {
+      bySource[source] = (bySource[source] ?? 0) + 1;
+    }
+  }
 
   const row = (counts.rows[0] ?? {}) as Record<string, unknown>;
   return {
@@ -306,8 +365,8 @@ export async function getStats(): Promise<StatsData> {
       viewed: Number(row['viewed'] ?? 0),
       archived: Number(row['archived'] ?? 0),
     },
-    byTracking: toMap(tracking.rows, 'tracking'),
-    bySource: toMap(sources.rows, 'source_id'),
+    byTracking,
+    bySource,
     contacts: { total: 0, byOutcome: {} },
   };
 }
