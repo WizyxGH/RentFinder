@@ -411,6 +411,20 @@ export function App(): React.JSX.Element {
     }
   };
 
+  // Pas d'accès à la base : on demande les identifiants et on s'arrête là.
+  //
+  // CE TEST DOIT PRÉCÉDER celui du jeton d'API : sans identifiants, le premier
+  // chargement emprunte l'ancienne voie API, échoue en 401 et lève
+  // `needsToken`. L'écran « jeton d'API » s'affichait alors à la place de la
+  // connexion — en réclamant un jeton qui n'existe plus.
+  if (isUnconfigured()) {
+    return (
+      <Shell view={view} onNavigate={navigate}>
+        <ConnectPanel />
+      </Shell>
+    );
+  }
+
   // --- Saisie du jeton d'accès (§26) ----------------------------------------
   if (needsToken) {
     return (
@@ -564,16 +578,6 @@ export function App(): React.JSX.Element {
       setError('L’archivage n’a pas pu être enregistré');
     }
   };
-
-  // Pas d'accès à la base : on demande les identifiants et on s'arrête là.
-  // Sans eux, rien ne s'affiche — c'est la protection du site.
-  if (isUnconfigured()) {
-    return (
-      <Shell view={view} onNavigate={navigate}>
-        <ConnectPanel />
-      </Shell>
-    );
-  }
 
   return (
     <Shell view={view} onNavigate={navigate}>
