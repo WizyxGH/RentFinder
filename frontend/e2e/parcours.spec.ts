@@ -247,11 +247,19 @@ test('la page Notifications dit ce qui est actif (§29)', async ({ page }) => {
 
   await expect(page.getByRole('heading', { name: 'Notifications' })).toBeVisible();
   await expect(page.getByText('Permission du navigateur')).toBeVisible();
-  await expect(page.getByText('Site fermé')).toBeVisible();
   await expect(page.getByText('Historique')).toBeVisible();
 
-  // Rien ne sonne sans consentement explicite.
-  await expect(page.getByRole('button', { name: /Activer les notifications/ })).toBeVisible();
+  // DEUX réglages indépendants, chacun retenu pour lui-même : un interrupteur
+  // unique liait le site ouvert et le site fermé, et refuser l'un faisait
+  // perdre l'autre.
+  const ouvert = page.getByRole('switch', { name: 'Pendant que le site est ouvert' });
+  const ferme = page.getByRole('switch', { name: 'Site fermé' });
+  await expect(ouvert).toBeVisible();
+  await expect(ferme).toBeVisible();
+
+  // Rien ne sonne sans consentement explicite : les deux partent éteints.
+  await expect(ouvert).toHaveAttribute('aria-checked', 'false');
+  await expect(ferme).toHaveAttribute('aria-checked', 'false');
 
   // Page À PART, pas un onglet : aucune barre de navigation ne subsiste — ni
   // les onglets du haut sur grand écran, ni la barre basse sur mobile — et on
