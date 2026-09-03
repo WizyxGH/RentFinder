@@ -40,14 +40,14 @@ interface ListingCardProps {
 }
 
 /**
- * Palier de priorité → couleurs, pour que le classement se lise sans réfléchir.
- * Les classes sont écrites en toutes lettres : Tailwind ne génère que les noms
- * de classe qu'il voit littéralement dans le source (pas d'interpolation).
+ * Palier de priorité → libellé. La COULEUR, elle, ne varie plus : la barre est
+ * rouge partout, et c'est sa LONGUEUR qui compare deux annonces. Un dégradé de
+ * teintes ajoutait un second code à déchiffrer pour la même information.
  */
-function priorityTier(priority: number): { text: string; fill: string; label: string } {
-  if (priority >= 85) return { text: 'text-hot', fill: 'bg-hot', label: 'à contacter' };
-  if (priority >= 70) return { text: 'text-good', fill: 'bg-good', label: 'à voir' };
-  return { text: 'text-muted-foreground', fill: 'bg-muted-foreground', label: 'à étudier' };
+function priorityLabel(priority: number): string {
+  if (priority >= 85) return 'à contacter';
+  if (priority >= 70) return 'à voir';
+  return 'à étudier';
 }
 
 /**
@@ -63,18 +63,20 @@ function priorityTier(priority: number): { text: string; fill: string; label: st
  * sans lire, ce qu'un anneau de 48 px ne permettait pas.
  */
 function PriorityBar({ priority }: { readonly priority: number }): React.JSX.Element {
-  const tier = priorityTier(priority);
   const clamped = Math.max(0, Math.min(100, priority));
   return (
     <div className="mt-2.5">
       <div className="mb-1 flex items-baseline justify-between gap-2">
-        <span
-          className={`flex items-center gap-1 text-[0.68rem] font-semibold tracking-wide uppercase ${tier.text}`}
-        >
+        <span className="flex items-center gap-1 text-[0.68rem] font-semibold tracking-wide text-bad uppercase">
           {priority >= 85 && <Flame aria-hidden="true" className="size-3.5" />}
-          {tier.label}
+          {priorityLabel(priority)}
         </span>
-        <span className={`text-[0.95rem] leading-none font-bold ${tier.text}`}>{priority}</span>
+        {/* « 65/100 » et non « 65 » : le barème est ainsi dit, sans que
+          l'utilisateur ait à deviner sur quoi la note est donnée. */}
+        <span className="text-[0.95rem] leading-none font-bold text-bad">
+          {priority}
+          <span className="text-[0.75rem] font-medium text-muted-foreground">/100</span>
+        </span>
       </div>
       <div
         role="progressbar"
@@ -85,7 +87,7 @@ function PriorityBar({ priority }: { readonly priority: number }): React.JSX.Ele
         className="h-1.5 overflow-hidden rounded-full bg-muted"
       >
         <div
-          className={`h-full rounded-full transition-[width] duration-300 ${tier.fill}`}
+          className="h-full rounded-full bg-bad transition-[width] duration-300"
           style={{ width: `${clamped}%` }}
         />
       </div>

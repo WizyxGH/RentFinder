@@ -21,11 +21,14 @@ self.addEventListener('push', (event) => {
   const listingId = payload.listingId;
   const phone = payload.phone;
   // Chemins ABSOLUS depuis la portée du worker : le site vit sous /<dépôt>/.
-  // Sans `icon`, Android affiche l'icône générique du navigateur ; `badge` est
-  // la petite silhouette de la barre d'état, qui doit être monochrome.
+  //
+  // PAS D'`icon`. C'est la grande vignette carrée d'Android : elle affichait le
+  // logo de l'application — la même maison sur chaque alerte, qui n'apprenait
+  // rien et volait la place de la photo du bien. `badge`, lui, est la silhouette
+  // monochrome de la barre d'état : elle sert à reconnaître l'expéditeur d'un
+  // coup d'œil, et reste.
   const base = self.registration.scope;
   const options = {
-    icon: `${base}icon-192.png`,
     badge: `${base}icon-192.png`,
     body: payload.body || '',
     // `tag` dédoublonne : deux envois rapprochés ne s'empilent pas.

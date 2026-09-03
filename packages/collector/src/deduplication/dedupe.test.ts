@@ -133,6 +133,32 @@ describe('similarity — bruit de niveau AGENCE, au sein d’une même source', 
     const b = listing({ id: 'lbc:9', sourceId: 'leboncoin', imageUrls: [photo] });
     expect(similarity(a, b).verdict).toBe('duplicate');
   });
+
+  it('garde aussi le signal AU SEIN des alertes e-mail, qui ne sont pas une agence', () => {
+    // Cas réel du 2026-09-03 : la même annonce SeLoger à 670 €, relayée par
+    // deux digests sous deux schémas de référence successifs, restait affichée
+    // en double malgré une URL de photo identique au caractère près. Une
+    // agence réutilise ses clichés d'un bien à l'autre ; un serveur média de
+    // portail attribue une image à UNE annonce.
+    const photo = 'https://mms.seloger.com/0/4/2/5/0425e023.jpg?ci_seal=abc';
+    const a = listing({
+      id: 'email-alerts:seloger:26DFQW7W1VRY',
+      sourceId: 'email-alerts',
+      price: 670,
+      area: 22,
+      rooms: 1,
+      imageUrls: [photo],
+    });
+    const b = listing({
+      id: 'email-alerts:seloger:22-05-m-670-cc-06100-nice',
+      sourceId: 'email-alerts',
+      price: 670,
+      area: 22.05,
+      rooms: 1,
+      imageUrls: [`${photo}&w=500`],
+    });
+    expect(similarity(a, b).verdict).toBe('duplicate');
+  });
 });
 
 describe('similarity — désaccords rédhibitoires', () => {

@@ -33,6 +33,7 @@ import { saintRochScraper } from './saint-roch/index.js';
 import { mirabelloScraper } from './mirabello/index.js';
 import { inliScraper } from './inli/index.js';
 import { cityaScraper } from './citya/index.js';
+import { rentumoScraper } from './rentumo/index.js';
 import { studapartScraper } from './studapart/index.js';
 import { personalimmoScraper } from './personalimmo/index.js';
 import { nousgeronsScraper } from './nousgerons/index.js';
@@ -86,6 +87,7 @@ export const ALL_SCRAPERS: readonly Scraper[] = [
   mirabelloScraper,
   inliScraper,
   cityaScraper,
+  rentumoScraper,
   studapartScraper,
   emailAlertsScraper,
   ladresseScraper,

@@ -80,7 +80,11 @@ async function main(): Promise<void> {
     const realigned = dryRun ? 0 : await repository.realignOccurrenceIds();
     if (realigned > 0) logger.info('reprocess.ids_realigned', { occurrences: realigned });
 
-    // --- 2. Rejouer l'extraction sur le texte déjà stocké -------------------
+    // --- 2. Absorber les fiches orphelines d'une fusion passée --------------
+    const absorbed = dryRun ? 0 : await repository.absorbOrphanListings();
+    if (absorbed > 0) logger.info('reprocess.orphans_absorbed', { listings: absorbed });
+
+    // --- 3. Rejouer l'extraction sur le texte déjà stocké -------------------
     const corpus = await repository.allActiveOccurrences();
     const corrected = corpus
       .map((occurrence) => ({ before: occurrence, after: rederiveFromText(occurrence) }))
@@ -115,7 +119,7 @@ async function main(): Promise<void> {
     const written = await repository.updateDerivedFields(corrected.map((pair) => pair.after));
     logger.info('reprocess.written', { occurrences: written });
 
-    // --- 3. Regrouper, scorer, persister — le même étage que la collecte ----
+    // --- 4. Regrouper, scorer, persister — le même étage que la collecte ----
     //
     // Les points de référence conditionnent les DISTANCES de chaque fiche. Les
     // résoudre à vide reviendrait à les effacer de tout l'inventaire : on

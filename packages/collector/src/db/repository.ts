@@ -204,6 +204,24 @@ export interface Repository {
   upsertOccurrences(listings: readonly NormalizedListing[]): Promise<UpsertReport>;
   allActiveOccurrences(): Promise<NormalizedListing[]>;
   /**
+   * Rattrape les fiches ORPHELINES qu'une fusion passée a laissées derrière
+   * elle (§14).
+   *
+   * La purge de `saveListings` épargne toute fiche portant une décision de
+   * l'utilisateur — un favori, un archivage, un « contactée ». C'est la bonne
+   * règle : elle ne peut pas savoir si cette décision a été recopiée ailleurs.
+   * Résultat, une fiche fusionnée AVANT que le transfert d'état n'existe reste
+   * en base et s'affiche en doublon.
+   *
+   * On retrouve ici sa remplaçante par les occurrences que sa charge utile
+   * énumère, on lui transmet la décision, puis on supprime la ligne morte. Une
+   * orpheline dont les occurrences se sont dispersées sur plusieurs fiches est
+   * laissée telle quelle : on ne saurait pas à qui attribuer la décision (§17).
+   *
+   * @returns le nombre de fiches absorbées.
+   */
+  absorbOrphanListings(): Promise<number>;
+  /**
    * Réaligne l'identifiant des occurrences sur leur clé naturelle
    * `source_id:source_ref` (§68 — rattrapage).
    *
@@ -584,6 +602,53 @@ export function createRepository(db: Database): Repository {
       return result.rows.map(rowToOccurrence);
     },
 
+    async absorbOrphanListings() {
+      const orphans = await db.execute(
+        `SELECT id, payload FROM listings
+          WHERE id NOT IN (SELECT group_id FROM occurrences WHERE group_id IS NOT NULL)`,
+      );
+      if (orphans.rows.length === 0) return 0;
+
+      // Successeur = la fiche qui porte AUJOURD'HUI les occurrences de
+      // l'orpheline. On l'interroge occurrence par occurrence, à la source.
+      const predecessors = new Map<string, string[]>();
+      for (const row of orphans.rows) {
+        const orphanId = String(row['id']);
+        let occurrenceIds: string[] = [];
+        try {
+          const payload = JSON.parse(String(row['payload'] ?? '{}')) as {
+            occurrences?: { id?: unknown }[];
+          };
+          occurrenceIds = (payload.occurrences ?? [])
+            .map((occurrence) => occurrence.id)
+            .filter((id): id is string => typeof id === 'string');
+        } catch {
+          continue; // charge utile illisible : on n'y touche pas
+        }
+        if (occurrenceIds.length === 0) continue;
+
+        const groups = await db.execute({
+          sql: `SELECT DISTINCT group_id FROM occurrences
+                 WHERE group_id IS NOT NULL AND id IN (${occurrenceIds.map(() => '?').join(',')})`,
+          args: occurrenceIds,
+        });
+        const successors = groups.rows
+          .map((group) => String(group['group_id']))
+          .filter((id) => id !== orphanId);
+        // Un seul successeur, sinon on ne saurait pas à qui donner la décision.
+        if (successors.length !== 1 || successors[0] === undefined) continue;
+        predecessors.set(successors[0], [...(predecessors.get(successors[0]) ?? []), orphanId]);
+      }
+
+      const before = orphans.rows.length;
+      await inheritUserState(db, predecessors);
+      const after = await db.execute(
+        `SELECT COUNT(*) AS n FROM listings
+          WHERE id NOT IN (SELECT group_id FROM occurrences WHERE group_id IS NOT NULL)`,
+      );
+      return before - Number(after.rows[0]?.['n'] ?? before);
+    },
+
     async realignOccurrenceIds() {
       const result = await db.execute(
         `UPDATE occurrences
@@ -633,6 +698,12 @@ export function createRepository(db: Database): Repository {
         sql: `SELECT id, content_hash FROM listings WHERE id IN (${ids.map(() => '?').join(',')})`,
         args: ids,
       });
+
+      // À QUELLE FICHE ces occurrences appartenaient-elles AVANT ce passage ?
+      // La question doit être posée maintenant : le rattachement plus bas
+      // écrase la réponse, et sans elle une fusion perdrait le suivi porté par
+      // la fiche absorbée (voir `inheritUserState`).
+      const predecessors = await previousGroups(db, listings);
       const known = new Map(
         existing.rows.map((row) => [String(row['id']), String(row['content_hash'])]),
       );
@@ -712,6 +783,11 @@ export function createRepository(db: Database): Repository {
       }
 
       if (statements.length > 0) await db.batch(statements, 'write');
+
+      // La fiche survivante hérite des décisions portées par celles qu'elle
+      // absorbe, AVANT la purge : sans quoi soit on efface un « contactée »,
+      // soit on garde en base une fiche morte qui ressort en doublon.
+      await inheritUserState(db, predecessors);
 
       // Fiches ORPHELINES : quand deux fiches fusionnent, le groupe survivant
       // reçoit un nouvel identifiant et les occurrences lui sont rattachées —
@@ -1343,6 +1419,109 @@ function serializeListing(listing: ScoredListing): unknown {
       lastSeenAt: occurrence.lastSeenAt,
     })),
   };
+}
+
+/**
+ * Fiche à laquelle chaque occurrence était rattachée AVANT ce passage.
+ *
+ * @returns pour chaque fiche écrite, les identifiants des fiches dont elle
+ *          reprend des occurrences — vide dans le cas courant, où rien n'a
+ *          changé de groupe.
+ */
+async function previousGroups(
+  db: Database,
+  listings: readonly ScoredListing[],
+): Promise<Map<string, string[]>> {
+  const occurrenceIds = listings.flatMap((listing) =>
+    listing.occurrences.map((occurrence) => occurrence.id),
+  );
+  if (occurrenceIds.length === 0) return new Map();
+
+  const rows = await db.execute({
+    sql: `SELECT id, group_id FROM occurrences
+           WHERE group_id IS NOT NULL AND id IN (${occurrenceIds.map(() => '?').join(',')})`,
+    args: occurrenceIds,
+  });
+  const groupByOccurrence = new Map(
+    rows.rows.map((row) => [String(row['id']), String(row['group_id'])]),
+  );
+
+  const predecessors = new Map<string, string[]>();
+  for (const listing of listings) {
+    const previous = new Set<string>();
+    for (const occurrence of listing.occurrences) {
+      const group = groupByOccurrence.get(occurrence.id);
+      if (group !== undefined && group !== listing.id) previous.add(group);
+    }
+    if (previous.size > 0) predecessors.set(listing.id, [...previous]);
+  }
+  return predecessors;
+}
+
+/**
+ * Transmet à la fiche survivante ce que l'utilisateur avait décidé sur celles
+ * qu'elle absorbe (§14, §35).
+ *
+ * QUAND DEUX FICHES FUSIONNENT, le groupe prend l'identifiant de son occurrence
+ * la plus ancienne : l'autre ligne devient orpheline. Elle porte pourtant
+ * peut-être un favori, un archivage ou un « contactée ». La purge l'épargnait
+ * donc — au prix d'un DOUBLON bien visible, exactement le symptôme observé le
+ * 2026-09-03 sur une annonce à 670 €.
+ *
+ * On ne choisit pas entre perdre la décision et garder le doublon : la
+ * décision remonte, PUIS la ligne morte part — ici même, et pas dans la purge
+ * générale, qui épargne à juste titre toute fiche portant une décision. Elle ne
+ * peut pas savoir que celle-ci a été recopiée ailleurs ; nous, si.
+ *
+ * Les drapeaux se cumulent (un favori reste un favori) ; le SUIVI n'est repris
+ * que si la fiche survivante n'en porte pas déjà un — on ne fait jamais reculer
+ * un statut plus avancé.
+ */
+async function inheritUserState(
+  db: Database,
+  predecessors: ReadonlyMap<string, string[]>,
+): Promise<void> {
+  for (const [survivor, absorbed] of predecessors) {
+    const placeholders = absorbed.map(() => '?').join(',');
+    await db.execute({
+      sql: `UPDATE listings
+               SET favorite = MAX(favorite, COALESCE((SELECT MAX(favorite) FROM listings WHERE id IN (${placeholders})), 0)),
+                   archived = MAX(archived, COALESCE((SELECT MAX(archived) FROM listings WHERE id IN (${placeholders})), 0)),
+                   viewed   = MAX(viewed,   COALESCE((SELECT MAX(viewed)   FROM listings WHERE id IN (${placeholders})), 0)),
+                   notified = MAX(notified, COALESCE((SELECT MAX(notified) FROM listings WHERE id IN (${placeholders})), 0)),
+                   notified_at = COALESCE(notified_at, (SELECT MIN(notified_at) FROM listings WHERE id IN (${placeholders}))),
+                   tracking = CASE
+                     WHEN tracking IN ('new', 'none') OR tracking IS NULL
+                       THEN COALESCE(
+                         (SELECT tracking FROM listings
+                           WHERE id IN (${placeholders})
+                             AND tracking IS NOT NULL AND tracking NOT IN ('new', 'none')
+                           LIMIT 1),
+                         tracking)
+                     ELSE tracking
+                   END
+             WHERE id = ?`,
+      args: [
+        ...absorbed,
+        ...absorbed,
+        ...absorbed,
+        ...absorbed,
+        ...absorbed,
+        ...absorbed,
+        survivor,
+      ],
+    });
+
+    // La décision est en sûreté : la ligne absorbée peut disparaître, à
+    // condition qu'elle ne porte plus aucune occurrence (une fusion partielle
+    // la laisse vivante, avec ce qui lui reste).
+    await db.execute({
+      sql: `DELETE FROM listings
+             WHERE id IN (${placeholders})
+               AND id NOT IN (SELECT group_id FROM occurrences WHERE group_id IS NOT NULL)`,
+      args: absorbed,
+    });
+  }
 }
 
 /**

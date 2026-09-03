@@ -128,18 +128,32 @@ function imageIdentity(url: string): string | null {
 }
 
 /**
+ * Sources qui TRANSPORTENT des annonces d'ailleurs au lieu d'en publier.
+ *
+ * `email-alerts` n'est pas une agence : c'est un flux de digests qui relaie des
+ * annonces de portails. Chaque photo y vient du serveur média du portail et est
+ * propre à UNE annonce (`mms.seloger.com/<uuid>.jpg`), là où un site d'agence
+ * réutilise volontiers le même cliché tamponné.
+ *
+ * La distinction compte : sans elle, deux digests relayant la MÊME annonce
+ * SeLoger — sous deux schémas de référence successifs — restaient deux fiches
+ * distinctes malgré une URL de photo identique au caractère près.
+ */
+const TRANSPORT_SOURCES = new Set(['email-alerts']);
+
+/**
  * `true` si les deux annonces publient au moins une image identique.
  *
- * ENTRE SOURCES DIFFÉRENTES uniquement. Le signal repose sur le fait qu'une
- * agence pousse les mêmes fichiers vers le portail et vers son propre site ;
- * au sein d'UNE source il ne dit rien, car certaines agences illustrent des
- * dizaines d'annonces avec la même photo tamponnée — Citya en réutilise une
- * sur quatorze biens distincts, Saint-Roch sur cinq. Combiné au téléphone de
- * l'accueil, commun lui aussi, cela suffisait à faire disparaître une annonce
- * bien réelle (§14).
+ * ENTRE SOURCES DIFFÉRENTES, ou au sein d'une source de TRANSPORT. Le signal
+ * repose sur le fait qu'une agence pousse les mêmes fichiers vers le portail et
+ * vers son propre site ; au sein d'UNE agence il ne dit rien, car certaines
+ * illustrent des dizaines d'annonces avec la même photo tamponnée — Citya en
+ * réutilise une sur quatorze biens distincts, Saint-Roch sur cinq. Combiné au
+ * téléphone de l'accueil, commun lui aussi, cela suffisait à faire disparaître
+ * une annonce bien réelle (§14).
  */
 function sharesImage(a: NormalizedListing, b: NormalizedListing): boolean {
-  if (a.sourceId === b.sourceId) return false;
+  if (a.sourceId === b.sourceId && !TRANSPORT_SOURCES.has(a.sourceId)) return false;
   const left = new Set(a.imageUrls.map(imageIdentity).filter((x): x is string => x !== null));
   if (left.size === 0) return false;
   return b.imageUrls.some((url) => {

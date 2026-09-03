@@ -7,10 +7,16 @@
  */
 
 import { useEffect, useState } from 'react';
-import { Bell, BellOff, Check, TriangleAlert } from 'lucide-react';
+import { Check, TriangleAlert } from 'lucide-react';
 import type { ListingView } from '../types.js';
-import { Button } from '@/components/ui/button.js';
-import { formatArea, formatPrice, formatCity, formatDay, formatTime } from '../format.js';
+import {
+  formatArea,
+  formatDay,
+  formatPostalAddress,
+  formatPrice,
+  formatSourceName,
+  formatTime,
+} from '../format.js';
 import { disablePush, enablePush, pushEnabled, pushSupported } from '../push.js';
 import {
   notificationPermission,
@@ -55,43 +61,179 @@ function Status({
   );
 }
 
+/** Interrupteur d'un canal d'alerte : son état EST le réglage retenu. */
+function Toggle({
+  label,
+  detail,
+  on,
+  busy,
+  disabled = false,
+  onToggle,
+}: {
+  readonly label: string;
+  readonly detail: string;
+  readonly on: boolean;
+  readonly busy: boolean;
+  readonly disabled?: boolean;
+  readonly onToggle: () => void;
+}): React.JSX.Element {
+  return (
+    <li>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={on}
+        aria-label={label}
+        disabled={disabled || busy}
+        onClick={onToggle}
+        className="flex w-full cursor-pointer items-center gap-3 rounded-xl border border-border p-3 text-left transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        <span className="min-w-0 flex-1">
+          <span className="block font-medium">{label}</span>
+          <span className="block text-sm text-muted-foreground">
+            {busy ? 'Un instant…' : detail}
+          </span>
+        </span>
+        {/* Interrupteur dessiné plutôt qu'une case : l'état se lit de loin. */}
+        <span
+          aria-hidden="true"
+          className={`flex h-6 w-11 shrink-0 items-center rounded-full p-0.5 transition-colors ${
+            on ? 'bg-primary' : 'bg-muted-foreground/30'
+          }`}
+        >
+          <span
+            className={`size-5 rounded-full bg-white shadow transition-transform ${
+              on ? 'translate-x-5' : ''
+            }`}
+          />
+        </span>
+      </button>
+    </li>
+  );
+}
+
+/**
+ * Une ligne d'historique.
+ *
+ * Le prix et la ville ne suffisaient pas à reconnaître l'annonce parmi vingt :
+ * la vignette la resitue d'un coup d'œil, l'adresse dit OÙ, et la source dit à
+ * qui l'on aura affaire. Sans photo, un cadre neutre — on n'invente rien (§17).
+ */
+function HistoryRow({
+  listing,
+  onOpen,
+}: {
+  readonly listing: ListingView;
+  readonly onOpen: (id: string) => void;
+}): React.JSX.Element {
+  const photo = listing.imageUrls[0];
+  const place = formatPostalAddress({
+    address: listing.address.value,
+    postalCode: listing.postalCode.value,
+    city: listing.city.value,
+    district: listing.district.value,
+  });
+  const sources = [...new Set(listing.occurrences.map((occurrence) => occurrence.sourceId))];
+
+  return (
+    <button
+      type="button"
+      onClick={() => onOpen(listing.id)}
+      className="flex w-full cursor-pointer items-center gap-3 rounded-xl border border-border p-2.5 text-left transition-colors hover:bg-muted"
+    >
+      {photo !== undefined ? (
+        <img
+          src={photo}
+          alt=""
+          loading="lazy"
+          referrerPolicy="no-referrer"
+          className="size-14 shrink-0 rounded-lg bg-muted object-cover"
+          onError={(event) => {
+            event.currentTarget.style.visibility = 'hidden';
+          }}
+        />
+      ) : (
+        <span aria-hidden="true" className="size-14 shrink-0 rounded-lg bg-muted" />
+      )}
+
+      <span className="min-w-0 flex-1">
+        <span className="flex items-baseline gap-2">
+          <strong className="font-semibold">{formatPrice(listing.price.value)}</strong>
+          <span className="text-sm text-muted-foreground">{formatArea(listing.area.value)}</span>
+          <span className="ml-auto shrink-0 text-xs text-muted-foreground">
+            {formatTime(listing.notifiedAt ?? '')}
+          </span>
+        </span>
+        <span className="block truncate text-sm">{place}</span>
+        <span className="block truncate text-xs text-muted-foreground">
+          {sources.map(formatSourceName).join(', ')}
+        </span>
+      </span>
+    </button>
+  );
+}
+
 export function NotificationsPanel({
   listings,
   nowMs,
   onOpen,
 }: NotificationsPanelProps): React.JSX.Element {
   const [permission, setPermission] = useState(notificationPermission());
-  const [optIn, setOptIn] = useState(readOptIn());
+  // Deux CHOIX distincts, retenus séparément : l'un vaut pour le site ouvert
+  // (préférence de ce navigateur), l'autre pour le site fermé (l'abonnement
+  // push lui-même, que le navigateur conserve). Un unique interrupteur les
+  // liait, et refuser l'un revenait à perdre l'autre.
+  const [openOptIn, setOpenOptIn] = useState(readOptIn());
   const [pushOn, setPushOn] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<'open' | 'closed' | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     void pushEnabled().then(setPushOn);
   }, []);
 
-  const active = optIn && permission === 'granted';
-
-  const toggle = async (): Promise<void> => {
-    setBusy(true);
+  /** Alerte pendant que le site est ouvert : bandeau, et notification si permise. */
+  const toggleOpen = async (): Promise<void> => {
     setError(null);
-    if (active) {
+    if (openOptIn) {
       writeOptIn(false);
-      setOptIn(false);
+      setOpenOptIn(false);
+      return;
+    }
+    setBusy('open');
+    // Le BANDEAU ne demande aucune permission : on retient le choix même si le
+    // navigateur refuse la notification système. Auparavant un refus ne
+    // produisait rien du tout — pas même un message —, et le réglage semblait
+    // ne pas se retenir.
+    writeOptIn(true);
+    setOpenOptIn(true);
+    const granted = await requestNotificationPermission();
+    setPermission(granted);
+    if (granted !== 'granted') {
+      setError(
+        'Le navigateur refuse les notifications système : les alertes s’afficheront ' +
+          'en bandeau dans la page. Pour les recevoir hors du site, réautorisez-les ' +
+          'dans les réglages du navigateur.',
+      );
+    }
+    setBusy(null);
+  };
+
+  /** Alerte site fermé : l'abonnement push, conservé par le navigateur. */
+  const toggleClosed = async (): Promise<void> => {
+    setError(null);
+    setBusy('closed');
+    if (pushOn) {
       await disablePush();
       setPushOn(false);
     } else {
       const granted = await requestNotificationPermission();
       setPermission(granted);
-      if (granted === 'granted') {
-        writeOptIn(true);
-        setOptIn(true);
-        const failure = await enablePush();
-        setError(failure);
-        setPushOn(failure === null);
-      }
+      const failure = granted === 'granted' ? await enablePush() : 'Permission refusée.';
+      setError(failure);
+      setPushOn(failure === null);
     }
-    setBusy(false);
+    setBusy(null);
   };
 
   // HISTORIQUE : les annonces réellement signalées, datées par la collecte.
@@ -130,14 +272,38 @@ export function NotificationsPanel({
         </p>
       </div>
 
-      <Button
-        onClick={() => void toggle()}
-        disabled={busy}
-        variant={active ? 'outline' : 'default'}
-      >
-        {active ? <BellOff className="size-4" /> : <Bell className="size-4" />}
-        {busy ? 'Un instant…' : active ? 'Désactiver' : 'Activer les notifications'}
-      </Button>
+      {/* DEUX interrupteurs : chacun se retient pour lui-même. Un seul bouton
+        « Activer les notifications » liait les deux, et un refus de permission
+        n'affichait rien du tout — le réglage semblait ne pas tenir. */}
+      <ul className="flex flex-col gap-2">
+        <Toggle
+          label="Pendant que le site est ouvert"
+          detail={
+            openOptIn
+              ? permission === 'granted'
+                ? 'Bandeau dans la page et notification du navigateur.'
+                : 'Bandeau dans la page — le navigateur refuse les notifications système.'
+              : 'Aucune alerte tant que vous consultez le site.'
+          }
+          on={openOptIn}
+          busy={busy === 'open'}
+          onToggle={() => void toggleOpen()}
+        />
+        <Toggle
+          label="Site fermé"
+          detail={
+            pushOn
+              ? 'Cet appareil est abonné : la collecte vous alerte application fermée.'
+              : pushSupported()
+                ? 'Recevoir les alertes même sans avoir le site ouvert.'
+                : 'Indisponible ici. Sur iPhone, ajoutez d’abord le site à l’écran d’accueil (Partager → Sur l’écran d’accueil).'
+          }
+          on={pushOn}
+          busy={busy === 'closed'}
+          disabled={!pushSupported()}
+          onToggle={() => void toggleClosed()}
+        />
+      </ul>
 
       {error !== null && (
         <p className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm">
@@ -155,26 +321,6 @@ export function NotificationsPanel({
               : permission === 'denied'
                 ? 'Refusée — elle se réactive dans les réglages du navigateur.'
                 : 'Pas encore demandée.'
-          }
-        />
-        <Status
-          ok={active}
-          label="Pendant que le site est ouvert"
-          detail={
-            active
-              ? 'Une alerte apparaît dès qu’une annonce est trouvée.'
-              : 'Inactif : activez les notifications ci-dessus.'
-          }
-        />
-        <Status
-          ok={pushOn}
-          label="Site fermé"
-          detail={
-            pushOn
-              ? 'Votre appareil est abonné : la collecte vous alerte même application fermée.'
-              : pushSupported()
-                ? 'Pas encore abonné. Activez les notifications ci-dessus.'
-                : 'Indisponible ici. Sur iPhone, ajoutez d’abord le site à l’écran d’accueil (Partager → Sur l’écran d’accueil).'
           }
         />
         <Status
@@ -203,19 +349,7 @@ export function NotificationsPanel({
                 <ul className="flex flex-col gap-1.5">
                   {day.items.map((listing) => (
                     <li key={listing.id}>
-                      <button
-                        type="button"
-                        onClick={() => onOpen(listing.id)}
-                        className="flex w-full cursor-pointer items-baseline gap-2 rounded-xl border border-border p-3 text-left transition-colors hover:bg-muted"
-                      >
-                        <span className="font-semibold">{formatPrice(listing.price.value)}</span>
-                        <span className="text-sm text-muted-foreground">
-                          {formatArea(listing.area.value)} · {formatCity(listing.city.value)}
-                        </span>
-                        <span className="ml-auto shrink-0 text-xs text-muted-foreground">
-                          {formatTime(listing.notifiedAt ?? '')}
-                        </span>
-                      </button>
+                      <HistoryRow listing={listing} onOpen={onOpen} />
                     </li>
                   ))}
                 </ul>
