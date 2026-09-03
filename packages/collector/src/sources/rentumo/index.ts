@@ -22,7 +22,7 @@ import type {
   StopReason,
 } from '@rentfinder/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
-import { hasNextPage, parseListPage } from './parser.js';
+import { parseListPage } from './parser.js';
 
 const ORIGIN = 'https://rentumo.com';
 
@@ -49,6 +49,9 @@ export const RENTUMO_DESCRIPTOR: SourceDescriptor = {
   budget: budgetFor('aggregator', { maxPagesPerRun: MAX_PAGES, maxListingsPerRun: 100 }),
   enabled: true,
   manualOnly: true,
+  // Agrégateur : les photos décodées portent l'URL d'origine, propre à UNE
+  // annonce — deux fiches qui la partagent sont le même bien (§14).
+  relaysListings: true,
   allowedPaths: ['/rent-apartment/*', '/listings/*'],
   notes:
     'robots.txt vérifié le 2026-09-03 : Allow: / ; seuls *?sort_by=*, ' +
@@ -99,7 +102,7 @@ export const rentumoScraper: Scraper = {
           stopReason = 'knownTerritory';
           break;
         }
-        if (!hasNextPage(response.body)) break;
+        if (!parsed.hasNext) break;
       } catch (error) {
         // §69 : échec propre, les autres sources continuent.
         const message = error instanceof Error ? error.message : String(error);

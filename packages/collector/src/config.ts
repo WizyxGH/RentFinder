@@ -91,15 +91,6 @@ export interface EditableFilters {
 }
 
 /**
- * Clé sous laquelle le site enregistre ses critères dans `app_settings`.
- *
- * Le fichier `config/search.json` reste la valeur par défaut ; ce qui est en
- * base le surcharge. C'est ce qui permet de régler la recherche depuis le
- * téléphone, alors que le site déployé n'a aucun accès à la machine (§66).
- */
-export const SEARCH_CRITERIA_SETTING = 'searchCriteria';
-
-/**
  * Applique par-dessus une configuration les critères enregistrés par le site.
  *
  * Tolérant par conception, comme la lecture du fichier : une valeur illisible

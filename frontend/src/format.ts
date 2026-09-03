@@ -333,6 +333,7 @@ const SOURCE_NAMES: Readonly<Record<string, string>> = {
   pap: 'PAP',
   personalimmo: 'Personal Immo',
   privilege: 'Agence Privilège',
+  rentumo: 'Rentumo',
   'saint-roch': 'Saint Roch Immobilier',
   'savi-esteve': 'Agence Savi Estève',
   studapart: 'Studapart',

@@ -30,15 +30,6 @@ import { cleanText } from '../../normalization/text.js';
 import { compactListing, type ParsedList } from '../shared/raw-listing.js';
 import { htmlToText } from '../shared/html-text.js';
 
-/** Le site est en anglais ; le reste du projet raisonne en français (§12). */
-const PROPERTY_TYPES: readonly (readonly [RegExp, string])[] = [
-  [/\bstudio\b/i, 'studio'],
-  [/\bapartment\b|\bflat\b/i, 'appartement'],
-  [/\btownhouse\b|\bhouse\b|\bvilla\b/i, 'maison'],
-  [/\broom\b/i, 'chambre'],
-  [/\bparking\b|\bgarage\b/i, 'parking'],
-];
-
 /**
  * URL d'origine d'une image servie par le proxy de Rentumo.
  *
@@ -101,8 +92,14 @@ function headline(description: string): string | undefined {
   return first;
 }
 
+/** Ce qu'une page de résultats rend : ses annonces, et s'il en reste. */
+export interface RentumoList extends ParsedList {
+  /** `true` si la page déclare une suite (`<link rel="next">`). */
+  readonly hasNext: boolean;
+}
+
 /** Extrait les annonces d'une page de résultats. */
-export function parseListPage(html: string, pageUrl: string): ParsedList {
+export function parseListPage(html: string, pageUrl: string): RentumoList {
   const $ = cheerio.load(html);
   const listings: RawListing[] = [];
   const warnings: string[] = [];
@@ -147,10 +144,11 @@ export function parseListPage(html: string, pageUrl: string): ParsedList {
       .filter((text) => text !== '');
     const areaText = facts.find((text) => /m²/i.test(text));
     const bedrooms = facts.find((text) => /\bbedrooms?\b/i.test(text));
-    const typeSource = facts.find((text) => PROPERTY_TYPES.some(([pattern]) => pattern.test(text)));
-    const propertyTypeText = PROPERTY_TYPES.find(([pattern]) =>
-      pattern.test(`${typeSource ?? ''} ${description}`),
-    )?.[1];
+    // Le vocabulaire anglais du site est passé TEL QUEL : c'est
+    // `parsePropertyType` qui décide d'un type de bien, et il le comprend
+    // désormais. Traduire ici en français pour qu'il retraduise ensuite était
+    // un aller-retour, et un couplage muet entre deux fichiers (§12).
+    const propertyTypeText = facts.join(' ');
 
     const priceText = cleanText(card.find('strong').first().text());
     const host = originHost(imageUrls);
@@ -165,7 +163,8 @@ export function parseListPage(html: string, pageUrl: string): ParsedList {
         areaText,
         // « 1 Bedroom » compte les CHAMBRES, pas les pièces : le confondre
         // gonflerait la typologie d'une unité sur tout l'inventaire (§17).
-        ...(bedrooms !== undefined ? { roomsText: bedrooms.replace(/bedrooms?/i, 'chambre') } : {}),
+        // `parsePropertyType` en déduira « appartement », ce qui est juste.
+        ...(bedrooms !== undefined ? { roomsText: bedrooms } : {}),
         propertyTypeText,
         cityText: cityText !== '' ? cityText : undefined,
         imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
@@ -177,10 +176,7 @@ export function parseListPage(html: string, pageUrl: string): ParsedList {
     );
   });
 
-  return { listings, warnings };
-}
-
-/** `true` si la page annonce une suite (`<link rel="next">`). */
-export function hasNextPage(html: string): boolean {
-  return cheerio.load(html)('link[rel="next"]').attr('href') !== undefined;
+  // `hasNext` est rendu ici : le document est déjà analysé, et le relire pour
+  // le seul `<link rel="next">` coûtait une seconde analyse complète.
+  return { listings, warnings, hasNext: $('link[rel="next"]').attr('href') !== undefined };
 }

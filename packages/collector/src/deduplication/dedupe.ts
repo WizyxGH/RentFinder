@@ -122,6 +122,13 @@ export interface DedupeOptions {
    * qui ferait disparaître un logement réel de la liste (§14).
    */
   readonly mergeAmbiguous?: boolean;
+  /**
+   * Dit si une source RELAIE des annonces publiées ailleurs plutôt que d'en
+   * publier (`SourceDescriptor.relaysListings`). Le pipeline le branche sur le
+   * registre ; sans lui, on retient l'hypothèse prudente — aucune source ne
+   * relaie —, celle qui fusionne le moins.
+   */
+  readonly relaysListings?: (sourceId: string) => boolean;
 }
 
 export interface DedupeResult {
@@ -137,6 +144,7 @@ interface CompareContext {
   readonly comparedPairs: Set<string>;
   readonly ambiguousByRoot: Map<string, AmbiguousPair[]>;
   readonly mergeAmbiguous: boolean;
+  readonly relaysListings: (sourceId: string) => boolean;
 }
 
 /**
@@ -153,7 +161,7 @@ function comparePair(leftId: string, rightId: string, ctx: CompareContext): numb
   const right = ctx.byId.get(rightId);
   if (left === undefined || right === undefined) return 0;
 
-  const result = similarity(left, right);
+  const result = similarity(left, right, ctx.relaysListings);
   if (result.verdict === 'duplicate' || (ctx.mergeAmbiguous && result.verdict === 'ambiguous')) {
     ctx.unionFind.union(leftId, rightId);
   } else if (result.verdict === 'ambiguous') {
@@ -205,6 +213,7 @@ export function dedupe(
     comparedPairs: new Set<string>(),
     ambiguousByRoot: new Map<string, AmbiguousPair[]>(),
     mergeAmbiguous: options.mergeAmbiguous ?? false,
+    relaysListings: options.relaysListings ?? ((): boolean => false),
   };
   let comparisonCount = 0;
   for (const bucket of buckets.values()) {

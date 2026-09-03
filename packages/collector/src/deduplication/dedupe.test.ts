@@ -157,7 +157,13 @@ describe('similarity — bruit de niveau AGENCE, au sein d’une même source', 
       rooms: 1,
       imageUrls: [`${photo}&w=500`],
     });
-    expect(similarity(a, b).verdict).toBe('duplicate');
+    // Le prédicat vient du registre : c'est le descripteur de la source qui
+    // déclare `relaysListings`, pas une liste tenue ici.
+    const relays = (sourceId: string): boolean => sourceId === 'email-alerts';
+    expect(similarity(a, b, relays).verdict).toBe('duplicate');
+    // Sans cette déclaration, la prudence reste de mise : deux annonces d'une
+    // même AGENCE partageant un cliché tamponné ne sont pas le même bien.
+    expect(similarity(a, b).verdict).not.toBe('duplicate');
   });
 });
 

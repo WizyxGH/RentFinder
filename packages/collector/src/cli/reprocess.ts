@@ -37,9 +37,9 @@ import {
   loadDotEnv,
   loadPublicConfig,
   loadTransitConfig,
-  SEARCH_CRITERIA_SETTING,
   withStoredCriteria,
 } from '../config.js';
+import { SEARCH_CRITERIA_SETTING } from '@rentfinder/shared';
 import { referencePointsDeclared, resolveReferencePoints } from '../core/reference-points.js';
 
 const here = dirname(fileURLToPath(import.meta.url));

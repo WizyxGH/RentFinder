@@ -115,6 +115,20 @@ export interface SourceDescriptor {
   readonly oneShotListings?: boolean;
 
   /**
+   * La source RELAIE des annonces publiées ailleurs, au lieu d'en publier.
+   *
+   * Conséquence pour le dédoublonnage (§14) : deux annonces d'une même source
+   * de relais qui partagent une PHOTO sont presque sûrement le même bien, vu
+   * deux fois. Chez un site d'agence c'est l'inverse — le même cliché tamponné
+   * illustre volontiers vingt biens distincts, et le signal ne dit rien.
+   *
+   * À ne pas confondre avec `kind` : celui-ci règle fréquence et budget, et
+   * `email-alerts` y est un `portal`. Ce drapeau décrit un COMPORTEMENT, et se
+   * déclare donc ici, avec les autres particularités de la source.
+   */
+  readonly relaysListings?: boolean;
+
+  /**
    * Contact GÉNÉRAL de l'agence, tel qu'elle le publie sur son propre site.
    *
    * Beaucoup d'agences ne mettent aucune coordonnée sur leurs annonces — elles
@@ -266,4 +280,50 @@ export interface Scraper {
    * `stopReason` pour que les autres sources continuent (§69).
    */
   run(context: ScrapeContext): Promise<ScrapeResult>;
+}
+
+/**
+ * Clé sous laquelle les critères de recherche sont enregistrés dans
+ * `app_settings` (§66).
+ *
+ * CONTRAT INTER-PROCESSUS : la collecte l'écrit et la relit, le site déployé
+ * aussi, en direct depuis le navigateur. Ils n'ont aucun autre point de
+ * rencontre — d'où la déclaration ici, seul paquet que les deux importent. La
+ * chaîne existait en quatre exemplaires ; une faute de frappe d'un côté aurait
+ * silencieusement perdu les critères.
+ */
+export const SEARCH_CRITERIA_SETTING = 'searchCriteria';
+
+/**
+ * Portails immobiliers reconnus à leur domaine.
+ *
+ * Les annonces importées par ALERTE E-MAIL portent une URL du portail, parfois
+ * via son domaine de tracking : on la traduit en nom lisible pour lever
+ * l'ambiguïté d'un `sourceId` générique (§17).
+ */
+const PORTAL_LABELS: readonly (readonly [RegExp, string])[] = [
+  [/seloger\.com$/i, 'SeLoger'],
+  [/bienici\.com$/i, "Bien'ici"],
+  [/leboncoin\.fr$/i, 'Leboncoin'],
+  [/pap\.fr$/i, 'PAP'],
+  [/logic-immo\.com$/i, 'Logic-Immo'],
+];
+
+/**
+ * Nom du portail d'où vient une URL, ou `null` si l'hôte n'en est pas un.
+ *
+ * Une seule table pour tout le projet : les notifications et le panneau de
+ * contact en tenaient chacun une, et elles avaient DÉJÀ divergé — Logic-Immo
+ * n'était connu que d'un côté, si bien que la même annonce s'annonçait
+ * « Logic-Immo » dans l'alerte et « aucun portail » sur la fiche.
+ */
+export function portalLabel(url: string | null): string | null {
+  if (url === null) return null;
+  let host: string;
+  try {
+    host = new URL(url).hostname;
+  } catch {
+    return null;
+  }
+  return PORTAL_LABELS.find(([pattern]) => pattern.test(host))?.[1] ?? null;
 }

@@ -11,24 +11,9 @@
  * Toutes sont PURES et testables sans réseau (§59).
  */
 
-import { formatLocation } from '@rentfinder/shared';
+import { formatLocation, portalLabel } from '@rentfinder/shared';
 import type { NotifiableListing } from '../db/repository.js';
 import { sourceDisplayNames } from '../sources/index.js';
-
-/**
- * Portail d'origine déduit de l'URL de l'annonce. Les annonces importées par
- * ALERTE E-MAIL portent une URL du portail (parfois via son domaine de
- * tracking) : on la traduit en nom lisible pour lever l'ambiguïté du
- * `source = email-alerts` (§17). `null` si l'hôte n'est pas un portail connu
- * (annonces d'agences : leur source suffit déjà à les identifier).
- */
-const PORTAL_LABELS: readonly (readonly [RegExp, string])[] = [
-  [/seloger\.com$/i, 'SeLoger'],
-  [/bienici\.com$/i, "Bien'ici"],
-  [/leboncoin\.fr$/i, 'Leboncoin'],
-  [/pap\.fr$/i, 'PAP'],
-  [/logic-immo\.com$/i, 'Logic-Immo'],
-];
 
 /**
  * Nom lisible d'une source à partir de son identifiant (« foncia » → « Foncia »).
@@ -41,17 +26,6 @@ export function sourceName(sourceId: string | null): string | null {
   if (sourceId === null || sourceId === '') return null;
   sourceNamesCache ??= sourceDisplayNames();
   return sourceNamesCache.get(sourceId) ?? null;
-}
-
-export function portalLabel(url: string | null): string | null {
-  if (url === null) return null;
-  let host: string;
-  try {
-    host = new URL(url).hostname;
-  } catch {
-    return null;
-  }
-  return PORTAL_LABELS.find(([pattern]) => pattern.test(host))?.[1] ?? null;
 }
 
 /** D'où sort l'annonce : le portail quand l'URL le dit, sinon la source. */

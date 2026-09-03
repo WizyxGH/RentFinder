@@ -16,7 +16,12 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { formatArea, formatPhone, formatPrice, formatSourceName, telHref } from '../format.js';
-import { FOLLOW_UP_TEMPLATE, prepareMessage, type TenantProfile } from '@rentfinder/shared';
+import {
+  FOLLOW_UP_TEMPLATE,
+  portalLabel,
+  prepareMessage,
+  type TenantProfile,
+} from '@rentfinder/shared';
 import type { ListingView, OccurrenceView } from '../types.js';
 import { fetchDocuments, isDemoMode, type DocumentInfo } from '../api/client.js';
 import { Button, ButtonLink } from '@/components/ui/button.js';
@@ -47,28 +52,12 @@ function actionLink(
 
 const MUTED_NOTE = 'my-1.5 text-[0.82rem] text-muted-foreground';
 
-/** Portail d'origine déduit de l'URL de contact (ex. lien SeLoger d'une alerte). */
-function portalOf(url: string | null): string | null {
-  if (url === null) return null;
-  let host: string;
-  try {
-    host = new URL(url).hostname;
-  } catch {
-    return null;
-  }
-  if (/seloger\.com$/i.test(host)) return 'SeLoger';
-  if (/bienici\.com$/i.test(host)) return "Bien'ici";
-  if (/leboncoin\.fr$/i.test(host)) return 'Leboncoin';
-  if (/pap\.fr$/i.test(host)) return 'PAP';
-  return null;
-}
-
 /** Libellé du bouton d'ouverture, explicite selon le canal disponible. */
 function openButtonLabel(channel: string, recipient: string | null): string {
   if (channel === 'email') return 'Ouvrir l’e-mail';
   if (channel === 'phone') return 'Appeler';
   if (channel === 'form') {
-    const portal = portalOf(recipient);
+    const portal = portalLabel(recipient);
     return portal !== null ? `Contacter via ${portal}` : 'Ouvrir le formulaire';
   }
   return 'Ouvrir';
@@ -112,7 +101,7 @@ function agencyHomepage(listing: ListingView): string | null {
   } catch {
     return null;
   }
-  return portalOf(url) !== null || /studapart|lodgis|inli/i.test(host) ? null : origin;
+  return portalLabel(url) !== null || /studapart|lodgis|inli/i.test(host) ? null : origin;
 }
 
 /** Une occurrence : la source, son loyer et sa surface, en lien vers l'annonce. */

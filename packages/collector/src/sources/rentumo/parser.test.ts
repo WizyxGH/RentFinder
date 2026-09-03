@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { decodeProxiedImage, hasNextPage, parseListPage } from './parser.js';
+import { decodeProxiedImage, parseListPage } from './parser.js';
 
 const HTML = readFileSync(
   fileURLToPath(new URL('../../../../../tests/fixtures/rentumo/liste.html', import.meta.url)),
@@ -27,7 +27,7 @@ describe('decodeProxiedImage (Rentumo)', () => {
 });
 
 describe('parseListPage (Rentumo)', () => {
-  const { listings, warnings } = parseListPage(HTML, PAGE);
+  const { listings, warnings, hasNext } = parseListPage(HTML, PAGE);
 
   it('lit chaque carte sans avertissement', () => {
     expect(listings).toHaveLength(2);
@@ -41,13 +41,14 @@ describe('parseListPage (Rentumo)', () => {
     expect(first?.priceText).toBe('€ 510');
     expect(first?.areaText).toBe('18 m²');
     expect(first?.cityText).toBe('Nice');
-    expect(first?.propertyTypeText).toBe('appartement');
+    // Le vocabulaire anglais part tel quel : `parsePropertyType` le comprend.
+    expect(first?.propertyTypeText).toMatch(/Apartment/);
   });
 
   it('compte les CHAMBRES, jamais les pièces', () => {
     // « 1 Bedroom » n'est pas « 1 pièce » : les confondre décalerait la
     // typologie de tout l'inventaire.
-    expect(listings[0]?.roomsText).toBe('1 chambre');
+    expect(listings[0]?.roomsText).toBe('1 Bedroom');
   });
 
   it('remplace la photo du proxy par son adresse d’origine', () => {
@@ -64,11 +65,9 @@ describe('parseListPage (Rentumo)', () => {
     expect(listings[1]?.title).toBeUndefined();
     expect(listings[1]?.description).toMatch(/Loyer/);
   });
-});
 
-describe('hasNextPage (Rentumo)', () => {
   it('suit la pagination déclarée par le site', () => {
-    expect(hasNextPage(HTML)).toBe(true);
-    expect(hasNextPage('<html></html>')).toBe(false);
+    expect(hasNext).toBe(true);
+    expect(parseListPage('<html></html>', PAGE).hasNext).toBe(false);
   });
 });

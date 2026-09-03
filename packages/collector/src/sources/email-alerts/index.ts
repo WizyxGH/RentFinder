@@ -40,6 +40,8 @@ export const EMAIL_ALERTS_DESCRIPTOR: SourceDescriptor = {
   // Le portail envoie chaque annonce une fois : son absence des digests
   // suivants ne prouve rien (voir `oneShotListings`).
   oneShotListings: true,
+  // Relais de portails : une photo partagée désigne le même bien (§14).
+  relaysListings: true,
   enabled: true,
   // Premier contact via le lien du portail, à la main de l'utilisateur (§23).
   manualOnly: true,

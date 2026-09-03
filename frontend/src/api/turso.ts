@@ -13,6 +13,7 @@
  */
 
 import { createClient, type Client } from '@libsql/client/web';
+import { SEARCH_CRITERIA_SETTING } from '@rentfinder/shared';
 import { byRecency } from '../recency.js';
 import type { FilterConfig, ListingView, SourceStateView, StatsData } from '../types.js';
 
@@ -187,6 +188,7 @@ function writeStore(snapshot: Snapshot): void {
 export function invalidate(): void {
   memo = null;
   probedAt = 0;
+  criteriaCache = undefined;
   try {
     localStorage.removeItem(STORE_KEY);
   } catch {
@@ -437,7 +439,19 @@ const SETTINGS_TABLE = `CREATE TABLE IF NOT EXISTS app_settings (
    key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at TEXT NOT NULL
  )`;
 
-const CRITERIA_KEY = 'searchCriteria';
+/**
+ * Le DDL n'est joué QU'UNE FOIS par session.
+ *
+ * Il était rejoué à chaque lecture et à chaque écriture des critères — deux
+ * allers-retours au lieu d'un, à chaque ouverture de « Trier et filtrer »
+ * puisque le panneau y est monté et démonté (§30).
+ */
+let settingsTableReady: Promise<unknown> | null = null;
+
+async function ensureSettingsTable(): Promise<void> {
+  settingsTableReady ??= client().execute(SETTINGS_TABLE);
+  await settingsTableReady;
+}
 
 /**
  * Critères mémorisés pour la durée de la session : la liste se refiltre à
@@ -447,16 +461,23 @@ const CRITERIA_KEY = 'searchCriteria';
 let criteriaCache: FilterConfig | null | undefined;
 
 async function cachedCriteria(): Promise<FilterConfig | null> {
-  if (criteriaCache === undefined) criteriaCache = await readSearchCriteria();
+  if (criteriaCache === undefined) criteriaCache = await fetchSearchCriteria();
   return criteriaCache;
 }
 
+/**
+ * Critères en base, mémorisés pour la session. Point d'entrée unique : lire
+ * une ligne à chaque ouverture de modale n'apprend rien (§30).
+ */
 export async function readSearchCriteria(): Promise<FilterConfig | null> {
-  const db = client();
-  await db.execute(SETTINGS_TABLE);
-  const result = await db.execute({
+  return cachedCriteria();
+}
+
+async function fetchSearchCriteria(): Promise<FilterConfig | null> {
+  await ensureSettingsTable();
+  const result = await client().execute({
     sql: 'SELECT value FROM app_settings WHERE key = ?',
-    args: [CRITERIA_KEY],
+    args: [SEARCH_CRITERIA_SETTING],
   });
   const raw = result.rows[0]?.['value'];
   if (typeof raw !== 'string') return null;
@@ -469,13 +490,12 @@ export async function readSearchCriteria(): Promise<FilterConfig | null> {
 }
 
 export async function writeSearchCriteria(filters: FilterConfig): Promise<void> {
-  const db = client();
-  await db.execute(SETTINGS_TABLE);
-  await db.execute({
+  await ensureSettingsTable();
+  await client().execute({
     sql: `INSERT INTO app_settings (key, value, updated_at) VALUES (?,?,?)
           ON CONFLICT(key) DO UPDATE SET value = excluded.value,
                                          updated_at = excluded.updated_at`,
-    args: [CRITERIA_KEY, JSON.stringify(filters), new Date().toISOString()],
+    args: [SEARCH_CRITERIA_SETTING, JSON.stringify(filters), new Date().toISOString()],
   });
   criteriaCache = filters;
 }

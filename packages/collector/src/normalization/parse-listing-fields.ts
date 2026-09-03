@@ -150,12 +150,20 @@ export function parsePropertyType(text: string | null | undefined): PropertyType
   // presque toujours un ATOUT du logement ; il ne désigne le bien lui-même que
   // lorsque aucun type d'habitation n'est nommé (22 fiches sur 59 étaient dans
   // ce cas au 2026-09-03).
+  //
+  // Le vocabulaire ANGLAIS est reconnu ici, au seul endroit qui décide d'un
+  // type de bien : plusieurs sources publient en anglais (Rentumo, Lodgis,
+  // Studapart). Le parseur Rentumo traduisait « Apartment » en
+  // « appartement » pour que cette fonction le retraduise en `apartment` —
+  // un aller-retour qui couplait silencieusement les deux fichiers.
   if (/\bstudio\b|\bstudette\b/.test(lower)) return 'studio';
   if (/\bloft\b/.test(lower)) return 'loft';
-  if (/\bchambre\b/.test(lower) && !/\bappartement\b/.test(lower)) return 'room';
-  if (/\bappartement\b|\bappart\b|\bduplex\b|\bt\d\b|\bf\d\b/.test(lower)) return 'apartment';
-  if (/\bmaison\b|\bvilla\b|\bpavillon\b/.test(lower)) return 'house';
-  if (/\bpieces?\b/.test(lower)) return 'apartment';
+  if (/\b(chambre|room)\b/.test(lower) && !/\b(appartement|apartment)\b/.test(lower)) {
+    return 'room';
+  }
+  if (/\b(appartement|appart|apartment|flat|duplex|t\d|f\d)\b/.test(lower)) return 'apartment';
+  if (/\b(maison|villa|pavillon|house|townhouse)\b/.test(lower)) return 'house';
+  if (/\b(pieces?|bedrooms?)\b/.test(lower)) return 'apartment';
 
   // Aucun logement nommé : « Location Stationnement », box, garage…
   if (/\bstationnement\b|\bparking\b|\bgarage\b|\bbox\b|\bemplacement\b/.test(lower)) {
@@ -421,30 +429,47 @@ const STREET_ADDRESS = new RegExp(
 const BARE_STREET = new RegExp(`^(?:${STREET_KINDS})\\s+[^,;.:()!?0-9"«»”„]{2,45}$`, 'i');
 
 /**
- * Ce qui disqualifie un segment commençant pourtant par un type de voie.
+ * FAUX AMIS : un segment qui commence par un type de voie sans désigner une
+ * adresse — « Place de parking », « Passage couvert », « Box fermé ».
  *
- * Deux familles :
- *   - les FAUX AMIS — « Place de parking », « Passage couvert » — qui ne
- *     désignent aucune adresse ;
- *   - la PROSE qui suit une voie sans ponctuation pour l'en séparer :
- *     « rue Dr Barety Dans résidence sécurisée » donnait une adresse qui
- *     emportait la phrase suivante, et qu'aucun géocodeur ne retrouve.
- *
- * Écarter un segment est sans gravité — on n'affiche alors pas de rue — alors
- * qu'une adresse fausse s'affiche et trompe (§17).
+ * Ce prédicat juge CE QU'EST le segment. Il vaut donc pour une adresse de
+ * n'importe quelle provenance, y compris déjà stockée.
  */
-const NOT_A_STREET =
-  /\b(parking|stationnement|garage|box|voiture|moto|velo|vélo|couvert|dans|proche|avec|situ[ée]e?|id[ée]ale?|entre|r[ée]sidence|immeuble|appartement|studio|villa|copropri[ée]t[ée])\b/i;
+const NOT_A_STREET = /\b(parking|stationnement|garage|box|voiture|moto|velo|vélo|couvert)\b/i;
+
+/**
+ * PROSE : les mots qui trahissent une extraction ayant mordu sur la phrase
+ * suivante, faute de ponctuation — « rue Dr Barety Dans résidence sécurisée ».
+ *
+ * Ce prédicat juge OÙ le segment aurait dû s'arrêter, et n'a donc de sens que
+ * sur un texte qu'on vient d'extraire. L'appliquer à une adresse publiée par
+ * la source effacerait des adresses postales parfaitement valides : « 12 Rue
+ * X, Résidence Les Oliviers » est écrit ainsi par plusieurs agences, et
+ * `streetAddress` en JSON-LD en contient couramment.
+ */
+const PROSE_AFTER_STREET =
+  /\b(dans|proche|avec|situ[ée]e?|id[ée]ale?|entre|r[ée]sidence|immeuble|appartement|studio|villa|copropri[ée]t[ée])\b/i;
+
+/** `true` si le segment fraîchement extrait est bien une voie, et rien de plus. */
+function isCleanStreet(candidate: string): boolean {
+  return !NOT_A_STREET.test(candidate) && !PROSE_AFTER_STREET.test(candidate);
+}
 
 /**
  * `true` si une adresse DÉJÀ STOCKÉE reste plausible.
  *
- * Sert au rattrapage : une adresse qui contient de la prose a mordu sur la
- * phrase suivante, et l'est restée quelle que soit la source qui l'a publiée.
- * Mieux vaut n'afficher aucune rue qu'une rue fausse (§17, §20).
+ * Sert au rattrapage, et applique les DEUX critères — y compris la prose.
+ *
+ * LE COMPROMIS EST ASSUMÉ. Une adresse postale peut légitimement contenir
+ * « Résidence » ou « Immeuble », et certaines sources la publient ainsi dans
+ * un champ structuré : on en perd alors une juste. Mais §17 tranche dans
+ * l'autre sens — mieux vaut n'afficher aucune rue qu'une rue introuvable sur
+ * une carte. Mesuré sur l'inventaire du 2026-09-03 : 14 adresses écartées, 14
+ * réellement fausses, aucune perte légitime (les 203 adresses structurées de
+ * Studapart sont intactes).
  */
 export function looksLikeStreet(address: string): boolean {
-  return !NOT_A_STREET.test(address);
+  return isCleanStreet(address);
 }
 
 /** Portion de description où l'on accepte de lire une adresse (cf. ci-dessous). */
@@ -498,7 +523,7 @@ export function extractStreetAddress(text: string | null | undefined): string | 
   // Le même garde-fou que pour une voie sans numéro : quand la ponctuation
   // manque, l'adresse mordait sur la phrase suivante — « 1 rue de Orestis Très
   // bel appartement de ». Un numéro ne rachète pas une adresse fausse (§17).
-  if (numbered?.[1] !== undefined && !NOT_A_STREET.test(numbered[1])) {
+  if (numbered?.[1] !== undefined && isCleanStreet(numbered[1])) {
     return cleanText(numbered[1]);
   }
 
@@ -511,7 +536,7 @@ export function extractStreetAddress(text: string | null | undefined): string | 
     if (offset > ADDRESS_HEAD) break;
     offset += segment.length + 1;
     const trimmed = segment.trim();
-    if (BARE_STREET.test(trimmed) && !NOT_A_STREET.test(trimmed)) return cleanText(trimmed);
+    if (BARE_STREET.test(trimmed) && isCleanStreet(trimmed)) return cleanText(trimmed);
   }
   return null;
 }

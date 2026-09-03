@@ -349,18 +349,25 @@ export function App(): React.JSX.Element {
   // Mémorise les réglages d'affichage à chaque changement. Un effet plutôt
   // qu'une écriture dans chaque setter : neuf points d'écriture auraient fini
   // par diverger, et un oubli ne se voit pas.
+  //
+  // DIFFÉRÉ d'un tiers de seconde : `localStorage` écrit de façon synchrone, et
+  // sérialiser tout l'état à chaque caractère tapé dans la recherche bloquait
+  // le fil principal pour rien. Une écriture par pause de saisie suffit.
   useEffect(() => {
-    writeViewState({
-      sort,
-      quickFilters,
-      selectedSources,
-      search,
-      hideUncertain,
-      includeOutOfCriteria,
-      showArchived,
-      favoritesOnly,
-      displayMode,
-    });
+    const timer = window.setTimeout(() => {
+      writeViewState({
+        sort,
+        quickFilters,
+        selectedSources,
+        search,
+        hideUncertain,
+        includeOutOfCriteria,
+        showArchived,
+        favoritesOnly,
+        displayMode,
+      });
+    }, 300);
+    return () => window.clearTimeout(timer);
   }, [
     sort,
     quickFilters,

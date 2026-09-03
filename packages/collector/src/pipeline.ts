@@ -438,7 +438,12 @@ export async function regroupAndScore(
   const { repository, logger, config } = options;
 
   const corpus = await repository.allActiveOccurrences();
-  const { groups, comparisonCount } = dedupe(corpus);
+  // Le registre sait quelles sources RELAIENT des annonces publiées ailleurs :
+  // chez elles, une photo partagée désigne le même bien (§14).
+  const { groups, comparisonCount } = dedupe(corpus, {
+    relaysListings: (sourceId) =>
+      options.registry.get(sourceId)?.descriptor.relaysListings === true,
+  });
   logger.info('pipeline.deduplicated', { groups: groups.length, comparisons: comparisonCount });
 
   // Baisses de loyer des 14 derniers jours : signal d'opportunité (§17).

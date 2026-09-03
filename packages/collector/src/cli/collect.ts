@@ -27,9 +27,9 @@ import {
   loadTelegramConfig,
   loadTransitConfig,
   loadImapConfig,
-  SEARCH_CRITERIA_SETTING,
   withStoredCriteria,
 } from '../config.js';
+import { SEARCH_CRITERIA_SETTING } from '@rentfinder/shared';
 import { resolveReferencePoints } from '../core/reference-points.js';
 import { notifyNewListings, editRentedTelegramMessages } from '../notify/telegram.js';
 import { loadVapidConfig, sendWebPush } from '../notify/web-push.js';

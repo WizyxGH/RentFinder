@@ -14,9 +14,8 @@ import type {
   RawListing,
   SourceId,
 } from '@rentfinder/shared';
-import { EMPTY_CONTACT } from '@rentfinder/shared';
+import { EMPTY_CONTACT, SHORT_TERM_LEASE_FEATURE } from '@rentfinder/shared';
 import { cleanText, comparable } from './text.js';
-import { SHORT_TERM_LEASE_FEATURE } from '@rentfinder/shared';
 import {
   isShortTermStudentLease,
   looksLikeStreet,
@@ -314,8 +313,8 @@ export function rederiveFromText(occurrence: NormalizedListing): NormalizedListi
 
   const fromText = dedupeStreetAddress(extractStreetAddress(occurrence.description));
   const address =
-    occurrence.address === null || looksLikeStreet(occurrence.address)
-      ? (occurrence.address ?? fromText)
+    occurrence.address !== null && looksLikeStreet(occurrence.address)
+      ? occurrence.address
       : fromText;
 
   // Le type ne se corrige que DANS UN SENS : un « parking » que le titre

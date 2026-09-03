@@ -20,6 +20,7 @@ import * as cheerio from 'cheerio';
 import type { RawListing } from '@rentfinder/shared';
 import { cleanText } from '../../normalization/text.js';
 import { compactListing } from '../shared/raw-listing.js';
+import { htmlToText } from '../shared/html-text.js';
 
 /** Typologie déduite du dossier photo `Ap3P-53-Nice-Cimiez-51`. */
 export interface PhotoSlug {
@@ -173,7 +174,10 @@ export function parseDetailPage(html: string, pageUrl: string): DinamyDetail {
     dpe?: string;
   } = {};
 
-  const description = cleanText($('#description_annonce').first().find('p').first().text());
+  // `htmlToText` et non `.text()` : la description est écrite en paragraphes,
+  // et n'en lire que le PREMIER `<p>` perdait le reste — dont la rue, parfois
+  // citée plus bas. Les retours à la ligne sont conservés.
+  const description = htmlToText($, '#description_annonce p');
   if (description !== '') detail.description = description;
 
   const seen = new Set<string>();

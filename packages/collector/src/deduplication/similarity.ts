@@ -128,32 +128,24 @@ function imageIdentity(url: string): string | null {
 }
 
 /**
- * Sources qui TRANSPORTENT des annonces d'ailleurs au lieu d'en publier.
- *
- * `email-alerts` n'est pas une agence : c'est un flux de digests qui relaie des
- * annonces de portails. Chaque photo y vient du serveur média du portail et est
- * propre à UNE annonce (`mms.seloger.com/<uuid>.jpg`), là où un site d'agence
- * réutilise volontiers le même cliché tamponné.
- *
- * La distinction compte : sans elle, deux digests relayant la MÊME annonce
- * SeLoger — sous deux schémas de référence successifs — restaient deux fiches
- * distinctes malgré une URL de photo identique au caractère près.
- */
-const TRANSPORT_SOURCES = new Set(['email-alerts']);
-
-/**
  * `true` si les deux annonces publient au moins une image identique.
  *
- * ENTRE SOURCES DIFFÉRENTES, ou au sein d'une source de TRANSPORT. Le signal
- * repose sur le fait qu'une agence pousse les mêmes fichiers vers le portail et
- * vers son propre site ; au sein d'UNE agence il ne dit rien, car certaines
- * illustrent des dizaines d'annonces avec la même photo tamponnée — Citya en
- * réutilise une sur quatorze biens distincts, Saint-Roch sur cinq. Combiné au
- * téléphone de l'accueil, commun lui aussi, cela suffisait à faire disparaître
- * une annonce bien réelle (§14).
+ * ENTRE SOURCES DIFFÉRENTES, ou au sein d'une source qui RELAIE (voir
+ * `SourceDescriptor.relaysListings`). Le signal repose sur le fait qu'une
+ * agence pousse les mêmes fichiers vers le portail et vers son propre site ; au
+ * sein d'UNE agence il ne dit rien, car certaines illustrent des dizaines
+ * d'annonces avec la même photo tamponnée — Citya en réutilise une sur quatorze
+ * biens distincts, Saint-Roch sur cinq. Combiné au téléphone de l'accueil,
+ * commun lui aussi, cela suffisait à faire disparaître une annonce bien réelle
+ * (§14). Chez un relais, à l'inverse, chaque photo vient du serveur média du
+ * site d'origine et n'illustre qu'UNE annonce.
  */
-function sharesImage(a: NormalizedListing, b: NormalizedListing): boolean {
-  if (a.sourceId === b.sourceId && !TRANSPORT_SOURCES.has(a.sourceId)) return false;
+function sharesImage(
+  a: NormalizedListing,
+  b: NormalizedListing,
+  relaysListings: (sourceId: string) => boolean,
+): boolean {
+  if (a.sourceId === b.sourceId && !relaysListings(a.sourceId)) return false;
   const left = new Set(a.imageUrls.map(imageIdentity).filter((x): x is string => x !== null));
   if (left.size === 0) return false;
   return b.imageUrls.some((url) => {
@@ -166,11 +158,12 @@ function collectStrongSignals(
   a: NormalizedListing,
   b: NormalizedListing,
   push: (signal: SimilaritySignal) => void,
+  relaysListings: (sourceId: string) => boolean,
 ): void {
   // Une PHOTO commune entre deux sources est le signal le plus sûr dont on
   // dispose, et il est gratuit : on compare des URL déjà collectées, sans
   // télécharger d'image.
-  if (sharesImage(a, b)) {
+  if (sharesImage(a, b, relaysListings)) {
     push({ code: 'image', label: 'photo identique', points: 45 });
   }
 
@@ -281,8 +274,19 @@ function collectMediumSignals(
   }
 }
 
-/** Compare deux occurrences et rend un verdict motivé. */
-export function similarity(a: NormalizedListing, b: NormalizedListing): SimilarityResult {
+/**
+ * Compare deux occurrences et rend un verdict motivé.
+ *
+ * @param relaysListings dit si une source RELAIE des annonces publiées ailleurs
+ *   (`SourceDescriptor.relaysListings`). Par défaut « non » : sans registre
+ *   sous la main — dans un test unitaire, par exemple — on retient l'hypothèse
+ *   prudente, celle qui fusionne le moins (§14).
+ */
+export function similarity(
+  a: NormalizedListing,
+  b: NormalizedListing,
+  relaysListings: (sourceId: string) => boolean = () => false,
+): SimilarityResult {
   // Identité : la même annonce, sur la même source.
   if (a.id === b.id) {
     return {
@@ -303,7 +307,7 @@ export function similarity(a: NormalizedListing, b: NormalizedListing): Similari
     signals.push(signal);
   };
 
-  collectStrongSignals(a, b, push);
+  collectStrongSignals(a, b, push, relaysListings);
   collectMediumSignals(a, b, push);
 
   const score = Math.min(

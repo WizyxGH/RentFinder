@@ -604,49 +604,38 @@ export function createRepository(db: Database): Repository {
 
     async absorbOrphanListings() {
       const orphans = await db.execute(
-        `SELECT id, payload FROM listings
-          WHERE id NOT IN (SELECT group_id FROM occurrences WHERE group_id IS NOT NULL)`,
+        `SELECT id, payload FROM listings WHERE ${ORPHAN_PREDICATE}`,
       );
       if (orphans.rows.length === 0) return 0;
 
-      // Successeur = la fiche qui porte AUJOURD'HUI les occurrences de
-      // l'orpheline. On l'interroge occurrence par occurrence, à la source.
+      // Le rattachement ACTUEL de chaque occurrence, en UNE lecture. La version
+      // précédente interrogeait la base une fois par orpheline : autant
+      // d'allers-retours vers Turso, facturés et lents, pour une donnée qui
+      // tient en une table (§30).
+      const groups = await db.execute(
+        `SELECT id, group_id FROM occurrences WHERE group_id IS NOT NULL`,
+      );
+      const groupByOccurrence = new Map(
+        groups.rows.map((row) => [String(row['id']), String(row['group_id'])]),
+      );
+
+      // Successeur = la fiche qui porte aujourd'hui les occurrences de
+      // l'orpheline, telles que sa charge utile les énumère.
       const predecessors = new Map<string, string[]>();
       for (const row of orphans.rows) {
         const orphanId = String(row['id']);
-        let occurrenceIds: string[] = [];
-        try {
-          const payload = JSON.parse(String(row['payload'] ?? '{}')) as {
-            occurrences?: { id?: unknown }[];
-          };
-          occurrenceIds = (payload.occurrences ?? [])
-            .map((occurrence) => occurrence.id)
-            .filter((id): id is string => typeof id === 'string');
-        } catch {
-          continue; // charge utile illisible : on n'y touche pas
-        }
-        if (occurrenceIds.length === 0) continue;
-
-        const groups = await db.execute({
-          sql: `SELECT DISTINCT group_id FROM occurrences
-                 WHERE group_id IS NOT NULL AND id IN (${occurrenceIds.map(() => '?').join(',')})`,
-          args: occurrenceIds,
-        });
-        const successors = groups.rows
-          .map((group) => String(group['group_id']))
-          .filter((id) => id !== orphanId);
+        const successors = new Set(
+          occurrenceIdsOf(row['payload'])
+            .map((id) => groupByOccurrence.get(id))
+            .filter((id): id is string => id !== undefined && id !== orphanId),
+        );
         // Un seul successeur, sinon on ne saurait pas à qui donner la décision.
-        if (successors.length !== 1 || successors[0] === undefined) continue;
-        predecessors.set(successors[0], [...(predecessors.get(successors[0]) ?? []), orphanId]);
+        const [successor] = successors;
+        if (successors.size !== 1 || successor === undefined) continue;
+        predecessors.set(successor, [...(predecessors.get(successor) ?? []), orphanId]);
       }
 
-      const before = orphans.rows.length;
-      await inheritUserState(db, predecessors);
-      const after = await db.execute(
-        `SELECT COUNT(*) AS n FROM listings
-          WHERE id NOT IN (SELECT group_id FROM occurrences WHERE group_id IS NOT NULL)`,
-      );
-      return before - Number(after.rows[0]?.['n'] ?? before);
+      return inheritUserState(db, predecessors);
     },
 
     async realignOccurrenceIds() {
@@ -696,16 +685,18 @@ export function createRepository(db: Database): Repository {
       if (listings.length === 0) return { inserted: 0, updated: 0, unchanged: 0 };
 
       const ids = listings.map((listing) => listing.id);
-      const existing = await db.execute({
-        sql: `SELECT id, content_hash FROM listings WHERE id IN (${ids.map(() => '?').join(',')})`,
-        args: ids,
-      });
-
-      // À QUELLE FICHE ces occurrences appartenaient-elles AVANT ce passage ?
-      // La question doit être posée maintenant : le rattachement plus bas
-      // écrase la réponse, et sans elle une fusion perdrait le suivi porté par
-      // la fiche absorbée (voir `inheritUserState`).
-      const predecessors = await previousGroups(db, listings);
+      // Deux lectures indépendantes : les mener de front épargne une latence.
+      // La seconde répond à « à quelle fiche ces occurrences appartenaient-elles
+      // AVANT ce passage ? », question qu'il faut poser maintenant — le
+      // rattachement plus bas écrase la réponse, et sans elle une fusion
+      // perdrait le suivi porté par la fiche absorbée (voir `inheritUserState`).
+      const [existing, predecessors] = await Promise.all([
+        db.execute({
+          sql: `SELECT id, content_hash FROM listings WHERE id IN (${ids.map(() => '?').join(',')})`,
+          args: ids,
+        }),
+        previousGroups(db, listings),
+      ]);
       const known = new Map(
         existing.rows.map((row) => [String(row['id']), String(row['content_hash'])]),
       );
@@ -802,7 +793,7 @@ export function createRepository(db: Database): Repository {
       // effacé (§14).
       const orphans = await db.execute(`
         DELETE FROM listings
-        WHERE id NOT IN (SELECT group_id FROM occurrences WHERE group_id IS NOT NULL)
+        WHERE ${ORPHAN_PREDICATE}
           AND favorite = 0 AND archived = 0
           AND (tracking IS NULL OR tracking IN ('none', 'new'))
       `);
@@ -1424,6 +1415,24 @@ function serializeListing(listing: ScoredListing): unknown {
 }
 
 /**
+ * Une fiche n'est plus rattachée à aucune occurrence : sa remplaçante les a
+ * toutes prises. Écrit une seule fois — le prédicat servait à trois endroits.
+ */
+const ORPHAN_PREDICATE = 'id NOT IN (SELECT group_id FROM occurrences WHERE group_id IS NOT NULL)';
+
+/** Identifiants d'occurrence énumérés par la charge utile d'une fiche. */
+function occurrenceIdsOf(payload: unknown): string[] {
+  try {
+    const parsed = JSON.parse(String(payload ?? '{}')) as { occurrences?: { id?: unknown }[] };
+    return (parsed.occurrences ?? [])
+      .map((occurrence) => occurrence.id)
+      .filter((id): id is string => typeof id === 'string');
+  } catch {
+    return []; // charge utile illisible : on n'y touche pas
+  }
+}
+
+/**
  * Fiche à laquelle chaque occurrence était rattachée AVANT ce passage.
  *
  * @returns pour chaque fiche écrite, les identifiants des fiches dont elle
@@ -1434,16 +1443,13 @@ async function previousGroups(
   db: Database,
   listings: readonly ScoredListing[],
 ): Promise<Map<string, string[]>> {
-  const occurrenceIds = listings.flatMap((listing) =>
-    listing.occurrences.map((occurrence) => occurrence.id),
-  );
-  if (occurrenceIds.length === 0) return new Map();
+  if (listings.length === 0) return new Map();
 
-  const rows = await db.execute({
-    sql: `SELECT id, group_id FROM occurrences
-           WHERE group_id IS NOT NULL AND id IN (${occurrenceIds.map(() => '?').join(',')})`,
-    args: occurrenceIds,
-  });
+  // Toute la table de rattachement en UNE lecture, sans paramètre lié. Passer
+  // un placeholder par occurrence du corpus — près d'un millier — frôlait la
+  // limite de variables de SQLite pour un gain nul : la colonne est indexée et
+  // le filtrage se fait en mémoire.
+  const rows = await db.execute(`SELECT id, group_id FROM occurrences WHERE group_id IS NOT NULL`);
   const groupByOccurrence = new Map(
     rows.rows.map((row) => [String(row['id']), String(row['group_id'])]),
   );
@@ -1482,34 +1488,54 @@ async function previousGroups(
 async function inheritUserState(
   db: Database,
   predecessors: ReadonlyMap<string, string[]>,
-): Promise<void> {
+): Promise<number> {
+  let absorbedCount = 0;
+
   for (const [survivor, absorbed] of predecessors) {
     const placeholders = absorbed.map(() => '?').join(',');
+
+    // Une SEULE lecture des lignes absorbées. La version précédente rejouait la
+    // même sous-requête six fois dans un `UPDATE` — six balayages, et six
+    // `...absorbed` alignés à la main dans `args`, qu'un spread en trop
+    // décalait sans la moindre erreur de compilation.
+    const state = await db.execute({
+      sql: `SELECT MAX(favorite)   AS favorite,
+                   MAX(archived)   AS archived,
+                   MAX(viewed)     AS viewed,
+                   MAX(notified)   AS notified,
+                   MIN(notified_at) AS notified_at,
+                   MAX(CASE WHEN tracking NOT IN ('new', 'none') THEN tracking END) AS tracking
+              FROM listings WHERE id IN (${placeholders})`,
+      args: absorbed,
+    });
+    const row = state.rows[0];
+    if (row === undefined) continue;
+    const flag = (key: string): number => (Number(row[key] ?? 0) === 1 ? 1 : 0);
+    const inheritedTracking = row['tracking'] === null ? null : String(row['tracking']);
+
+    // Les drapeaux se cumulent ; le suivi n'est repris que si la survivante
+    // n'en porte pas déjà un — on ne fait jamais reculer un statut plus avancé.
     await db.execute({
       sql: `UPDATE listings
-               SET favorite = MAX(favorite, COALESCE((SELECT MAX(favorite) FROM listings WHERE id IN (${placeholders})), 0)),
-                   archived = MAX(archived, COALESCE((SELECT MAX(archived) FROM listings WHERE id IN (${placeholders})), 0)),
-                   viewed   = MAX(viewed,   COALESCE((SELECT MAX(viewed)   FROM listings WHERE id IN (${placeholders})), 0)),
-                   notified = MAX(notified, COALESCE((SELECT MAX(notified) FROM listings WHERE id IN (${placeholders})), 0)),
-                   notified_at = COALESCE(notified_at, (SELECT MIN(notified_at) FROM listings WHERE id IN (${placeholders}))),
+               SET favorite = MAX(favorite, ?),
+                   archived = MAX(archived, ?),
+                   viewed   = MAX(viewed, ?),
+                   notified = MAX(notified, ?),
+                   notified_at = COALESCE(notified_at, ?),
                    tracking = CASE
-                     WHEN tracking IN ('new', 'none') OR tracking IS NULL
-                       THEN COALESCE(
-                         (SELECT tracking FROM listings
-                           WHERE id IN (${placeholders})
-                             AND tracking IS NOT NULL AND tracking NOT IN ('new', 'none')
-                           LIMIT 1),
-                         tracking)
+                     WHEN (tracking IS NULL OR tracking IN ('new', 'none')) AND ? IS NOT NULL
+                       THEN ?
                      ELSE tracking
                    END
              WHERE id = ?`,
       args: [
-        ...absorbed,
-        ...absorbed,
-        ...absorbed,
-        ...absorbed,
-        ...absorbed,
-        ...absorbed,
+        flag('favorite'),
+        flag('archived'),
+        flag('viewed'),
+        flag('notified'),
+        row['notified_at'] === null ? null : String(row['notified_at']),
+        inheritedTracking,
+        inheritedTracking,
         survivor,
       ],
     });
@@ -1517,13 +1543,14 @@ async function inheritUserState(
     // La décision est en sûreté : la ligne absorbée peut disparaître, à
     // condition qu'elle ne porte plus aucune occurrence (une fusion partielle
     // la laisse vivante, avec ce qui lui reste).
-    await db.execute({
-      sql: `DELETE FROM listings
-             WHERE id IN (${placeholders})
-               AND id NOT IN (SELECT group_id FROM occurrences WHERE group_id IS NOT NULL)`,
+    const removed = await db.execute({
+      sql: `DELETE FROM listings WHERE id IN (${placeholders}) AND ${ORPHAN_PREDICATE}`,
       args: absorbed,
     });
+    absorbedCount += removed.rowsAffected;
   }
+
+  return absorbedCount;
 }
 
 /**

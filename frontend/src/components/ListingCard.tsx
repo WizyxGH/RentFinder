@@ -41,8 +41,11 @@ interface ListingCardProps {
 
 /**
  * Palier de priorité → libellé. La COULEUR, elle, ne varie plus : la barre est
- * rouge partout, et c'est sa LONGUEUR qui compare deux annonces. Un dégradé de
+ * verte partout, et c'est sa LONGUEUR qui compare deux annonces. Un dégradé de
  * teintes ajoutait un second code à déchiffrer pour la même information.
+ *
+ * Verte, parce qu'une priorité haute est une BONNE nouvelle — une annonce à
+ * saisir, pas une alerte.
  */
 function priorityLabel(priority: number): string {
   if (priority >= 85) return 'à contacter';
@@ -67,13 +70,13 @@ function PriorityBar({ priority }: { readonly priority: number }): React.JSX.Ele
   return (
     <div className="mt-2.5">
       <div className="mb-1 flex items-baseline justify-between gap-2">
-        <span className="flex items-center gap-1 text-[0.68rem] font-semibold tracking-wide text-bad uppercase">
+        <span className="flex items-center gap-1 text-[0.68rem] font-semibold tracking-wide text-good uppercase">
           {priority >= 85 && <Flame aria-hidden="true" className="size-3.5" />}
           {priorityLabel(priority)}
         </span>
         {/* « 65/100 » et non « 65 » : le barème est ainsi dit, sans que
           l'utilisateur ait à deviner sur quoi la note est donnée. */}
-        <span className="text-[0.95rem] leading-none font-bold text-bad">
+        <span className="text-[0.95rem] leading-none font-bold text-good">
           {priority}
           <span className="text-[0.75rem] font-medium text-muted-foreground">/100</span>
         </span>
@@ -87,7 +90,7 @@ function PriorityBar({ priority }: { readonly priority: number }): React.JSX.Ele
         className="h-1.5 overflow-hidden rounded-full bg-muted"
       >
         <div
-          className="h-full rounded-full bg-bad transition-[width] duration-300"
+          className="h-full rounded-full bg-good transition-[width] duration-300"
           style={{ width: `${clamped}%` }}
         />
       </div>
