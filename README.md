@@ -44,7 +44,7 @@ Ouvert sur un téléphone, il répond à une seule question :
   classement affiné par vos préférences (affinité transparente), page Stats.
 - **Notifications** : Telegram après chaque collecte (téléphone, app fermée) et
   notifications navigateur site ouvert — chaque annonce signalée une seule fois.
-- **Documents de candidature** : pièces déposées une fois (onglet Profil),
+- **Documents de candidature** : pièces déposées une fois (onglet Paramètres),
   stockées uniquement en local (`data/`, hors dépôt), jamais envoyées
   automatiquement.
 - **Coût : 0 €, et 100% local** — tout tourne sur votre machine (fichier SQLite
@@ -193,16 +193,16 @@ Pour **ajouter une source**, le mode d'emploi vit dans l'en-tête de
 
 ## Troubleshooting
 
-| Symptôme                                                                       | Cause probable et remède                                                                                                                                                        |
-| ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `pnpm collect` n'exécute aucune source                                         | Le scheduler estime qu'aucune n'est due (intervalles §7). Vérifier la page Sources ; pour forcer, supprimer `data/local.db` (repart de zéro) ou attendre l'intervalle.          |
-| Une source est `blocked`                                                       | Elle a répondu 401/403 : le scraper s'arrête définitivement et ne tentera aucun contournement (§10). Voir son verdict dans [docs/sources.md](docs/sources.md).                  |
-| Une source est `cooldown`                                                      | HTTP 429 reçu : repos automatique (durée dans la page Sources), les autres sources continuent.                                                                                  |
-| `Le port 8788 est déjà utilisé` au `pnpm local`                                | Un serveur tourne déjà — ouvrir http://127.0.0.1:8788, ou `PORT=8789 pnpm local`.                                                                                               |
-| L'interface locale affiche « Interface non construite »                        | Lancer `pnpm local` (qui construit), pas `pnpm --filter @rentfinder/collector serve` seul.                                                                                      |
-| 0 annonce alors que la collecte a réussi                                       | Les annonces sont hors critères (≤ 700 €, ≥ 14 m², Nice). Cocher « Afficher les annonces hors critères ».                                                                       |
-| Un parser ne trouve plus de prix (warning « structure probablement modifiée ») | Le site a changé son HTML : suivre la procédure de réparation dans la section « scraping » de [docs/architecture.md](docs/architecture.md).                                     |
-| Pas de notification Telegram                                                   | Vérifier `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` dans `.env` (voir le script d'installation) ; le notifieur ne signale que les annonces découvertes **après** son activation. |
+| Symptôme                                                                       | Cause probable et remède                                                                                                                                                                      |
+| ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm collect` n'exécute aucune source                                         | Le scheduler estime qu'aucune n'est due (intervalles §7). Vérifier la page Sources (Paramètres → Sources) ; pour forcer, supprimer `data/local.db` (repart de zéro) ou attendre l'intervalle. |
+| Une source est `blocked`                                                       | Elle a répondu 401/403 : le scraper s'arrête définitivement et ne tentera aucun contournement (§10). Voir son verdict dans [docs/sources.md](docs/sources.md).                                |
+| Une source est `cooldown`                                                      | HTTP 429 reçu : repos automatique (durée dans Paramètres → Sources), les autres sources continuent.                                                                                           |
+| `Le port 8788 est déjà utilisé` au `pnpm local`                                | Un serveur tourne déjà — ouvrir http://127.0.0.1:8788, ou `PORT=8789 pnpm local`.                                                                                                             |
+| L'interface locale affiche « Interface non construite »                        | Lancer `pnpm local` (qui construit), pas `pnpm --filter @rentfinder/collector serve` seul.                                                                                                    |
+| 0 annonce alors que la collecte a réussi                                       | Les annonces sont hors critères (≤ 700 €, ≥ 14 m², Nice). Cocher « Afficher les annonces hors critères ».                                                                                     |
+| Un parser ne trouve plus de prix (warning « structure probablement modifiée ») | Le site a changé son HTML : suivre la procédure de réparation dans la section « scraping » de [docs/architecture.md](docs/architecture.md).                                                   |
+| Pas de notification Telegram                                                   | Vérifier `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` dans `.env` (voir le script d'installation) ; le notifieur ne signale que les annonces découvertes **après** son activation.               |
 
 ## Licence
 

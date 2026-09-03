@@ -18,7 +18,7 @@
 
 import * as cheerio from 'cheerio';
 import type { RawListing } from '@rentfinder/shared';
-import { cleanText } from '../../normalization/text.js';
+import { cleanMultiline, cleanText } from '../../normalization/text.js';
 
 /** URL de fiche : `/location-{type}-{ville}-{cp}/{réf}`. */
 const FICHE_PATTERN = /^\/location-([a-z]+)-([a-z-]+)-(\d{5})\/(.+)$/i;
@@ -138,7 +138,7 @@ export function parseDetailPage(html: string, pageUrl: string, agencyName: strin
     sourceRef: parsedUrl.reference,
     sourceUrl: parsedUrl.canonicalUrl,
     ...(ogTitle !== '' ? { title: cleanText(ogTitle) } : {}),
-    ...(ogDescription !== '' ? { description: cleanText(ogDescription) } : {}),
+    ...(ogDescription !== '' ? { description: cleanMultiline(ogDescription) } : {}),
     ...(priceText !== undefined ? { priceText } : {}),
     ...(charges !== undefined ? { chargesText: `${charges.trim()} € de charges` } : {}),
     ...(area !== undefined ? { areaText: `${area} m²` } : {}),

@@ -23,7 +23,7 @@ import {
 } from '../format.js';
 import { AFFINITY_BADGE_THRESHOLD } from '../affinity.js';
 import { PhotoCarousel } from './PhotoCarousel.js';
-import { ScoreRow } from './Scores.js';
+import { SHORT_TERM_LEASE_FEATURE } from '@rentfinder/shared';
 import { Badge } from '@/components/ui/badge.js';
 import { Card } from '@/components/ui/card.js';
 import { Flame, Heart, TrainFront } from 'lucide-react';
@@ -44,36 +44,51 @@ interface ListingCardProps {
  * Les classes sont écrites en toutes lettres : Tailwind ne génère que les noms
  * de classe qu'il voit littéralement dans le source (pas d'interpolation).
  */
-function priorityTier(priority: number): { text: string; bg: string; label: string } {
-  if (priority >= 85) return { text: 'text-hot', bg: 'bg-hot/10', label: 'à contacter' };
-  if (priority >= 70) return { text: 'text-good', bg: 'bg-good/10', label: 'à voir' };
-  return { text: 'text-muted-foreground', bg: 'bg-muted-foreground/10', label: 'priorité' };
+function priorityTier(priority: number): { text: string; fill: string; label: string } {
+  if (priority >= 85) return { text: 'text-hot', fill: 'bg-hot', label: 'à contacter' };
+  if (priority >= 70) return { text: 'text-good', fill: 'bg-good', label: 'à voir' };
+  return { text: 'text-muted-foreground', fill: 'bg-muted-foreground', label: 'à étudier' };
 }
 
 /**
- * Pastille de priorité d'action (§36). En `overlay` (posée sur la photo, coin
- * haut-droit), le fond devient opaque et ombré pour rester lisible sur l'image ;
- * sinon fond teinté léger (carte sans photo).
+ * Priorité d'action, en BARRE DE PROGRESSION (§36).
+ *
+ * La carte portait quatre anneaux de score — correspondance, opportunité,
+ * visite, risque — plus une pastille de priorité : cinq chiffres à interpréter
+ * pour une seule question, « dois-je contacter cette annonce maintenant ? ».
+ * La priorité les résume déjà ; le détail des quatre reste sur la fiche, où
+ * l'on vient précisément pour comprendre.
+ *
+ * Une barre plutôt qu'un nombre : deux cartes se comparent d'un coup d'œil,
+ * sans lire, ce qu'un anneau de 48 px ne permettait pas.
  */
-function PriorityBadge({
-  priority,
-  overlay,
-}: {
-  readonly priority: number;
-  readonly overlay: boolean;
-}): React.JSX.Element {
+function PriorityBar({ priority }: { readonly priority: number }): React.JSX.Element {
   const tier = priorityTier(priority);
-  const isHot = priority >= 85;
-  const skin = overlay
-    ? `${tier.text} bg-card/90 shadow-md ring-1 ring-border backdrop-blur`
-    : `${tier.text} ${tier.bg}`;
+  const clamped = Math.max(0, Math.min(100, priority));
   return (
-    <div className={`flex w-14 shrink-0 flex-col items-center rounded-lg py-1.5 ${skin}`}>
-      <span className="text-[1.6rem] leading-none font-bold">{priority}</span>
-      <span className="mt-0.5 text-center text-[0.6rem] leading-tight tracking-wide uppercase">
-        {isHot && <Flame aria-hidden="true" className="inline size-4" />}
-        {tier.label}
-      </span>
+    <div className="mt-2.5">
+      <div className="mb-1 flex items-baseline justify-between gap-2">
+        <span
+          className={`flex items-center gap-1 text-[0.68rem] font-semibold tracking-wide uppercase ${tier.text}`}
+        >
+          {priority >= 85 && <Flame aria-hidden="true" className="size-3.5" />}
+          {tier.label}
+        </span>
+        <span className={`text-[0.95rem] leading-none font-bold ${tier.text}`}>{priority}</span>
+      </div>
+      <div
+        role="progressbar"
+        aria-valuenow={clamped}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label="Priorité d’action"
+        className="h-1.5 overflow-hidden rounded-full bg-muted"
+      >
+        <div
+          className={`h-full rounded-full transition-[width] duration-300 ${tier.fill}`}
+          style={{ width: `${clamped}%` }}
+        />
+      </div>
     </div>
   );
 }
@@ -112,6 +127,11 @@ function StatusBadges({
       )}
       {listing.priceDropped === true && <Badge variant="good">Prix en baisse</Badge>}
       {listing.flatShare?.value === true && <Badge variant="warning">Colocation</Badge>}
+      {/* Bail de neuf mois : le logement n'est pas louable l'été. Le taire
+        laisserait croire à un logement à l'année (§17). */}
+      {listing.features?.includes(SHORT_TERM_LEASE_FEATURE) === true && (
+        <Badge variant="warning">Bail 9 mois</Badge>
+      )}
     </>
   );
 }
@@ -238,19 +258,10 @@ export function ListingCard({
       }`}
       data-testid="listing-card"
     >
-      {/* Score de priorité en overlay, coin haut-droit de l'image (§36). Sans
-          photo, il reprend sa place en tête de carte. */}
-      {photos.length > 0 ? (
-        <div className="relative">
-          <PhotoCarousel urls={photos} />
-          <div className="absolute top-2 right-2 z-10">
-            <PriorityBadge priority={listing.actionPriority} overlay />
-          </div>
-        </div>
-      ) : null}
+      {/* La photo ne porte plus de pastille de score : la barre de priorité,
+          sous le titre, joue ce rôle et laisse l'image entière. */}
+      {photos.length > 0 && <PhotoCarousel urls={photos} />}
       <header className="flex items-start gap-3">
-        {photos.length === 0 && <PriorityBadge priority={listing.actionPriority} overlay={false} />}
-
         <CardHeading listing={listing} neighborhood={neighborhood} cityLine={cityLine} />
 
         <span className="flex shrink-0 flex-col items-end gap-1">
@@ -278,7 +289,7 @@ export function ListingCard({
         </span>
       </header>
 
-      <ScoreRow scores={listing.scores} />
+      <PriorityBar priority={listing.actionPriority} />
 
       <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[0.85rem] text-muted-foreground">
         <span>

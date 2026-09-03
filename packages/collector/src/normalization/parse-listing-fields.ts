@@ -7,7 +7,7 @@
  * les filtres et les scores (§17).
  */
 
-import type { PropertyType } from '@rentfinder/shared';
+import { SHORT_TERM_LEASE_FEATURE, type PropertyType } from '@rentfinder/shared';
 import { cleanText, comparable } from './text.js';
 import { extractNumber, parseFrenchNumber } from './parse-number.js';
 
@@ -207,6 +207,26 @@ export function parseDpe(text: string | null | undefined): string | null {
 }
 
 /**
+ * Bail meublé ÉTUDIANT de neuf mois : le bien se loue de septembre à juin, puis
+ * repart en location saisonnière l'été. Très répandu à Nice, où plusieurs
+ * agences annoncent les deux tarifs dans la même description.
+ *
+ * Ce n'est PAS un logement à l'année : le locataire doit libérer les lieux pour
+ * juillet-août. Le taire reviendrait à proposer un bien qu'on ne peut pas
+ * garder — d'où un atout affiché, et l'exclusion « locations étudiantes » (voir
+ * `isStudentHousing` dans le score de correspondance).
+ *
+ * Le texte est comparé en forme `comparable` : minuscules, sans accent.
+ */
+const SHORT_TERM_LEASE =
+  /(?:de |du )?septembre (?:a|au) juin|bail (?:de )?(?:9|neuf) mois|location (?:de )?(?:9|neuf) mois|saisonnier\w* (?:en |de |sur )?(?:juillet|aout)|(?:juillet|aout) en saisonnier/;
+
+/** `true` si le texte annonce un bail de neuf mois interrompu par l'été. */
+export function isShortTermStudentLease(text: string | null | undefined): boolean {
+  return SHORT_TERM_LEASE.test(comparable(text));
+}
+
+/**
  * Construit la liste d'atouts affichables à partir du texte de l'annonce et
  * d'attributs déjà extraits. Chaque atout n'est ajouté que s'il est mentionné
  * (§17). Résultat dédoublonné, ordre stable.
@@ -252,6 +272,9 @@ export function extractFeatures(
     [/\bclimatisation|\bclim\b|climatise/.test(lower), 'Climatisation'],
     [/\bmeuble/.test(lower), 'Meublé'],
     [/\bneuf\b|\brenove|refait a neuf/.test(lower), 'Rénové / neuf'],
+    // Contrainte de DURÉE plutôt qu'agrément — mais c'est le fait le plus
+    // décisif à voir quand il s'applique : le bien n'est pas louable l'été.
+    [SHORT_TERM_LEASE.test(lower), SHORT_TERM_LEASE_FEATURE],
   ];
   for (const [present, label] of flags) if (present) add(label);
 
@@ -368,25 +391,95 @@ const STREET_KINDS =
   'avenue|av\\.?|boulevard|bd\\.?|rue|place|chemin|impasse|all[ée]e|promenade|quai|route|mont[ée]e|traverse|square|passage|corniche';
 
 const STREET_ADDRESS = new RegExp(
-  `\\b(\\d{1,4}(?:[-/]\\d{1,4})?\\s*(?:bis|ter)?[,]?\\s+(?:${STREET_KINDS})\\s+[^,;.:()!?0-9]{2,45})`,
+  `\\b(\\d{1,4}(?:[-/]\\d{1,4})?\\s*(?:bis|ter)?[,]?\\s+(?:${STREET_KINDS})\\s+[^,;.:()!?0-9"«»”„]{2,45})`,
   'i',
 );
 
 /**
- * Extrait une adresse de rue (« 22-24 Avenue de la Californie ») du DÉBUT d'une
- * description — beaucoup d'agences l'y placent en première ligne.
+ * Voie SANS numéro occupant à elle seule un segment (« Rue Smolett, tout proche
+ * du port… »). Les agences niçoises situent le bien ainsi bien plus souvent
+ * qu'avec un numéro : l'exiger laissait 86 fiches sur 93 sans rue.
+ */
+const BARE_STREET = new RegExp(`^(?:${STREET_KINDS})\\s+[^,;.:()!?0-9"«»”„]{2,45}$`, 'i');
+
+/**
+ * Ce qui disqualifie un segment commençant pourtant par un type de voie.
+ *
+ * Deux familles :
+ *   - les FAUX AMIS — « Place de parking », « Passage couvert » — qui ne
+ *     désignent aucune adresse ;
+ *   - la PROSE qui suit une voie sans ponctuation pour l'en séparer :
+ *     « rue Dr Barety Dans résidence sécurisée » donnait une adresse qui
+ *     emportait la phrase suivante, et qu'aucun géocodeur ne retrouve.
+ *
+ * Écarter un segment est sans gravité — on n'affiche alors pas de rue — alors
+ * qu'une adresse fausse s'affiche et trompe (§17).
+ */
+const NOT_A_STREET =
+  /\b(parking|stationnement|garage|box|voiture|moto|velo|vélo|couvert|dans|proche|avec|situ[ée]e?|id[ée]ale?|entre|r[ée]sidence|immeuble|appartement|studio|villa|copropri[ée]t[ée])\b/i;
+
+/** Portion de description où l'on accepte de lire une adresse (cf. ci-dessous). */
+const ADDRESS_HEAD = 120;
+
+/**
+ * Ce qui sépare deux segments d'une description.
+ *
+ * La virgule ne suffisait pas : les agences niçoises composent leur accroche au
+ * TIRET — « NICE CENTRE - RUE DE PARIS - 3 PIÈCES - PROCHE GARE » — ou en
+ * phrases — « Pasteur - rue Raoul Lesueur. Au 5ème étage ». Le tiret n'est
+ * reconnu qu'ENTOURÉ D'ESPACES, sans quoi « Rue Jean-Jaurès » se couperait en
+ * deux ; les trois tirets typographiques sont acceptés, les sites mélangeant
+ * les trois.
+ */
+const SEGMENT_BREAK = /[,;/.¶]|\s+[-–—]\s+/;
+
+/**
+ * Marqueur de fin de ligne, posé avant le nettoyage.
+ *
+ * Un retour à la ligne sépare deux idées aussi sûrement qu'une virgule, mais
+ * `cleanText` l'aplatit en simple espace : sans ce repère, « rue Dr Barety ⏎
+ * Dans résidence sécurisée » ne formait qu'un segment, et l'adresse retenue
+ * emportait la phrase suivante.
+ */
+const LINE_BREAK_MARK = ' ¶ ';
+
+/**
+ * Extrait une adresse de rue (« 22-24 Avenue de la Californie », « Rue Smolett »)
+ * du DÉBUT d'une description — beaucoup d'agences l'y placent en première ligne.
  *
  * Volontairement restreint aux ~80 premiers caractères : plus loin dans le
  * texte, une adresse est souvent celle d'un commerce voisin ou de l'agence
  * (« proche de l'avenue Jean Médecin ») — mieux vaut rien qu'une adresse
  * fausse (§17, §20).
+ *
+ * Deux formes sont acceptées, dans cet ordre :
+ *   1. avec numéro, n'importe où dans cette tête — un numéro de voie est un
+ *      signal fort, il ne s'écrit pas par hasard ;
+ *   2. sans numéro, mais seulement si la voie occupe TOUT un segment. C'est ce
+ *      qui distingue « …, Rue Francis Gallo, … » ou « NICE CENTRE - RUE DE
+ *      PARIS - 3 PIÈCES », qui situent le bien, de « proche de l'avenue Jean
+ *      Médecin » ou « entre la porte fausse et la place Rossetti », qui
+ *      décrivent les alentours : ceux-là ne COMMENCENT pas par un type de voie.
  */
 export function extractStreetAddress(text: string | null | undefined): string | null {
   const cleaned = cleanText(text);
   if (cleaned === '') return null;
-  const match = STREET_ADDRESS.exec(cleaned.slice(0, 80));
-  if (match?.[1] === undefined) return null;
-  return cleanText(match[1]);
+
+  const numbered = STREET_ADDRESS.exec(cleaned.slice(0, ADDRESS_HEAD));
+  if (numbered?.[1] !== undefined) return cleanText(numbered[1]);
+
+  // Les segments sont découpés sur le texte ENTIER puis bornés par leur position
+  // de départ : tronquer d'abord aurait pu couper un nom de voie en son milieu
+  // et livrer une adresse incomplète.
+  let offset = 0;
+  const segmented = cleanText(String(text ?? '').replace(/[\r\n]+/g, LINE_BREAK_MARK));
+  for (const segment of segmented.split(SEGMENT_BREAK)) {
+    if (offset > ADDRESS_HEAD) break;
+    offset += segment.length + 1;
+    const trimmed = segment.trim();
+    if (BARE_STREET.test(trimmed) && !NOT_A_STREET.test(trimmed)) return cleanText(trimmed);
+  }
+  return null;
 }
 
 /** Mois français (forme comparable, sans accent) → numéro 1-12. */

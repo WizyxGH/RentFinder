@@ -19,6 +19,7 @@ self.addEventListener('push', (event) => {
   }
 
   const listingId = payload.listingId;
+  const phone = payload.phone;
   // Chemins ABSOLUS depuis la portée du worker : le site vit sous /<dépôt>/.
   // Sans `icon`, Android affiche l'icône générique du navigateur ; `badge` est
   // la petite silhouette de la barre d'état, qui doit être monochrome.
@@ -29,17 +30,25 @@ self.addEventListener('push', (event) => {
     body: payload.body || '',
     // `tag` dédoublonne : deux envois rapprochés ne s'empilent pas.
     tag: payload.tag || 'rentfinder',
-    data: { url: payload.url || '/', listingId },
+    data: { url: payload.url || '/', listingId, phone },
     // Sans cela, une notification arrivée pendant le sommeil de l'appareil
     // disparaît sans avoir été vue.
     requireInteraction: false,
   };
   if (payload.image) options.image = payload.image;
   if (listingId) {
-    options.actions = [
-      { action: 'favorite', title: 'Favori' },
-      { action: 'open', title: 'Voir' },
-    ];
+    // Android n'affiche que DEUX boutons. Quand un téléphone est publié,
+    // « Appeler » prime sur « Voir » : c'est le geste qui fait gagner une
+    // visite, et le seul que la notification permet sans ouvrir le site.
+    options.actions = phone
+      ? [
+          { action: 'call', title: 'Appeler' },
+          { action: 'favorite', title: 'Favori' },
+        ]
+      : [
+          { action: 'favorite', title: 'Favori' },
+          { action: 'open', title: 'Voir' },
+        ];
   }
 
   event.waitUntil(self.registration.showNotification(payload.title || 'Nouvelle annonce', options));
@@ -48,6 +57,13 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const data = event.notification.data || {};
+
+  // « Appeler » ouvre le composeur du téléphone : aucune page à charger, aucun
+  // onglet à réutiliser. On sort donc avant la logique de fenêtres.
+  if (event.action === 'call' && data.phone) {
+    event.waitUntil(self.clients.openWindow(`tel:${data.phone.replace(/[^+\d]/g, '')}`));
+    return;
+  }
 
   // « Favori » passe par l'URL plutôt que d'écrire en base depuis ici : le
   // service worker n'a pas accès aux identifiants de connexion, qui vivent

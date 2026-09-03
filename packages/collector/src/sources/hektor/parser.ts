@@ -17,6 +17,7 @@
 import * as cheerio from 'cheerio';
 import type { RawListing } from '@rentfinder/shared';
 import { cleanText } from '../../normalization/text.js';
+import { htmlToText } from '../shared/html-text.js';
 import { compactListing } from '../shared/raw-listing.js';
 
 /**
@@ -162,9 +163,7 @@ export function parseDetailPage(html: string, pageUrl: string, agencyName: strin
   const h1 = cleanText($('h1').first().text().replace(/\s+/g, ' '));
   const title = h1 !== '' ? h1 : pageTitle;
 
-  const description = cleanText(
-    $('[class*="description__text"]').first().text().replace(/\s+/g, ' '),
-  );
+  const description = htmlToText($, '[class*="description__text"]');
 
   // Prix : la table (loyer CC) fait foi ; le <title> en secours.
   const loyerCc = table.get('loyer_cc');
@@ -205,13 +204,24 @@ export function parseDetailPage(html: string, pageUrl: string, agencyName: strin
   // du CDN est de l'habillage (avatar d'agence « contact », logos LBI/FNAIM,
   // panneaux, diaporama d'accueil) qu'il ne faut jamais prendre pour une photo
   // d'annonce (sinon envoyée à tort sur Telegram, §29).
+  //
+  // CHARGEMENT DIFFÉRÉ. La plateforme met un SVG vide dans `src` et la vraie
+  // URL dans `data-src` : lire `src` ne ramenait aucune photo sur les fiches
+  // ainsi rendues. On lit donc `data-src` en premier.
   const imageUrls: string[] = [];
-  $('img[src*="/images/biens/"]').each((_i, el) => {
-    const src = ($(el).attr('src') ?? '').replace(/^\/\//, 'https://');
+  // Le nom de fichier identifie la photo : la même image apparaît sous
+  // plusieurs chemins (`/original/…` et `/1600xauto/…`), et les montrer toutes
+  // ferait défiler deux fois le même cliché.
+  const seenPhotos = new Set<string>();
+  $('img[src*="/images/biens/"], img[data-src*="/images/biens/"]').each((_i, el) => {
+    const raw = $(el).attr('data-src') ?? $(el).attr('src') ?? '';
+    // URLs sans schéma (`//cdn…`) : le CDN les sert en HTTPS.
+    const src = raw.replace(/^\/\//, 'https://');
     const normalized = src.replace('/original/', '/1600xauto/');
-    if (normalized.startsWith('https://') && !imageUrls.includes(normalized)) {
-      imageUrls.push(normalized);
-    }
+    const fileName = normalized.split('/').pop() ?? normalized;
+    if (!normalized.startsWith('https://') || seenPhotos.has(fileName)) return;
+    seenPhotos.add(fileName);
+    imageUrls.push(normalized);
   });
 
   const chargesValue = table.get('ChargesAnnonceLocation_forfaitaires_mensuelles');

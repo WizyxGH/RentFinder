@@ -285,8 +285,66 @@ export const TRACKING_ORDER: readonly TrackingStatus[] = [
   'ignored',
 ];
 
+/**
+ * Nom d'affichage de chaque source, tel que l'agence l'écrit elle-même.
+ *
+ * Le repli mécanique (capitaliser chaque segment de l'identifiant) rendait
+ * « bep » en « Bep » alors que l'agence s'appelle BEP, « ladresse » en
+ * « Ladresse » au lieu de L'Adresse, « century21 » en « Century21 ». Un nom
+ * propre ne se déduit pas d'un identifiant technique.
+ *
+ * Cette table reprend le champ `name` des descripteurs du collecteur ; le
+ * frontend ne peut pas les importer (il ne dépend que de `@rentfinder/shared`,
+ * qui ne connaît aucune source). Ajouter une source ici quand on en ajoute une
+ * là-bas — l'oubli est sans gravité : le repli reprend la main.
+ */
+const SOURCE_NAMES: Readonly<Record<string, string>> = {
+  'agence-du-centre': 'Agence du Centre',
+  'agence-victoire': 'Agence de la Victoire',
+  alberti: 'Alberti Immobilier',
+  'ashley-parker': 'Ashley & Parker',
+  beaumont: 'Beaumont Immobilier',
+  bep: 'BEP Logement',
+  'bep-abonnes': 'BEP Logement (abonné)',
+  century21: 'Century 21',
+  citya: 'Citya Immobilier',
+  climmo: 'CL Immo Gestion',
+  dazur: "D'Azur Immobilier",
+  dgimmo: 'DG Immo',
+  dinamy: 'Dinamy Immobilier',
+  drago: 'Cabinet Drago',
+  'email-alerts': 'Alertes e-mail',
+  foncia: 'Foncia',
+  'gestion-cassini': 'Gestion Cassini',
+  giletta: 'Giletta Immobilier',
+  'groupe-foch': 'Foch Immobilier',
+  'immo-sud': 'Immo-Sud Nice',
+  'immobiliere-nicoise': "L'Immobilière Niçoise",
+  inli: "In'li",
+  ladresse: "L'Adresse",
+  laforet: 'Laforêt',
+  lamy: 'Lamy Immobilier',
+  'leprince-realty': 'Leprince Realty',
+  lodgis: 'Lodgis',
+  'lt-immobilier': 'LT Immobilier',
+  mirabello: 'Mirabello Immobilier',
+  nousgerons: 'NousGérons',
+  orpi: 'Orpi',
+  pap: 'PAP',
+  personalimmo: 'Personal Immo',
+  privilege: 'Agence Privilège',
+  'saint-roch': 'Saint Roch Immobilier',
+  'savi-esteve': 'Agence Savi Estève',
+  studapart: 'Studapart',
+  winter: 'Winter Immobilier',
+};
+
 /** Nom lisible d'une source à partir de son identifiant. */
 export function formatSourceName(sourceId: string): string {
+  const known = SOURCE_NAMES[sourceId];
+  if (known !== undefined) return known;
+  // Source inconnue de la table : mieux vaut un nom approximatif qu'un
+  // identifiant brut à l'écran.
   return sourceId
     .split(/[-_]/)
     .map((part) => (part.length === 0 ? part : part[0]!.toUpperCase() + part.slice(1)))

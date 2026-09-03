@@ -6,6 +6,12 @@
  * source. Sur mobile, trois menus côte à côte tenaient mal ; et rien n'indiquait
  * qu'ils formaient un même réglage.
  *
+ * S'y ajoutent, repliés en bas, les CRITÈRES DE RECHERCHE — ce qui est collecté
+ * et signalé. Ils vivaient dans un onglet « Alertes » à part, où on ne les
+ * trouvait pas : quand on veut resserrer sa recherche, c'est ici qu'on ouvre.
+ * La distinction reste explicite — affiner l'affichage n'est pas changer ce
+ * qu'on collecte — mais les deux se règlent au même endroit.
+ *
  * Accessibilité : `role="dialog"` + `aria-modal`, fermeture par Échap ou par le
  * fond, et le focus part sur le premier contrôle.
  */
@@ -16,6 +22,7 @@ import type { SortMode } from '../types.js';
 import type { PropertyType } from '@rentfinder/shared';
 import { formatPropertyType, formatSourceName } from '../format.js';
 import { PillButton, ROOM_PRESETS, type QuickFilterValues } from './QuickFilters.js';
+import { FiltersPanel } from './FiltersPanel.js';
 import { Button } from '@/components/ui/button.js';
 
 export interface SortFilterModalProps {
@@ -40,6 +47,9 @@ export interface SortFilterModalProps {
   readonly onToggleSource: (sourceId: string) => void;
   readonly onClearSources: () => void;
 
+  /** Rechargement de la liste après enregistrement des critères de recherche. */
+  readonly onCriteriaSaved: () => void;
+
   /** Remet tri, filtres, bascules et sources à leur état d'origine. */
   readonly onReset: () => void;
   /** `true` si quelque chose s'écarte de cet état : le bouton reste sinon inerte. */
@@ -60,6 +70,7 @@ export function SortFilterModal({
   selectedSources,
   onToggleSource,
   onClearSources,
+  onCriteriaSaved,
   onReset,
   dirty,
 }: SortFilterModalProps): React.JSX.Element | null {
@@ -308,6 +319,20 @@ export function SortFilterModal({
             </ul>
           </fieldset>
         )}
+
+        {/* CRITÈRES DE COLLECTE, repliés : on les règle une fois, pas à chaque
+          consultation. Déplié, on retrouve exactement l'ancien onglet
+          « Alertes » — devenu enregistrable depuis le site déployé, où il
+          refusait jusqu'ici toute modification. */}
+        <details className="mb-5 rounded-xl border border-border">
+          <summary className="cursor-pointer list-none px-3 py-2.5 text-sm font-semibold text-muted-foreground">
+            Critères de recherche
+            <span className="ml-1 font-normal">— ce qui est collecté et signalé</span>
+          </summary>
+          <div className="border-t border-border px-3 py-3">
+            <FiltersPanel compact onSaved={onCriteriaSaved} />
+          </div>
+        </details>
 
         {/* Réglages éparpillés sur quatre sections : les défaire un à un était
           fastidieux. Le bouton s'efface quand il n'y a rien à défaire, plutôt

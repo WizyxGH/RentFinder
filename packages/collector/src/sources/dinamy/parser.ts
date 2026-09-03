@@ -36,6 +36,37 @@ export function parsePhotoSlug(src: string): PhotoSlug {
 }
 
 /**
+ * Découpe la ligne de localisation d'une carte.
+ *
+ * Le site l'écrit par niveaux, du plus large au plus précis, séparés par un
+ * tiret ENTOURÉ D'ESPACES :
+ *
+ *     Nice - Le Port                        commune, quartier
+ *     Nice - Carré d'Or - Rue de France     commune, quartier, voie
+ *
+ * Le découpage exige ces espaces : sur `\s*-\s*`, « Nice - Vieux-Nice » se
+ * coupait aussi au tiret interne du quartier, qui devenait « Vieux ».
+ *
+ * Le troisième niveau est rendu tel quel comme adresse : c'est la place que le
+ * site réserve à la voie, on ne devine rien (§17, §20).
+ */
+export function splitLocality(text: string): {
+  readonly city?: string;
+  readonly district?: string;
+  readonly street?: string;
+} {
+  const [city, district, street] = cleanText(text)
+    .split(/\s+-\s+/)
+    .map((part) => part.trim())
+    .filter((part) => part !== '');
+  return {
+    ...(city !== undefined ? { city } : {}),
+    ...(district !== undefined ? { district } : {}),
+    ...(street !== undefined ? { street } : {}),
+  };
+}
+
+/**
  * Extrait les annonces d'une page de résultats OU d'un fragment de pagination
  * (les deux partagent le même gabarit de carte).
  */
@@ -70,12 +101,13 @@ export function parseListPage(html: string, pageUrl: string, agencyName: string)
     const image = link.find('img[src]').attr('src');
     const slug = image !== undefined ? parsePhotoSlug(image) : {};
 
-    // « Nice - Carras » : la commune précède le tiret, le quartier suit. Le
+    // « Nice - Carras », « Nice - Carré d'Or - Rue de France » : la commune, le
+    // quartier, puis parfois la VOIE — trois niveaux positionnels, pas deux. Le
     // `<span>` de la référence est retiré avant lecture.
     const locality = cleanText(
       link.find('p').first().clone().children('span').remove().end().text(),
     );
-    const [city, district] = locality.split(/\s*-\s*/, 2);
+    const { city, district, street } = splitLocality(locality);
 
     byRef.set(
       reference,
@@ -92,7 +124,8 @@ export function parseListPage(html: string, pageUrl: string, agencyName: string)
         // « Location meublée » vs « Location vide » : l'information est dans le
         // paramètre `trans` du lien.
         furnishedText: /meubl/i.test(transaction) ? 'meublé' : 'non meublé',
-        cityText: city?.trim() || undefined,
+        cityText: city,
+        addressText: street,
         agencyName,
         contactFormUrl: sourceUrl,
         imageUrls:
@@ -100,13 +133,97 @@ export function parseListPage(html: string, pageUrl: string, agencyName: string)
         extra: {
           reference,
           ...(params.get('ref') !== null ? { agencyRef: params.get('ref') as string } : {}),
-          ...(district !== undefined && district !== '' ? { quartier: district.trim() } : {}),
+          ...(district !== undefined ? { quartier: district } : {}),
         },
       }),
     );
   });
 
   return [...byRef.values()];
+}
+
+/** Ce qu'une FICHE apporte en plus de la carte de liste. */
+export interface DinamyDetail {
+  readonly description?: string;
+  /** Toutes les photos du diaporama, en absolu. La liste n'en donne qu'une. */
+  readonly imageUrls?: readonly string[];
+  readonly dpe?: string;
+}
+
+/**
+ * Lit la fiche d'un bien.
+ *
+ * La carte de liste ne porte ni description ni diaporama ; or c'est la
+ * description qui nomme la RUE (« Rue Smolett, tout proche du port… ») et le
+ * diaporama qui contient les six photos. Sans cette visite, 9 fiches sur 10
+ * n'avaient qu'une image et aucune adresse.
+ *
+ * Le gabarit d'impression répète description et photos plus bas dans la page :
+ * on ne lit donc que la PREMIÈRE occurrence de chaque bloc.
+ *
+ * DPE : le tableau empile les sept classes en images, toutes suffixées `-v`
+ * (« vide ») sauf celle du bien. C'est cette absence de suffixe qui désigne la
+ * classe — il n'y a pas d'autre marqueur dans la page.
+ */
+export function parseDetailPage(html: string, pageUrl: string): DinamyDetail {
+  const $ = cheerio.load(html);
+  const detail: {
+    description?: string;
+    imageUrls?: readonly string[];
+    dpe?: string;
+  } = {};
+
+  const description = cleanText($('#description_annonce').first().find('p').first().text());
+  if (description !== '') detail.description = description;
+
+  const seen = new Set<string>();
+  const imageUrls: string[] = [];
+  $('#diapo_bien')
+    .first()
+    .find('img')
+    .each((_i, el) => {
+      // Diaporama à chargement différé : la vraie URL est dans `data-src`,
+      // `src` restant vide jusqu'à l'exécution du JavaScript.
+      const raw = $(el).attr('data-src') ?? $(el).attr('src') ?? '';
+      if (raw === '') return;
+      let absolute: string;
+      try {
+        absolute = new URL(raw, pageUrl).toString();
+      } catch {
+        return;
+      }
+      if (seen.has(absolute)) return;
+      seen.add(absolute);
+      imageUrls.push(absolute);
+    });
+  if (imageUrls.length > 0) detail.imageUrls = imageUrls;
+
+  // Portée au seul tableau du DPE : la page pèse 2 Mo, la sérialiser entière
+  // pour y chercher une lettre serait du gâchis.
+  const dpe = /\/dpe\/dpe-([a-g])\.png/i.exec($('table.dpe-ges').first().html() ?? '');
+  if (dpe?.[1] !== undefined) detail.dpe = `DPE ${dpe[1].toUpperCase()}`;
+
+  return detail;
+}
+
+/**
+ * Complète une annonce lue sur la liste par ce que sa fiche apporte.
+ *
+ * La liste reste la source des faits qu'elle publie déjà (prix, surface,
+ * pièces, quartier) : la fiche ne fait qu'ajouter ce qui lui manque. Un champ
+ * déjà rempli n'est jamais écrasé — la fiche n'est pas plus fiable, seulement
+ * plus complète.
+ */
+export function withDetail(listing: RawListing, detail: DinamyDetail): RawListing {
+  return compactListing({
+    ...listing,
+    description: listing.description ?? detail.description,
+    imageUrls: detail.imageUrls ?? listing.imageUrls,
+    extra: {
+      ...listing.extra,
+      ...(detail.dpe !== undefined ? { dpe: detail.dpe } : {}),
+    },
+  });
 }
 
 /** Nombre total de pages annoncé par la liste (`<span id="nbPages">`). */

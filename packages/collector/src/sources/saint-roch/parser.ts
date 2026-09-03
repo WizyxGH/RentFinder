@@ -16,6 +16,7 @@
 import * as cheerio from 'cheerio';
 import type { RawListing } from '@rentfinder/shared';
 import { cleanText } from '../../normalization/text.js';
+import { htmlToText } from '../shared/html-text.js';
 import { compactListing } from '../shared/raw-listing.js';
 
 /**
@@ -103,7 +104,7 @@ export function parseDetailPage(html: string, pageUrl: string, agencyName: strin
 
   // h1 « Nice Saint Roch 6 Pieces de 136.57m² » : pièces + surface.
   const title = cleanText($('h1').first().text().replace(/\s+/g, ' '));
-  const description = cleanText($('.property-desc').first().text().replace(/\s+/g, ' '));
+  const description = htmlToText($, '.property-desc');
 
   // « Loyer: 2 110€/mois c.c., dont : 110€ de provision pour charges… »
   // (cheerio a déjà décodé &euro;). Le texte est reformulé en jeton « CC » que

@@ -203,6 +203,35 @@ export interface Repository {
   knownRefs(sourceId: SourceId): Promise<Set<string>>;
   upsertOccurrences(listings: readonly NormalizedListing[]): Promise<UpsertReport>;
   allActiveOccurrences(): Promise<NormalizedListing[]>;
+  /**
+   * Réaligne l'identifiant des occurrences sur leur clé naturelle
+   * `source_id:source_ref` (§68 — rattrapage).
+   *
+   * Un changement passé du schéma de référence des alertes e-mail a laissé des
+   * lignes dont l'`id` porte l'ancienne forme alors que `source_ref` porte la
+   * nouvelle. Toute re-collecte de ces annonces échouait alors sur la
+   * contrainte d'unicité `(source_id, source_ref)`.
+   *
+   * Ne touche jamais une ligne dont l'identifiant cible est déjà pris. Le cas
+   * est hors d'atteinte tant que `UNIQUE (source_id, source_ref)` tient — d'où
+   * l'absence de test dédié — mais la garde coûte une sous-requête et évite
+   * qu'un rattrapage écrase une annonce.
+   *
+   * @returns le nombre d'identifiants réalignés.
+   */
+  realignOccurrenceIds(): Promise<number>;
+  /**
+   * Réécrit les champs DÉRIVÉS DU TEXTE d'occurrences déjà en base — adresse et
+   * atouts (voir `rederiveFromText`). Sert au rattrapage quand l'extraction
+   * s'améliore.
+   *
+   * Volontairement distinct d'`upsertOccurrences`, qui remet `lifecycle` à
+   * `active` et `missing_runs` à zéro : un rattrapage ne doit RESSUSCITER
+   * aucune annonce disparue de sa source (§32).
+   *
+   * @returns le nombre d'occurrences réécrites.
+   */
+  updateDerivedFields(occurrences: readonly NormalizedListing[]): Promise<number>;
   /** Ids d'occurrences avec une baisse de loyer depuis `sinceIso` (§17, §31). */
   recentPriceDropIds(sinceIso: string): Promise<Set<string>>;
   saveListings(listings: readonly ScoredListing[]): Promise<UpsertReport>;
@@ -242,6 +271,13 @@ export interface Repository {
   pendingDrafts(): Promise<DraftableListing[]>;
   /** Marque des annonces « brouillon créé », pour ne pas en recréer. */
   markDrafted(ids: readonly string[]): Promise<void>;
+  /**
+   * Réglage applicatif partagé avec le site (§66), en JSON. `null` si absent :
+   * la valeur du fichier `config/search.json` fait alors seule autorité.
+   */
+  readSetting(key: string): Promise<string | null>;
+  /** Écrit un réglage applicatif, écrasant le précédent. */
+  writeSetting(key: string, value: string): Promise<void>;
   /** Retient qu'un message Telegram correspond à une annonce (§29). */
   recordTelegramMessage(chatId: string, messageId: number, listingId: string): Promise<void>;
   /**
@@ -442,19 +478,7 @@ export function createRepository(db: Database): Repository {
         if (previous === undefined) inserted += 1;
         else updated += 1;
 
-        const payload = JSON.stringify({
-          description: listing.description,
-          imageUrls: listing.imageUrls,
-          views: listing.views,
-          favorites: listing.favorites,
-          chargesIncluded: listing.chargesIncluded,
-          dpe: listing.dpe,
-          district: listing.district,
-          features: listing.features,
-          contactName: listing.contact.name,
-          contactFormUrl: listing.contact.formUrl,
-          landlordKind: listing.contact.kind,
-        });
+        const payload = JSON.stringify(occurrencePayload(listing));
 
         inserts.push({
           sql: `
@@ -465,7 +489,13 @@ export function createRepository(db: Database): Repository {
               contact_reference, published_at, available_at, first_seen_at, last_seen_at,
               scraped_at, lifecycle, payload, content_hash, missing_runs
             ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0)
-            ON CONFLICT(id) DO UPDATE SET
+            ON CONFLICT(source_id, source_ref) DO UPDATE SET
+              -- L'identifiant est DÉRIVÉ de la clé naturelle. Viser cette
+              -- dernière plutôt que lui rend l'écriture insensible à un
+              -- changement de schéma d'identifiant : la ligne existante est
+              -- retrouvée et son id remis d'aplomb, là où viser l'identifiant
+              -- tentait une insertion et violait la contrainte d'unicité.
+              id = excluded.id,
               source_url = excluded.source_url,
               title = excluded.title,
               price = excluded.price,
@@ -552,6 +582,38 @@ export function createRepository(db: Database): Repository {
         `SELECT * FROM occurrences WHERE lifecycle IN ('active', 'possiblyInactive')`,
       );
       return result.rows.map(rowToOccurrence);
+    },
+
+    async realignOccurrenceIds() {
+      const result = await db.execute(
+        `UPDATE occurrences
+            SET id = source_id || ':' || source_ref
+          WHERE id <> source_id || ':' || source_ref
+            AND NOT EXISTS (
+              SELECT 1 FROM occurrences other
+               WHERE other.id = occurrences.source_id || ':' || occurrences.source_ref
+            )`,
+      );
+      return result.rowsAffected;
+    },
+
+    async updateDerivedFields(occurrences) {
+      if (occurrences.length === 0) return 0;
+      const statements: Statement[] = occurrences.map((listing) => ({
+        // Seules l'adresse et la charge utile bougent. `content_hash` suit,
+        // pour que la prochaine collecte ne réécrive pas la ligne pour rien.
+        sql: `UPDATE occurrences
+              SET address = ?, payload = ?, content_hash = ?
+              WHERE id = ?`,
+        args: [
+          listing.address,
+          JSON.stringify(occurrencePayload(listing)),
+          occurrenceHash(listing),
+          listing.id,
+        ],
+      }));
+      await db.batch(statements, 'write');
+      return statements.length;
     },
 
     async recentPriceDropIds(sinceIso) {
@@ -1127,6 +1189,24 @@ export function createRepository(db: Database): Repository {
       });
     },
 
+    async readSetting(key) {
+      const result = await db.execute({
+        sql: 'SELECT value FROM app_settings WHERE key = ?',
+        args: [key],
+      });
+      const row = result.rows[0];
+      return row === undefined ? null : String(row['value']);
+    },
+
+    async writeSetting(key, value) {
+      await db.execute({
+        sql: `INSERT INTO app_settings (key, value, updated_at) VALUES (?,?,?)
+              ON CONFLICT(key) DO UPDATE SET value = excluded.value,
+                                             updated_at = excluded.updated_at`,
+        args: [key, value, new Date().toISOString()],
+      });
+    },
+
     async getTelegramState(key) {
       const result = await db.execute({
         sql: 'SELECT value FROM telegram_state WHERE key = ?',
@@ -1262,6 +1342,27 @@ function serializeListing(listing: ScoredListing): unknown {
       area: occurrence.area,
       lastSeenAt: occurrence.lastSeenAt,
     })),
+  };
+}
+
+/**
+ * Charge utile JSON d'une occurrence : tout ce que les colonnes ne portent pas.
+ * Une seule définition, en regard de `rowToOccurrence` qui la relit — les deux
+ * doivent rester le miroir l'une de l'autre.
+ */
+function occurrencePayload(listing: NormalizedListing): Record<string, unknown> {
+  return {
+    description: listing.description,
+    imageUrls: listing.imageUrls,
+    views: listing.views,
+    favorites: listing.favorites,
+    chargesIncluded: listing.chargesIncluded,
+    dpe: listing.dpe,
+    district: listing.district,
+    features: listing.features,
+    contactName: listing.contact.name,
+    contactFormUrl: listing.contact.formUrl,
+    landlordKind: listing.contact.kind,
   };
 }
 

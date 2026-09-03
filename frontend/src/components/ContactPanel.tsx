@@ -15,9 +15,9 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { formatPhone, telHref } from '../format.js';
+import { formatArea, formatPhone, formatPrice, formatSourceName, telHref } from '../format.js';
 import { FOLLOW_UP_TEMPLATE, prepareMessage, type TenantProfile } from '@rentfinder/shared';
-import type { ListingView } from '../types.js';
+import type { ListingView, OccurrenceView } from '../types.js';
 import { fetchDocuments, isDemoMode, type DocumentInfo } from '../api/client.js';
 import { Button, ButtonLink } from '@/components/ui/button.js';
 import { Card } from '@/components/ui/card.js';
@@ -90,14 +90,64 @@ function sameName(a: string | undefined, b: string): boolean {
   return a !== undefined && plain(a) === plain(b);
 }
 
+/**
+ * Site de l'agence, déduit de l'URL de l'annonce.
+ *
+ * L'agence publie sa fiche sur son propre site : la racine de cette URL EST sa
+ * page d'accueil. Rien n'est inventé (§17), et aucune table de correspondance
+ * à tenir à jour.
+ *
+ * Les annonces venues d'une ALERTE E-MAIL pointent vers un portail : la racine
+ * de `seloger.com` n'est pas la page de l'agence, on ne lie donc rien.
+ */
+function agencyHomepage(listing: ListingView): string | null {
+  const url = listing.contact.formUrl ?? listing.occurrences[0]?.sourceUrl ?? null;
+  if (url === null) return null;
+  let origin: string;
+  let host: string;
+  try {
+    const parsed = new URL(url);
+    origin = parsed.origin;
+    host = parsed.hostname;
+  } catch {
+    return null;
+  }
+  return portalOf(url) !== null || /studapart|lodgis|inli/i.test(host) ? null : origin;
+}
+
+/** Une occurrence : la source, son loyer et sa surface, en lien vers l'annonce. */
+function SourceRow({ occurrence }: { readonly occurrence: OccurrenceView }): React.JSX.Element {
+  return (
+    <>
+      <a
+        href={occurrence.sourceUrl}
+        target="_blank"
+        rel="noreferrer noopener"
+        className="text-primary underline"
+      >
+        {formatSourceName(occurrence.sourceId)}
+      </a>
+      <span className="text-muted-foreground">
+        {' '}
+        — {formatPrice(occurrence.price)}, {formatArea(occurrence.area)}
+      </span>
+    </>
+  );
+}
+
 function ContactDetails({
-  contact,
+  listing,
   hasAnyContact,
 }: {
-  readonly contact: ListingView['contact'];
+  readonly listing: ListingView;
   readonly hasAnyContact: boolean;
 }): React.JSX.Element {
-  const { name, agencyName, phone, email, formUrl, providedBy } = contact;
+  const { name, agencyName, phone, email, formUrl, providedBy } = listing.contact;
+  const homepage = agencyHomepage(listing);
+  const occurrences = listing.occurrences;
+  // Le formulaire mène souvent à l'annonce elle-même : la ligne « Source »
+  // ci-dessous porte alors déjà ce lien, et la répéter n'apprend rien (§15).
+  const formIsSource = formUrl !== null && occurrences.some((o) => o.sourceUrl === formUrl);
   return (
     <>
       <dl className="mb-4 grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1 text-[0.92rem]">
@@ -110,7 +160,23 @@ function ContactDetails({
         {agencyName !== null && (
           <>
             <dt className="text-muted-foreground">Agence</dt>
-            <dd>{agencyName}</dd>
+            <dd>
+              {/* Le nom mène au site de l'agence : on y trouve ses autres biens,
+                ses horaires et son adresse — utile avant d'appeler. */}
+              {homepage !== null ? (
+                <a
+                  href={homepage}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="text-primary underline"
+                  title={`Ouvrir le site de ${agencyName}`}
+                >
+                  {agencyName}
+                </a>
+              ) : (
+                agencyName
+              )}
+            </dd>
           </>
         )}
         {phone !== null && (
@@ -129,13 +195,37 @@ function ContactDetails({
             </dd>
           </>
         )}
-        {formUrl !== null && (
+        {formUrl !== null && !formIsSource && (
           <>
             <dt className="text-muted-foreground">Formulaire</dt>
             <dd>
-              <a href={formUrl} target="_blank" rel="noreferrer noopener">
+              <a
+                href={formUrl}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="text-primary underline"
+              >
                 Ouvrir sur le site
               </a>
+            </dd>
+          </>
+        )}
+
+        {/* §38 : d'où vient l'annonce, avec le lien d'origine. Cette section
+          vivait seule en bas de fiche, entre le statut et la description ;
+          c'est pourtant une coordonnée comme les autres — le canal par lequel
+          on joint le bien. */}
+        {occurrences.length > 0 && (
+          <>
+            <dt className="text-muted-foreground">
+              {occurrences.length > 1 ? 'Sources' : 'Source'}
+            </dt>
+            <dd data-testid="listing-sources">
+              {occurrences.map((occurrence) => (
+                <span key={occurrence.id} className="block">
+                  <SourceRow occurrence={occurrence} />
+                </span>
+              ))}
             </dd>
           </>
         )}
@@ -241,7 +331,7 @@ export function ContactPanel({
         Contact
       </h3>
 
-      <ContactDetails contact={listing.contact} hasAnyContact={hasAnyContact} />
+      <ContactDetails listing={listing} hasAnyContact={hasAnyContact} />
 
       {profile === null ? (
         <div>

@@ -14,7 +14,7 @@
 
 import { createClient, type Client } from '@libsql/client/web';
 import { byRecency } from '../recency.js';
-import type { ListingView, SourceStateView, StatsData } from '../types.js';
+import type { FilterConfig, ListingView, SourceStateView, StatsData } from '../types.js';
 
 const URL_KEY = 'rentfinder.tursoUrl';
 const TOKEN_KEY = 'rentfinder.tursoToken';
@@ -232,10 +232,25 @@ export interface ListOptions {
 
 export async function listListings(options: ListOptions = {}): Promise<readonly ListingView[]> {
   const all = await loadAll();
+  // Budget et surface s'appliquent EN DIRECT, comme le fait l'API locale :
+  // resserrer son budget doit se voir tout de suite, sans attendre la collecte
+  // suivante. Les exclusions (colocation, étudiant) restent figées à la
+  // collecte — elles demandent le texte de l'annonce, pas un nombre.
+  // Un champ NULL n'exclut jamais (§17).
+  const criteria = options.includeOutOfCriteria === true ? null : await cachedCriteria();
   const kept = all.filter((l) => {
     if (options.includeOutOfCriteria !== true && !l.matchesCriteria) return false;
     if (options.includeArchived !== true && l.archived === true) return false;
     if (options.favoritesOnly === true && l.favorite !== true) return false;
+    if (criteria !== null) {
+      const price = l.price.value;
+      const area = l.area.value;
+      if (price !== null && price > criteria.maxPrice) return false;
+      if (price !== null && criteria.minPrice !== undefined && price < criteria.minPrice) {
+        return false;
+      }
+      if (area !== null && area < criteria.minArea) return false;
+    }
     return true;
   });
 
@@ -405,4 +420,62 @@ export async function removeSubscription(endpoint: string): Promise<void> {
     sql: 'DELETE FROM push_subscriptions WHERE endpoint = ?',
     args: [endpoint],
   });
+}
+
+/**
+ * Critères de recherche partagés avec la collecte (§66).
+ *
+ * Ils vivaient dans `config/search.json`, sur la machine de collecte : le site
+ * déployé ne pouvait que les afficher, et refusait tout enregistrement. En les
+ * rangeant dans la base, on les règle depuis le téléphone et la collecte les
+ * relit au run suivant.
+ *
+ * La table est créée à la demande, comme les abonnements push : le site peut
+ * tourner sur une base publiée avant l'ajout de cette fonctionnalité.
+ */
+const SETTINGS_TABLE = `CREATE TABLE IF NOT EXISTS app_settings (
+   key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at TEXT NOT NULL
+ )`;
+
+const CRITERIA_KEY = 'searchCriteria';
+
+/**
+ * Critères mémorisés pour la durée de la session : la liste se refiltre à
+ * chaque changement d'onglet ou de tri, et relire une ligne à chaque fois
+ * n'apprendrait rien (§30 — Turso facture les lectures).
+ */
+let criteriaCache: FilterConfig | null | undefined;
+
+async function cachedCriteria(): Promise<FilterConfig | null> {
+  if (criteriaCache === undefined) criteriaCache = await readSearchCriteria();
+  return criteriaCache;
+}
+
+export async function readSearchCriteria(): Promise<FilterConfig | null> {
+  const db = client();
+  await db.execute(SETTINGS_TABLE);
+  const result = await db.execute({
+    sql: 'SELECT value FROM app_settings WHERE key = ?',
+    args: [CRITERIA_KEY],
+  });
+  const raw = result.rows[0]?.['value'];
+  if (typeof raw !== 'string') return null;
+  try {
+    return JSON.parse(raw) as FilterConfig;
+  } catch {
+    // Valeur illisible : on repart des défauts plutôt que de bloquer l'écran.
+    return null;
+  }
+}
+
+export async function writeSearchCriteria(filters: FilterConfig): Promise<void> {
+  const db = client();
+  await db.execute(SETTINGS_TABLE);
+  await db.execute({
+    sql: `INSERT INTO app_settings (key, value, updated_at) VALUES (?,?,?)
+          ON CONFLICT(key) DO UPDATE SET value = excluded.value,
+                                         updated_at = excluded.updated_at`,
+    args: [CRITERIA_KEY, JSON.stringify(filters), new Date().toISOString()],
+  });
+  criteriaCache = filters;
 }

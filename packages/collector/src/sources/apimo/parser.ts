@@ -17,6 +17,7 @@
 import * as cheerio from 'cheerio';
 import type { RawListing } from '@rentfinder/shared';
 import { cleanText, comparable } from '../../normalization/text.js';
+import { htmlToText } from '../shared/html-text.js';
 import { compactListing } from '../shared/raw-listing.js';
 import { collectJsonLdNodes, findJsonLdNode, type JsonLdNode } from '../shared/json-ld.js';
 
@@ -249,7 +250,7 @@ function extractApimoContent(
   return {
     priceText,
     title: jsonLd?.name ?? cleanText($('.module-property-info .title').first().text()) ?? undefined,
-    description: jsonLd?.description ?? cleanText($('#description').first().text()) ?? undefined,
+    description: jsonLd?.description ?? htmlToText($, '#description') ?? undefined,
     areaText:
       jsonLd?.area !== undefined
         ? `${jsonLd.area} m²`

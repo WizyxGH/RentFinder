@@ -28,6 +28,7 @@ const SEEN_CAP = 500;
 
 const SEEN_KEY = 'rentfinder.notifiedListingIds';
 const OPTIN_KEY = 'rentfinder.notificationsOptIn';
+const ALERTS_SEEN_KEY = 'rentfinder.alertsSeenAt';
 
 // ---------------------------------------------------------------------------
 // Capacités du navigateur
@@ -109,6 +110,58 @@ export function writeSeen(ids: Iterable<string>): void {
   } catch {
     /* stockage indisponible : on renotifiera peut-être, sans casse */
   }
+}
+
+// ---------------------------------------------------------------------------
+// Pastille de la cloche : alertes non lues
+// ---------------------------------------------------------------------------
+
+/**
+ * Instant de la dernière visite de la page Notifications.
+ *
+ * ABSENT AU PREMIER LANCEMENT, et c'est le point délicat : compter alors tout
+ * l'historique afficherait « 90 » à quelqu'un qui n'a rien manqué. On amorce
+ * donc la mémoire à MAINTENANT — la pastille ne compte que ce qui arrive après
+ * la première ouverture du site.
+ */
+export function readAlertsSeenAt(nowMs: number): number {
+  try {
+    const raw = localStorage.getItem(ALERTS_SEEN_KEY);
+    if (raw !== null) {
+      const parsed = Number.parseInt(raw, 10);
+      if (Number.isFinite(parsed)) return parsed;
+    }
+    localStorage.setItem(ALERTS_SEEN_KEY, String(nowMs));
+  } catch {
+    /* stockage indisponible : la pastille vaudra pour la session */
+  }
+  return nowMs;
+}
+
+/** Consigne que la page Notifications vient d'être consultée. */
+export function markAlertsSeen(nowMs: number): void {
+  try {
+    localStorage.setItem(ALERTS_SEEN_KEY, String(nowMs));
+  } catch {
+    /* stockage indisponible : la pastille réapparaîtra, sans casse */
+  }
+}
+
+/**
+ * Nombre d'annonces SIGNALÉES depuis la dernière visite (PUR, testable).
+ *
+ * On compte l'horodatage d'alerte posé par la collecte, pas la liste courante :
+ * c'est la même source que l'historique de la page, donc les deux ne peuvent
+ * pas se contredire. Une annonce sans date est ignorée — elle date d'avant
+ * l'horodatage, on ne l'invente pas (§17).
+ */
+export function unreadAlertCount(listings: readonly ListingView[], seenAtMs: number): number {
+  return listings.filter((listing) => {
+    const at = listing.notifiedAt;
+    if (at === null || at === undefined) return false;
+    const timestamp = Date.parse(at);
+    return Number.isFinite(timestamp) && timestamp > seenAtMs;
+  }).length;
 }
 
 // ---------------------------------------------------------------------------

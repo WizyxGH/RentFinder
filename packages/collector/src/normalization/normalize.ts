@@ -16,7 +16,9 @@ import type {
 } from '@rentfinder/shared';
 import { EMPTY_CONTACT } from '@rentfinder/shared';
 import { cleanText, comparable } from './text.js';
+import { SHORT_TERM_LEASE_FEATURE } from '@rentfinder/shared';
 import {
+  isShortTermStudentLease,
   parseArea,
   parseBedrooms,
   parseCharges,
@@ -274,6 +276,44 @@ export function normalizeListing(
     scrapedAt: nowIso,
     lifecycle: 'active',
   };
+}
+
+/**
+ * Rejoue sur une occurrence DÉJÀ EN BASE ce que la normalisation sait faire
+ * aujourd'hui de son texte (§12).
+ *
+ * Sert au rattrapage : quand l'extraction s'améliore, les annonces déjà
+ * collectées ne repassent pas par un scraper — leur texte est en base, mais la
+ * valeur qu'on savait en tirer date du jour de la collecte. Sans ce rejeu, une
+ * amélioration ne profitait qu'aux annonces futures.
+ *
+ * VOLONTAIREMENT MINIMALISTE — deux règles seulement, et jamais destructives :
+ *
+ *   1. l'adresse n'est REMPLIE que si elle manque : une adresse publiée par la
+ *      source fait toujours autorité sur une adresse lue dans un texte ;
+ *   2. les atouts ne sont qu'AUGMENTÉS. Les recalculer entièrement les
+ *      appauvrirait : plusieurs viennent des attributs bruts du scraper
+ *      (étage, ascenseur, nombre de balcons) que la base ne conserve pas.
+ *
+ * Rien d'autre n'est retouché : ni le cycle de vie, ni le quartier, dont la
+ * valeur correcte n'est pas reconstituable depuis le texte (§17).
+ *
+ * @returns l'occurrence corrigée, ou `null` si rien ne change.
+ */
+export function rederiveFromText(occurrence: NormalizedListing): NormalizedListing | null {
+  const text = `${occurrence.title ?? ''} ${occurrence.description ?? ''}`;
+
+  const address =
+    occurrence.address ?? dedupeStreetAddress(extractStreetAddress(occurrence.description));
+
+  const shortTerm =
+    isShortTermStudentLease(text) && !occurrence.features.includes(SHORT_TERM_LEASE_FEATURE);
+  const features = shortTerm
+    ? [...occurrence.features, SHORT_TERM_LEASE_FEATURE]
+    : occurrence.features;
+
+  if (address === occurrence.address && !shortTerm) return null;
+  return { ...occurrence, address, features };
 }
 
 /** Normalise un lot, en écartant silencieusement les annonces inexploitables. */

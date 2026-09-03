@@ -39,7 +39,7 @@ import { createGeocoder, geocodeCacheKey } from './core/geocode.js';
 import { createTransitRouter } from './core/transit.js';
 import type { Coordinates } from './core/geo.js';
 import type { AggregatedListing } from '@rentfinder/shared';
-import type { Repository } from './db/repository.js';
+import type { Repository, UpsertReport } from './db/repository.js';
 import type { PublicConfig, ReferencePoint, TransitConfig } from './config.js';
 
 /** Plafond d'appels réseau de géocodage par run (les adresses en cache sont gratuites, §30). */
@@ -412,6 +412,97 @@ function withAgencyContact(
   });
 }
 
+/** Ce que produit un passage de regroupement + scoring sur le corpus stocké. */
+export interface RegroupReport {
+  readonly groups: readonly { readonly occurrences: readonly NormalizedListing[] }[];
+  readonly comparisonCount: number;
+  readonly listingReport: UpsertReport;
+}
+
+/**
+ * Dédoublonne, fusionne, score et persiste TOUT le corpus vivant.
+ *
+ * Cet étage ne dépend d'aucun scraper : il part des occurrences déjà en base.
+ * C'est ce qui permet de le rejouer seul (`pnpm reprocess`) après une
+ * amélioration du scoring ou de l'extraction, sans re-solliciter les sources
+ * (§30) — et c'est le MÊME code que la collecte, donc sans divergence possible.
+ *
+ * Le regroupement porte sur toutes les annonces vivantes, pas seulement sur
+ * celles du run : une annonce collectée aujourd'hui peut être le doublon d'une
+ * annonce vue la semaine dernière sur une autre source (§13).
+ */
+export async function regroupAndScore(
+  options: PipelineOptions,
+  nowMs: number,
+): Promise<RegroupReport> {
+  const { repository, logger, config } = options;
+
+  const corpus = await repository.allActiveOccurrences();
+  const { groups, comparisonCount } = dedupe(corpus);
+  logger.info('pipeline.deduplicated', { groups: groups.length, comparisons: comparisonCount });
+
+  // Baisses de loyer des 14 derniers jours : signal d'opportunité (§17).
+  const priceDropSince = new Date(nowMs - 14 * 24 * 60 * 60 * 1000).toISOString();
+  const priceDroppedIds = await repository.recentPriceDropIds(priceDropSince);
+
+  const merged = groups.map((group) => mergeGroup(group.occurrences));
+
+  const geocoded = await geocodeMissingAddresses(merged, options, nowMs);
+  if (geocoded.size > 0) {
+    logger.info('pipeline.geocoded', {
+      resolved: [...geocoded.values()].filter((c) => c !== null).length,
+      attempted: geocoded.size,
+    });
+  }
+
+  // Temps de trajet réel en transports en commun (Navitia), pour l'affichage
+  // ET le plafond de trajet (maxCommuteMinutes → hors critères).
+  const transitByListing = await resolveTransitMinutes(merged, options, geocoded, nowMs);
+  if (transitByListing.size > 0) {
+    logger.info('pipeline.transit_resolved', { listings: transitByListing.size });
+  }
+
+  const scored: ScoredListing[] = merged.map((listing) => {
+    const coords = geocoded.get(listing.id) ?? null;
+    // Coordonnées géocodées PERSISTÉES sur la fiche quand la source n'en
+    // publie pas : la vue carte et le dédoublonnage en profitent. La
+    // provenance « geocode » dit honnêtement d'où vient la valeur (§15).
+    const enriched =
+      coords !== null && listing.latitude.value === null
+        ? {
+            ...listing,
+            latitude: {
+              value: coords.latitude,
+              sourceId: 'geocode',
+              observedAt: new Date(nowMs).toISOString(),
+              conflicts: [],
+            },
+            longitude: {
+              value: coords.longitude,
+              sourceId: 'geocode',
+              observedAt: new Date(nowMs).toISOString(),
+              conflicts: [],
+            },
+          }
+        : listing;
+    const transitMinutes = transitByListing.get(listing.id);
+    return scoreListing(enriched, {
+      criteria: config.criteria,
+      nowMs,
+      referencePricePerSqm: config.referencePricePerSqm,
+      referencePoints: options.referencePoints,
+      priceDroppedIds,
+      resolvedCoordinates: coords,
+      ...(transitMinutes !== undefined ? { resolvedTransitMinutes: transitMinutes } : {}),
+    });
+  });
+
+  const listingReport = await repository.saveListings(scored);
+  logger.info('pipeline.listings_written', { ...listingReport });
+
+  return { groups, comparisonCount, listingReport };
+}
+
 export async function runPipeline(options: PipelineOptions): Promise<PipelineReport> {
   const { registry, repository, logger, clock, config } = options;
   const startedMs = clock.now();
@@ -520,73 +611,8 @@ export async function runPipeline(options: PipelineOptions): Promise<PipelineRep
     logger,
   });
 
-  // --- 5. Dédoublonnage sur l'ensemble du corpus ----------------------------
-  // Le regroupement porte sur toutes les annonces vivantes, pas seulement sur
-  // celles du run : une annonce collectée aujourd'hui peut être le doublon
-  // d'une annonce vue la semaine dernière sur une autre source (§13).
-  const corpus = await repository.allActiveOccurrences();
-  const { groups, comparisonCount } = dedupe(corpus);
-  logger.info('pipeline.deduplicated', { groups: groups.length, comparisons: comparisonCount });
-
-  // --- 6. Fusion et scoring -------------------------------------------------
-  // Baisses de loyer des 14 derniers jours : signal d'opportunité (§17).
-  const priceDropSince = new Date(nowMs - 14 * 24 * 60 * 60 * 1000).toISOString();
-  const priceDroppedIds = await repository.recentPriceDropIds(priceDropSince);
-
-  const merged = groups.map((group) => mergeGroup(group.occurrences));
-
-  const geocoded = await geocodeMissingAddresses(merged, options, nowMs);
-  if (geocoded.size > 0) {
-    logger.info('pipeline.geocoded', {
-      resolved: [...geocoded.values()].filter((c) => c !== null).length,
-      attempted: geocoded.size,
-    });
-  }
-
-  // Temps de trajet réel en transports en commun (Navitia), pour l'affichage
-  // ET le plafond de trajet (maxCommuteMinutes → hors critères).
-  const transitByListing = await resolveTransitMinutes(merged, options, geocoded, nowMs);
-  if (transitByListing.size > 0) {
-    logger.info('pipeline.transit_resolved', { listings: transitByListing.size });
-  }
-
-  const scored: ScoredListing[] = merged.map((listing) => {
-    const coords = geocoded.get(listing.id) ?? null;
-    // Coordonnées géocodées PERSISTÉES sur la fiche quand la source n'en
-    // publie pas : la vue carte et le dédoublonnage en profitent. La
-    // provenance « geocode » dit honnêtement d'où vient la valeur (§15).
-    const enriched =
-      coords !== null && listing.latitude.value === null
-        ? {
-            ...listing,
-            latitude: {
-              value: coords.latitude,
-              sourceId: 'geocode',
-              observedAt: new Date(nowMs).toISOString(),
-              conflicts: [],
-            },
-            longitude: {
-              value: coords.longitude,
-              sourceId: 'geocode',
-              observedAt: new Date(nowMs).toISOString(),
-              conflicts: [],
-            },
-          }
-        : listing;
-    const transitMinutes = transitByListing.get(listing.id);
-    return scoreListing(enriched, {
-      criteria: config.criteria,
-      nowMs,
-      referencePricePerSqm: config.referencePricePerSqm,
-      referencePoints: options.referencePoints,
-      priceDroppedIds,
-      resolvedCoordinates: coords,
-      ...(transitMinutes !== undefined ? { resolvedTransitMinutes: transitMinutes } : {}),
-    });
-  });
-
-  const listingReport = await repository.saveListings(scored);
-  logger.info('pipeline.listings_written', { ...listingReport });
+  // --- 5 & 6. Dédoublonnage, fusion, scoring, persistance ------------------
+  const { groups, comparisonCount, listingReport } = await regroupAndScore(options, nowMs);
 
   // Instantané du jour : ces chiffres ne sont pas reconstituables après coup,
   // il faut les mesurer au moment où ils sont vrais (§33).

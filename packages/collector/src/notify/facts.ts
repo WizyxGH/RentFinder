@@ -1,0 +1,111 @@
+/**
+ * Faits d'une annonce mis en forme pour une NOTIFICATION (§29).
+ *
+ * Telegram et le Web Push doivent dire la même chose : le loyer, la surface,
+ * l'adresse la plus précise connue, la disponibilité, le téléphone, l'origine
+ * et la priorité. Ces fonctions étaient privées au notifieur Telegram, ce qui
+ * condamnait le Web Push à un texte plus pauvre. Elles vivent désormais ici,
+ * sans mise en forme propre à un canal — pas de HTML, pas d'emoji : chaque
+ * canal habille ce qu'il reçoit.
+ *
+ * Toutes sont PURES et testables sans réseau (§59).
+ */
+
+import { formatLocation } from '@rentfinder/shared';
+import type { NotifiableListing } from '../db/repository.js';
+import { sourceDisplayNames } from '../sources/index.js';
+
+/**
+ * Portail d'origine déduit de l'URL de l'annonce. Les annonces importées par
+ * ALERTE E-MAIL portent une URL du portail (parfois via son domaine de
+ * tracking) : on la traduit en nom lisible pour lever l'ambiguïté du
+ * `source = email-alerts` (§17). `null` si l'hôte n'est pas un portail connu
+ * (annonces d'agences : leur source suffit déjà à les identifier).
+ */
+const PORTAL_LABELS: readonly (readonly [RegExp, string])[] = [
+  [/seloger\.com$/i, 'SeLoger'],
+  [/bienici\.com$/i, "Bien'ici"],
+  [/leboncoin\.fr$/i, 'Leboncoin'],
+  [/pap\.fr$/i, 'PAP'],
+  [/logic-immo\.com$/i, 'Logic-Immo'],
+];
+
+/**
+ * Nom lisible d'une source à partir de son identifiant (« foncia » → « Foncia »).
+ * La table est construite une seule fois, à la demande, pour ne pas payer
+ * l'import du registre à chaque message.
+ */
+let sourceNamesCache: ReadonlyMap<string, string> | null = null;
+
+export function sourceName(sourceId: string | null): string | null {
+  if (sourceId === null || sourceId === '') return null;
+  sourceNamesCache ??= sourceDisplayNames();
+  return sourceNamesCache.get(sourceId) ?? null;
+}
+
+export function portalLabel(url: string | null): string | null {
+  if (url === null) return null;
+  let host: string;
+  try {
+    host = new URL(url).hostname;
+  } catch {
+    return null;
+  }
+  return PORTAL_LABELS.find(([pattern]) => pattern.test(host))?.[1] ?? null;
+}
+
+/** D'où sort l'annonce : le portail quand l'URL le dit, sinon la source. */
+export function originLabel(listing: NotifiableListing): string | null {
+  return portalLabel(listing.url) ?? sourceName(listing.sourceId);
+}
+
+/** Somme lisible « 640 € · 28 m² · 2 pièces », en omettant l'inconnu (§17). */
+export function summarize(listing: NotifiableListing): string {
+  const parts: string[] = [];
+  if (listing.price !== null) parts.push(`${listing.price} €`);
+  if (listing.area !== null) parts.push(`${listing.area} m²`);
+  if (listing.rooms !== null) parts.push(`${listing.rooms} pièce${listing.rooms > 1 ? 's' : ''}`);
+  return parts.join(' · ');
+}
+
+/**
+ * Localisation la plus précise connue, au format postal français commun à toute
+ * l'application : « 12 Rue de France, 06000 Nice ». Chaîne vide si rien n'est
+ * publié (§17).
+ */
+export function locationLabel(listing: NotifiableListing): string {
+  return formatLocation({
+    street: listing.address,
+    district: listing.district,
+    postalCode: listing.postalCode,
+    city: listing.city,
+  });
+}
+
+/** Lien Maps vers cette localisation, ou `null` si elle est inconnue. */
+export function mapsUrl(label: string): string | null {
+  if (label === '') return null;
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(label)}`;
+}
+
+/**
+ * Disponibilité lisible : « Dispo maintenant » si l'emménagement est immédiat
+ * (sous 3 jours), sinon « Dispo le {date} ». `null` si la source ne l'a pas
+ * publiée ou si la date est illisible (§17).
+ */
+export function availabilityLabel(iso: string | null, nowMs: number): string | null {
+  if (iso === null) return null;
+  const timestamp = Date.parse(iso);
+  if (!Number.isFinite(timestamp)) return null;
+  if (timestamp <= nowMs + 3 * 86_400_000) return 'Dispo maintenant';
+  const formatted = new Date(timestamp).toLocaleDateString('fr-FR', {
+    day: 'numeric',
+    month: 'short',
+    year:
+      new Date(timestamp).getUTCFullYear() === new Date(nowMs).getUTCFullYear()
+        ? undefined
+        : 'numeric',
+    timeZone: 'UTC',
+  });
+  return `Dispo ${formatted}`;
+}

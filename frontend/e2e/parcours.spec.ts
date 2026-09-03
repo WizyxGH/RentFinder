@@ -29,6 +29,27 @@ async function ouvrir(page: Page, onglet: string, lienMobile: string): Promise<v
   await page.getByRole('button', { name: new RegExp(lienMobile) }).click();
 }
 
+/**
+ * Ouvre un écran secondaire (Notifications, Statistiques, Sources) depuis les
+ * Paramètres — leur seule porte d'entrée, sur tous les formats désormais : la
+ * barre du haut est réservée aux destinations quotidiennes.
+ */
+async function ouvrirReglage(page: Page, lien: string): Promise<void> {
+  const haut = page.getByRole('navigation', { name: 'Navigation principale' });
+  if (await haut.isVisible()) {
+    await haut.getByRole('button', { name: 'Paramètres' }).click();
+  } else {
+    await page
+      .getByRole('navigation', { name: 'Navigation' })
+      .getByRole('button', { name: 'Paramètres' })
+      .click();
+  }
+  await page
+    .getByRole('navigation', { name: 'Autres réglages' })
+    .getByRole('button', { name: new RegExp(lien) })
+    .click();
+}
+
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
   // Les annonces arrivent de façon ASYNCHRONE. Sans cette attente, un scénario
@@ -46,12 +67,12 @@ test('la liste répond à « que dois-je contacter maintenant ? » (§36)', asyn
   const cards = page.getByTestId('listing-card');
   await expect(cards.first()).toBeVisible();
 
-  // La meilleure opportunité est en tête, avec ses quatre scores.
+  // La meilleure opportunité est en tête, résumée par sa barre de priorité —
+  // le détail des quatre scores appartient à la fiche (§37).
   const first = cards.first();
-  await expect(first.getByText('Match')).toBeVisible();
-  await expect(first.getByText('Opportunité')).toBeVisible();
-  await expect(first.getByText('Visite')).toBeVisible();
-  await expect(first.getByText('Risque')).toBeVisible();
+  await expect(first.getByRole('progressbar', { name: /Priorité/ })).toBeVisible();
+  await expect(first.getByText('à contacter')).toBeVisible();
+  await expect(first.getByText('Match')).toHaveCount(0);
 });
 
 test('scénario 2 — une annonce multi-sources n’apparaît qu’une fois (§53)', async ({ page }) => {
@@ -64,6 +85,8 @@ test('scénario 2 — une annonce multi-sources n’apparaît qu’une fois (§5
   await first.click();
 
   // La fiche liste les quatre origines, avec leurs liens d'accès direct (§38).
+  // Elles ont rejoint le bloc « Contact » : c'est par elles qu'on joint le bien.
+  await expect(page.getByRole('region', { name: 'Contact' })).toBeVisible();
   await expect(page.getByTestId('listing-sources')).toBeVisible();
   const sourceLinks = page.getByTestId('listing-sources').getByRole('link');
   await expect(sourceLinks).toHaveCount(4);
@@ -160,8 +183,7 @@ test('le tri et le changement de statut fonctionnent (§35, §54)', async ({ pag
 });
 
 test('la page d’état des sources est consultable (§63)', async ({ page }) => {
-  // L'onglet « Sources » de la navigation (distinct du filtre par source).
-  await ouvrir(page, 'Sources', 'Sources');
+  await ouvrirReglage(page, 'Sources');
 
   await expect(page.getByRole('heading', { name: 'État des sources' })).toBeVisible();
   await expect(page.getByText('En repos (429)')).toBeVisible();
@@ -186,10 +208,13 @@ test('l’interface est utilisable sur mobile sans défilement horizontal (§39)
   expect(overflow).toBe(false);
 });
 
-test('les filtres sont réglables depuis le site (§66)', async ({ page }) => {
-  await ouvrir(page, 'Alertes', 'Critères de recherche');
+test('les critères de recherche sont réglables depuis le site (§66)', async ({ page }) => {
+  // Ils avaient leur propre onglet « Alertes », où on ne les trouvait pas :
+  // ils sont désormais repliés dans la modale qu'on ouvre pour affiner.
+  const toolbar = page.getByRole('group', { name: 'Barre de filtres' });
+  await toolbar.getByRole('button', { name: /Trier et filtrer/ }).click();
+  await page.getByText('Critères de recherche').click();
 
-  await expect(page.getByRole('heading', { name: 'Filtres de recherche' })).toBeVisible();
   const budget = page.getByLabel('Loyer maximum');
   await expect(budget).toBeVisible();
   await budget.fill('600');
@@ -309,8 +334,11 @@ test('la barre basse mène aux quatre destinations (mobile)', async ({ page }) =
     'page',
   );
 
+  // « Recherche » ouvre « Trier et filtrer », qui porte aussi les critères de
+  // collecte : il n'y a plus d'écran séparé à atteindre.
   await basse.getByRole('button', { name: 'Recherche' }).click();
-  await expect(page.getByRole('heading', { name: 'Filtres de recherche' })).toBeVisible();
+  await expect(page.getByRole('dialog', { name: 'Trier et filtrer' })).toBeVisible();
+  await page.getByRole('button', { name: 'Voir les résultats' }).click();
 
   await basse.getByRole('button', { name: 'Paramètres' }).click();
   // Les écrans que la barre ne porte pas restent atteignables depuis ici.

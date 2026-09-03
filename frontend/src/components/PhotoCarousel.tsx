@@ -11,7 +11,18 @@
 import { useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
-export function PhotoCarousel({ urls }: { readonly urls: readonly string[] }): React.JSX.Element {
+export function PhotoCarousel({
+  urls,
+  tall = false,
+}: {
+  readonly urls: readonly string[];
+  /**
+   * Format FICHE : plus haut, et sans les marges négatives qui font déborder
+   * le carrousel des bords de la carte de liste. La fiche n'a pas de cadre à
+   * remplir, elle a une image à montrer.
+   */
+  readonly tall?: boolean;
+}): React.JSX.Element {
   const [index, setIndex] = useState(0);
   // Les URLs dont le chargement échoue sont retirées : le carrousel ne montre
   // que des photos réellement disponibles.
@@ -24,7 +35,11 @@ export function PhotoCarousel({ urls }: { readonly urls: readonly string[] }): R
   const go = (next: number): void => setIndex((next + photos.length) % photos.length);
 
   return (
-    <div className="relative -mx-3 -mt-3 mb-3 h-44 w-[calc(100%+1.5rem)] overflow-hidden bg-muted">
+    <div
+      className={`relative overflow-hidden bg-muted ${
+        tall ? 'h-64 w-full sm:h-80' : '-mx-3 -mt-3 mb-3 h-44 w-[calc(100%+1.5rem)]'
+      }`}
+    >
       {/* Piste : toutes les photos côte à côte, décalée par transformation. */}
       <div
         className="flex h-full transition-transform duration-300 ease-out"
@@ -37,7 +52,7 @@ export function PhotoCarousel({ urls }: { readonly urls: readonly string[] }): R
             alt=""
             loading="lazy"
             referrerPolicy="no-referrer"
-            className="h-44 w-full shrink-0 object-cover"
+            className={`w-full shrink-0 object-cover ${tall ? 'h-64 sm:h-80' : 'h-44'}`}
             onError={() => setBroken((current) => new Set(current).add(url))}
           />
         ))}

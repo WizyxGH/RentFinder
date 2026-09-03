@@ -359,9 +359,12 @@ function demoFilters(): FilterConfig {
 }
 
 export async function fetchFilters(): Promise<FilterConfig> {
-  // Les critères vivent dans `config/search.json`, sur la machine — pas dans
-  // la base. En accès direct on montre les valeurs par défaut, en lecture.
-  if (DEMO || isDirectMode()) return demoFilters();
+  if (DEMO) return demoFilters();
+  // En accès direct, les critères vivent dans la BASE : le site n'a aucun accès
+  // à la machine de collecte, la base est leur seul point de rencontre (§66).
+  // Base encore vierge → les valeurs par défaut, qui sont aussi celles du
+  // fichier tant que rien n'a été enregistré.
+  if (isDirectMode()) return (await turso.readSearchCriteria()) ?? demoFilters();
   return request<FilterConfig>('/api/config');
 }
 
@@ -369,7 +372,8 @@ export async function fetchFilters(): Promise<FilterConfig> {
 export async function saveFilters(filters: FilterConfig): Promise<FilterConfig> {
   if (DEMO) return filters;
   if (isDirectMode()) {
-    throw new ApiError('Les critères se règlent depuis votre machine (config/search.json).', 400);
+    await turso.writeSearchCriteria(filters);
+    return filters;
   }
   return request<FilterConfig>('/api/config', { method: 'PUT', body: JSON.stringify(filters) });
 }

@@ -17,6 +17,7 @@
 import * as cheerio from 'cheerio';
 import type { RawListing } from '@rentfinder/shared';
 import { cleanText } from '../../normalization/text.js';
+import { htmlToText } from '../shared/html-text.js';
 import { compactListing, type ParsedList } from '../shared/raw-listing.js';
 
 /** Type de bien depuis le libellé français de la carte. */
@@ -89,7 +90,7 @@ export function parseListPage(html: string, pageUrl: string, agencyName: string)
         sourceUrl,
         alt: card.find('img[alt]').attr('alt') ?? '',
         typeText: cleanText(card.find('.bien-type').text()),
-        description: cleanText(card.find('.bien-description').text().replace(/\s+/g, ' ')),
+        description: htmlToText($, '.bien-description'),
         geo: cleanText(card.find('.bien-geo').text().replace(/\s+/g, ' ')),
         price: cleanText(card.find('.bien-prix').text().replace(/\s+/g, ' ')),
         image: card.find('img[src]').attr('src'),

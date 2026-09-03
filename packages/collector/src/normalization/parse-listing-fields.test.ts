@@ -9,6 +9,7 @@ import {
   parseDpe,
   extractFeatures,
   extractStreetAddress,
+  isShortTermStudentLease,
   parseAvailableAt,
   parsePhone,
   parsePostalCode,
@@ -313,6 +314,86 @@ describe('extractStreetAddress (§20 — adresse en tête de description)', () =
   it('rend null sans adresse', () => {
     expect(extractStreetAddress('Appartement 3 pièces au 2e étage')).toBeNull();
     expect(extractStreetAddress(null)).toBeNull();
+  });
+
+  it('accepte une voie SANS numéro quand elle occupe tout un segment', () => {
+    // Les agences niçoises écrivent presque toujours la voie sans numéro :
+    // exiger un numéro laissait 86 fiches sur 93 sans adresse.
+    expect(extractStreetAddress('Rue Smolett, tout proche du port et de la gare')).toBe(
+      'Rue Smolett',
+    );
+    expect(
+      extractStreetAddress('Vieille ville / vieux Nice, Rue Francis Gallo, au 4ème étage'),
+    ).toBe('Rue Francis Gallo');
+  });
+
+  it('lit une accroche composée au TIRET, comme les agences l’écrivent', () => {
+    // Orpi, Century 21 et D'Azur composent presque tous ainsi. Relevé tel quel.
+    expect(extractStreetAddress('NICE CENTRE - RUE DE PARIS - 3 PIECES - PROCHE GARE')).toBe(
+      'RUE DE PARIS',
+    );
+    expect(extractStreetAddress('Pasteur - rue Raoul Lesueur. Au 5ème étage avec ascenseur')).toBe(
+      'rue Raoul Lesueur',
+    );
+    expect(extractStreetAddress('Nice Libération – avenue de Villermont – 4 pièces')).toBe(
+      'avenue de Villermont',
+    );
+  });
+
+  it('ne coupe pas une voie sur son tiret interne', () => {
+    expect(extractStreetAddress('Nice Est - Rue Jean-Jaurès - studio')).toBe('Rue Jean-Jaurès');
+  });
+
+  it('refuse une voie noyée dans une phrase — ce sont les alentours (§17)', () => {
+    expect(
+      extractStreetAddress('Studio calme, entre la porte fausse et la place Rossetti'),
+    ).toBeNull();
+    expect(extractStreetAddress('Charmant studio proche de la promenade des Anglais')).toBeNull();
+  });
+
+  it('s’arrête au retour à la ligne, qui sépare deux idées', () => {
+    // Sans cela l'adresse emportait la phrase suivante :
+    // « rue Dr Barety Dans résidence sécurisée ».
+    expect(extractStreetAddress('Carré d’or - rue Dr Barety\nDans résidence sécurisée')).toBe(
+      'rue Dr Barety',
+    );
+  });
+
+  it('n’emporte pas le nom de résidence entre guillemets', () => {
+    expect(extractStreetAddress('97 boulevard Carnot " Le President"')).toBe('97 boulevard Carnot');
+  });
+
+  it('ne prend pas « Place de parking » pour une adresse', () => {
+    expect(extractStreetAddress('Place de parking, cave, ascenseur')).toBeNull();
+  });
+
+  it('n’emporte pas la phrase qui suit une voie sans ponctuation', () => {
+    // Relevés tels quels : sans garde, l'adresse retenue était
+    // « rue Dr Barety Dans résidence sécurisée » — ingéocodable, et fausse.
+    expect(
+      extractStreetAddress('Carré d’Or - rue Dr Barety Dans résidence sécurisée, parking'),
+    ).toBeNull();
+    expect(
+      extractStreetAddress('NICE VAUBAN - AVENUE MARECHAL VAUBAN Dans une résidence sécurisée'),
+    ).toBeNull();
+  });
+});
+
+describe('isShortTermStudentLease (§17 — bail de neuf mois)', () => {
+  it('reconnaît le bail septembre → juin, quelle qu’en soit la tournure', () => {
+    // Relevés tels quels sur trois fiches Dinamy le 2026-09-03.
+    expect(isShortTermStudentLease('Etudiant de Septembre à juin au prix de 600 € cc')).toBe(true);
+    expect(isShortTermStudentLease('Location saisonnière et étudiante de septembre à juin')).toBe(
+      true,
+    );
+    expect(isShortTermStudentLease('Location Etudiante et saisonnier en juillet aout.')).toBe(true);
+    expect(isShortTermStudentLease('Bail de 9 mois, meublé')).toBe(true);
+  });
+
+  it('laisse passer un logement à l’année, même « idéal étudiant »', () => {
+    expect(isShortTermStudentLease('Studio idéal étudiant, libre de suite')).toBe(false);
+    expect(isShortTermStudentLease('Disponible à partir de septembre')).toBe(false);
+    expect(isShortTermStudentLease(null)).toBe(false);
   });
 });
 

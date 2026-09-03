@@ -1,5 +1,8 @@
 /**
- * Affichage des quatre scores (§36, §37).
+ * Affichage détaillé des quatre scores, sur la FICHE (§37).
+ *
+ * La carte de liste n'en montre plus aucun : sa barre de priorité les résume.
+ * Ici on vient au contraire pour comprendre, d'où le détail complet.
  *
  * Deux exigences du cahier des charges se rejoignent ici :
  *   - §19 : afficher les RAISONS, pas seulement le chiffre ;
@@ -7,7 +10,7 @@
  *     une précision inexistante.
  */
 
-import type { ExplainedScore, ListingScores } from '@rentfinder/shared';
+import type { ExplainedScore } from '@rentfinder/shared';
 import { Card } from '@/components/ui/card.js';
 import { Check, Dot, TriangleAlert } from 'lucide-react';
 
@@ -28,101 +31,6 @@ const TONE_TEXT: Record<'good' | 'medium' | 'bad', string> = {
   medium: 'text-medium',
   bad: 'text-bad',
 };
-
-interface ScoreChipProps {
-  readonly label: string;
-  readonly score: ExplainedScore;
-  /** `true` pour le risque, où un score bas est une bonne nouvelle. */
-  readonly invert?: boolean;
-}
-
-/**
- * Anneau de progression SVG.
- *
- * Le rayon 15.9155 donne une circonférence de 100 : `stroke-dasharray`
- * reçoit directement la valeur du score, sans conversion. L'arc démarre en
- * haut (rotation -90°) et se colore selon le ton.
- */
-function ScoreRing({
-  value,
-  tone,
-}: {
-  readonly value: number;
-  readonly tone: 'good' | 'medium' | 'bad';
-}): React.JSX.Element {
-  const clamped = Math.max(0, Math.min(100, value));
-  return (
-    <svg viewBox="0 0 36 36" className="h-12 w-12" aria-hidden="true">
-      <circle
-        cx="18"
-        cy="18"
-        r="15.9155"
-        fill="none"
-        stroke="var(--color-border)"
-        strokeWidth="3.4"
-      />
-      <circle
-        cx="18"
-        cy="18"
-        r="15.9155"
-        fill="none"
-        className={TONE_STROKE[tone]}
-        strokeWidth="3.4"
-        strokeLinecap={clamped > 0 ? 'round' : 'butt'}
-        strokeDasharray={`${clamped} 100`}
-        transform="rotate(-90 18 18)"
-      />
-    </svg>
-  );
-}
-
-const TONE_STROKE: Record<'good' | 'medium' | 'bad', string> = {
-  good: 'stroke-good',
-  medium: 'stroke-medium',
-  bad: 'stroke-bad',
-};
-
-/** Score compact de la liste : anneau + chiffre au centre + libellé dessous. */
-export function ScoreChip({ label, score, invert = false }: ScoreChipProps): React.JSX.Element {
-  const tone = toneFor(score.value, invert);
-  const incomplete = score.unknownSignals.length > 0;
-
-  return (
-    <div className="flex flex-col items-center gap-0.5">
-      <span className="relative inline-flex items-center justify-center">
-        <ScoreRing value={score.value} tone={tone} />
-        <span
-          className={`absolute inset-0 flex items-center justify-center text-[0.82rem] font-bold ${TONE_TEXT[tone]}`}
-        >
-          {score.value}
-          {/* Astérisque discret : le score repose sur une information partielle. */}
-          {incomplete && (
-            <span
-              className="cursor-help text-[0.6rem] text-muted-foreground"
-              title={`Calculé sans : ${score.unknownSignals.join(', ')}`}
-              aria-label={`information partielle : ${score.unknownSignals.join(', ')}`}
-            >
-              *
-            </span>
-          )}
-        </span>
-      </span>
-      <span className="text-[0.68rem] tracking-wide text-muted-foreground uppercase">{label}</span>
-    </div>
-  );
-}
-
-/** Rangée de scores de la carte d'annonce. */
-export function ScoreRow({ scores }: { readonly scores: ListingScores }): React.JSX.Element {
-  return (
-    <div className="mt-2.5 grid grid-cols-4 gap-1.5">
-      <ScoreChip label="Match" score={scores.match} />
-      <ScoreChip label="Opportunité" score={scores.opportunity} />
-      <ScoreChip label="Visite" score={scores.visitProbability} />
-      <ScoreChip label="Risque" score={scores.risk} invert />
-    </div>
-  );
-}
 
 interface ScoreDetailProps {
   readonly title: string;

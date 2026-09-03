@@ -29,22 +29,13 @@ import {
 import { clearProfile, loadProfile, saveProfile } from './profile.js';
 import { AFFINITY_BOOST, computeAffinity } from './affinity.js';
 import { formatSourceName } from './format.js';
-import {
-  diffForNotification,
-  fireNotifications,
-  NOTIFY_POLL_MS,
-  notificationPermission,
-  readOptIn,
-  readSeen,
-  writeSeen,
-} from './notifications.js';
+import { markAlertsSeen, readAlertsSeenAt, unreadAlertCount } from './notifications.js';
 import { Button } from '@/components/ui/button.js';
 import { DocumentsSection } from './components/DocumentsSection.js';
 import { ListingCard } from './components/ListingCard.js';
 import { ListingDetail } from './components/ListingDetail.js';
 import { ProfileForm } from './components/ProfileForm.js';
 import { SourcesPanel } from './components/SourcesPanel.js';
-import { FiltersPanel } from './components/FiltersPanel.js';
 import { StatsPanel } from './components/StatsPanel.js';
 import { ArrowLeft, Bell, Flame, List, Map, Search, SlidersHorizontal } from 'lucide-react';
 import { SortFilterModal } from './components/SortFilterModal.js';
@@ -62,11 +53,14 @@ import {
   type QuickFilterValues,
 } from './components/QuickFilters.js';
 import { matchesSearch } from './search.js';
+import { useNewListingAlerts } from './use-new-listing-alerts.js';
+import { readViewState, writeViewState } from './view-state.js';
+import { mergeToasts, ToastStack, type Toast } from './components/ToastStack.js';
 
 // Leaflet n'entre dans le bundle que si la vue carte est ouverte (§65).
 const MapView = lazy(() => import('./components/MapView.js'));
 
-type View = 'list' | 'detail' | 'filters' | 'stats' | 'profile' | 'sources' | 'alerts';
+type View = 'list' | 'detail' | 'stats' | 'profile' | 'sources' | 'alerts';
 
 /**
  * Ce qu'un onglet peut viser. « favoris » n'est PAS une vue : c'est la liste
@@ -133,6 +127,7 @@ function Shell({
   view,
   favoritesOnly,
   onNavigate,
+  unreadAlerts = 0,
   bottomTab,
   onBottomSelect,
   children,
@@ -140,6 +135,8 @@ function Shell({
   readonly view: View;
   readonly favoritesOnly: boolean;
   readonly onNavigate: (target: NavTarget) => void;
+  /** Alertes reçues depuis la dernière visite de la page Notifications. */
+  readonly unreadAlerts?: number;
   /** Onglet bas actif, ou `null` hors des quatre destinations. */
   readonly bottomTab?: BottomTab | null;
   readonly onBottomSelect?: (tab: BottomTab) => void;
@@ -150,13 +147,11 @@ function Shell({
     // Présent dans la barre basse du téléphone, il manquait à l'écran : la
     // seule façon d'y venir était une bascule enfouie dans la modale.
     { key: 'favorites', label: 'Favoris' },
-    // « Alertes » plutôt que « Filtres » : ces critères décident de ce qui est
-    // COLLECTÉ et NOTIFIÉ, alors que la modale de la liste ne filtre que
-    // l'affichage. Deux choses différentes portaient le même nom.
-    { key: 'filters', label: 'Alertes' },
     { key: 'stats', label: 'Stats' },
-    { key: 'profile', label: 'Profil' },
-    { key: 'sources', label: 'Sources' },
+    // « Paramètres » et non « Profil » : cet écran porte le profil locataire,
+    // les pièces du dossier ET l'accès aux réglages secondaires. Il donne aussi
+    // accès aux Sources, dont l'onglet dédié n'apprenait rien de plus.
+    { key: 'profile', label: 'Paramètres' },
   ];
   // La fiche appartient à l'univers « Annonces » ; le filtre favoris prime.
   const active: NavTarget =
@@ -185,10 +180,25 @@ function Shell({
             <button
               type="button"
               onClick={() => onNavigate('alerts')}
-              aria-label="Notifications"
-              className="flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:text-foreground"
+              aria-label={
+                unreadAlerts > 0
+                  ? `Notifications, ${unreadAlerts} non lue${unreadAlerts > 1 ? 's' : ''}`
+                  : 'Notifications'
+              }
+              className="relative flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:text-foreground"
             >
               <Bell aria-hidden="true" className="size-4" />
+              {/* Pastille des alertes non lues : sans elle, rien ne distinguait
+                une cloche qui a quelque chose à dire d'une cloche muette — il
+                fallait ouvrir la page pour le savoir. */}
+              {unreadAlerts > 0 && (
+                <span
+                  aria-hidden="true"
+                  className="absolute -top-1.5 -right-1.5 flex min-w-4.5 items-center justify-center rounded-full bg-hot px-1 text-[0.65rem] leading-4.5 font-bold text-white"
+                >
+                  {unreadAlerts > 9 ? '9+' : unreadAlerts}
+                </span>
+              )}
             </button>
           </div>
         </div>
@@ -255,13 +265,36 @@ function isDefaultView(view: {
 }
 
 /**
+ * Nombre de réglages qui écartent l'affichage de son état d'ouverture — c'est
+ * la pastille du bouton « Trier et filtrer ». Hors du composant : ce n'est
+ * qu'un décompte, et l'y laisser alourdissait `App` sans rien apprendre.
+ */
+function countActiveSettings(view: {
+  readonly sort: SortMode;
+  readonly sourceCount: number;
+  readonly toggles: readonly boolean[];
+}): number {
+  return (
+    view.toggles.filter(Boolean).length +
+    (view.sort === 'priority' ? 0 : 1) +
+    (view.sourceCount === 0 ? 0 : 1)
+  );
+}
+
+/**
  * Onglet bas correspondant à la vue courante, ou `null` hors des quatre
  * destinations. Hors du composant : ce n'est qu'une correspondance, et l'y
  * laisser alourdissait `App` au-delà de la complexité tolérée.
  */
-function bottomTabFor(view: View, favoritesOnly: boolean): BottomTab | null {
+function bottomTabFor(
+  view: View,
+  favoritesOnly: boolean,
+  sortFilterOpen: boolean,
+): BottomTab | null {
+  // La modale ouverte, c'est « Recherche » qui est actif : l'onglet doit
+  // refléter ce que l'utilisateur regarde, modale comprise.
+  if (sortFilterOpen) return 'search';
   if (view === 'list' || view === 'detail') return favoritesOnly ? 'favorites' : 'home';
-  if (view === 'filters') return 'search';
   if (view === 'profile') return 'settings';
   return null;
 }
@@ -271,22 +304,28 @@ export function App(): React.JSX.Element {
   const [sources, setSources] = useState<readonly SourceStateView[]>([]);
   const [view, setView] = useState<View>('list');
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [sort, setSort] = useState<SortMode>('priority');
+  // Réglages d'AFFICHAGE restaurés depuis ce navigateur : ils ne survivaient
+  // pas à un rafraîchissement, et il fallait les refaire plusieurs fois par
+  // jour. Lus une seule fois, à l'initialisation des états.
+  const [restored] = useState(readViewState);
+  const [sort, setSort] = useState<SortMode>(restored.sort);
   const [sortFilterOpen, setSortFilterOpen] = useState(false);
   const [editingProfile, setEditingProfile] = useState(false);
-  const [search, setSearch] = useState('');
-  const [hideUncertain, setHideUncertain] = useState(false);
-  const [includeOutOfCriteria, setIncludeOutOfCriteria] = useState(false);
-  const [showArchived, setShowArchived] = useState(false);
-  const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const [search, setSearch] = useState(restored.search);
+  const [hideUncertain, setHideUncertain] = useState(restored.hideUncertain);
+  const [includeOutOfCriteria, setIncludeOutOfCriteria] = useState(restored.includeOutOfCriteria);
+  const [showArchived, setShowArchived] = useState(restored.showArchived);
+  const [favoritesOnly, setFavoritesOnly] = useState(restored.favoritesOnly);
   // Filtre par source : ensemble vide = toutes les sources affichées. Une
   // annonce passe si l'une de ses occurrences vient d'une source sélectionnée.
-  const [selectedSources, setSelectedSources] = useState<ReadonlySet<string>>(new Set());
+  const [selectedSources, setSelectedSources] = useState<ReadonlySet<string>>(
+    restored.selectedSources,
+  );
   // Filtres rapides façon SeLoger (budget, surface, pièces, type) : affinent la
   // liste déjà chargée, sans toucher aux critères de collecte (§66).
-  const [quickFilters, setQuickFilters] = useState<QuickFilterValues>(DEFAULT_QUICK_FILTERS);
+  const [quickFilters, setQuickFilters] = useState<QuickFilterValues>(restored.quickFilters);
   // Liste ⇄ Carte : deux façons de parcourir les mêmes annonces (§36, §39).
-  const [displayMode, setDisplayMode] = useState<'list' | 'map'>('list');
+  const [displayMode, setDisplayMode] = useState<'list' | 'map'>(restored.displayMode);
   const [profile, setProfile] = useState<TenantProfile | null>(() => loadProfile());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -294,11 +333,49 @@ export function App(): React.JSX.Element {
   // Instant de rendu, figé par chargement : évite que chaque carte recalcule
   // « il y a X min » à partir d'une horloge légèrement différente.
   const [nowMs, setNowMs] = useState(() => Date.now());
+  // Pastille de la cloche. `alertsSeenAt` s'amorce à l'instant du premier
+  // lancement : compter tout l'historique afficherait « 90 » à quelqu'un qui
+  // n'a rien manqué.
+  const [alertsSeenAt, setAlertsSeenAt] = useState(() => readAlertsSeenAt(Date.now()));
+  // Bandeaux d'alerte affichés DANS la page : la notification navigateur ne se
+  // voit pas quand l'onglet a le focus, et pas du tout sans permission.
+  const [toasts, setToasts] = useState<readonly Toast[]>([]);
 
   // Affinité : apprend de vos consultations/suivis/archivages pour remonter les
   // annonces qui vous ressemblent (§33). Hook placé AVANT tout return
   // conditionnel (règle des hooks). Recalculée quand la liste change.
   const affinity = useMemo(() => computeAffinity(listings), [listings]);
+
+  // Mémorise les réglages d'affichage à chaque changement. Un effet plutôt
+  // qu'une écriture dans chaque setter : neuf points d'écriture auraient fini
+  // par diverger, et un oubli ne se voit pas.
+  useEffect(() => {
+    writeViewState({
+      sort,
+      quickFilters,
+      selectedSources,
+      search,
+      hideUncertain,
+      includeOutOfCriteria,
+      showArchived,
+      favoritesOnly,
+      displayMode,
+    });
+  }, [
+    sort,
+    quickFilters,
+    selectedSources,
+    search,
+    hideUncertain,
+    includeOutOfCriteria,
+    showArchived,
+    favoritesOnly,
+    displayMode,
+  ]);
+  const unreadAlerts = useMemo(
+    () => unreadAlertCount(listings, alertsSeenAt),
+    [listings, alertsSeenAt],
+  );
 
   // Dérivations d'affichage MÉMOÏSÉES : elles filtrent et trient des centaines
   // d'annonces. Sans mémoïsation, tout serait recalculé à chaque rendu — donc à
@@ -425,36 +502,24 @@ export function App(): React.JSX.Element {
     });
   }, []);
 
-  // Notifications navigateur des nouvelles annonces, site ouvert (§29). Sonde
-  // périodiquement, indépendamment des filtres d'affichage, et ne notifie que
-  // si l'utilisateur a donné sa permission ET activé la cloche. Le premier
-  // sondage amorce la mémoire sans sonner (voir `diffForNotification`).
-  useEffect(() => {
-    if (isDemoMode()) return; // pas de vraies données à surveiller
+  // §29 : bandeaux dans la page + notifications navigateur, site ouvert.
+  const handleFresh = useCallback(
+    (fresh: readonly ListingView[]): void => setToasts((current) => mergeToasts(current, fresh)),
+    [],
+  );
+  useNewListingAlerts({ onFresh: handleFresh, onOpen: openListing });
 
-    let cancelled = false;
-    const tick = async (): Promise<void> => {
-      if (!readOptIn() || notificationPermission() !== 'granted') return;
-      try {
-        const response = await fetchListings({ sort: 'recent' });
-        if (cancelled) return;
-        const { fresh, nextSeen } = diffForNotification(response.listings, readSeen());
-        writeSeen(nextSeen);
-        fireNotifications(fresh, openListing);
-      } catch {
-        /* réseau indisponible : nouveau sondage au prochain tick */
-      }
-    };
-
-    void tick();
-    const timer = window.setInterval(() => void tick(), NOTIFY_POLL_MS);
-    return () => {
-      cancelled = true;
-      window.clearInterval(timer);
-    };
-  }, [openListing]);
+  const dismissToast = useCallback((id: string): void => {
+    setToasts((current) => current.filter((toast) => toast.id !== id));
+  }, []);
 
   const navigate = (next: NavTarget): void => {
+    if (next === 'alerts') {
+      // Consulter l'historique, c'est avoir vu les alertes : la pastille tombe.
+      const seenAt = Date.now();
+      markAlertsSeen(seenAt);
+      setAlertsSeenAt(seenAt);
+    }
     if (next === 'favorites') {
       setFavoritesOnly(true);
       setSelectedId(null);
@@ -538,15 +603,27 @@ export function App(): React.JSX.Element {
   // Onglet bas actif. « Favoris » n'est pas une vue mais la liste filtrée :
   // le même état sert au réglage de la modale, et deux sources de vérité
   // auraient fini par diverger.
-  const bottomTab = bottomTabFor(view, favoritesOnly);
+  const bottomTab = bottomTabFor(view, favoritesOnly, sortFilterOpen);
 
   const selectBottomTab = (tab: BottomTab): void => {
-    if (tab === 'search') return setView('filters');
+    if (tab === 'search') {
+      // « Recherche » ouvre « Trier et filtrer », qui porte désormais AUSSI les
+      // critères de collecte : il n'y a plus d'écran séparé à atteindre.
+      setFavoritesOnly(false);
+      setView('list');
+      setSortFilterOpen(true);
+      return;
+    }
     if (tab === 'settings') return setView('profile');
     // Accueil et Favoris mènent à la même liste, filtrée ou non.
     setFavoritesOnly(tab === 'favorites');
     setView('list');
   };
+
+  // Les bandeaux d'alerte flottent AU-DESSUS de la vue courante, quelle qu'elle
+  // soit : une annonce trouvée pendant qu'on lit une fiche doit se voir aussi.
+  // D'où ce fragment répété aux trois sorties du composant.
+  const overlay = <ToastStack toasts={toasts} onOpen={openListing} onDismiss={dismissToast} />;
 
   // Pas d'accès à la base : on demande les identifiants et on s'arrête là.
   // Sans eux, rien ne s'affiche — c'est la protection du site.
@@ -556,6 +633,7 @@ export function App(): React.JSX.Element {
         view={view}
         favoritesOnly={favoritesOnly}
         onNavigate={navigate}
+        unreadAlerts={unreadAlerts}
         bottomTab={bottomTab}
         onBottomSelect={selectBottomTab}
       >
@@ -583,6 +661,7 @@ export function App(): React.JSX.Element {
           view={view}
           favoritesOnly={favoritesOnly}
           onNavigate={navigate}
+          unreadAlerts={unreadAlerts}
           bottomTab={bottomTab}
           onBottomSelect={selectBottomTab}
         >
@@ -626,27 +705,11 @@ export function App(): React.JSX.Element {
           view={view}
           favoritesOnly={favoritesOnly}
           onNavigate={navigate}
+          unreadAlerts={unreadAlerts}
           bottomTab={bottomTab}
           onBottomSelect={selectBottomTab}
         >
           <SourcesPanel sources={sources} nowMs={nowMs} onBack={() => setView('list')} />
-        </Shell>
-      );
-    }
-    if (view === 'filters') {
-      return (
-        <Shell
-          view={view}
-          favoritesOnly={favoritesOnly}
-          onNavigate={navigate}
-          bottomTab={bottomTab}
-          onBottomSelect={selectBottomTab}
-        >
-          <FiltersPanel
-            onSaved={() => {
-              void load();
-            }}
-          />
         </Shell>
       );
     }
@@ -656,6 +719,7 @@ export function App(): React.JSX.Element {
           view={view}
           favoritesOnly={favoritesOnly}
           onNavigate={navigate}
+          unreadAlerts={unreadAlerts}
           bottomTab={bottomTab}
           onBottomSelect={selectBottomTab}
         >
@@ -669,6 +733,7 @@ export function App(): React.JSX.Element {
           view={view}
           favoritesOnly={favoritesOnly}
           onNavigate={navigate}
+          unreadAlerts={unreadAlerts}
           bottomTab={bottomTab}
           onBottomSelect={selectBottomTab}
         >
@@ -678,6 +743,7 @@ export function App(): React.JSX.Element {
             nowMs={nowMs}
             onBack={() => setView('list')}
             onArchive={(archived) => void handleArchive(selected.id, archived)}
+            onFavorite={(favorite) => void handleFavorite(selected.id, favorite)}
             onTrackingChange={(status) => void handleTrackingChange(status)}
             onContactRecorded={(channel, message, documents) =>
               void handleContactRecorded(channel, message, documents)
@@ -696,16 +762,15 @@ export function App(): React.JSX.Element {
   };
 
   const secondary = secondaryView();
-  if (secondary !== null) return secondary;
+  if (secondary !== null) {
+    return (
+      <>
+        {secondary}
+        {overlay}
+      </>
+    );
+  }
 
-  // Pastille du bouton « Trier et filtrer » : nombre de réglages qui écartent
-  // l'affichage du réglage par défaut (tri par priorité, aucune bascule, toutes
-  // les sources).
-  const activeFilterCount =
-    (favoritesOnly ? 1 : 0) +
-    (includeOutOfCriteria ? 1 : 0) +
-    (showArchived ? 1 : 0) +
-    (hideUncertain ? 1 : 0);
   // Deux compteurs distincts pour la liste : les annonces encore actives, et
   // celles qui ont disparu de leur source (affichées, mais à vérifier).
   const activeCount = filtered.filter((l) => l.lifecycle === 'active').length;
@@ -733,8 +798,11 @@ export function App(): React.JSX.Element {
     setHideUncertain(false);
   };
 
-  const toolbarBadge =
-    activeFilterCount + (sort !== 'priority' ? 1 : 0) + (selectedSources.size > 0 ? 1 : 0);
+  const toolbarBadge = countActiveSettings({
+    sort,
+    sourceCount: selectedSources.size,
+    toggles: [favoritesOnly, includeOutOfCriteria, showArchived, hideUncertain],
+  });
 
   const toggleSource = (sourceId: string): void =>
     setSelectedSources((current) => {
@@ -764,6 +832,7 @@ export function App(): React.JSX.Element {
       view={view}
       favoritesOnly={favoritesOnly}
       onNavigate={navigate}
+      unreadAlerts={unreadAlerts}
       bottomTab={bottomTab}
       onBottomSelect={selectBottomTab}
     >
@@ -784,7 +853,9 @@ export function App(): React.JSX.Element {
       {favoritesOnly ? (
         <header className="my-3 flex items-baseline gap-2">
           <h2 className="text-lg font-bold">Favoris</h2>
-          <span className="text-sm text-muted-foreground">
+          {/* Le compteur est un repère, pas un sous-titre : il se lit à droite,
+            comme celui de la liste principale — y compris sur téléphone. */}
+          <span className="ml-auto text-sm font-semibold text-muted-foreground">
             {filtered.length} annonce{filtered.length > 1 ? 's' : ''}
           </span>
         </header>
@@ -902,6 +973,7 @@ export function App(): React.JSX.Element {
             selectedSources={selectedSources}
             onToggleSource={toggleSource}
             onClearSources={() => setSelectedSources(new Set())}
+            onCriteriaSaved={() => void load()}
             dirty={somethingChanged}
             onReset={resetSortAndFilters}
           />
@@ -977,6 +1049,7 @@ export function App(): React.JSX.Element {
           </section>
         </>
       )}
+      {overlay}
     </Shell>
   );
 }

@@ -26,6 +26,7 @@
 import * as cheerio from 'cheerio';
 import type { RawListing } from '@rentfinder/shared';
 import { cleanText } from '../../normalization/text.js';
+import { htmlToText } from '../shared/html-text.js';
 import { compactListing, type RawDraft } from '../shared/raw-listing.js';
 
 /**
@@ -271,7 +272,7 @@ function parseCard(
       .get()
       .join(' '),
   );
-  const description = cleanText(card.find('.text-sm').first().text());
+  const description = htmlToText($, card.find('.text-sm') as cheerio.Cheerio<never>);
 
   // Enrichissement optionnel par le JSON de tracking (voir en-tête).
   const eulerian = parseEulerianData(

@@ -90,6 +90,38 @@ export interface EditableFilters {
   readonly furnishedFilter?: 'all' | 'furnished' | 'unfurnished';
 }
 
+/**
+ * Clé sous laquelle le site enregistre ses critères dans `app_settings`.
+ *
+ * Le fichier `config/search.json` reste la valeur par défaut ; ce qui est en
+ * base le surcharge. C'est ce qui permet de régler la recherche depuis le
+ * téléphone, alors que le site déployé n'a aucun accès à la machine (§66).
+ */
+export const SEARCH_CRITERIA_SETTING = 'searchCriteria';
+
+/**
+ * Applique par-dessus une configuration les critères enregistrés par le site.
+ *
+ * Tolérant par conception, comme la lecture du fichier : une valeur illisible
+ * est ignorée et la collecte continue sur les critères du fichier (§69).
+ */
+export function withStoredCriteria(config: PublicConfig, stored: string | null): PublicConfig {
+  if (stored === null) return config;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(stored);
+  } catch {
+    return config;
+  }
+  let filters: EditableFilters;
+  try {
+    filters = validateFilters(parsed);
+  } catch {
+    return config;
+  }
+  return { ...config, criteria: { ...config.criteria, ...filters } };
+}
+
 /** Lit les filtres courants (fichier + défauts) pour les présenter à l'UI. */
 export function readSearchFilters(): EditableFilters {
   const c = loadPublicConfig().criteria;

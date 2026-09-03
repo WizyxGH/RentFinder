@@ -21,63 +21,14 @@
 import type { Logger } from '../core/logger.js';
 import type { NotifiableListing, Repository } from '../db/repository.js';
 import { listingSpecKey, looseSpecKey } from '../db/repository.js';
-import { formatLocation } from '@rentfinder/shared';
-import { sourceDisplayNames } from '../sources/index.js';
 import type { TelegramConfig } from '../config.js';
+import { availabilityLabel, locationLabel, mapsUrl, originLabel, summarize } from './facts.js';
 
 const TELEGRAM_API = 'https://api.telegram.org';
 
 /** Échappe le texte pour le mode HTML de Telegram (§62 : jamais d'injection). */
 function escapeHtml(text: string): string {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
-
-/**
- * Portail d'origine déduit de l'URL de l'annonce. Les annonces importées par
- * ALERTE E-MAIL portent une URL du portail (parfois via son domaine de
- * tracking) : on la traduit en nom lisible pour lever l'ambiguïté du
- * `source = email-alerts` (§17). `null` si l'hôte n'est pas un portail connu
- * (annonces d'agences : leur source suffit déjà à les identifier).
- */
-const PORTAL_LABELS: readonly (readonly [RegExp, string])[] = [
-  [/seloger\.com$/i, 'SeLoger'],
-  [/bienici\.com$/i, "Bien'ici"],
-  [/leboncoin\.fr$/i, 'Leboncoin'],
-  [/pap\.fr$/i, 'PAP'],
-  [/logic-immo\.com$/i, 'Logic-Immo'],
-];
-
-/**
- * Nom lisible d'une source à partir de son identifiant (« foncia » → « Foncia »).
- * La table est construite une seule fois, à la demande, pour ne pas payer
- * l'import du registre à chaque message.
- */
-let sourceNamesCache: ReadonlyMap<string, string> | null = null;
-
-function sourceName(sourceId: string | null): string | null {
-  if (sourceId === null || sourceId === '') return null;
-  sourceNamesCache ??= sourceDisplayNames();
-  return sourceNamesCache.get(sourceId) ?? null;
-}
-
-function portalLabel(url: string | null): string | null {
-  if (url === null) return null;
-  let host: string;
-  try {
-    host = new URL(url).hostname;
-  } catch {
-    return null;
-  }
-  return PORTAL_LABELS.find(([pattern]) => pattern.test(host))?.[1] ?? null;
-}
-
-/** Somme lisible « 640 € · 28 m² · 2 pièces », en omettant l'inconnu (§17). */
-function summarize(listing: NotifiableListing): string {
-  const parts: string[] = [];
-  if (listing.price !== null) parts.push(`${listing.price} €`);
-  if (listing.area !== null) parts.push(`${listing.area} m²`);
-  if (listing.rooms !== null) parts.push(`${listing.rooms} pièce${listing.rooms > 1 ? 's' : ''}`);
-  return parts.join(' · ');
 }
 
 /**
@@ -104,21 +55,15 @@ export function formatListingMessage(
 
   // Localisation la plus précise (rue → quartier → commune), au format postal
   // français commun à toute l'application : « 12 Rue de France, 06000 Nice ».
-  const label = formatLocation({
-    street: listing.address,
-    district: listing.district,
-    postalCode: listing.postalCode,
-    city: listing.city,
-  });
-
-  if (label !== '') {
-    const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(label)}`;
-    lines.push(`📍 <a href="${escapeHtml(mapsUrl)}">${escapeHtml(label)}</a>`);
+  const label = locationLabel(listing);
+  const maps = mapsUrl(label);
+  if (maps !== null) {
+    lines.push(`📍 <a href="${escapeHtml(maps)}">${escapeHtml(label)}</a>`);
   }
 
   // Disponibilité : décisive pour agir (emménagement possible) — §17, affichée
   // seulement si la source l'a publiée.
-  const availability = formatAvailability(listing.availableAt, nowMs);
+  const availability = availabilityLabel(listing.availableAt, nowMs);
   if (availability !== null) lines.push(`📅 ${availability}`);
 
   // Téléphone : Telegram n'accepte pas les liens `tel:` dans les boutons, mais
@@ -130,33 +75,11 @@ export function formatListingMessage(
   // (rappeler l'agence, ouvrir le portail…). Pour une alerte e-mail, le
   // `sourceId` générique ne dit rien : on affiche alors le PORTAIL déduit de
   // l'URL (SeLoger, Bien'ici…). Sinon, le nom de la source (agence).
-  const origin = portalLabel(listing.url) ?? sourceName(listing.sourceId);
+  const origin = originLabel(listing);
   if (origin !== null) lines.push(`📨 via ${escapeHtml(origin)}`);
 
   lines.push(`⭐ Priorité ${listing.actionPriority}/100`);
   return lines.join('\n');
-}
-
-/**
- * Disponibilité lisible, alignée sur l'affichage du site : « Dispo maintenant »
- * si l'emménagement est immédiat (sous 3 jours), sinon « Dispo le {date} ».
- * `null` si la source ne l'a pas publiée ou si la date est illisible (§17).
- */
-function formatAvailability(iso: string | null, nowMs: number): string | null {
-  if (iso === null) return null;
-  const timestamp = Date.parse(iso);
-  if (!Number.isFinite(timestamp)) return null;
-  if (timestamp <= nowMs + 3 * 86_400_000) return 'Dispo maintenant';
-  const formatted = new Date(timestamp).toLocaleDateString('fr-FR', {
-    day: 'numeric',
-    month: 'short',
-    year:
-      new Date(timestamp).getUTCFullYear() === new Date(nowMs).getUTCFullYear()
-        ? undefined
-        : 'numeric',
-    timeZone: 'UTC',
-  });
-  return `Dispo ${formatted}`;
 }
 
 /** Extrait le `message_id` d'une réponse Telegram (message seul ou album). */

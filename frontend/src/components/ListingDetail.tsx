@@ -25,9 +25,10 @@ import {
 } from '../format.js';
 import { ScoreDetail } from './Scores.js';
 import { ContactPanel } from './ContactPanel.js';
+import { PhotoCarousel } from './PhotoCarousel.js';
 import { Badge } from '@/components/ui/badge.js';
 import { Button } from '@/components/ui/button.js';
-import { Archive, ArchiveRestore, ArrowLeft, MapPin, TrainFront } from 'lucide-react';
+import { Archive, ArchiveRestore, ArrowLeft, Heart, MapPin, TrainFront } from 'lucide-react';
 
 interface ListingDetailProps {
   readonly listing: ListingView;
@@ -36,6 +37,8 @@ interface ListingDetailProps {
   readonly onBack: () => void;
   /** Archive (`true`) ou désarchive (`false`) l'annonce. */
   readonly onArchive?: (archived: boolean) => void;
+  /** Met (`true`) ou retire (`false`) l'annonce des favoris. */
+  readonly onFavorite?: (favorite: boolean) => void;
   readonly onTrackingChange: (status: TrackingStatus) => void;
   readonly onContactRecorded: (
     channel: string,
@@ -72,6 +75,91 @@ function ConflictNote({
   );
 }
 
+/**
+ * Suivi du statut (§35).
+ *
+ * Il vivait sous le bloc Contact, après une page entière de faits : on le
+ * cherchait. Sa place est près du prix — c'est une ACTION sur l'annonce, pas
+ * une de ses caractéristiques.
+ */
+function TrackingSelect({
+  listing,
+  onChange,
+}: {
+  readonly listing: ListingView;
+  readonly onChange: (status: TrackingStatus) => void;
+}): React.JSX.Element {
+  return (
+    <section className="mb-4 flex items-center gap-2">
+      <label htmlFor="tracking-select" className="text-muted-foreground">
+        Statut
+      </label>
+      <select
+        id="tracking-select"
+        value={listing.tracking}
+        onChange={(event) => onChange(event.target.value as TrackingStatus)}
+        className="rounded-lg border border-input bg-card px-2 py-1.5"
+      >
+        {TRACKING_ORDER.map((status) => (
+          <option key={status} value={status}>
+            {formatTracking(status)}
+          </option>
+        ))}
+      </select>
+    </section>
+  );
+}
+
+/**
+ * Les deux gestes qu'on porte sur une annonce : la retenir, l'écarter.
+ *
+ * La carte de liste ouvrant la fiche sur toute sa surface, elle ne peut plus
+ * porter que le cœur ; et depuis une fiche ouverte par une notification, rien
+ * ne permettait de retenir l'annonce sans revenir en arrière.
+ */
+function DetailActions({
+  favorite,
+  archived,
+  onFavorite,
+  onArchive,
+}: {
+  readonly favorite: boolean;
+  readonly archived: boolean;
+  readonly onFavorite?: (favorite: boolean) => void;
+  readonly onArchive?: (archived: boolean) => void;
+}): React.JSX.Element {
+  return (
+    <>
+      {onFavorite !== undefined && (
+        <Button
+          variant="ghost"
+          onClick={() => onFavorite(!favorite)}
+          title={favorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+          aria-label={favorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+          aria-pressed={favorite}
+          className={favorite ? 'text-hot' : undefined}
+        >
+          <Heart aria-hidden="true" className={`size-4 ${favorite ? 'fill-current' : ''}`} />
+        </Button>
+      )}
+      {onArchive !== undefined && (
+        <Button
+          variant="ghost"
+          onClick={() => onArchive(!archived)}
+          title={archived ? 'Désarchiver' : 'Archiver'}
+          aria-label={archived ? 'Désarchiver' : 'Archiver'}
+        >
+          {archived ? (
+            <ArchiveRestore aria-hidden="true" className="size-4" />
+          ) : (
+            <Archive aria-hidden="true" className="size-4" />
+          )}
+        </Button>
+      )}
+    </>
+  );
+}
+
 /** Grille étiquette/valeur utilisée par la fiche et le contact. */
 const FACTS_GRID = 'mb-4 grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1 text-[0.92rem]';
 const FACT_LABEL = 'text-muted-foreground';
@@ -82,12 +170,14 @@ export function ListingDetail({
   nowMs,
   onBack,
   onArchive,
+  onFavorite,
   onTrackingChange,
   onContactRecorded,
   onConfigureProfile,
 }: ListingDetailProps): React.JSX.Element {
   const charges = listing.charges.value;
   const archived = listing.archived === true;
+  const favorite = listing.favorite === true;
 
   // Requête Maps : la localisation la plus précise disponible (§20). Rue si
   // connue, sinon quartier, sinon ville + code postal.
@@ -108,43 +198,22 @@ export function ListingDetail({
         <span className="flex items-center gap-2">
           {listing.priceDropped === true && <Badge variant="good">Prix en baisse</Badge>}
           {!listing.matchesCriteria && <Badge variant="warning">Hors critères de recherche</Badge>}
-          {/* L'archivage a quitté la carte, dont la surface entière ouvre
-            désormais la fiche. Sa place est ici : c'est le seul endroit
-            atteignable aussi bien au téléphone qu'à l'écran. */}
-          {onArchive !== undefined && (
-            <Button
-              variant="ghost"
-              onClick={() => onArchive(!archived)}
-              title={archived ? 'Désarchiver' : 'Archiver'}
-              aria-label={archived ? 'Désarchiver' : 'Archiver'}
-            >
-              {archived ? (
-                <ArchiveRestore aria-hidden="true" className="size-4" />
-              ) : (
-                <Archive aria-hidden="true" className="size-4" />
-              )}
-            </Button>
-          )}
+          <DetailActions
+            favorite={favorite}
+            archived={archived}
+            {...(onFavorite !== undefined ? { onFavorite } : {})}
+            {...(onArchive !== undefined ? { onArchive } : {})}
+          />
         </span>
       </header>
 
       {/* Photos : affichées directement depuis le site d'origine (§11 : jamais
-          téléchargées ni stockées), en bandeau défilant façon galerie. */}
+          téléchargées ni stockées). Le même carrousel que la carte de liste —
+          flèches, points, une image à la fois — plutôt qu'un bandeau à faire
+          glisser, dont rien n'indiquait qu'il continuait hors de l'écran. */}
       {listing.imageUrls.length > 0 && (
-        <div className="mb-3 flex touch-pan-x snap-x gap-2 overflow-x-auto overscroll-contain select-none">
-          {listing.imageUrls.slice(0, 8).map((url) => (
-            <img
-              key={url}
-              src={url}
-              alt=""
-              loading="lazy"
-              referrerPolicy="no-referrer"
-              className="h-48 w-auto shrink-0 snap-start rounded-xl object-cover"
-              onError={(event) => {
-                event.currentTarget.style.display = 'none';
-              }}
-            />
-          ))}
+        <div className="mb-3 overflow-hidden rounded-xl">
+          <PhotoCarousel urls={listing.imageUrls.slice(0, 12)} tall />
         </div>
       )}
 
@@ -168,6 +237,8 @@ export function ListingDetail({
         <span aria-hidden="true"> · </span>
         {formatRooms(listing.rooms.value)}
       </p>
+
+      <TrackingSelect listing={listing} onChange={onTrackingChange} />
 
       <dl className={FACTS_GRID}>
         <dt className={FACT_LABEL}>Type</dt>
@@ -282,40 +353,6 @@ export function ListingDetail({
         onRecorded={onContactRecorded}
         onConfigureProfile={onConfigureProfile}
       />
-
-      {/* §35 : suivi du statut. */}
-      <section className="my-4 flex items-center gap-2">
-        <label htmlFor="tracking-select">Statut</label>
-        <select
-          id="tracking-select"
-          value={listing.tracking}
-          onChange={(event) => onTrackingChange(event.target.value as TrackingStatus)}
-        >
-          {TRACKING_ORDER.map((status) => (
-            <option key={status} value={status}>
-              {formatTracking(status)}
-            </option>
-          ))}
-        </select>
-      </section>
-
-      {/* §38 : toutes les sources, avec leurs URLs d'origine. */}
-      <section data-testid="listing-sources">
-        <h3 className="font-semibold">{listing.occurrences.length > 1 ? 'Sources' : 'Source'}</h3>
-        <ul className="mt-1.5 list-disc pl-5">
-          {listing.occurrences.map((occurrence) => (
-            <li key={occurrence.id}>
-              <a href={occurrence.sourceUrl} target="_blank" rel="noreferrer noopener">
-                {formatSourceName(occurrence.sourceId)}
-              </a>
-              <span className="text-sm text-muted-foreground">
-                {' '}
-                — {formatPrice(occurrence.price)}, {formatArea(occurrence.area)}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </section>
 
       {listing.description.value !== null && (
         <section className="mt-4">

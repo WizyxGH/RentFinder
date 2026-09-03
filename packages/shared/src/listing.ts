@@ -193,6 +193,17 @@ export interface ListingOccurrence {
 /** Alias lisible : ce que produit l'étage de normalisation. */
 export type NormalizedListing = ListingOccurrence;
 
+/**
+ * Atout signalant un bail meublé ÉTUDIANT de neuf mois — septembre → juin — le
+ * logement repassant en location saisonnière l'été.
+ *
+ * C'est à la fois une valeur d'affichage et un contrat entre trois étages : la
+ * normalisation la pose dans `features`, le score de correspondance s'en sert
+ * pour l'exclusion « locations étudiantes », et l'interface en fait un badge.
+ * La déclarer ici évite que les trois divergent sur une chaîne recopiée.
+ */
+export const SHORT_TERM_LEASE_FEATURE = 'Bail 9 mois (sept.–juin)';
+
 // ---------------------------------------------------------------------------
 // Étage 3 — logement unique, toutes sources confondues
 // ---------------------------------------------------------------------------

@@ -18,7 +18,7 @@ import type {
   StopReason,
 } from '@rentfinder/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
-import { parseListPage, parsePageCount } from './parser.js';
+import { parseDetailPage, parseListPage, parsePageCount, withDetail } from './parser.js';
 
 const ORIGIN = 'https://www.dinamyimmobilier.com';
 const PAGINATION_URL = `${ORIGIN}/Controleurs/MiseAJour.php`;
@@ -32,6 +32,16 @@ const RENTAL_TRANSACTIONS = [5, 3] as const;
 /** Sécurité : au-delà, on considère la pagination anormale et on s'arrête. */
 const MAX_PAGES_PER_TRANSACTION = 8;
 
+/**
+ * Fiches visitées par exécution, réservées aux annonces NOUVELLES (§30, §32).
+ *
+ * Une fiche pèse 2 Mo — la moitié est une liste des 35 000 communes de France
+ * réinjectée dans chaque page. On ne la relit donc jamais pour une annonce
+ * déjà connue : ses photos et sa description sont déjà en base.
+ */
+const MAX_DETAILS_LIVE = 8;
+const MAX_DETAILS_BACKFILL = 20;
+
 export const DINAMY_DESCRIPTOR: SourceDescriptor = {
   id: 'dinamy',
   name: 'Dinamy Immobilier',
@@ -40,7 +50,10 @@ export const DINAMY_DESCRIPTOR: SourceDescriptor = {
   method: 'html',
   priority: 2,
   schedule: scheduleFor('localAgency'),
-  budget: budgetFor('localAgency', { maxPagesPerRun: 14, maxListingsPerRun: 60 }),
+  budget: budgetFor('localAgency', {
+    maxPagesPerRun: 14 + MAX_DETAILS_BACKFILL,
+    maxListingsPerRun: 60,
+  }),
   // Contact PUBLIC, publié par l'agence sur son propre site (relevé le
   // 2026-09-02). Le scanner le signale comme donnée personnelle : c'est une
   // coordonnée professionnelle, déjà publique, et c'est ici la fonctionnalité.
@@ -53,10 +66,11 @@ export const DINAMY_DESCRIPTOR: SourceDescriptor = {
     'Agence Nice (13 rue François Guisol, 06300). Application PHP maison, SSR, ' +
     'sans anti-bot ; pas de robots.txt (404) donc rien d’interdit. La liste ' +
     'porte déjà prix/référence dans le querystring, et la surface + le nombre ' +
-    'de pièces sont encodés dans le chemin des photos : aucune visite de fiche ' +
-    '(§30). Pagination par POST lié à la session PHP. La location SAISONNIÈRE ' +
-    '(transactions=4, prix à la nuitée) n’est jamais collectée. Le sitemap est ' +
-    'périmé — ne pas s’en servir.',
+    'de pièces sont encodés dans le chemin des photos. Seules les fiches ' +
+    'NOUVELLES sont visitées (§30, §32) : elles seules portent la description ' +
+    '— qui nomme la rue — et le diaporama complet. Pagination par POST lié à ' +
+    'la session PHP. La location SAISONNIÈRE (transactions=4, prix à la ' +
+    'nuitée) n’est jamais collectée. Le sitemap est périmé — ne pas s’en servir.',
 };
 
 /** Valeur du cookie de session à renvoyer, extraite d'un en-tête Set-Cookie. */
@@ -149,11 +163,56 @@ export const dinamyScraper: Scraper = {
       }
     }
 
+    // --- Fiches : description (donc la RUE) et diaporama complet -----------
+    //
+    // Réservé aux annonces NOUVELLES : une annonce déjà connue est confirmée
+    // sans requête (§32), ses photos et sa description étant déjà en base.
     const listings = [...byRef.values()];
-    context.log('list.parsed', { listings: listings.length });
+    const confirmedRefs = listings
+      .filter((listing) => context.isKnown(listing.sourceRef))
+      .map((listing) => listing.sourceRef);
+    const candidates = listings.filter((listing) => !context.isKnown(listing.sourceRef));
+    const maxDetails = context.mode === 'backfill' ? MAX_DETAILS_BACKFILL : MAX_DETAILS_LIVE;
+
+    context.log('list.parsed', {
+      listings: listings.length,
+      known: confirmedRefs.length,
+      new: candidates.length,
+      toFetch: Math.min(candidates.length, maxDetails),
+    });
+
+    const enriched = new Map<string, RawListing>();
+    for (const listing of candidates.slice(0, maxDetails)) {
+      if (context.shouldStop()) {
+        stopReason = 'maxPages';
+        break;
+      }
+      try {
+        const response = await context.fetch(listing.sourceUrl);
+        requestCount += 1;
+        if (response.notModified) continue;
+        pagesFetched += 1;
+        enriched.set(
+          listing.sourceRef,
+          withDetail(listing, parseDetailPage(response.body, listing.sourceUrl)),
+        );
+      } catch (error) {
+        // Fiche illisible : l'annonce reste collectée avec ce que la liste
+        // en disait (§69) — mieux vaut une fiche pauvre que pas de fiche.
+        const message = error instanceof Error ? error.message : String(error);
+        warnings.push(`Échec de la fiche ${listing.sourceRef} : ${message}`);
+        context.log('detail.failed', { ref: listing.sourceRef, error: message });
+        if (message.includes('429')) {
+          stopReason = 'rateLimited';
+          break;
+        }
+      }
+    }
+
     return {
       sourceId: DINAMY_DESCRIPTOR.id,
-      listings,
+      listings: listings.map((listing) => enriched.get(listing.sourceRef) ?? listing),
+      confirmedRefs,
       requestCount,
       pagesFetched,
       stopReason,

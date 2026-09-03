@@ -1,9 +1,14 @@
 /**
- * Réglage des filtres de recherche depuis l'interface (§66).
+ * Réglage des CRITÈRES DE RECHERCHE (§66) — ce qui est collecté et signalé.
  *
- * Les filtres numériques (budget, surface) s'appliquent immédiatement à
- * l'affichage. Les exclusions (colocation, étudiant) sont figées à la collecte :
- * elles prennent effet au prochain `pnpm collect`. L'écran le dit clairement.
+ * À ne pas confondre avec les filtres d'affichage de la modale, qui ne font que
+ * trier ce qui est déjà là : ici on décide ce qui entrera dans la base et ce
+ * qui déclenchera une alerte. Les deux vivent désormais dans la même modale,
+ * dans deux sections distinctes, parce qu'on les cherche au même endroit.
+ *
+ * Budget et surface s'appliquent immédiatement à l'affichage ; les exclusions
+ * (colocation, étudiant) sont figées à la collecte et prennent effet au
+ * prochain run. L'écran le dit.
  */
 
 import { useEffect, useState } from 'react';
@@ -16,6 +21,11 @@ import { PanelSkeleton } from './Skeletons.js';
 interface FiltersPanelProps {
   /** Appelé après enregistrement, pour recharger la liste. */
   readonly onSaved: () => void;
+  /**
+   * Rendu sans son titre ni son introduction, pour s'insérer dans une section
+   * qui les porte déjà (la modale « Trier et filtrer »).
+   */
+  readonly compact?: boolean;
 }
 
 const FIELD = 'w-28 rounded-lg border border-input bg-card px-2 py-1.5 text-right';
@@ -77,7 +87,7 @@ function Segmented<T extends string>({
   );
 }
 
-export function FiltersPanel({ onSaved }: FiltersPanelProps): React.JSX.Element {
+export function FiltersPanel({ onSaved, compact = false }: FiltersPanelProps): React.JSX.Element {
   const [filters, setFilters] = useState<FilterConfig | null>(null);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -127,11 +137,15 @@ export function FiltersPanel({ onSaved }: FiltersPanelProps): React.JSX.Element 
 
   return (
     <section>
-      <h2 className="mb-1 text-lg font-semibold">Filtres de recherche</h2>
-      <p className="mb-4 text-sm text-muted-foreground">
-        Réglez votre recherche. Budget et surface se répercutent immédiatement ; les exclusions
-        prennent effet à la prochaine collecte.
-      </p>
+      {!compact && (
+        <>
+          <h2 className="mb-1 text-lg font-semibold">Critères de recherche</h2>
+          <p className="mb-4 text-sm text-muted-foreground">
+            Réglez votre recherche. Budget et surface se répercutent immédiatement ; les exclusions
+            prennent effet à la prochaine collecte.
+          </p>
+        </>
+      )}
 
       <dl className="divide-y divide-border">
         {/* Une seule ligne « de … à … » : les deux bornes formaient deux

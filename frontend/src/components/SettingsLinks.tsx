@@ -1,13 +1,14 @@
 /**
- * Accès aux écrans secondaires, MOBILE UNIQUEMENT (§39).
+ * Accès aux écrans secondaires depuis les Paramètres (§39).
  *
- * La barre basse ne porte que quatre destinations. Sur grand écran, les
- * onglets du haut mènent partout ; sur mobile ils sont masqués, ce qui rendrait
- * Notifications, Statistiques et Sources inatteignables. Cette liste les
- * rouvre depuis « Paramètres », qui est leur place naturelle.
+ * La barre basse du téléphone ne porte que quatre destinations, et les onglets
+ * du haut ont été ramenés à quatre eux aussi : « Sources » n'y méritait pas une
+ * place permanente — on y va une fois par mois, pour vérifier qu'un site n'est
+ * pas tombé. Sa place est ici, avec les autres écrans qu'on consulte
+ * ponctuellement, et cette liste s'affiche donc sur TOUS les formats.
  */
 
-import { Bell, BarChart3, ChevronRight, Radio, SlidersHorizontal } from 'lucide-react';
+import { Bell, BarChart3, ChevronRight, Radio } from 'lucide-react';
 
 export interface SettingsLink {
   readonly key: string;
@@ -24,12 +25,6 @@ export const SETTINGS_LINKS: readonly SettingsLink[] = [
     Icon: Bell,
   },
   {
-    key: 'filters',
-    label: 'Critères de recherche',
-    hint: 'Ce qui est collecté et signalé.',
-    Icon: SlidersHorizontal,
-  },
-  {
     key: 'stats',
     label: 'Statistiques',
     hint: 'Couverture des sources et taux de réponse.',
@@ -44,7 +39,7 @@ export function SettingsLinks({
   readonly onNavigate: (key: string) => void;
 }): React.JSX.Element {
   return (
-    <nav aria-label="Autres réglages" className="mt-6 sm:hidden">
+    <nav aria-label="Autres réglages" className="mt-6">
       <h2 className="mb-2 text-lg font-bold">Autres réglages</h2>
       <ul className="flex flex-col gap-2">
         {SETTINGS_LINKS.map(({ key, label, hint, Icon }) => (

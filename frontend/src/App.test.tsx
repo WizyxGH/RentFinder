@@ -93,15 +93,18 @@ describe('liste des annonces', () => {
     expect(within(cards[0]!).getByText(/420 €/)).toBeInTheDocument();
   });
 
-  it('affiche les quatre scores sur chaque carte', async () => {
+  it('résume la décision en une barre de priorité, pas quatre scores', async () => {
+    // La carte portait quatre anneaux plus une pastille : cinq chiffres pour
+    // une seule question. Le détail des scores appartient à la fiche (§37).
     render(<App />);
     const cards = await screen.findAllByTestId('listing-card');
     const first = within(cards[0]!);
 
-    expect(first.getByText('Match')).toBeInTheDocument();
-    expect(first.getByText('Opportunité')).toBeInTheDocument();
-    expect(first.getByText('Visite')).toBeInTheDocument();
-    expect(first.getByText('Risque')).toBeInTheDocument();
+    const bar = first.getByRole('progressbar', { name: /Priorité/ });
+    expect(bar).toHaveAttribute('aria-valuenow', '94');
+    expect(first.getByText('à contacter')).toBeInTheDocument();
+    expect(first.queryByText('Match')).not.toBeInTheDocument();
+    expect(first.queryByText('Opportunité')).not.toBeInTheDocument();
   });
 
   it('indique le nombre de sources (§13)', async () => {
@@ -111,10 +114,14 @@ describe('liste des annonces', () => {
   });
 
   it('signale un score calculé sur information partielle (§17)', async () => {
+    // L'astérisque marque les scores dont certains signaux sont inconnus. Il
+    // vit désormais sur la FICHE, seul endroit qui affiche encore les scores.
+    const user = userEvent.setup();
     render(<App />);
     const cards = await screen.findAllByTestId('listing-card');
-    // L'astérisque marque les scores dont certains signaux sont inconnus.
-    expect(within(cards[0]!).getAllByLabelText(/information partielle/).length).toBeGreaterThan(0);
+    await user.click(cards[0]!);
+    expect(await screen.findByRole('heading', { name: 'Correspondance' })).toBeInTheDocument();
+    expect(screen.getAllByText('*').length).toBeGreaterThan(0);
   });
 
   it('affiche la bannière du mode démonstration', async () => {
@@ -141,8 +148,12 @@ describe('fiche détaillée', () => {
   it('liste toutes les sources avec leurs URLs d’origine (§38)', async () => {
     await openFirstListing();
 
-    const section = await screen.findByTestId('listing-sources');
-    expect(within(section).getByRole('heading', { name: /^Sources?$/ })).toBeInTheDocument();
+    // Les sources ont rejoint le bloc « Contact » : c'est par elles qu'on joint
+    // le bien, au même titre qu'un téléphone ou un formulaire.
+    const contact = screen.getByRole('region', { name: 'Contact' });
+    const section = within(contact).getByTestId('listing-sources');
+    expect(within(contact).getByText(/^Sources?$/)).toBeInTheDocument();
+    expect(section).toBeInTheDocument();
     const link = screen.getByRole('link', { name: 'Demo Portail' });
     expect(link).toHaveAttribute('href', 'https://portail.example.invalid/a/1');
   });
@@ -262,17 +273,32 @@ describe('préparation du contact (§22)', () => {
 });
 
 describe('état des sources (§63)', () => {
+  /**
+   * L'état des sources se consulte depuis les Paramètres, sur tous les formats.
+   * Il avait son propre onglet en haut, pour un écran qu'on ouvre une fois par
+   * mois — la barre est réservée aux destinations quotidiennes.
+   */
+  const openSourcesPanel = async (user: ReturnType<typeof userEvent.setup>): Promise<void> => {
+    await user.click(
+      within(screen.getByRole('navigation', { name: 'Navigation principale' })).getByRole(
+        'button',
+        { name: 'Paramètres' },
+      ),
+    );
+    await user.click(
+      within(await screen.findByRole('navigation', { name: 'Autres réglages' })).getByRole(
+        'button',
+        { name: /Sources/ },
+      ),
+    );
+  };
+
   it('affiche la santé de chaque source', async () => {
     const user = userEvent.setup();
     render(<App />);
     await screen.findAllByTestId('listing-card');
 
-    await user.click(
-      within(screen.getByRole('navigation', { name: 'Navigation principale' })).getByRole(
-        'button',
-        { name: 'Sources' },
-      ),
-    );
+    await openSourcesPanel(user);
 
     expect(await screen.findByRole('heading', { name: 'État des sources' })).toBeInTheDocument();
     expect(screen.getByText('En repos (429)')).toBeInTheDocument();
@@ -283,12 +309,7 @@ describe('état des sources (§63)', () => {
     const user = userEvent.setup();
     render(<App />);
     await screen.findAllByTestId('listing-card');
-    await user.click(
-      within(screen.getByRole('navigation', { name: 'Navigation principale' })).getByRole(
-        'button',
-        { name: 'Sources' },
-      ),
-    );
+    await openSourcesPanel(user);
 
     expect(await screen.findByText(/Aucune requête n’est émise/)).toBeInTheDocument();
   });
