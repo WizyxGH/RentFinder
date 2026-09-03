@@ -137,6 +137,18 @@ describe('parsePropertyType', () => {
     expect(parsePropertyType('Garage fermé')).toBe('parking');
   });
 
+  it('ne prend pas un parking MENTIONNÉ pour le bien lui-même', () => {
+    // Relevés tels quels : 22 fiches sur 59 typées « parking » au 2026-09-03
+    // étaient en fait des logements, donc écartées de la recherche sans trace.
+    expect(parsePropertyType('Studette de 20m² avec parking')).toBe('studio');
+    expect(parsePropertyType('Deux pièces de 45m² avec terrasse et parking')).toBe('apartment');
+    expect(parsePropertyType('NICE Mont Boron - Studio avec terrasse et garage fermé')).toBe(
+      'studio',
+    );
+    expect(parsePropertyType('Maison 6 Pièces - Piscine - Garage - Vue Mer')).toBe('house');
+    expect(parsePropertyType('2 PIECES AVEC PARKING - DEBUT SAINT ROCH')).toBe('apartment');
+  });
+
   it('rend unknown plutôt que de supposer', () => {
     expect(parsePropertyType('')).toBe('unknown');
     expect(parsePropertyType(null)).toBe('unknown');
@@ -361,6 +373,23 @@ describe('extractStreetAddress (§20 — adresse en tête de description)', () =
 
   it('n’emporte pas le nom de résidence entre guillemets', () => {
     expect(extractStreetAddress('97 boulevard Carnot " Le President"')).toBe('97 boulevard Carnot');
+  });
+
+  it('refuse une adresse qui a mordu sur la phrase suivante', () => {
+    // Relevés tels quels : 14 adresses en base emportaient le début du texte
+    // qui les suit, faute de ponctuation entre les deux.
+    expect(extractStreetAddress('1 rue de Orestis Très bel appartement de 40 m²')).toBeNull();
+    expect(extractStreetAddress('33 ROUTE DE TURIN Appartement rénové')).toBeNull();
+  });
+
+  it('ne prend pas une DATE pour un numéro de voie', () => {
+    // « disponible 06/2027 Boulevard Napoléon III » donnait « 2027 Boulevard
+    // Napoléon III » : un millésime promu numéro de rue.
+    expect(extractStreetAddress('Disponible 06/2027 Boulevard Napoleon III')).toBeNull();
+    // L'intervalle de numéros, lui, reste lu.
+    expect(extractStreetAddress('22-24 Avenue de la Californie, Nice')).toBe(
+      '22-24 Avenue de la Californie',
+    );
   });
 
   it('ne prend pas « Place de parking » pour une adresse', () => {

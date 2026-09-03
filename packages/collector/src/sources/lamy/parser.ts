@@ -17,6 +17,7 @@
 import * as cheerio from 'cheerio';
 import type { RawListing } from '@rentfinder/shared';
 import { cleanText } from '../../normalization/text.js';
+import { htmlToText } from '../shared/html-text.js';
 
 /** Forme d'une URL de fiche Lamy. Le CP capture le département via son préfixe. */
 const LISTING_URL_PATTERN =
@@ -94,7 +95,7 @@ export function parseDetailPage(html: string, pageUrl: string): ParsedDetail {
   const priceMention = cleanText($('.estate__price span').first().text());
   if (priceText === '') warnings.push(`Fiche sans prix : ${pageUrl}`);
 
-  const description = cleanText($('.estate__description').first().text());
+  const description = htmlToText($, '.estate__description');
   const availability = cleanText($('.estate__availability').first().text());
 
   // Caractéristiques : paires titre/valeur (« Étage : 2 », « Meublé : oui »…).

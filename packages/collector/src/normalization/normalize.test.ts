@@ -104,6 +104,7 @@ describe('rederiveFromText — rattrapage des annonces déjà en base', () => {
       title: 'Location meublée Appartement 1 pièce',
       description: 'Rue Smolett, tout proche du port, ce grand studio meublé.',
       address: null,
+      propertyType: 'studio',
       features: ['Ascenseur', '2e étage'],
       ...over,
     }) as never;
@@ -128,6 +129,32 @@ describe('rederiveFromText — rattrapage des annonces déjà en base', () => {
       }),
     );
     expect(corrected?.features).toEqual(['Ascenseur', '2e étage', SHORT_TERM_LEASE_FEATURE]);
+  });
+
+  it('efface une adresse qui a mordu sur la phrase suivante', () => {
+    // Elle reste fausse quelle qu'en soit la provenance : mieux vaut aucune
+    // rue qu'une rue introuvable sur une carte (§17, §20).
+    expect(
+      rederiveFromText(
+        stored({
+          address: "10 Avenue Sainte-MargueriteAu sein d'une résidence",
+          description: 'Studio calme et lumineux.',
+        }),
+      )?.address,
+    ).toBeNull();
+  });
+
+  it('reclasse un logement que le mot « parking » avait fait écarter', () => {
+    // 22 fiches sur 59 typées « parking » au 2026-09-03 étaient des logements.
+    const corrected = rederiveFromText(
+      stored({
+        address: 'Rue Smolett',
+        propertyType: 'parking',
+        title: 'Studette de 20m² avec parking',
+        description: 'Studio calme et lumineux.',
+      }),
+    );
+    expect(corrected?.propertyType).toBe('studio');
   });
 
   it('ne rend rien quand il n’y a rien à corriger', () => {

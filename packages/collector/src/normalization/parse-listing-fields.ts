@@ -144,15 +144,23 @@ export function parsePropertyType(text: string | null | undefined): PropertyType
   const lower = comparable(text);
   if (lower === '') return 'unknown';
 
-  // Non résidentiel d'abord : « Location Stationnement », box, garage…
-  if (/\bstationnement\b|\bparking\b|\bgarage\b|\bbox\b|\bemplacement\b/.test(lower)) {
-    return 'parking';
-  }
+  // LE LOGEMENT D'ABORD. Le non résidentiel passait en premier, si bien qu'une
+  // « Studette de 20 m² avec parking » était classée « parking » — donc écartée
+  // de la recherche (§16), sans trace. Un parking mentionné dans un titre est
+  // presque toujours un ATOUT du logement ; il ne désigne le bien lui-même que
+  // lorsque aucun type d'habitation n'est nommé (22 fiches sur 59 étaient dans
+  // ce cas au 2026-09-03).
   if (/\bstudio\b|\bstudette\b/.test(lower)) return 'studio';
   if (/\bloft\b/.test(lower)) return 'loft';
   if (/\bchambre\b/.test(lower) && !/\bappartement\b/.test(lower)) return 'room';
   if (/\bappartement\b|\bappart\b|\bduplex\b|\bt\d\b|\bf\d\b/.test(lower)) return 'apartment';
   if (/\bmaison\b|\bvilla\b|\bpavillon\b/.test(lower)) return 'house';
+  if (/\bpieces?\b/.test(lower)) return 'apartment';
+
+  // Aucun logement nommé : « Location Stationnement », box, garage…
+  if (/\bstationnement\b|\bparking\b|\bgarage\b|\bbox\b|\bemplacement\b/.test(lower)) {
+    return 'parking';
+  }
   return 'other';
 }
 
@@ -390,8 +398,18 @@ export function parsePublishedAt(text: string | null | undefined, nowMs: number)
 const STREET_KINDS =
   'avenue|av\\.?|boulevard|bd\\.?|rue|place|chemin|impasse|all[ée]e|promenade|quai|route|mont[ée]e|traverse|square|passage|corniche';
 
+/**
+ * Adresse AVEC numéro de voie.
+ *
+ * Deux précautions sur le numéro :
+ *   - il ne doit pas être précédé d'un chiffre ni d'un séparateur, sans quoi
+ *     « disponible 06/2027 Boulevard Napoléon III » livrait « 2027 Boulevard
+ *     Napoléon III » — une date prise pour un numéro ;
+ *   - la seconde moitié d'un intervalle (« 22-24 ») tient sur trois chiffres :
+ *     au-delà, c'est une année.
+ */
 const STREET_ADDRESS = new RegExp(
-  `\\b(\\d{1,4}(?:[-/]\\d{1,4})?\\s*(?:bis|ter)?[,]?\\s+(?:${STREET_KINDS})\\s+[^,;.:()!?0-9"«»”„]{2,45})`,
+  `(?<![\\d/-])(\\d{1,4}(?:[-/]\\d{1,3})?\\s*(?:bis|ter)?[,]?\\s+(?:${STREET_KINDS})\\s+[^,;.:()!?0-9"«»”„]{2,45})`,
   'i',
 );
 
@@ -417,6 +435,17 @@ const BARE_STREET = new RegExp(`^(?:${STREET_KINDS})\\s+[^,;.:()!?0-9"«»”„
  */
 const NOT_A_STREET =
   /\b(parking|stationnement|garage|box|voiture|moto|velo|vélo|couvert|dans|proche|avec|situ[ée]e?|id[ée]ale?|entre|r[ée]sidence|immeuble|appartement|studio|villa|copropri[ée]t[ée])\b/i;
+
+/**
+ * `true` si une adresse DÉJÀ STOCKÉE reste plausible.
+ *
+ * Sert au rattrapage : une adresse qui contient de la prose a mordu sur la
+ * phrase suivante, et l'est restée quelle que soit la source qui l'a publiée.
+ * Mieux vaut n'afficher aucune rue qu'une rue fausse (§17, §20).
+ */
+export function looksLikeStreet(address: string): boolean {
+  return !NOT_A_STREET.test(address);
+}
 
 /** Portion de description où l'on accepte de lire une adresse (cf. ci-dessous). */
 const ADDRESS_HEAD = 120;
@@ -466,7 +495,12 @@ export function extractStreetAddress(text: string | null | undefined): string | 
   if (cleaned === '') return null;
 
   const numbered = STREET_ADDRESS.exec(cleaned.slice(0, ADDRESS_HEAD));
-  if (numbered?.[1] !== undefined) return cleanText(numbered[1]);
+  // Le même garde-fou que pour une voie sans numéro : quand la ponctuation
+  // manque, l'adresse mordait sur la phrase suivante — « 1 rue de Orestis Très
+  // bel appartement de ». Un numéro ne rachète pas une adresse fausse (§17).
+  if (numbered?.[1] !== undefined && !NOT_A_STREET.test(numbered[1])) {
+    return cleanText(numbered[1]);
+  }
 
   // Les segments sont découpés sur le texte ENTIER puis bornés par leur position
   // de départ : tronquer d'abord aurait pu couper un nom de voie en son milieu

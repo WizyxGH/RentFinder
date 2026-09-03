@@ -17,6 +17,7 @@
 import * as cheerio from 'cheerio';
 import type { RawListing } from '@rentfinder/shared';
 import { cleanText } from '../../normalization/text.js';
+import { htmlToText } from '../shared/html-text.js';
 
 /** Forme d'une URL de fiche : `/trouver_logement/detail/{uid}/`. */
 const LISTING_URL_PATTERN =
@@ -73,7 +74,7 @@ export function parseSearchPage(html: string, pageUrl: string): ParsedPage {
     // Le h3 concentre tout : ville, surface, pièces, référence agence, type,
     // prix. Aplati en texte, les unités françaises servent d'ancres.
     const headText = cleanText(card.find('h3').first().text().replace(/\s+/g, ' '));
-    const description = cleanText(card.find('.tw-truncate-safe').first().text());
+    const description = htmlToText($, card.find('.tw-truncate-safe') as cheerio.Cheerio<never>);
     const ariaTitle = cleanText(card.find('a[aria-label]').first().attr('aria-label') ?? '');
 
     const priceText = headText.match(/[\d][\d\s.,]*\s*€\s*par\s*mois[^,.]*/i)?.[0];

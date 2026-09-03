@@ -19,6 +19,7 @@ import { cleanText, comparable } from './text.js';
 import { SHORT_TERM_LEASE_FEATURE } from '@rentfinder/shared';
 import {
   isShortTermStudentLease,
+  looksLikeStreet,
   parseArea,
   parseBedrooms,
   parseCharges,
@@ -287,11 +288,19 @@ export function normalizeListing(
  * valeur qu'on savait en tirer date du jour de la collecte. Sans ce rejeu, une
  * amélioration ne profitait qu'aux annonces futures.
  *
- * VOLONTAIREMENT MINIMALISTE — deux règles seulement, et jamais destructives :
+ * VOLONTAIREMENT MINIMALISTE — trois règles seulement :
  *
  *   1. l'adresse n'est REMPLIE que si elle manque : une adresse publiée par la
- *      source fait toujours autorité sur une adresse lue dans un texte ;
- *   2. les atouts ne sont qu'AUGMENTÉS. Les recalculer entièrement les
+ *      source fait autorité sur une adresse lue dans un texte. Elle est en
+ *      revanche EFFACÉE si elle n'en est manifestement pas une — « 10 Avenue
+ *      Sainte-MargueriteAu sein d'une résidence » a mordu sur la phrase
+ *      suivante, et reste faux quelle qu'en soit la provenance (§17) ;
+ *   2. le TYPE n'est corrigé que dans UN SENS : un « parking » que le titre
+ *      dément. Un parking mentionné comme atout a longtemps fait classer
+ *      « parking » des logements entiers, donc écartés de la recherche sans
+ *      trace (§16). L'inverse — recalculer librement — dégraderait des fiches
+ *      justes, le titre ne nommant pas toujours le type ;
+ *   3. les atouts ne sont qu'AUGMENTÉS. Les recalculer entièrement les
  *      appauvrirait : plusieurs viennent des attributs bruts du scraper
  *      (étage, ascenseur, nombre de balcons) que la base ne conserve pas.
  *
@@ -303,8 +312,24 @@ export function normalizeListing(
 export function rederiveFromText(occurrence: NormalizedListing): NormalizedListing | null {
   const text = `${occurrence.title ?? ''} ${occurrence.description ?? ''}`;
 
+  const fromText = dedupeStreetAddress(extractStreetAddress(occurrence.description));
   const address =
-    occurrence.address ?? dedupeStreetAddress(extractStreetAddress(occurrence.description));
+    occurrence.address === null || looksLikeStreet(occurrence.address)
+      ? (occurrence.address ?? fromText)
+      : fromText;
+
+  // Le type ne se corrige que DANS UN SENS : un « parking » que le titre
+  // dément. Le recalculer librement le dégraderait — le scraper le tenait
+  // souvent d'un champ dédié que la base ne conserve pas, et le titre seul
+  // rendait alors « other » là où « appartement » était juste (§17).
+  const rescued = parsePropertyType(occurrence.title);
+  const propertyType =
+    occurrence.propertyType === 'parking' &&
+    rescued !== 'parking' &&
+    rescued !== 'other' &&
+    rescued !== 'unknown'
+      ? rescued
+      : occurrence.propertyType;
 
   const shortTerm =
     isShortTermStudentLease(text) && !occurrence.features.includes(SHORT_TERM_LEASE_FEATURE);
@@ -312,8 +337,10 @@ export function rederiveFromText(occurrence: NormalizedListing): NormalizedListi
     ? [...occurrence.features, SHORT_TERM_LEASE_FEATURE]
     : occurrence.features;
 
-  if (address === occurrence.address && !shortTerm) return null;
-  return { ...occurrence, address, features };
+  if (address === occurrence.address && propertyType === occurrence.propertyType && !shortTerm) {
+    return null;
+  }
+  return { ...occurrence, address, propertyType, features };
 }
 
 /** Normalise un lot, en écartant silencieusement les annonces inexploitables. */
