@@ -15,6 +15,7 @@
  */
 
 import * as cheerio from 'cheerio';
+import { sitemapIndexUrls, sitemapUrls } from '../shared/sitemap.js';
 import type { RawListing } from '@rentfinder/shared';
 import { cleanText, comparable } from '../../normalization/text.js';
 import { htmlToText } from '../shared/html-text.js';
@@ -70,29 +71,16 @@ export interface SitemapEntry {
  */
 export function parseSitemap(xml: string): SitemapEntry[] {
   const entries: SitemapEntry[] = [];
-  const urlBlocks = xml.match(/<url>[\s\S]*?<\/url>/g) ?? [];
-
-  for (const block of urlBlocks) {
-    const loc = /<loc>(?:<!\[CDATA\[)?([^\]<]+?)(?:\]\]>)?<\/loc>/.exec(block)?.[1];
-    if (loc === undefined) continue;
-    const url = parseListingUrl(loc.trim());
+  for (const { loc, lastmod } of sitemapUrls(xml)) {
+    const url = parseListingUrl(loc);
     if (url === null || url.transaction !== 'location') continue;
-
-    const lastmod = /<lastmod>([^<]+)<\/lastmod>/.exec(block)?.[1]?.trim() ?? null;
     entries.push({ url, lastmod });
   }
   return entries;
 }
 
-/** Liste les sous-sitemaps d'un index (`<sitemapindex>`). */
 export function parseSitemapIndex(xml: string): string[] {
-  const blocks = xml.match(/<sitemap>[\s\S]*?<\/sitemap>/g) ?? [];
-  const urls: string[] = [];
-  for (const block of blocks) {
-    const loc = /<loc>(?:<!\[CDATA\[)?([^\]<]+?)(?:\]\]>)?<\/loc>/.exec(block)?.[1];
-    if (loc !== undefined) urls.push(loc.trim());
-  }
-  return urls;
+  return sitemapIndexUrls(xml);
 }
 
 /** Sous-ensemble utile du JSON-LD d'une fiche. */

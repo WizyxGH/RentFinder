@@ -270,6 +270,87 @@ function ContactDetails({
   );
 }
 
+/**
+ * Les pièces du dossier qu'on déclare avoir jointes (§25).
+ *
+ * Chargement, sélection et rendu tiennent ensemble : les séparer obligeait
+ * `ContactPanel` à porter trois états et un effet qui ne le concernaient pas,
+ * et le poussait au-dessus du seuil de complexité toléré.
+ *
+ * COCHER N'ENVOIE RIEN. C'est une trace locale de ce qu'on déclare avoir
+ * transmis avec ce contact — le projet n'envoie jamais de pièce tout seul.
+ * Elles sont cochées par défaut : un dossier se transmet en entier.
+ */
+function useAttachments(): { selected: readonly string[]; picker: React.JSX.Element | null } {
+  const [documents, setDocuments] = useState<readonly DocumentInfo[]>([]);
+  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+
+  useEffect(() => {
+    if (isDemoMode()) return;
+    void fetchDocuments()
+      .then((docs) => {
+        setDocuments(docs);
+        setSelected(new Set(docs.map((doc) => doc.name)));
+      })
+      .catch(() => {
+        /* API locale indisponible : pas de pièces proposées */
+      });
+  }, []);
+
+  const toggle = (name: string): void =>
+    setSelected((current) => {
+      const next = new Set(current);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+
+  const picker =
+    documents.length === 0 ? null : (
+      <fieldset className="border-border mt-3 rounded-lg border px-3 py-2">
+        <legend className="text-muted-foreground px-1 text-[0.82rem]">
+          Pièces jointes envoyées
+        </legend>
+        <ul className="flex flex-col gap-1">
+          {documents.map((doc) => (
+            <li key={doc.name}>
+              <label className="flex items-center gap-2 text-[0.9rem]">
+                <input
+                  type="checkbox"
+                  checked={selected.has(doc.name)}
+                  onChange={() => toggle(doc.name)}
+                />
+                <span className="truncate">{doc.name}</span>
+              </label>
+            </li>
+          ))}
+        </ul>
+      </fieldset>
+    );
+
+  return { selected: [...selected], picker };
+}
+
+/**
+ * Ce qu'on affiche à la place du message quand le profil manque.
+ *
+ * Sans lui, rien ne peut être composé : le message cite le métier, le revenu
+ * et la date d'emménagement. On le dit, et on offre le seul geste utile.
+ */
+function MissingProfile({ onConfigure }: { readonly onConfigure: () => void }): React.JSX.Element {
+  return (
+    <div>
+      <p className="mb-2">
+        Renseignez votre profil locataire pour générer un message. Il reste stocké uniquement sur
+        cet appareil et n’est jamais transmis.
+      </p>
+      <Button variant="outline" onClick={onConfigure}>
+        Configurer mon profil
+      </Button>
+    </div>
+  );
+}
+
 export function ContactPanel({
   listing,
   profile,
@@ -300,30 +381,10 @@ export function ContactPanel({
   const [editing, setEditing] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // §25 : pièces disponibles à joindre. On les coche toutes par défaut — un
-  // dossier se transmet en entier — et on consigne celles réellement envoyées.
-  const [documents, setDocuments] = useState<readonly DocumentInfo[]>([]);
-  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
-  useEffect(() => {
-    if (isDemoMode()) return;
-    void fetchDocuments()
-      .then((docs) => {
-        setDocuments(docs);
-        setSelected(new Set(docs.map((doc) => doc.name)));
-      })
-      .catch(() => {
-        /* API locale indisponible : pas de pièces proposées */
-      });
-  }, []);
-
-  const toggleDocument = (name: string): void => {
-    setSelected((current) => {
-      const next = new Set(current);
-      if (next.has(name)) next.delete(name);
-      else next.add(name);
-      return next;
-    });
-  };
+  // §25 : pièces déclarées jointes. Le choix vit dans `useAttachments`, avec
+  // le chargement et la case à cocher : ici on n'a besoin que de la liste
+  // retenue, pour la consigner avec le contact.
+  const { selected, picker } = useAttachments();
 
   const { phone, email, formUrl } = listing.contact;
   const hasAnyContact = phone !== null || email !== null || formUrl !== null;
@@ -353,15 +414,7 @@ export function ContactPanel({
       <ContactDetails listing={listing} hasAnyContact={hasAnyContact} onOpenSource={onOpenSource} />
 
       {profile === null ? (
-        <div>
-          <p className="mb-2">
-            Renseignez votre profil locataire pour générer un message. Il reste stocké uniquement
-            sur cet appareil et n’est jamais transmis.
-          </p>
-          <Button variant="outline" onClick={onConfigureProfile}>
-            Configurer mon profil
-          </Button>
-        </div>
+        <MissingProfile onConfigure={onConfigureProfile} />
       ) : (
         <>
           {/* §34 : déjà contactée et sans réponse → proposer la relance. */}
@@ -401,62 +454,83 @@ export function ContactPanel({
             Rien n’est envoyé automatiquement. Vous déclenchez l’envoi vous-même.
           </p>
 
-          {/* §25 : pièces à joindre. Cocher n'envoie rien — c'est une trace
-              locale de ce que vous déclarez avoir transmis avec ce contact. */}
-          {documents.length > 0 && (
-            <fieldset className="mt-3 rounded-lg border border-border px-3 py-2">
-              <legend className="px-1 text-[0.82rem] text-muted-foreground">
-                Pièces jointes envoyées
-              </legend>
-              <ul className="flex flex-col gap-1">
-                {documents.map((doc) => (
-                  <li key={doc.name}>
-                    <label className="flex items-center gap-2 text-[0.9rem]">
-                      <input
-                        type="checkbox"
-                        checked={selected.has(doc.name)}
-                        onChange={() => toggleDocument(doc.name)}
-                      />
-                      <span className="truncate">{doc.name}</span>
-                    </label>
-                  </li>
-                ))}
-              </ul>
-            </fieldset>
-          )}
+          {picker}
 
-          <div className="mt-2.5 flex flex-wrap gap-2">
-            <Button variant="outline" onClick={() => setEditing((value) => !value)}>
-              {editing ? 'Terminer' : 'Modifier'}
-            </Button>
-
-            <Button variant="outline" onClick={() => void handleCopy()}>
-              {copied ? 'Copié' : 'Copier'}
-            </Button>
-
-            {link !== null && (
-              <ButtonLink
-                variant="outline"
-                href={link}
-                target={channel === 'form' ? '_blank' : undefined}
-                rel="noreferrer noopener"
-                // Un formulaire web ne se pré-remplit pas : le message doit être
-                // collé à la main. On le met donc au presse-papiers AU MOMENT
-                // d'ouvrir, pour qu'il soit prêt quand le formulaire s'affiche —
-                // sinon il fallait penser à « Copier » d'abord, et revenir.
-                onClick={channel === 'form' ? () => void handleCopy() : undefined}
-              >
-                {openLabel}
-              </ButtonLink>
-            )}
-
-            <Button onClick={() => onRecorded(channel, message, [...selected])}>J’ai envoyé</Button>
-          </div>
+          <MessageActions
+            editing={editing}
+            copied={copied}
+            link={link}
+            openLabel={openLabel}
+            channel={channel}
+            onToggleEdit={() => setEditing((value) => !value)}
+            onCopy={() => void handleCopy()}
+            onSent={() => onRecorded(channel, message, selected)}
+          />
 
           {channel === 'form' && <FormHint copied={copied} />}
         </>
       )}
     </Card>
+  );
+}
+
+/**
+ * La rangée de gestes : modifier, copier, ouvrir, déclarer envoyé.
+ *
+ * Sortie de `ContactPanel`, qui portait déjà l'état du brouillon, celui des
+ * pièces et la préparation du message : quatre boutons de plus le poussaient
+ * au-dessus du seuil de complexité toléré, et ils forment un tout.
+ *
+ * RIEN NE PART TOUT SEUL (§22) : « Ouvrir » ouvre, « J'ai envoyé » consigne.
+ * Le dernier n'envoie rien — il enregistre que VOUS l'avez fait.
+ */
+function MessageActions({
+  editing,
+  copied,
+  link,
+  openLabel,
+  channel,
+  onToggleEdit,
+  onCopy,
+  onSent,
+}: {
+  readonly editing: boolean;
+  readonly copied: boolean;
+  readonly link: string | null;
+  readonly openLabel: string;
+  readonly channel: string;
+  readonly onToggleEdit: () => void;
+  readonly onCopy: () => void;
+  readonly onSent: () => void;
+}): React.JSX.Element {
+  return (
+    <div className="mt-2.5 flex flex-wrap gap-2">
+      <Button variant="outline" onClick={onToggleEdit}>
+        {editing ? 'Terminer' : 'Modifier'}
+      </Button>
+
+      <Button variant="outline" onClick={onCopy}>
+        {copied ? 'Copié' : 'Copier'}
+      </Button>
+
+      {link !== null && (
+        <ButtonLink
+          variant="outline"
+          href={link}
+          target={channel === 'form' ? '_blank' : undefined}
+          rel="noreferrer noopener"
+          // Un formulaire web ne se pré-remplit pas : le message doit être
+          // collé à la main. On le met donc au presse-papiers AU MOMENT
+          // d'ouvrir, pour qu'il soit prêt quand le formulaire s'affiche —
+          // sinon il fallait penser à « Copier » d'abord, et revenir.
+          onClick={channel === 'form' ? onCopy : undefined}
+        >
+          {openLabel}
+        </ButtonLink>
+      )}
+
+      <Button onClick={onSent}>J’ai envoyé</Button>
+    </div>
   );
 }
 

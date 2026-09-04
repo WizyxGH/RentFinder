@@ -23,7 +23,7 @@ import { sourceDisplayNames } from '../sources/index.js';
  */
 let sourceNamesCache: ReadonlyMap<string, string> | null = null;
 
-export function sourceName(sourceId: string | null): string | null {
+function sourceName(sourceId: string | null): string | null {
   if (sourceId === null || sourceId === '') return null;
   sourceNamesCache ??= sourceDisplayNames();
   return sourceNamesCache.get(sourceId) ?? null;
@@ -57,11 +57,6 @@ export function locationLabel(listing: NotifiableListing): string {
   });
 }
 
-/** Lien Maps vers cette localisation, ou `null` si elle est inconnue. */
-export function mapsUrl(label: string): string | null {
-  if (label === '') return null;
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(label)}`;
-}
 
 /**
  * Disponibilité lisible : « Dispo maintenant » si l'emménagement est immédiat

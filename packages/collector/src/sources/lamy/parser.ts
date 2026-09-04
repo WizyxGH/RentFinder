@@ -15,6 +15,7 @@
  */
 
 import * as cheerio from 'cheerio';
+import { sitemapUrls } from '../shared/sitemap.js';
 import type { RawListing } from '@rentfinder/shared';
 import { cleanText } from '../../normalization/text.js';
 import { htmlToText } from '../shared/html-text.js';
@@ -52,13 +53,9 @@ export interface LamySitemapEntry {
 /** Extrait les fiches de location d'un sitemap urlset. */
 export function parseSitemap(xml: string): LamySitemapEntry[] {
   const entries: LamySitemapEntry[] = [];
-  const blocks = xml.match(/<url>[\s\S]*?<\/url>/g) ?? [];
-  for (const block of blocks) {
-    const loc = /<loc>(?:<!\[CDATA\[)?([^\]<]+?)(?:\]\]>)?<\/loc>/.exec(block)?.[1];
-    if (loc === undefined) continue;
-    const url = parseListingUrl(loc.trim());
+  for (const { loc, lastmod } of sitemapUrls(xml)) {
+    const url = parseListingUrl(loc);
     if (url === null) continue;
-    const lastmod = /<lastmod>([^<]+)<\/lastmod>/.exec(block)?.[1]?.trim() ?? null;
     entries.push({ url, lastmod });
   }
   return entries;

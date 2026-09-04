@@ -184,16 +184,6 @@ export async function setFavorite(id: string, favorite: boolean): Promise<void> 
   await request(`/api/listings/${id}`, { method: 'PATCH', body: JSON.stringify({ favorite }) });
 }
 
-export async function fetchListing(id: string): Promise<ListingView> {
-  if (isDirectMode()) return turso.getListing(id);
-  if (DEMO) {
-    const { MOCK_LISTINGS } = await demoData();
-    const listing = MOCK_LISTINGS.find((candidate) => candidate.id === id);
-    if (listing === undefined) throw new ApiError('Annonce introuvable', 404);
-    return listing;
-  }
-  return request<ListingView>(`/api/listings/${encodeURIComponent(id)}`);
-}
 
 export async function updateTracking(id: string, tracking: string): Promise<void> {
   if (isDirectMode()) return turso.patchListing(id, { tracking });

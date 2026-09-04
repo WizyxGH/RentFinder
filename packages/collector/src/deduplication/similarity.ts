@@ -38,7 +38,7 @@ export interface SimilarityResult {
 export const DUPLICATE_THRESHOLD = 70;
 
 /** En dessous de ce score, les annonces sont considérées distinctes. */
-export const AMBIGUOUS_THRESHOLD = 45;
+const AMBIGUOUS_THRESHOLD = 45;
 
 /** Tolérance sur le loyer : les portails diffèrent sur l'inclusion des charges. */
 const PRICE_TOLERANCE_EUR = 30;

@@ -24,7 +24,7 @@ import { formatArea, formatCity, formatPrice, formatRooms } from '../format.js';
 import type { ListingView } from '../types.js';
 
 /** Durée d'affichage. Assez pour lire trois faits, trop court pour gêner. */
-export const TOAST_MS = 9_000;
+const TOAST_MS = 9_000;
 
 export interface Toast {
   /** Identifiant de l'annonce : sert de clé ET de cible au clic. */
@@ -34,7 +34,7 @@ export interface Toast {
 }
 
 /** Bandeau d'une annonce fraîche, à partir des mêmes faits que la notification. */
-export function toastFor(listing: ListingView): Toast {
+function toastFor(listing: ListingView): Toast {
   return {
     id: listing.id,
     title: `Nouvelle annonce · ${formatCity(listing.city.value)}`,

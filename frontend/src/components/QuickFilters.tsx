@@ -29,7 +29,7 @@ export interface QuickFilterValues {
 }
 
 /** Aucun filtre. Sert de base au calcul de « ce qui a été modifié ». */
-export const EMPTY_QUICK_FILTERS: QuickFilterValues = {
+const EMPTY_QUICK_FILTERS: QuickFilterValues = {
   minPrice: null,
   maxPrice: null,
   minArea: null,
