@@ -278,6 +278,12 @@ export interface Repository {
   loadSourceState(sourceId: SourceId): Promise<SourceRuntimeState>;
   saveSourceState(state: SourceRuntimeState): Promise<void>;
   recordRun(entry: CollectionRunRecord): Promise<void>;
+  /**
+   * Élague les journaux : traces d'exécution, historique des changements,
+   * événements. Rend le nombre de lignes supprimées.
+   */
+  pruneLogs(nowMs: number): Promise<number>;
+
   /** Incrémente le compteur d'absence et fait évoluer le cycle de vie (§32). */
   markMissing(
     sourceId: SourceId,
@@ -1180,6 +1186,27 @@ export function createRepository(db: Database): Repository {
       return keys;
     },
 
+    async pruneLogs(nowMs) {
+      const cutoff = (days: number): string =>
+        new Date(nowMs - days * 24 * 60 * 60 * 1000).toISOString();
+      const result = await db.batch(
+        [
+          // Une trace d'exécution sert à comprendre POURQUOI une source s'est
+          // tue cette semaine, pas l'an dernier.
+          { sql: 'DELETE FROM collection_runs WHERE started_at < ?', args: [cutoff(RUN_LOG_DAYS)] },
+          // L'historique des prix nourrit le signal « prix en baisse », qui ne
+          // regarde que les quatorze derniers jours. Six mois laissent large.
+          {
+            sql: 'DELETE FROM listing_history WHERE recorded_at < ?',
+            args: [cutoff(HISTORY_DAYS)],
+          },
+          { sql: 'DELETE FROM events WHERE occurred_at < ?', args: [cutoff(EVENT_DAYS)] },
+        ],
+        'write',
+      );
+      return result.reduce((total, one) => total + one.rowsAffected, 0);
+    },
+
     async markNotified(ids) {
       if (ids.length === 0) return;
       const placeholders = ids.map(() => '?').join(',');
@@ -1411,6 +1438,22 @@ function serializeListing(listing: ScoredListing): unknown {
  * Une fiche n'est plus rattachée à aucune occurrence : sa remplaçante les a
  * toutes prises. Écrit une seule fois — le prédicat servait à trois endroits.
  */
+/**
+ * Durées de conservation des journaux.
+ *
+ * Rien de tout cela n'est lu par l'application : ce sont des traces qu'on
+ * consulte quand quelque chose cloche. Elles ne coûtaient aucune lecture, mais
+ * elles ne s'effaçaient jamais non plus — 379 exécutions et 457 changements de
+ * prix accumulés en trois semaines, sans fin prévue. Une base qui n'oublie
+ * rien finit par peser pour des données que personne ne relira.
+ *
+ * L'historique garde le plus longtemps : il nourrit le signal « prix en
+ * baisse », qui ne regarde que quatorze jours — six mois laissent large.
+ */
+const RUN_LOG_DAYS = 90;
+const HISTORY_DAYS = 180;
+const EVENT_DAYS = 90;
+
 const ORPHAN_PREDICATE = 'id NOT IN (SELECT group_id FROM occurrences WHERE group_id IS NOT NULL)';
 
 /** Identifiants d'occurrence énumérés par la charge utile d'une fiche. */

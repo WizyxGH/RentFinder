@@ -197,6 +197,18 @@ async function main(): Promise<void> {
       }
     }
 
+    // Élagage des journaux : ils ne servent qu'au diagnostic, et personne ne
+    // les effaçait. L'échec n'a aucune conséquence — on réessaiera au prochain
+    // passage (§69).
+    try {
+      const pruned = await repository.pruneLogs(systemClock.now());
+      if (pruned > 0) logger.info('db.pruned', { rows: pruned });
+    } catch (error) {
+      logger.debug('db.prune_failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+
     // §47 : repérage d'agences NON scrapées citées dans les e-mails de
     // confirmation (candidates à ajouter). Lecture seule, à chaque collecte,
     // silencieux si IMAP non configuré ou si rien de nouveau. Ne fait jamais
