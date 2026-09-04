@@ -84,3 +84,38 @@ describe('parseDetailPage', () => {
     expect(normalized.availableAt).toBe('2026-10-01T00:00:00.000Z');
   });
 });
+
+describe('parseDetailPage (Saint Roch) — la localisation', () => {
+  const parsed = parseDetailPage(detail, DETAIL_URL, 'Saint Roch Immobilier');
+
+  it('lit la position du bien dans l’adresse de la carte', () => {
+    // Vérifié le 2026-09-04 sur les cinq annonces en ligne : cinq points
+    // distincts, tous dans Nice — c'est le logement qui est situé, pas
+    // l'agence, comme chez d'autres sources où le même point revient partout.
+    expect(parsed.listing?.latitude).toBeCloseTo(43.7105, 3);
+    expect(parsed.listing?.longitude).toBeCloseTo(7.2934, 3);
+  });
+
+  it('lit le quartier en tête du titre', () => {
+    expect(parsed.listing?.extra?.['quartier']).toBe('Saint Roch');
+  });
+
+  it('ne prend pas le type du bien pour un quartier (§17)', () => {
+    const sansQuartier = parseDetailPage(
+      detail.replace(/Nice Saint Roch/g, 'Nice Studio meublé'),
+      DETAIL_URL,
+      'Saint Roch Immobilier',
+    );
+    expect(sansQuartier.listing?.extra?.['quartier']).toBeUndefined();
+  });
+
+  it('ne conclut aucune position quand la fiche n’a pas de carte', () => {
+    const sansCarte = parseDetailPage(
+      detail.replace(/googlemapPOI[^"]*/g, 'about:blank'),
+      DETAIL_URL,
+      'Saint Roch Immobilier',
+    );
+    expect(sansCarte.listing?.latitude).toBeUndefined();
+    expect(sansCarte.listing?.longitude).toBeUndefined();
+  });
+});

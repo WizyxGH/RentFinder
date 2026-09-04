@@ -17,7 +17,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { RotateCcw, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import type { SortMode } from '../types.js';
 import type { PropertyType } from '@rentfinder/shared';
 import { formatPropertyType, formatSourceName } from '../format.js';
@@ -379,9 +379,11 @@ export function SortFilterModal({
           fastidieux. Le bouton s'efface quand il n'y a rien à défaire, plutôt
           que de promettre une action sans effet. */}
         <div className="flex gap-2">
+          {/* Le mot seul : le pictogramme de flèche circulaire doublait un
+            libellé déjà sans ambiguïté, et rétrécissait d'autant le bouton
+            principal sur téléphone. */}
           {dirty && (
             <Button variant="outline" onClick={onReset}>
-              <RotateCcw aria-hidden="true" className="size-4" />
               Réinitialiser
             </Button>
           )}
