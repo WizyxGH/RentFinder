@@ -1,0 +1,17 @@
+{
+  "name": "@rentfinder/landing",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Page de présentation publique de Maïoun. Site statique, sans JavaScript applicatif.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "tailwindcss": "^4.3.3",
+    "vite": "^8.2.2"
+  }
+}

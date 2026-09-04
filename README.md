@@ -143,6 +143,7 @@ critères, sans lancer la collecte à la main :
 | `schedule-collect.ps1`        | planifie `pnpm collect` (Windows) pour des notifs automatiques (voir ci-dessus) |
 | `pnpm db:migrate`             | applique les migrations                                                         |
 | `pnpm test` / `pnpm test:e2e` | tests Node / scénarios Playwright                                               |
+| `pnpm build:landing`          | construit la page de présentation publique (`landing/`)                         |
 | `pnpm verify`                 | **tout** : format, lint, types, tests, secrets — à lancer avant tout commit     |
 | `pnpm check:secrets`          | scanner de secrets seul                                                         |
 

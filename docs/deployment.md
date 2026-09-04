@@ -249,9 +249,34 @@ consulte et supprime ; c'est vous qui joignez. Sans le binding `DOCUMENTS`,
 l'API répond `501` et l'écran se tait, plutôt que d'accepter des fichiers pour
 les perdre.
 
-### Sans Worker : l'accès direct à Turso
+### Il n'y a plus d'accès direct à Turso
 
-Le site sait aussi interroger Turso directement, avec l'adresse et le jeton
-saisis à la première ouverture et conservés dans le navigateur. C'est plus
-simple, mais il n'y a alors **ni connexion, ni comptes séparés, ni pièces du
-dossier** : quiconque ouvre la page et connaît le jeton voit tout.
+Le site a longtemps su interroger la base lui-même, avec une adresse et un jeton
+saisis à la première visite. Ce chemin a été retiré : le jeton ouvrait TOUTE la
+base, donc aucun mot de passe ne pouvait être vérifié devant — les comptes
+n'existaient tout simplement pas de ce côté-là. Il redemandait par ailleurs ces
+identifiants à chaque vidage de cache, et ne savait faire ni les pièces du
+dossier, ni l'abonnement aux notifications.
+
+`VITE_API_URL` est donc obligatoire pour un site utilisable.
+
+## La page de présentation (`landing/`)
+
+Un site statique **séparé de l'application**, destiné au public qui découvre le
+projet. Deux publics, deux rythmes de publication, deux poids : un visiteur n'a
+aucune raison de télécharger React, Leaflet et quarante écrans pour lire une
+page.
+
+```bash
+pnpm build:landing        # → landing/dist (≈ 6 ko compressés, aucun JavaScript)
+pnpm --filter @rentfinder/landing dev
+```
+
+Elle n'importe **aucun paquet du dépôt** — ses couleurs sont recopiées, pas
+partagées — et c'est ce qui lui permet d'être publiée seule, sur un autre
+domaine. La cible : la page à la racine, l'application sur un sous-domaine.
+
+Deux endroits attendent une décision, et le disent plutôt que d'inventer :
+la grille **tarifaire** (aucun prix n'est arrêté) et le lien **« Ouvrir
+Maïoun »**, laissé inerte tant que le sous-domaine n'existe pas — pointer vers
+une adresse qui renvoie une erreur serait pire que ne pas pointer.

@@ -1,0 +1,57 @@
+/* ---------------------------------------------------------------------------
+   Maïoun — feuille de style de la page de présentation.
+
+   LES MÊMES COULEURS QUE L'APPLICATION, volontairement : quelqu'un qui passe de
+   cette page à l'outil doit reconnaître le même produit. Les valeurs sont
+   recopiées plutôt qu'importées — la page ne dépend d'aucun paquet du dépôt, et
+   c'est ce qui lui permet d'être publiée seule, sur un autre domaine.
+
+   `light-dark()` comme dans l'application : le navigateur choisit selon le
+   réglage de l'appareil, sans classe `dark:` à répéter.
+--------------------------------------------------------------------------- */
+
+@import 'tailwindcss';
+
+@theme {
+  --color-background: light-dark(#f4f5f8, #14141f);
+  --color-foreground: light-dark(#1a1a2e, #f1f2f6);
+  --color-card: light-dark(#ffffff, #1f1f2e);
+  --color-primary: light-dark(#e00034, #ff4d6d);
+  --color-primary-foreground: #ffffff;
+  --color-muted-foreground: light-dark(#63637a, #9c9cb0);
+  --color-border: light-dark(#e6e6ee, #34344a);
+}
+
+@layer base {
+  html {
+    color-scheme: light dark;
+    scroll-behavior: smooth;
+  }
+
+  /* Un défilement animé est une gêne pour qui a le mal des transports, et le
+     système le dit déjà. */
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+  }
+
+  body {
+    background: var(--color-background);
+    color: var(--color-foreground);
+    font-family:
+      system-ui,
+      -apple-system,
+      'Segoe UI',
+      Roboto,
+      sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Le repère de focus est dessiné une fois ici : la page n'a pas de
+     composants, et chaque lien doit rester atteignable au clavier. */
+  :focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+}

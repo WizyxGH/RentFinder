@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Maïoun — toutes les locations de Nice, au même endroit</title>
+    <meta
+      name="description"
+      content="Maïoun rassemble les annonces de location de dizaines de sites et d’agences de Nice, écarte les doublons et vous prévient dès qu’un logement entre dans vos critères."
+    />
+
+    <!-- Contrairement à l'application, cette page EST faite pour être trouvée. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Maïoun — toutes les locations de Nice, au même endroit" />
+    <meta
+      property="og:description"
+      content="Les annonces de dizaines de sites et d’agences, sans doublons, avec une alerte dès qu’un logement correspond."
+    />
+    <meta property="og:locale" content="fr_FR" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <!-- Favicon SVG en ligne : aucun fichier à héberger, aucune requête. -->
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%94%91%3C/text%3E%3C/svg%3E"
+    />
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+
+  <body>
+    <!-- Une page d'une seule colonne, lue de haut en bas : le premier écran dit
+      ce que c'est, les suivants répondent aux questions dans l'ordre où elles
+      viennent — pourquoi, comment, à quel prix, et ce que ça ne fait pas. -->
+    <header class="mx-auto flex max-w-5xl items-center justify-between px-5 py-5">
+      <span class="text-xl font-bold tracking-tight">Maïoun</span>
+      <nav aria-label="Principale" class="flex items-center gap-5 text-[0.92rem]">
+        <a href="#fonctionnement" class="hidden hover:underline sm:inline">Comment ça marche</a>
+        <a href="#tarif" class="hidden hover:underline sm:inline">Tarif</a>
+        <a
+          href="#acces"
+          class="rounded-full bg-[var(--color-primary)] px-4 py-2 font-medium text-[var(--color-primary-foreground)]"
+          >Accéder</a
+        >
+      </nav>
+    </header>
+
+    <main>
+      <!-- HÉROS ------------------------------------------------------------ -->
+      <section class="mx-auto max-w-5xl px-5 pt-10 pb-16 sm:pt-16">
+        <h1 class="max-w-2xl text-4xl leading-tight font-bold tracking-tight sm:text-5xl">
+          Toutes les locations de Nice, au même endroit.
+        </h1>
+        <p class="mt-5 max-w-xl text-lg text-[var(--color-muted-foreground)]">
+          Maïoun surveille en continu les sites d’annonces et les agences de la région, écarte les
+          doublons, et vous prévient sur votre téléphone dès qu’un logement entre dans vos critères.
+        </p>
+        <div class="mt-8 flex flex-wrap items-center gap-3">
+          <a
+            href="#acces"
+            class="rounded-full bg-[var(--color-primary)] px-6 py-3 font-medium text-[var(--color-primary-foreground)]"
+            >Commencer</a
+          >
+          <a
+            href="#fonctionnement"
+            class="rounded-full border border-[var(--color-border)] px-6 py-3 font-medium"
+            >Voir comment ça marche</a
+          >
+        </div>
+      </section>
+
+      <!-- LE PROBLÈME ------------------------------------------------------ -->
+      <section class="border-y border-[var(--color-border)] bg-[var(--color-card)]">
+        <div class="mx-auto max-w-5xl px-5 py-14">
+          <h2 class="text-2xl font-bold tracking-tight">Chercher un logement, c’est un travail</h2>
+          <div class="mt-8 grid gap-6 sm:grid-cols-3">
+            <div>
+              <p class="text-3xl font-bold text-[var(--color-primary)]">Partout</p>
+              <p class="mt-1.5 text-[0.95rem] text-[var(--color-muted-foreground)]">
+                Les annonces sont éclatées entre les portails, les sites d’agences et les alertes
+                e-mail. Aucun ne les a toutes.
+              </p>
+            </div>
+            <div>
+              <p class="text-3xl font-bold text-[var(--color-primary)]">En double</p>
+              <p class="mt-1.5 text-[0.95rem] text-[var(--color-muted-foreground)]">
+                Le même appartement paraît trois fois, sous trois références — et parfois trois
+                loyers différents.
+              </p>
+            </div>
+            <div>
+              <p class="text-3xl font-bold text-[var(--color-primary)]">Trop tard</p>
+              <p class="mt-1.5 text-[0.95rem] text-[var(--color-muted-foreground)]">
+                Les logements corrects partent en quelques heures. Consulter deux fois par jour ne
+                suffit pas.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- CE QUE ÇA FAIT --------------------------------------------------- -->
+      <section id="fonctionnement" class="mx-auto max-w-5xl px-5 py-16">
+        <h2 class="text-2xl font-bold tracking-tight">Ce que Maïoun fait à votre place</h2>
+        <ol class="mt-8 grid gap-6 sm:grid-cols-2">
+          <li class="rounded-2xl border border-[var(--color-border)] p-5">
+            <h3 class="font-semibold">1. Rassemble</h3>
+            <p class="mt-1.5 text-[0.95rem] text-[var(--color-muted-foreground)]">
+              Plusieurs dizaines de sources sont relevées en continu : portails, sites d’agences
+              locales, et vos propres alertes e-mail.
+            </p>
+          </li>
+          <li class="rounded-2xl border border-[var(--color-border)] p-5">
+            <h3 class="font-semibold">2. Dédoublonne</h3>
+            <p class="mt-1.5 text-[0.95rem] text-[var(--color-muted-foreground)]">
+              Un même logement vu par trois sources devient une seule fiche, qui garde les trois
+              liens — et signale quand les prix annoncés diffèrent.
+            </p>
+          </li>
+          <li class="rounded-2xl border border-[var(--color-border)] p-5">
+            <h3 class="font-semibold">3. Prévient</h3>
+            <p class="mt-1.5 text-[0.95rem] text-[var(--color-muted-foreground)]">
+              Une notification sur votre téléphone, application fermée, avec le loyer, la surface,
+              le quartier et le téléphone de l’annonceur.
+            </p>
+          </li>
+          <li class="rounded-2xl border border-[var(--color-border)] p-5">
+            <h3 class="font-semibold">4. Classe</h3>
+            <p class="mt-1.5 text-[0.95rem] text-[var(--color-muted-foreground)]">
+              La liste répond à une seule question : qu’est-ce que je dois contacter maintenant ?
+              L’ancienneté, le prix au m² et le trajet entrent dans le calcul.
+            </p>
+          </li>
+          <li class="rounded-2xl border border-[var(--color-border)] p-5">
+            <h3 class="font-semibold">5. Prépare votre dossier</h3>
+            <p class="mt-1.5 text-[0.95rem] text-[var(--color-muted-foreground)]">
+              Vos pièces déposées une fois, rangées selon la liste du décret n° 2015-1437, et
+              accessibles depuis vos appareils au moment de candidater.
+            </p>
+          </li>
+          <li class="rounded-2xl border border-[var(--color-border)] p-5">
+            <h3 class="font-semibold">6. Suit</h3>
+            <p class="mt-1.5 text-[0.95rem] text-[var(--color-muted-foreground)]">
+              Contacté, en attente, visite proposée : chaque annonce garde son état, et vous
+              retrouvez où vous en êtes.
+            </p>
+          </li>
+        </ol>
+      </section>
+
+      <!-- CE QUE ÇA NE FAIT PAS -------------------------------------------- -->
+      <section class="border-y border-[var(--color-border)] bg-[var(--color-card)]">
+        <div class="mx-auto max-w-5xl px-5 py-14">
+          <h2 class="text-2xl font-bold tracking-tight">Ce que Maïoun ne fait pas</h2>
+          <p class="mt-2 max-w-2xl text-[0.95rem] text-[var(--color-muted-foreground)]">
+            Ces limites sont des choix, pas des fonctionnalités manquantes.
+          </p>
+          <ul class="mt-6 flex max-w-2xl flex-col gap-4">
+            <li>
+              <strong>Rien n’est envoyé à votre place.</strong>
+              <span class="text-[var(--color-muted-foreground)]">
+                Le message de contact est préparé, jamais expédié sans votre geste. Un envoi
+                automatique se repère et se filtre — et c’est vous qu’on filtrerait.
+              </span>
+            </li>
+            <li>
+              <strong>Aucune protection n’est contournée.</strong>
+              <span class="text-[var(--color-muted-foreground)]">
+                Les sites qui refusent la collecte automatique ne sont pas collectés. Pour ceux-là,
+                vos alertes e-mail font le lien.
+              </span>
+            </li>
+            <li>
+              <strong>Vos données ne sont pas revendues.</strong>
+              <span class="text-[var(--color-muted-foreground)]">
+                Profil, pièces du dossier et historique de contacts restent dans votre espace. Ils
+                ne servent qu’à vous.
+              </span>
+            </li>
+            <li>
+              <strong>Aucune annonce n’est inventée.</strong>
+              <span class="text-[var(--color-muted-foreground)]">
+                Une information absente de la source est affichée comme absente. Une estimation est
+                annoncée comme telle.
+              </span>
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- TARIF ------------------------------------------------------------ -->
+      <section id="tarif" class="mx-auto max-w-5xl px-5 py-16">
+        <h2 class="text-2xl font-bold tracking-tight">Tarif</h2>
+        <!-- PLACEHOLDER ASSUMÉ. Aucun prix n'est arrêté : en inventer un ici
+          serait un engagement pris sans décision. La section existe pour que la
+          page soit complète, et se remplit le jour où le tarif est fixé. -->
+        <div class="mt-6 max-w-md rounded-2xl border border-[var(--color-border)] p-6">
+          <p class="text-lg font-semibold">À définir</p>
+          <p class="mt-2 text-[0.95rem] text-[var(--color-muted-foreground)]">
+            La grille tarifaire n’est pas encore arrêtée. Laissez votre adresse pour être prévenu de
+            l’ouverture.
+          </p>
+        </div>
+      </section>
+
+      <!-- ACCÈS ------------------------------------------------------------ -->
+      <section id="acces" class="border-t border-[var(--color-border)]">
+        <div class="mx-auto max-w-5xl px-5 py-16">
+          <h2 class="text-2xl font-bold tracking-tight">Accéder à l’application</h2>
+          <p class="mt-2 max-w-xl text-[0.95rem] text-[var(--color-muted-foreground)]">
+            L’application vit sur son propre sous-domaine. L’accès se fait par identifiant et mot de
+            passe : il n’y a pas d’inscription libre.
+          </p>
+          <!-- L'adresse définitive n'existe pas encore : le lien est
+            volontairement laissé à `#`, plutôt que de pointer vers un domaine
+            qui renverrait une erreur. -->
+          <a
+            href="#"
+            class="mt-6 inline-block rounded-full bg-[var(--color-primary)] px-6 py-3 font-medium text-[var(--color-primary-foreground)]"
+            >Ouvrir Maïoun</a
+          >
+        </div>
+      </section>
+    </main>
+
+    <footer class="border-t border-[var(--color-border)]">
+      <div
+        class="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-5 py-8 text-[0.88rem] text-[var(--color-muted-foreground)]"
+      >
+        <span>Maïoun — annonces de location, région de Nice.</span>
+        <span>Les annonces appartiennent à leurs auteurs et renvoient toujours à leur source.</span>
+      </div>
+    </footer>
+  </body>
+</html>
