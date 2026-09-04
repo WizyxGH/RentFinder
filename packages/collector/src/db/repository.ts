@@ -141,12 +141,26 @@ export function listingHash(listing: ScoredListing): string {
     // dont les photos, le DPE ou la description apparaissent après coup ne
     // serait JAMAIS réécrite (l'économie d'écriture § 30 deviendrait une perte
     // de données). Champs stables entre deux collectes → pas de churn.
+    //
+    // LA LISTE ÉTAIT INCOMPLÈTE, et le manque coûtait. Le montant des charges a
+    // été retrouvé sur 131 occurrences en relisant leur description ; il n'a
+    // atteint que 44 fiches, parce qu'il ne figurait pas ici — la fiche était
+    // jugée « inchangée » et jamais réécrite. Même chose pour la colocation, le
+    // quartier, le meublé, la disponibilité et le téléphone : tous s'affichent,
+    // tous peuvent apparaître après coup. La règle est simple — CE QUI
+    // S'AFFICHE DOIT ÊTRE DANS LE HASH.
     listing.imageUrls.length,
     listing.imageUrls[0] ?? null,
     listing.dpe.value,
     listing.maxOccupants.value,
     listing.features,
     listing.description.value,
+    listing.charges.value,
+    listing.flatShare.value,
+    listing.furnished.value,
+    listing.district.value,
+    listing.availableAt.value,
+    listing.contact.phone,
     // Coordonnées : sans elles dans le hash, une fiche enfin géocodée ne serait
     // jamais réécrite → absente de la vue carte (§ 30 vs perte de données).
     listing.latitude.value,
@@ -634,19 +648,22 @@ export function createRepository(db: Database): Repository {
     async updateDerivedFields(occurrences) {
       if (occurrences.length === 0) return 0;
       const statements: Statement[] = occurrences.map((listing) => ({
-        // Seuls l'adresse, le TYPE, la COLOCATION et la charge utile bougent.
+        // Seuls l'adresse, le TYPE, la COLOCATION, les CHARGES et la charge
+        // utile bougent.
         // `flat_share` a sa propre colonne parce que le dédoublonnage et le
         // score la lisent sans ouvrir la charge utile : l'oublier ici aurait
         // rendu la correction invisible là où elle compte.
         // `content_hash` suit, pour que la prochaine collecte ne réécrive pas
         // la ligne pour rien.
         sql: `UPDATE occurrences
-              SET address = ?, property_type = ?, flat_share = ?, payload = ?, content_hash = ?
+              SET address = ?, property_type = ?, flat_share = ?, charges = ?,
+                  payload = ?, content_hash = ?
               WHERE id = ?`,
         args: [
           listing.address,
           listing.propertyType,
           listing.flatShare === null ? null : listing.flatShare ? 1 : 0,
+          listing.charges,
           JSON.stringify(occurrencePayload(listing)),
           occurrenceHash(listing),
           listing.id,

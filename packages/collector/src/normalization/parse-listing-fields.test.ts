@@ -4,6 +4,7 @@ import {
   parseArea,
   parseBedrooms,
   parseCharges,
+  parseChargesFromText,
   parseEmail,
   parseFlatShare,
   parseFurnished,
@@ -580,5 +581,30 @@ describe('extractStreetAddress — le deux-points sépare l’annonce de son con
     expect(extractStreetAddress('NICE OUEST - AVENUE FRÉMONT - T3 VIDE - BALCON')).toBe(
       'AVENUE FRÉMONT',
     );
+  });
+});
+
+describe('parseChargesFromText', () => {
+  it('lit un montant ATTRIBUÉ aux charges, sous ses trois formes', () => {
+    expect(parseChargesFromText('Charges : 75,28€', 1063)).toBe(75.28);
+    expect(parseChargesFromText('Loyer 630 € + 45€ de charges', 630)).toBe(45);
+    expect(parseChargesFromText('dont 70,00 euros par mois de provision pour charges', 1300)).toBe(
+      70,
+    );
+  });
+
+  it('ne prend PAS un loyer « charges comprises » pour des charges (§17)', () => {
+    // Le piège : le montant est voisin du mot, mais c'est le loyer.
+    expect(parseChargesFromText('750.00 € CHARGES COMPRISES', null)).toBeNull();
+    expect(parseChargesFromText('LOYER MENSUEL 495.00 € CHARGES COMPRISES', 495)).toBeNull();
+  });
+
+  it('refuse des charges supérieures au loyer — ce n’en sont pas', () => {
+    expect(parseChargesFromText('Charges : 900 €', 650)).toBeNull();
+  });
+
+  it('ne conclut rien d’un texte sans montant', () => {
+    expect(parseChargesFromText('Charges comprises dans le loyer', 700)).toBeNull();
+    expect(parseChargesFromText(null)).toBeNull();
   });
 });

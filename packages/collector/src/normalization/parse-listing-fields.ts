@@ -570,6 +570,62 @@ export function looksLikeStreet(address: string): boolean {
   return isCleanStreet(address);
 }
 
+/**
+ * Montant des CHARGES lu dans le texte libre.
+ *
+ * Quatre pour cent des annonces portaient un montant de charges, alors que
+ * deux cent trente-quatre descriptions en citent un. Le loyer affiché n'est
+ * pas ce qu'on paie : « 630 € + 45 € de charges », c'est 675 €. Taire les
+ * charges, c'est comparer des loyers qui ne se comparent pas.
+ *
+ * TROIS FORMES SEULEMENT, toutes DIRIGÉES — le montant doit être attribué aux
+ * charges, jamais simplement voisin du mot :
+ *
+ *   - « Charges : 75,28 € », « charges locatives : 30 € »
+ *   - « + 45 € de charges »
+ *   - « 70,00 euros par mois de provision pour charges »
+ *
+ * CE QU'ON REFUSE, et c'est le piège : « 750,00 € CHARGES COMPRISES ». Le
+ * montant y est le LOYER. Une première version, qui acceptait tout nombre
+ * proche du mot « charges », se remplissait de loyers — trente relevés d'un
+ * coup chez BEP. Une charge ne se laisse pas deviner par proximité (§17).
+ */
+const CHARGES_IN_TEXT: readonly RegExp[] = [
+  /(?:provisions?\s+(?:pour|sur|de)\s+)?charges?(?:\s+(?:locatives?|mensuelles?|r[ée]cup[ée]rables?))?\s*(?:\([^)]*\))?\s*[:=]\s*(\d{1,3}(?:[ .\u00a0]?\d{3})*(?:[.,]\d{1,2})?)\s*(?:€|eur\b|euros?)/i,
+  /\+\s*(\d{1,3}(?:[ .\u00a0]?\d{3})*(?:[.,]\d{1,2})?)\s*(?:€|euros?)\s*(?:par mois\s*)?(?:de|d['’])\s*(?:provisions?\s+(?:pour|de)\s+)?charges?/i,
+  /(\d{1,3}(?:[ .\u00a0]?\d{3})*(?:[.,]\d{1,2})?)\s*(?:€|euros?)\s*(?:par mois\s*)?(?:de|d['’])\s+(?:provisions?\s+pour\s+)?charges?/i,
+];
+
+/**
+ * Plafond de vraisemblance. Au-delà, ce n'est plus une provision de charges
+ * mais un loyer qu'une tournure a laissé passer.
+ */
+const MAX_CHARGES = 900;
+
+/**
+ * Cherche un montant de charges dans une description.
+ *
+ * @param maxPlausible loyer de l'annonce, quand il est connu : des charges
+ *        supérieures au loyer ne sont pas des charges. `null` si inconnu, la
+ *        seule borne restant alors le plafond absolu.
+ * @returns le montant, ou `null` — jamais une supposition (§17).
+ */
+export function parseChargesFromText(
+  text: string | null | undefined,
+  maxPlausible: number | null = null,
+): number | null {
+  const cleaned = cleanText(text);
+  if (cleaned === '') return null;
+  for (const pattern of CHARGES_IN_TEXT) {
+    const raw = pattern.exec(cleaned)?.[1];
+    if (raw === undefined) continue;
+    const value = Number(raw.replace(/[ \u00a0.]/g, '').replace(',', '.'));
+    if (!Number.isFinite(value) || value <= 0 || value >= MAX_CHARGES) continue;
+    if (maxPlausible !== null && value >= maxPlausible) continue;
+    return value;
+  }
+  return null;
+}
 /** Portion de description où l'on accepte de lire une adresse (cf. ci-dessous). */
 const ADDRESS_HEAD = 120;
 

@@ -28,6 +28,7 @@ import {
   parseArea,
   parseBedrooms,
   parseCharges,
+  parseChargesFromText,
   parseEmail,
   parseDpe,
   parseFlatShare,
@@ -281,7 +282,13 @@ export function normalizeListing(
     description: toNull(raw.description),
 
     price: price.amount,
-    charges: parseCharges(raw.chargesText) ?? parseCharges(raw.priceText),
+    // Trois sources, de la plus explicite à la plus indirecte. La description
+    // n'est consultée qu'en dernier — mais elle porte le montant dans deux
+    // cent trente-quatre annonces sur mille, là où le champ dédié est vide.
+    charges:
+      parseCharges(raw.chargesText) ??
+      parseCharges(raw.priceText) ??
+      parseChargesFromText(text.prose, price.amount),
     chargesIncluded: price.chargesIncluded,
     area: resolveArea(raw),
     rooms: parseRooms(text.rooms),
@@ -348,7 +355,10 @@ export function normalizeListing(
  *   4. la COLOCATION ne se pose que sur un `null`. Un `false` en base vient
  *      d'une source qui a dit « colocation possible » — le logement est
  *      entier —, et un `true` n'a aucune raison d'être défait. Seul le silence
- *      se remplit (§17).
+ *      se remplit (§17) ;
+ *   5. les CHARGES aussi ne se posent que sur un `null`, et seulement si elles
+ *      restent sous le loyer. Une source qui publie un montant fait autorité
+ *      sur une phrase.
  *
  * Rien d'autre n'est retouché : ni le cycle de vie, ni le quartier, dont la
  * valeur correcte n'est pas reconstituable depuis le texte (§17).
@@ -390,15 +400,22 @@ export function rederiveFromText(occurrence: NormalizedListing): NormalizedListi
   const flatShare =
     occurrence.flatShare === null && parseFlatShare(text) === true ? true : occurrence.flatShare;
 
+  // Charges : idem (règle 5), bornées par le loyer quand il est connu.
+  const charges =
+    occurrence.charges === null
+      ? parseChargesFromText(occurrence.description, occurrence.price)
+      : occurrence.charges;
+
   if (
     address === occurrence.address &&
     propertyType === occurrence.propertyType &&
     gained.length === 0 &&
-    flatShare === occurrence.flatShare
+    flatShare === occurrence.flatShare &&
+    charges === occurrence.charges
   ) {
     return null;
   }
-  return { ...occurrence, address, propertyType, features, flatShare };
+  return { ...occurrence, address, propertyType, features, flatShare, charges };
 }
 
 /** Normalise un lot, en écartant silencieusement les annonces inexploitables. */
