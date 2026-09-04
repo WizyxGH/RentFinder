@@ -57,7 +57,6 @@ export function locationLabel(listing: NotifiableListing): string {
   });
 }
 
-
 /**
  * Disponibilité lisible : « Dispo maintenant » si l'emménagement est immédiat
  * (sous 3 jours), sinon « Dispo le {date} ». `null` si la source ne l'a pas

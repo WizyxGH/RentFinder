@@ -184,7 +184,6 @@ export async function setFavorite(id: string, favorite: boolean): Promise<void> 
   await request(`/api/listings/${id}`, { method: 'PATCH', body: JSON.stringify({ favorite }) });
 }
 
-
 export async function updateTracking(id: string, tracking: string): Promise<void> {
   if (isDirectMode()) return turso.patchListing(id, { tracking });
   if (DEMO) return;
