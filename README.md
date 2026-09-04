@@ -42,11 +42,19 @@ Ouvert sur un téléphone, il répond à une seule question :
 - **Suivi** : statuts (Nouveau → Contacté → … → Loué), journal des contacts
   (avec les pièces déclarées jointes), consulté/archivé/favori persistants,
   classement affiné par vos préférences (affinité transparente), page Stats.
-- **Notifications** : Web Push après chaque collecte (téléphone, app fermée) et
-  notifications navigateur site ouvert — chaque annonce signalée une seule fois.
-- **Documents de candidature** : pièces déposées une fois (onglet Paramètres),
-  stockées uniquement en local (`data/`, hors dépôt), jamais envoyées
-  automatiquement.
+- **Un accueil qui fait le point**, pas une liste de plus : ce qui est arrivé
+  depuis la dernière visite, ce qui attend un appel, et de quoi repartir. Chaque
+  chiffre mène à ce qu'il compte.
+- **Recherches enregistrées** : un jeu complet de critères et d'affinage, nommé,
+  qu'on rappelle d'un geste. Ce sont des signets — les alertes, elles, suivent
+  toujours les critères actifs.
+- **Notifications** : un seul interrupteur. Allumé, l'alerte arrive par Web Push
+  (téléphone, application fermée) et par bandeau quand le site est ouvert —
+  chaque annonce signalée une seule fois, et jamais deux fois le même logement
+  vu par deux sources.
+- **Documents de candidature** : pièces déposées une fois (Paramètres → Dossier
+  de candidature), stockées uniquement en local (`data/`, hors dépôt), jamais
+  envoyées automatiquement.
 - **Coût : 0 €, et 100% local** — tout tourne sur votre machine (fichier SQLite
   - serveur local). Aucun compte, aucun quota, aucun secret cloud à gérer, et
     vos données ne quittent jamais l'appareil.
@@ -95,8 +103,10 @@ Pour être prévenu **sur votre téléphone** dès qu'une annonce entre dans vos
 critères, sans lancer la collecte à la main :
 
 1. **S'abonner aux notifications** depuis le site : cloche en haut à droite →
-   « Site fermé ». Sur iPhone, ajoutez d'abord le site à l'écran d'accueil
-   (Partager → Sur l'écran d'accueil), sans quoi Safari n'expose pas l'API.
+   « Alertes de nouvelles annonces ». Un seul interrupteur : allumé, vous êtes
+   prévenu partout où c'est possible. Sur iPhone, ajoutez d'abord le site à
+   l'écran d'accueil (Partager → Sur l'écran d'accueil), sans quoi Safari
+   n'expose pas l'API du push.
 
    L'alerte porte la photo, le loyer, la surface, l'adresse, la disponibilité,
    le téléphone et la priorité — de quoi décider, et appeler, sans ouvrir le
@@ -157,8 +167,9 @@ Pour **ajouter une source**, le mode d'emploi vit dans l'en-tête de
 
 - Le mode automatique de contact n'a **pas d'envoi implémenté** (garde-fous
   seulement) : il n'arrivera qu'après une collecte éprouvée, comme prévu.
-- 20 sources actives (portails, réseaux et agences niçoises — dont les
-  adaptateurs génériques Apimo et La Boîte Immo/Hektor, et Studapart par API) ;
+- 23 sources actives (portails, réseaux et agences niçoises — dont la FNAIM,
+  ERA, les adaptateurs génériques Apimo et La Boîte Immo/Hektor, et Studapart
+  par API) ;
   PAP est implémentée mais désactivée (son WAF refuse les clients
   non-navigateurs, qu'on ne contourne pas) — l'[étude des
   sources](docs/sources.md) détaille chaque verdict.
@@ -173,7 +184,7 @@ Pour **ajouter une source**, le mode d'emploi vit dans l'en-tête de
 
 ## Roadmap
 
-- **Actuel** : pipeline complet, 20 sources actives (portails + réseaux +
+- **Actuel** : pipeline complet, 23 sources actives (portails + réseaux +
   agences niçoises via les adaptateurs génériques Apimo et Hektor, Studapart
   par API publique) + PAP prête mais désactivée ; mode local zéro-cloud ;
   4 scores en anneaux ; dédoublonnage multi-signaux ; contact manuel + relance
@@ -197,7 +208,7 @@ Pour **ajouter une source**, le mode d'emploi vit dans l'en-tête de
 | L'interface locale affiche « Interface non construite »                        | Lancer `pnpm local` (qui construit), pas `pnpm --filter @rentfinder/collector serve` seul.                                                                                                    |
 | 0 annonce alors que la collecte a réussi                                       | Les annonces sont hors critères (≤ 700 €, ≥ 14 m², Nice). Cocher « Afficher les annonces hors critères ».                                                                                     |
 | Un parser ne trouve plus de prix (warning « structure probablement modifiée ») | Le site a changé son HTML : suivre la procédure de réparation dans la section « scraping » de [docs/architecture.md](docs/architecture.md).                                                   |
-| Pas de notification                                                            | Vérifier les clés `VAPID_*` dans `.env`, et que « Site fermé » est activé depuis la cloche du site. Le notifieur ne signale que les annonces découvertes **après** son activation.            |
+| Pas de notification                                                            | Vérifier les clés `VAPID_*` dans `.env`, et que les alertes sont activées depuis la cloche du site. Le notifieur ne signale que les annonces découvertes **après** son activation.            |
 
 ## Licence
 

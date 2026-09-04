@@ -41,6 +41,34 @@ Deux modes coexistent : **local** (tout sur la machine, base SQLite) et
 | Schéma et migrations       | `database/migrations/`                                 |
 | Enchaînement complet       | `collector/src/pipeline.ts`                            |
 | Critères de recherche      | `config/search.json`, `shared/src/criteria.ts`         |
+| Recherches enregistrées    | `frontend/src/saved-searches.ts`                       |
+| Réglages partagés en base  | `app_settings` (voir `shared/src/source.ts`)           |
+
+## Les écrans
+
+Quatre destinations, les MÊMES sur téléphone (barre basse) et sur grand écran
+(onglets du haut) — passer de l'un à l'autre ne doit rien faire réapprendre :
+
+| Écran          | Fichier                        | Ce qu'il répond                              |
+| -------------- | ------------------------------ | -------------------------------------------- |
+| **Accueil**    | `components/HomePanel.tsx`     | Qu'est-ce qui a bougé, et qu'ai-je à faire ? |
+| **Recherche**  | `App.tsx` (liste + carte)      | Que puis-je contacter en ce moment ?         |
+| **Favoris**    | la même liste, filtrée         | Qu'ai-je retenu ?                            |
+| **Paramètres** | `components/SettingsLinks.tsx` | Les chemins vers tout le reste               |
+
+Sous les Paramètres : profil locataire, dossier de candidature, notifications,
+recherches enregistrées, statistiques, état des sources — et, depuis celui-ci,
+la fiche d'une source (`components/SourcePanel.tsx`) avec ses annonces actives.
+
+L'accueil n'est PAS la liste. C'était le cas, et ouvrir l'application posait
+une question à laquelle on venait rarement répondre d'emblée (« que contient
+tout le stock ? ») plutôt que celle qu'on se pose vraiment.
+
+Les **réglages qui doivent suivre l'utilisateur d'un appareil à l'autre** —
+critères de recherche, recherches enregistrées — vivent dans la table
+`app_settings` de la base, seul point de rencontre entre la collecte et le site
+publié. Ceux qui ne valent que pour CE navigateur — tri, filtres d'affichage,
+alertes écartées — restent dans son stockage local.
 
 ## Les quatre scores
 
