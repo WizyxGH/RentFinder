@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { normalizeListing } from '../../normalization/normalize.js';
-import { parseListPage } from './parser.js';
+import { parseListPage, parseWithdrawn } from './parser.js';
 
 const FIXTURES = join(import.meta.dirname, '../../../../../tests/fixtures/ladresse');
 const LIST_URL = 'https://www.ladresse.com/recherche/location/appartement/nice-06000';
@@ -49,5 +49,22 @@ describe('parseListPage — L’Adresse', () => {
   it('conserve les communes voisines (écartées ensuite au scoring)', () => {
     const cannet = listings.find((l) => l.postalCodeText === '06110');
     expect(cannet).toBeDefined();
+  });
+});
+
+describe('parseWithdrawn (L’Adresse)', () => {
+  it('reconnaît le bandeau posé sur une annonce retirée', () => {
+    // Relevé le 2026-09-04 sur deux fiches restées en ligne après retrait.
+    expect(
+      parseWithdrawn(
+        `<div class="annonce-reference"><span class="bien-exclusif">CE BIEN N'EST PLUS
+         DISPONIBLE A LA LOCATION</span><br><span>Réf. 14348630</span></div>`,
+      ),
+    ).toBe(true);
+  });
+
+  it('ne voit rien sur une fiche encore active', () => {
+    expect(parseWithdrawn('<div>Bel appartement disponible à la location</div>')).toBe(false);
+    expect(parseWithdrawn('<html></html>')).toBe(false);
   });
 });

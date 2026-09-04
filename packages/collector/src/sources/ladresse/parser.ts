@@ -105,3 +105,14 @@ export function parseListPage(html: string, pageUrl: string, agencyName: string)
     warnings: listings.length === 0 ? [`Aucune annonce sur la liste : ${pageUrl}`] : [],
   };
 }
+
+/**
+ * `true` si la fiche annonce explicitement que le bien n'est plus à louer.
+ *
+ * L'agence laisse la page en ligne et y pose un bandeau — « CE BIEN N'EST PLUS
+ * DISPONIBLE A LA LOCATION ». Sans le lire, l'annonce restait en « peut-être
+ * retirée » alors que la source, elle, ne doute pas (§32).
+ */
+export function parseWithdrawn(html: string): boolean {
+  return /n['’\s]?est\s+plus\s+disponible\s+a\s+la\s+location/i.test(cheerio.load(html).text());
+}

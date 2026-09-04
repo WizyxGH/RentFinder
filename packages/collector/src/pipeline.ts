@@ -144,6 +144,7 @@ async function runSource(
       return http.get(url, init ?? {});
     },
     isKnown: (ref) => knownRefs.has(ref),
+    knownRefs,
     log: (event, fields) => logger.debug(event, fields),
     shouldStop: () => requestsUsed >= descriptor.budget.maxPagesPerRun,
   };

@@ -219,6 +219,17 @@ export interface ScrapeContext {
    */
   readonly isKnown: (sourceRef: string) => boolean;
 
+  /**
+   * Toutes les références déjà en base pour cette source.
+   *
+   * `isKnown` répond « celle-ci, l'ai-je déjà vue ? » ; celle-ci répond à la
+   * question inverse, « laquelle ai-je cessé de voir ? ». C'est ce qu'il faut
+   * pour aller VÉRIFIER une annonce disparue de la liste plutôt que de la
+   * laisser en « peut-être retirée » : plusieurs agences affichent alors un
+   * bandeau explicite sur la fiche (§32).
+   */
+  readonly knownRefs: ReadonlySet<string>;
+
   /** Journalisation structurée, sans secret ni donnée personnelle (§62). */
   readonly log: (event: string, fields?: Record<string, unknown>) => void;
 
