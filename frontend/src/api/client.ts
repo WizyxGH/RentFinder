@@ -36,6 +36,7 @@ import type {
 import {
   MVP_CRITERIA,
   NOTIFICATION_PREFERENCES_SETTING,
+  CHANGELOG_SETTING,
   ONBOARDING_SETTING,
   REFERENCE_POINTS_SETTING,
   parseNotificationPreferences,
@@ -673,4 +674,21 @@ export async function fetchOnboardingDone(): Promise<boolean> {
 
 export async function markOnboardingDone(): Promise<void> {
   await writeSetting(ONBOARDING_SETTING, { done: true, at: new Date().toISOString() });
+}
+
+/**
+ * Le repère de lecture des nouveautés.
+ *
+ * `null` = jamais rien lu. Ce n'est pas « tout est nouveau » : `unseenEntries`
+ * s'en sert pour ne RIEN montrer à un nouveau venu, et le premier parcours pose
+ * le repère en se terminant.
+ */
+export async function fetchChangelogSeen(): Promise<string | null> {
+  if (!settingsAvailable()) return null;
+  const stored = await readSetting<{ id?: unknown }>(CHANGELOG_SETTING);
+  return typeof stored?.id === 'string' ? stored.id : null;
+}
+
+export async function markChangelogSeen(id: string): Promise<void> {
+  await writeSetting(CHANGELOG_SETTING, { id, at: new Date().toISOString() });
 }

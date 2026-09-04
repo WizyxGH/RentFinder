@@ -329,6 +329,15 @@ export const SAVED_SEARCHES_SETTING = 'savedSearches';
 export const ONBOARDING_SETTING = 'onboarding';
 
 /**
+ * Clé du REPÈRE DE LECTURE des nouveautés dans `app_settings`.
+ *
+ * On y garde l'identifiant de la dernière entrée lue, et rien d'autre. En base
+ * comme le reste : un utilisateur qui a lu les nouveautés sur son ordinateur
+ * n'a pas à les relire sur son téléphone.
+ */
+export const CHANGELOG_SETTING = 'changelogSeen';
+
+/**
  * Portails immobiliers reconnus à leur domaine.
  *
  * Les annonces importées par ALERTE E-MAIL portent une URL du portail, parfois

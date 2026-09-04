@@ -23,6 +23,7 @@ import {
   fetchListing,
   fetchListings,
   fetchCurrentUser,
+  fetchChangelogSeen,
   fetchOnboardingDone,
   fetchSavedSearches,
   fetchSources,
@@ -33,6 +34,7 @@ import {
   setArchived,
   recordContact,
   saveFilters,
+  markChangelogSeen,
   markOnboardingDone,
   saveSavedSearches,
   savedSearchesAvailable,
@@ -57,6 +59,8 @@ import { SavedSearchesPanel } from './components/SavedSearchesPanel.js';
 import { HomePanel } from './components/HomePanel.js';
 import { LoginScreen } from './components/LoginScreen.js';
 import { UnconfiguredScreen } from './components/UnconfiguredScreen.js';
+import { ChangelogModal } from './components/ChangelogModal.js';
+import { latestEntryId, unseenEntries, type ChangelogEntry } from './changelog.js';
 import { OnboardingPanel } from './components/OnboardingPanel.js';
 import {
   newSearchId,
@@ -550,6 +554,8 @@ export function App(): React.JSX.Element {
   const wideScreen = useWideScreen();
   const [profile, setProfile] = useState<TenantProfile | null>(() => loadProfile());
   const [onboardingDone, setOnboardingDone] = useState<boolean | undefined>(undefined);
+  /** Nouveautés publiées depuis la dernière visite. Vide = rien à annoncer. */
+  const [news, setNews] = useState<readonly ChangelogEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -779,6 +785,12 @@ export function App(): React.JSX.Element {
     void fetchOnboardingDone()
       .then(setOnboardingDone)
       .catch(() => setOnboardingDone(true));
+    // Le repère de lecture des nouveautés. Un échec ne montre rien : une
+    // fenêtre qui s'ouvre parce qu'une requête a échoué serait pire que le
+    // silence.
+    void fetchChangelogSeen()
+      .then((seen) => setNews(unseenEntries(seen)))
+      .catch(() => undefined);
   }, [currentUser]);
 
   // Recherches enregistrées et santé des sources : deux lectures, une fois par
@@ -1096,7 +1108,20 @@ export function App(): React.JSX.Element {
   // Les bandeaux d'alerte flottent AU-DESSUS de la vue courante, quelle qu'elle
   // soit : une annonce trouvée pendant qu'on lit une fiche doit se voir aussi.
   // D'où ce fragment répété aux trois sorties du composant.
-  const overlay = <ToastStack toasts={toasts} onOpen={openListing} onDismiss={dismissToast} />;
+  const dismissNews = (): void => {
+    setNews([]);
+    const latest = latestEntryId();
+    if (latest !== null) void markChangelogSeen(latest).catch(() => undefined);
+  };
+
+  const overlay = (
+    <>
+      <ToastStack toasts={toasts} onOpen={openListing} onDismiss={dismissToast} />
+      {/* Les nouveautés flottent au-dessus de la vue courante, comme les
+        bandeaux d'alerte : elles ne remplacent pas l'écran demandé. */}
+      <ChangelogModal entries={news} onClose={dismissNews} />
+    </>
+  );
 
   /**
    * CE QUI PASSE AVANT L'APPLICATION.
@@ -1149,6 +1174,11 @@ export function App(): React.JSX.Element {
             // derrière. Attendre le réseau pour retirer un écran qu'on vient de
             // terminer donnerait l'impression d'un bouton qui ne répond pas.
             void markOnboardingDone().catch(() => undefined);
+            // Et on pose le repère des nouveautés : quelqu'un qui découvre
+            // l'application n'a rien à rattraper. Sans cela, la modale des
+            // nouveautés s'ouvrirait dans la seconde suivant son accueil.
+            const latest = latestEntryId();
+            if (latest !== null) void markChangelogSeen(latest).catch(() => undefined);
           }}
         />
       );
