@@ -9,27 +9,6 @@
 import { expect, test, type Page } from '@playwright/test';
 
 /**
- * Ouvre un écran secondaire comme le ferait un utilisateur, à sa largeur.
- *
- * Sur grand écran, les onglets du haut y mènent. Sur MOBILE ils sont masqués
- * au profit de la barre basse, qui ne porte que quatre destinations : les
- * autres passent par « Paramètres ». Sans cette distinction, les scénarios ne
- * testaient qu'un des deux chemins réels.
- */
-async function ouvrir(page: Page, onglet: string, lienMobile: string): Promise<void> {
-  const haut = page.getByRole('navigation', { name: 'Navigation principale' });
-  if (await haut.isVisible()) {
-    await haut.getByRole('button', { name: onglet }).click();
-    return;
-  }
-  await page
-    .getByRole('navigation', { name: 'Navigation' })
-    .getByRole('button', { name: 'Paramètres' })
-    .click();
-  await page.getByRole('button', { name: new RegExp(lienMobile) }).click();
-}
-
-/**
  * Ouvre un écran secondaire (Notifications, Statistiques, Sources) depuis les
  * Paramètres — leur seule porte d'entrée, sur tous les formats désormais : la
  * barre du haut est réservée aux destinations quotidiennes.
@@ -45,13 +24,29 @@ async function ouvrirReglage(page: Page, lien: string): Promise<void> {
       .click();
   }
   await page
-    .getByRole('navigation', { name: 'Autres réglages' })
+    .getByRole('navigation', { name: 'Réglages' })
     .getByRole('button', { name: new RegExp(lien) })
     .click();
 }
 
+/**
+ * Ouvre la RECHERCHE, c'est-à-dire la liste.
+ *
+ * L'accueil n'est plus la liste : c'est un point de situation. Les scénarios
+ * qui parlent d'annonces commencent donc par ce geste, sur les deux formats —
+ * onglet du haut sur grand écran, barre basse sur téléphone.
+ */
+async function ouvrirRecherche(page: Page): Promise<void> {
+  const haut = page.getByRole('navigation', { name: 'Navigation principale' });
+  const barre = (await haut.isVisible())
+    ? haut
+    : page.getByRole('navigation', { name: 'Navigation', exact: true });
+  await barre.getByRole('button', { name: 'Recherche' }).click();
+}
+
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
+  await ouvrirRecherche(page);
   // Les annonces arrivent de façon ASYNCHRONE. Sans cette attente, un scénario
   // qui compte les cartes dès l'ouverture en trouve zéro, puis les voit
   // apparaître — d'où des comptages faux et des échecs intermittents.
@@ -233,7 +228,7 @@ test('la localisation ouvre Maps facilement (§20)', async ({ page }) => {
 });
 
 test('la page Stats présente les compteurs et la couverture par source (§33)', async ({ page }) => {
-  await ouvrir(page, 'Stats', 'Statistiques');
+  await ouvrirReglage(page, 'Statistiques');
   await expect(page.getByRole('heading', { name: 'Statistiques' })).toBeVisible();
   await expect(page.getByText('Couverture par source')).toBeVisible();
   await expect(page.getByText(/Taux de réponse/)).toBeVisible();
@@ -243,7 +238,10 @@ test('la page Notifications dit ce qui est actif (§29)', async ({ page }) => {
   // Chromium headless refuse les notifications quoi qu'il arrive. On ne teste
   // donc pas l'activation, mais le fait que la page RENDE COMPTE de l'état —
   // c'est précisément ce que la cloche seule ne savait pas dire.
-  await page.getByRole('button', { name: 'Notifications' }).first().click();
+  await page
+    .getByRole('button', { name: /Notifications/ })
+    .first()
+    .click();
 
   await expect(page.getByRole('heading', { name: 'Notifications' })).toBeVisible();
   await expect(page.getByText('Historique')).toBeVisible();
@@ -266,7 +264,8 @@ test('la page Notifications dit ce qui est actif (§29)', async ({ page }) => {
   await expect(page.getByRole('navigation', { name: 'Navigation principale' })).toBeHidden();
   await expect(page.getByRole('navigation', { name: 'Navigation', exact: true })).toBeHidden();
   await page.getByRole('button', { name: 'Retour' }).click();
-  await expect(page.getByTestId('listing-card').first()).toBeVisible();
+  // On revient à l'ACCUEIL : c'est de là qu'on ouvre les notifications.
+  await expect(page.getByRole('heading', { name: 'Nouveautés' })).toBeVisible();
 });
 
 test('on peut mettre une annonce en favori', async ({ page }) => {
@@ -341,18 +340,19 @@ test('la barre basse mène aux quatre destinations (mobile)', async ({ page }) =
     'page',
   );
 
-  // « Recherche » ouvre « Trier et filtrer », qui porte aussi les critères de
-  // collecte : il n'y a plus d'écran séparé à atteindre.
+  // « Recherche » ouvre la RECHERCHE, et non le menu de tri : on demandait à
+  // voir des annonces, on obtenait un panneau de réglages par-dessus la page.
   await basse.getByRole('button', { name: 'Recherche' }).click();
-  await expect(page.getByRole('dialog', { name: 'Trier et filtrer' })).toBeVisible();
-  await page.getByRole('button', { name: /^(Voir \d+ annonces?|Aucun résultat)$/ }).click();
+  await expect(page.getByRole('dialog', { name: 'Trier et filtrer' })).toBeHidden();
+  await expect(page.getByTestId('listing-card').first()).toBeVisible();
 
   await basse.getByRole('button', { name: 'Paramètres' }).click();
   // Les écrans que la barre ne porte pas restent atteignables depuis ici.
-  await expect(page.getByRole('navigation', { name: 'Autres réglages' })).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Réglages' })).toBeVisible();
 
+  // L'accueil est un point de situation, pas la liste.
   await basse.getByRole('button', { name: 'Accueil' }).click();
-  await expect(page.getByTestId('listing-card').first()).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Votre recherche' })).toBeVisible();
 });
 
 test('on peut archiver depuis la fiche, et l’annonce quitte la liste', async ({ page }) => {
@@ -376,10 +376,11 @@ test('« Favoris » est atteignable à toute largeur', async ({ page }) => {
     'aria-current',
     'page',
   );
-  // La page Favoris n'a ni recherche ni barre d'outils.
+  // La page Favoris n'a ni recherche ni barre d'outils. On la quitte par
+  // « Recherche », qui les ramène.
   await expect(page.getByRole('group', { name: 'Barre de filtres' })).toBeHidden();
 
   // Et l'on en ressort : sans cela, la bascule qui l'éteint est masquée.
-  await barre.getByRole('button', { name: /Accueil|Annonces/ }).click();
+  await barre.getByRole('button', { name: 'Recherche' }).click();
   await expect(page.getByRole('group', { name: 'Barre de filtres' })).toBeVisible();
 });

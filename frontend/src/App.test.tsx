@@ -26,9 +26,25 @@ beforeEach(() => {
   localStorage.clear();
 });
 
+/**
+ * Rend l'application ET ouvre la recherche.
+ *
+ * L'accueil n'est plus la liste : c'est un point de situation, et la liste vit
+ * sous l'onglet « Recherche ». Les scénarios qui parlent d'annonces commencent
+ * donc par ce geste, exactement comme l'utilisateur.
+ */
+async function renderSearch(): Promise<void> {
+  const user = userEvent.setup();
+  render(<App />);
+  // Deux barres portent le même libellé — celle du haut sur grand écran, celle
+  // du bas sur téléphone : `.first()` n'existe pas ici, on prend la première.
+  const tabs = await screen.findAllByRole('button', { name: 'Recherche' });
+  await user.click(tabs[0]!);
+}
+
 describe('liste des annonces', () => {
   it('affiche les annonces correspondant aux critères', async () => {
-    render(<App />);
+    await renderSearch();
     const cards = await screen.findAllByTestId('listing-card');
 
     // Quatre des cinq annonces fictives sont dans les critères.
@@ -37,7 +53,7 @@ describe('liste des annonces', () => {
   });
 
   it('masque par défaut les annonces hors critères (§53 scénario 3)', async () => {
-    render(<App />);
+    await renderSearch();
     await screen.findAllByTestId('listing-card');
 
     // L'annonce à 750 € dépasse le budget : absente de la liste principale.
@@ -46,7 +62,7 @@ describe('liste des annonces', () => {
 
   it('affiche les annonces hors critères sur demande', async () => {
     const user = userEvent.setup();
-    render(<App />);
+    await renderSearch();
     await screen.findAllByTestId('listing-card');
 
     // Le réglage vit dans la modale « Trier et filtrer ».
@@ -59,7 +75,7 @@ describe('liste des annonces', () => {
   });
 
   it('rappelle les critères actifs (§36)', async () => {
-    render(<App />);
+    await renderSearch();
     // On lit les critères depuis la configuration : les figer ici faisait
     // échouer le test au moindre changement de surface minimale.
     expect(
@@ -70,7 +86,7 @@ describe('liste des annonces', () => {
   });
 
   it('classe par priorité d’action, pas par prix (§36)', async () => {
-    render(<App />);
+    await renderSearch();
     const cards = await screen.findAllByTestId('listing-card');
 
     // La première carte est la mieux notée globalement, même si une autre
@@ -81,7 +97,7 @@ describe('liste des annonces', () => {
 
   it('permet de trier par loyer croissant', async () => {
     const user = userEvent.setup();
-    render(<App />);
+    await renderSearch();
     await screen.findAllByTestId('listing-card');
 
     await user.click(screen.getByRole('button', { name: /Trier et filtrer/ }));
@@ -96,7 +112,7 @@ describe('liste des annonces', () => {
   it('résume la décision en une barre de priorité, pas quatre scores', async () => {
     // La carte portait quatre anneaux plus une pastille : cinq chiffres pour
     // une seule question. Le détail des scores appartient à la fiche (§37).
-    render(<App />);
+    await renderSearch();
     const cards = await screen.findAllByTestId('listing-card');
     const first = within(cards[0]!);
 
@@ -108,7 +124,7 @@ describe('liste des annonces', () => {
   });
 
   it('indique le nombre de sources (§13)', async () => {
-    render(<App />);
+    await renderSearch();
     const cards = await screen.findAllByTestId('listing-card');
     expect(within(cards[0]!).getByText(/4 sources/)).toBeInTheDocument();
   });
@@ -117,7 +133,7 @@ describe('liste des annonces', () => {
     // L'astérisque marque les scores dont certains signaux sont inconnus. Il
     // vit désormais sur la FICHE, seul endroit qui affiche encore les scores.
     const user = userEvent.setup();
-    render(<App />);
+    await renderSearch();
     const cards = await screen.findAllByTestId('listing-card');
     await user.click(cards[0]!);
     expect(await screen.findByRole('heading', { name: 'Correspondance' })).toBeInTheDocument();
@@ -125,7 +141,7 @@ describe('liste des annonces', () => {
   });
 
   it('affiche la bannière du mode démonstration', async () => {
-    render(<App />);
+    await renderSearch();
     expect(await screen.findByText(/Mode démonstration/)).toBeInTheDocument();
   });
 });
@@ -133,7 +149,7 @@ describe('liste des annonces', () => {
 describe('fiche détaillée', () => {
   const openFirstListing = async (): Promise<void> => {
     const user = userEvent.setup();
-    render(<App />);
+    await renderSearch();
     const cards = await screen.findAllByTestId('listing-card');
     await user.click(cards[0]!);
   };
@@ -164,7 +180,7 @@ describe('fiche détaillée', () => {
     // clic lève une `ReferenceError` — silencieuse, le bouton semble inerte.
     // C'est arrivé au favori ; ce test couvre les trois d'un coup.
     const user = userEvent.setup();
-    render(<App />);
+    await renderSearch();
     const cards = await screen.findAllByTestId('listing-card');
     await user.click(cards[0]!);
 
@@ -181,7 +197,7 @@ describe('fiche détaillée', () => {
     // déclaré APRÈS, n'était jamais initialisé pour ce rendu et le clic levait
     // une `ReferenceError`. Le bouton restait muet.
     const user = userEvent.setup();
-    render(<App />);
+    await renderSearch();
     const cards = await screen.findAllByTestId('listing-card');
     await user.click(cards[0]!);
 
@@ -231,7 +247,7 @@ describe('fiche détaillée', () => {
 describe('préparation du contact (§22)', () => {
   const openAndConfigureProfile = async (): Promise<ReturnType<typeof userEvent.setup>> => {
     const user = userEvent.setup();
-    render(<App />);
+    await renderSearch();
     const cards = await screen.findAllByTestId('listing-card');
     await user.click(cards[0]!);
     return user;
@@ -292,7 +308,7 @@ describe('préparation du contact (§22)', () => {
 
   it('n’expose aucune coordonnée inventée quand la source n’en publie pas (§17)', async () => {
     const user = userEvent.setup();
-    render(<App />);
+    await renderSearch();
     const cards = await screen.findAllByTestId('listing-card');
 
     // La deuxième annonce fictive n'a qu'un formulaire, aucun téléphone.
@@ -318,16 +334,15 @@ describe('état des sources (§63)', () => {
       ),
     );
     await user.click(
-      within(await screen.findByRole('navigation', { name: 'Autres réglages' })).getByRole(
-        'button',
-        { name: /Sources/ },
-      ),
+      within(await screen.findByRole('navigation', { name: 'Réglages' })).getByRole('button', {
+        name: /Sources/,
+      }),
     );
   };
 
   it('affiche la santé de chaque source', async () => {
     const user = userEvent.setup();
-    render(<App />);
+    await renderSearch();
     await screen.findAllByTestId('listing-card');
 
     await openSourcesPanel(user);
@@ -339,7 +354,7 @@ describe('état des sources (§63)', () => {
 
   it('explique une mise au repos après un 429 (§10)', async () => {
     const user = userEvent.setup();
-    render(<App />);
+    await renderSearch();
     await screen.findAllByTestId('listing-card');
     await openSourcesPanel(user);
 

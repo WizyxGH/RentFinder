@@ -16,13 +16,18 @@ import type { TenantProfile } from '@rentfinder/shared';
 import { MVP_CRITERIA } from '@rentfinder/shared';
 import type { ListingView, SortMode, SourceStateView, TrackingStatus } from './types.js';
 import {
+  fetchFilters,
   fetchListings,
+  fetchSavedSearches,
   fetchSources,
   isDemoMode,
   isUnconfigured,
   markViewed,
   setArchived,
   recordContact,
+  saveFilters,
+  saveSavedSearches,
+  savedSearchesAvailable,
   setFavorite,
   updateTracking,
 } from './api/client.js';
@@ -36,6 +41,16 @@ import { ListingCard } from './components/ListingCard.js';
 import { ListingDetail } from './components/ListingDetail.js';
 import { ProfileForm } from './components/ProfileForm.js';
 import { SourcesPanel } from './components/SourcesPanel.js';
+import { SavedSearchesPanel } from './components/SavedSearchesPanel.js';
+import { HomePanel } from './components/HomePanel.js';
+import {
+  newSearchId,
+  suggestName,
+  toQuickFilters,
+  toSavedView,
+  type SavedSearch,
+} from './saved-searches.js';
+import { SaveSearchButton } from './components/SaveSearchButton.js';
 import { SourcePanel } from './components/SourcePanel.js';
 import { StatsPanel } from './components/StatsPanel.js';
 import { ArrowLeft, Bell, Flame, List, Map, Search, SlidersHorizontal } from 'lucide-react';
@@ -61,7 +76,18 @@ import { mergeToasts, ToastStack, type Toast } from './components/ToastStack.js'
 // Leaflet n'entre dans le bundle que si la vue carte est ouverte (§65).
 const MapView = lazy(() => import('./components/MapView.js'));
 
-type View = 'list' | 'detail' | 'stats' | 'profile' | 'sources' | 'source' | 'alerts';
+type View =
+  | 'home'
+  | 'list'
+  | 'detail'
+  | 'stats'
+  | 'profile'
+  | 'tenant'
+  | 'documents'
+  | 'saved'
+  | 'sources'
+  | 'source'
+  | 'alerts';
 
 /**
  * Ce qu'un onglet peut viser. « favoris » n'est PAS une vue : c'est la liste
@@ -143,18 +169,20 @@ function Shell({
   readonly onBottomSelect?: (tab: BottomTab) => void;
   readonly children: React.ReactNode;
 }): React.JSX.Element {
+  // LES MÊMES QUATRE DESTINATIONS QUE LA BARRE BASSE, dans le même ordre.
+  // Le haut d'écran en portait cinq et la barre basse quatre, avec des noms
+  // différents pour la même page : passer du téléphone à l'ordinateur
+  // demandait de réapprendre la navigation. « Stats » a rejoint les
+  // Paramètres, où vivent déjà les écrans qu'on consulte une fois par mois.
   const tabs: readonly { key: NavTarget; label: string }[] = [
-    { key: 'list', label: 'Annonces' },
-    // Présent dans la barre basse du téléphone, il manquait à l'écran : la
-    // seule façon d'y venir était une bascule enfouie dans la modale.
+    { key: 'home', label: 'Accueil' },
+    { key: 'list', label: 'Recherche' },
     { key: 'favorites', label: 'Favoris' },
-    { key: 'stats', label: 'Stats' },
-    // « Paramètres » et non « Profil » : cet écran porte le profil locataire,
-    // les pièces du dossier ET l'accès aux réglages secondaires. Il donne aussi
-    // accès aux Sources, dont l'onglet dédié n'apprenait rien de plus.
+    // « Paramètres » et non « Profil » : cet écran ne porte plus le formulaire
+    // mais les chemins vers lui, le dossier, les alertes et les sources.
     { key: 'profile', label: 'Paramètres' },
   ];
-  // La fiche appartient à l'univers « Annonces » ; le filtre favoris prime.
+  // La fiche appartient à l'univers « Recherche » ; le filtre favoris prime.
   const active: NavTarget =
     view === 'list' || view === 'detail' ? (favoritesOnly ? 'favorites' : 'list') : view;
 
@@ -302,15 +330,22 @@ function bottomTabFor(
   // La modale ouverte, c'est « Recherche » qui est actif : l'onglet doit
   // refléter ce que l'utilisateur regarde, modale comprise.
   if (sortFilterOpen) return 'search';
-  if (view === 'list' || view === 'detail') return favoritesOnly ? 'favorites' : 'home';
-  if (view === 'profile') return 'settings';
+  if (view === 'home') return 'home';
+  // La LISTE est la recherche, et non l'accueil : celui-ci est devenu un point
+  // de situation. L'onglet doit dire où l'on est, pas où l'on était.
+  if (view === 'list' || view === 'detail') return favoritesOnly ? 'favorites' : 'search';
+  if (view === 'profile' || view === 'tenant' || view === 'documents' || view === 'saved') {
+    return 'settings';
+  }
   return null;
 }
 
 export function App(): React.JSX.Element {
   const [listings, setListings] = useState<readonly ListingView[]>([]);
   const [sources, setSources] = useState<readonly SourceStateView[]>([]);
-  const [view, setView] = useState<View>('list');
+  // L'accueil est un point de situation ; la liste vit sous « Recherche ».
+  const [view, setView] = useState<View>('home');
+  const [savedSearches, setSavedSearches] = useState<readonly SavedSearch[]>([]);
   // Source dont on regarde la fiche ; `null` hors de cette vue.
   const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -481,6 +516,18 @@ export function App(): React.JSX.Element {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // Recherches enregistrées et santé des sources : deux lectures, une fois par
+  // session, dont l'accueil a besoin dès son ouverture. Un échec n'est pas une
+  // erreur d'écran — on affiche simplement une liste vide (§69).
+  useEffect(() => {
+    void fetchSavedSearches()
+      .then(setSavedSearches)
+      .catch(() => undefined);
+    void fetchSources()
+      .then((response) => setSources(response.sources))
+      .catch(() => undefined);
+  }, []);
 
   // Intentions venues d'une NOTIFICATION (§29). Le service worker ne peut pas
   // écrire en base — les identifiants de connexion vivent dans le stockage de
@@ -668,17 +715,91 @@ export function App(): React.JSX.Element {
 
   const selectBottomTab = (tab: BottomTab): void => {
     if (tab === 'search') {
-      // « Recherche » ouvre « Trier et filtrer », qui porte désormais AUSSI les
-      // critères de collecte : il n'y a plus d'écran séparé à atteindre.
+      // « Recherche » OUVRE LA RECHERCHE, et non le menu de tri. Le geste
+      // ouvrait une modale par-dessus la page qu'on quittait : on demandait à
+      // voir des annonces, on obtenait un panneau de réglages.
       setFavoritesOnly(false);
+      setSortFilterOpen(false);
       setView('list');
-      setSortFilterOpen(true);
       return;
     }
     if (tab === 'settings') return setView('profile');
-    // Accueil et Favoris mènent à la même liste, filtrée ou non.
-    setFavoritesOnly(tab === 'favorites');
+    if (tab === 'home') {
+      setFavoritesOnly(false);
+      setView('home');
+      return;
+    }
+    // Favoris : la même liste, filtrée.
+    setFavoritesOnly(true);
     setView('list');
+  };
+
+  /** Rappelle une recherche enregistrée : critères, affinage et tri. */
+  const applySavedSearch = async (saved: SavedSearch): Promise<void> => {
+    setQuickFilters(toQuickFilters(saved.view));
+    setSelectedSources(new Set(saved.view.sources ?? []));
+    setSort(saved.view.sort ?? 'priority');
+    setSearch(saved.view.search ?? '');
+    setFavoritesOnly(false);
+    setView('list');
+    try {
+      // Les critères repartent en base : ils décident de ce que la PROCHAINE
+      // collecte ramènera, pas seulement de ce qu'on regarde aujourd'hui.
+      await saveFilters(saved.criteria);
+      await load();
+    } catch {
+      setError('Les critères de cette recherche n’ont pas pu être appliqués');
+    }
+  };
+
+  /** Enregistre l'état courant de la recherche sous un nom. */
+  const saveCurrentSearch = async (name: string): Promise<void> => {
+    try {
+      const criteria = await fetchFilters();
+      const entry: SavedSearch = {
+        id: newSearchId(),
+        name,
+        createdAt: new Date().toISOString(),
+        criteria,
+        view: toSavedView(quickFilters, { sources: selectedSources, sort, search }),
+      };
+      const next = [entry, ...savedSearches];
+      await saveSavedSearches(next);
+      setSavedSearches(next);
+    } catch {
+      setError('La recherche n’a pas pu être enregistrée');
+    }
+  };
+
+  const deleteSavedSearch = async (id: string): Promise<void> => {
+    const next = savedSearches.filter((saved) => saved.id !== id);
+    setSavedSearches(next);
+    try {
+      await saveSavedSearches(next);
+    } catch {
+      setError('La suppression n’a pas pu être enregistrée');
+    }
+  };
+
+  /**
+   * Combien d'annonces DÉJÀ CHARGÉES une recherche enregistrée laisserait
+   * passer.
+   *
+   * Approximation assumée : on n'applique que l'affinage, pas les critères de
+   * collecte — ceux-ci décident de ce qui a été RAMENÉ, et l'appliquer
+   * demanderait de recharger depuis la base pour chaque recherche affichée
+   * (§30). Le chiffre reste un ordre de grandeur utile pour reconnaître sa
+   * recherche, et le libellé ne promet rien de plus.
+   */
+  const countForSearch = (saved: SavedSearch): number => {
+    const quick = toQuickFilters(saved.view);
+    const sources = new Set(saved.view.sources ?? []);
+    return listings.filter((listing) => {
+      if (listing.lifecycle !== 'active') return false;
+      if (!matchesQuickFilters(listing, quick)) return false;
+      if (sources.size === 0) return true;
+      return listing.occurrences.some((one) => sources.has(one.sourceId));
+    }).length;
   };
 
   // Les bandeaux d'alerte flottent AU-DESSUS de la vue courante, quelle qu'elle
@@ -706,10 +827,47 @@ export function App(): React.JSX.Element {
   // Vues « secondaires » (plein écran), regroupées hors du corps principal pour
   // garder App lisible : chacune rend sa coquille ou `null` si non concernée.
   const secondaryView = (): React.JSX.Element | null => {
+    if (view === 'home') {
+      return (
+        <Shell
+          view={view}
+          favoritesOnly={favoritesOnly}
+          onNavigate={navigate}
+          unreadAlerts={unreadAlerts}
+          bottomTab={bottomTab}
+          onBottomSelect={selectBottomTab}
+        >
+          <HomePanel
+            listings={listings}
+            sources={sources}
+            savedSearches={savedSearches}
+            nowMs={nowMs}
+            seenAtMs={alertsViewedFrom}
+            profileComplete={profile !== null}
+            onOpenListing={openListing}
+            onOpenSearch={() => {
+              setFavoritesOnly(false);
+              setView('list');
+            }}
+            onOpenFavorites={() => {
+              setFavoritesOnly(true);
+              setView('list');
+            }}
+            onOpenAlerts={() => navigate('alerts')}
+            onOpenSavedSearches={() => setView('saved')}
+            onOpenProfile={() => {
+              setEditingProfile(true);
+              setView('tenant');
+            }}
+            onApplySearch={(saved) => void applySavedSearch(saved)}
+          />
+        </Shell>
+      );
+    }
     if (view === 'alerts') {
       return (
         <main className="mx-auto max-w-[720px] px-3 py-4 pb-12 sm:px-4 sm:py-6 sm:pb-16">
-          <Button variant="ghost" className="mb-2" onClick={() => setView('list')}>
+          <Button variant="ghost" className="mb-2" onClick={() => setView('home')}>
             <ArrowLeft aria-hidden="true" className="size-4" /> Retour
           </Button>
           <NotificationsPanel
@@ -721,6 +879,10 @@ export function App(): React.JSX.Element {
         </main>
       );
     }
+    // PARAMÈTRES : rien que des chemins. Le profil locataire et les pièces du
+    // dossier occupaient tout le premier écran — huit champs et une liste de
+    // fichiers pour deux réglages qu'on touche une fois. Ils ont maintenant
+    // leur page, comme les autres.
     if (view === 'profile') {
       return (
         <Shell
@@ -731,9 +893,75 @@ export function App(): React.JSX.Element {
           bottomTab={bottomTab}
           onBottomSelect={selectBottomTab}
         >
+          <h1 className="mb-3 text-xl font-bold">Paramètres</h1>
+          {/* `navigate` et non `setView` : certaines vues doivent CHARGER
+            leurs données avant d'apparaître (les sources, notamment). */}
+          <SettingsLinks onNavigate={(key) => navigate(key as View)} bare />
+        </Shell>
+      );
+    }
+    if (view === 'documents') {
+      return (
+        <Shell
+          view={view}
+          favoritesOnly={favoritesOnly}
+          onNavigate={navigate}
+          unreadAlerts={unreadAlerts}
+          bottomTab={bottomTab}
+          onBottomSelect={selectBottomTab}
+        >
+          <Button variant="ghost" className="mb-2" onClick={() => setView('profile')}>
+            <ArrowLeft aria-hidden="true" className="size-4" /> Retour
+          </Button>
+          <DocumentsSection />
+        </Shell>
+      );
+    }
+    if (view === 'saved') {
+      return (
+        <Shell
+          view={view}
+          favoritesOnly={favoritesOnly}
+          onNavigate={navigate}
+          unreadAlerts={unreadAlerts}
+          bottomTab={bottomTab}
+          onBottomSelect={selectBottomTab}
+        >
+          <SavedSearchesPanel
+            searches={savedSearches}
+            nowMs={nowMs}
+            available={savedSearchesAvailable()}
+            countFor={countForSearch}
+            onBack={() => setView('profile')}
+            onApply={(saved) => void applySavedSearch(saved)}
+            onDelete={(id) => void deleteSavedSearch(id)}
+          />
+        </Shell>
+      );
+    }
+    if (view === 'tenant') {
+      return (
+        <Shell
+          view={view}
+          favoritesOnly={favoritesOnly}
+          onNavigate={navigate}
+          unreadAlerts={unreadAlerts}
+          bottomTab={bottomTab}
+          onBottomSelect={selectBottomTab}
+        >
+          <Button
+            variant="ghost"
+            className="mb-2"
+            onClick={() => {
+              setEditingProfile(false);
+              setView('profile');
+            }}
+          >
+            <ArrowLeft aria-hidden="true" className="size-4" /> Retour
+          </Button>
           {/* Le formulaire ne s'ouvre QUE pour modifier : huit champs dépliés
-            en permanence en haut des Paramètres, pour un profil qu'on remplit
-            une fois, occupaient l'écran sans rien apprendre. */}
+            en permanence, pour un profil qu'on remplit une fois, occupaient
+            l'écran sans rien apprendre. */}
           {editingProfile ? (
             <ProfileForm
               initial={profile}
@@ -743,11 +971,11 @@ export function App(): React.JSX.Element {
                 setEditingProfile(false);
                 // On revient à l'annonce d'où l'on venait : le profil n'est
                 // presque jamais une fin en soi, il sert à écrire un message.
-                if (selectedId !== null) setView('detail');
+                setView(selectedId !== null ? 'detail' : 'profile');
               }}
               onCancel={() => {
                 setEditingProfile(false);
-                if (selectedId !== null) setView('detail');
+                setView(selectedId !== null ? 'detail' : 'profile');
               }}
               onClear={() => {
                 clearProfile();
@@ -758,10 +986,6 @@ export function App(): React.JSX.Element {
           ) : (
             <ProfileSummary profile={profile} onEdit={() => setEditingProfile(true)} />
           )}
-          <DocumentsSection />
-          {/* `navigate` et non `setView` : certaines vues doivent CHARGER
-            leurs données avant d'apparaître (les sources, notamment). */}
-          <SettingsLinks onNavigate={(key) => navigate(key as View)} />
         </Shell>
       );
     }
@@ -778,7 +1002,7 @@ export function App(): React.JSX.Element {
           <SourcesPanel
             sources={sources}
             nowMs={nowMs}
-            onBack={() => setView('list')}
+            onBack={() => setView('profile')}
             onOpenSource={(sourceId) => void openSource(sourceId)}
           />
         </Shell>
@@ -846,7 +1070,7 @@ export function App(): React.JSX.Element {
               // Venir de « Configurer mon profil », c'est vouloir le remplir :
               // le résumé ferait faire un clic de plus pour rien.
               setEditingProfile(true);
-              setView('profile');
+              setView('tenant');
             }}
           />
         </Shell>
@@ -1018,6 +1242,23 @@ export function App(): React.JSX.Element {
                 <Map aria-hidden="true" className="size-4" /> Carte
               </button>
             </div>
+
+            {/* Garder le jeu de réglages qu'on vient de composer. Le bouton
+            est ICI, à côté des résultats qu'il décrit — pas enfoui dans la
+            modale, qu'on referme précisément quand on est satisfait. */}
+            {savedSearchesAvailable() && (
+              <SaveSearchButton
+                suggestion={suggestName(
+                  {
+                    cities: [...MVP_CRITERIA.cities],
+                    maxPrice: MVP_CRITERIA.maxPrice,
+                    minArea: MVP_CRITERIA.minArea,
+                  },
+                  quickFilters,
+                )}
+                onSave={saveCurrentSearch}
+              />
+            )}
 
             {/* Compteur de résultats, poussé à droite (repère façon SeLoger).
             Il distingue les annonces ACTIVES de celles disparues de leur source :

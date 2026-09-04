@@ -29,6 +29,12 @@ for (const { name, width, height } of WIDTHS) {
   test(`aucun débordement horizontal en ${name} (${width}px)`, async ({ page }) => {
     await page.setViewportSize({ width, height });
     await page.goto('/');
+    // L'accueil est un point de situation ; la liste vit sous « Recherche ».
+    const haut = page.getByRole('navigation', { name: 'Navigation principale' });
+    const barre = (await haut.isVisible())
+      ? haut
+      : page.getByRole('navigation', { name: 'Navigation', exact: true });
+    await barre.getByRole('button', { name: 'Recherche' }).click();
     await expect(page.getByTestId('listing-card').first()).toBeVisible();
     expect(await overflow(page)).toBeLessThanOrEqual(1);
 
@@ -48,6 +54,11 @@ for (const { name, width, height } of WIDTHS) {
 test('les cibles tactiles restent atteignables au doigt', async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 740 });
   await page.goto('/');
+  // L'accueil est un point de situation ; la liste vit sous « Recherche ».
+  await page
+    .getByRole('navigation', { name: 'Navigation', exact: true })
+    .getByRole('button', { name: 'Recherche' })
+    .click();
   await expect(page.getByTestId('listing-card').first()).toBeVisible();
 
   // 36 px : en deçà, une cible devient difficile à viser sur un écran tactile.

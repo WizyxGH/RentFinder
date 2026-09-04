@@ -2,13 +2,16 @@
  * Accès aux écrans secondaires depuis les Paramètres (§39).
  *
  * La barre basse du téléphone ne porte que quatre destinations, et les onglets
- * du haut ont été ramenés à quatre eux aussi : « Sources » n'y méritait pas une
- * place permanente — on y va une fois par mois, pour vérifier qu'un site n'est
- * pas tombé. Sa place est ici, avec les autres écrans qu'on consulte
- * ponctuellement, et cette liste s'affiche donc sur TOUS les formats.
+ * du haut portent les MÊMES : tout le reste se rejoint ici — les écrans qu'on
+ * ouvre une fois par mois, et ceux qu'on remplit une fois pour toutes.
+ *
+ * LE PROFIL ET LE DOSSIER EN FONT PARTIE. Ils occupaient tout le premier écran
+ * des Paramètres : huit champs dépliés et une liste de fichiers, pour deux
+ * réglages qu'on ne touche presque jamais, devant lesquels il fallait défiler
+ * pour atteindre les alertes. Ils ont maintenant leur page, comme les autres.
  */
 
-import { Bell, BarChart3, ChevronRight, Radio } from 'lucide-react';
+import { Bell, BarChart3, Bookmark, ChevronRight, FileText, Radio, User } from 'lucide-react';
 
 export interface SettingsLink {
   readonly key: string;
@@ -19,10 +22,28 @@ export interface SettingsLink {
 
 export const SETTINGS_LINKS: readonly SettingsLink[] = [
   {
+    key: 'tenant',
+    label: 'Profil locataire',
+    hint: 'Sert à préparer vos messages de contact.',
+    Icon: User,
+  },
+  {
+    key: 'documents',
+    label: 'Dossier de candidature',
+    hint: 'Les pièces à joindre à une demande.',
+    Icon: FileText,
+  },
+  {
     key: 'alerts',
     label: 'Notifications',
-    hint: 'Canaux actifs et historique des alertes.',
+    hint: 'Alertes et historique.',
     Icon: Bell,
+  },
+  {
+    key: 'saved',
+    label: 'Recherches enregistrées',
+    hint: 'Vos jeux de critères, à rappeler d’un geste.',
+    Icon: Bookmark,
   },
   {
     key: 'stats',
@@ -35,12 +56,18 @@ export const SETTINGS_LINKS: readonly SettingsLink[] = [
 
 export function SettingsLinks({
   onNavigate,
+  bare = false,
 }: {
   readonly onNavigate: (key: string) => void;
+  /**
+   * `true` quand la liste EST la page : ni titre ni marge d'introduction. Le
+   * titre « Autres réglages » n'avait de sens que sous quelque chose.
+   */
+  readonly bare?: boolean;
 }): React.JSX.Element {
   return (
-    <nav aria-label="Autres réglages" className="mt-6">
-      <h2 className="mb-2 text-lg font-bold">Autres réglages</h2>
+    <nav aria-label="Réglages" className={bare ? '' : 'mt-6'}>
+      {!bare && <h2 className="mb-2 text-lg font-bold">Autres réglages</h2>}
       <ul className="flex flex-col gap-2">
         {SETTINGS_LINKS.map(({ key, label, hint, Icon }) => (
           <li key={key}>
