@@ -8,6 +8,9 @@
       "path": "./packages/collector"
     },
     {
+      "path": "./packages/worker"
+    },
+    {
       "path": "./frontend"
     }
   ]

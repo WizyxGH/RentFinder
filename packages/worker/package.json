@@ -1,0 +1,21 @@
+{
+  "name": "@rentfinder/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc --build",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "user:add": "node --env-file=../../.env ./scripts/add-user.mjs"
+  },
+  "dependencies": {
+    "@libsql/client": "^0.14.0",
+    "@rentfinder/collector": "workspace:*",
+    "@rentfinder/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250109.0",
+    "wrangler": "^3.99.0"
+  }
+}

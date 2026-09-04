@@ -100,7 +100,38 @@ function rowToListing(row: Record<string, unknown>): Record<string, unknown> {
   };
 }
 
-async function listListings(db: Client, url: URL, filters?: LiveFilters): Promise<unknown> {
+/**
+ * Une fiche VUE PAR QUELQU'UN.
+ *
+ * Les annonces sont communes ; « je l'ai mise en favori », « je l'ai
+ * contactée », « je l'ai archivée » ne le sont pas. Ces états vivent dans
+ * `listing_user_state`, une ligne par (utilisateur, annonce), et seulement pour
+ * les annonces sur lesquelles quelqu'un a fait quelque chose.
+ *
+ * D'où la jointure GAUCHE et les `COALESCE` : une annonce que vous n'avez
+ * jamais touchée n'a pas de ligne, et vaut donc « ni vue, ni archivée, ni
+ * favorite, statut nouveau ». Les colonnes de même nom sur `listings` sont
+ * masquées par celles-ci — c'est voulu : elles ne servent plus qu'à la
+ * collecte, qui ne connaît qu'un utilisateur.
+ */
+const USER_STATE_JOIN = `LEFT JOIN listing_user_state AS us
+   ON us.listing_id = listings.id AND us.user_id = ?`;
+
+const USER_STATE_COLUMNS = `listings.*,
+  COALESCE(us.viewed, 0) AS viewed,
+  COALESCE(us.archived, 0) AS archived,
+  COALESCE(us.favorite, 0) AS favorite,
+  COALESCE(us.tracking, 'new') AS tracking,
+  COALESCE(us.notified, 0) AS notified,
+  us.notified_at AS notified_at,
+  COALESCE(us.drafted, 0) AS drafted`;
+
+async function listListings(
+  db: Client,
+  url: URL,
+  userId: string,
+  filters?: LiveFilters,
+): Promise<unknown> {
   const limit = Math.min(
     500,
     Math.max(1, Number.parseInt(url.searchParams.get('limit') ?? '30', 10)),
@@ -144,11 +175,11 @@ async function listListings(db: Client, url: URL, filters?: LiveFilters): Promis
 
   // Les annonces archivées sont masquées, sauf demande explicite (§ archivage).
   if (url.searchParams.get('archived') !== 'true') {
-    conditions.push('archived = 0');
+    conditions.push('COALESCE(us.archived, 0) = 0');
   }
   // Vue « favoris uniquement » sur demande.
   if (url.searchParams.get('favorite') === 'true') {
-    conditions.push('favorite = 1');
+    conditions.push('COALESCE(us.favorite, 0) = 1');
   }
   // Un bien LOUÉ sort de la liste, définitivement — même en favori (décision
   // utilisateur : ni grisé, ni montré). §32/§33.
@@ -157,13 +188,14 @@ async function listListings(db: Client, url: URL, filters?: LiveFilters): Promis
   const filter = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
   const result = await db.execute({
-    sql: `SELECT * FROM listings ${filter} ORDER BY ${orderBy} LIMIT ? OFFSET ?`,
-    args: [...filterArgs, limit, offset],
+    sql: `SELECT ${USER_STATE_COLUMNS} FROM listings ${USER_STATE_JOIN} ${filter}
+          ORDER BY ${orderBy} LIMIT ? OFFSET ?`,
+    args: [userId, ...filterArgs, limit, offset],
   });
 
   const total = await db.execute({
-    sql: `SELECT COUNT(*) AS n FROM listings ${filter}`,
-    args: filterArgs,
+    sql: `SELECT COUNT(*) AS n FROM listings ${USER_STATE_JOIN} ${filter}`,
+    args: [userId, ...filterArgs],
   });
 
   return {
@@ -174,8 +206,11 @@ async function listListings(db: Client, url: URL, filters?: LiveFilters): Promis
   };
 }
 
-async function getListing(db: Client, id: string): Promise<unknown | null> {
-  const result = await db.execute({ sql: 'SELECT * FROM listings WHERE id = ?', args: [id] });
+async function getListing(db: Client, id: string, userId: string): Promise<unknown | null> {
+  const result = await db.execute({
+    sql: `SELECT ${USER_STATE_COLUMNS} FROM listings ${USER_STATE_JOIN} WHERE listings.id = ?`,
+    args: [userId, id],
+  });
   const row = result.rows[0];
   if (row === undefined) return null;
 
@@ -313,6 +348,7 @@ async function updateListing(
   db: Client,
   id: string,
   request: Request,
+  userId: string,
 ): Promise<Response | unknown> {
   const body = (await request.json().catch(() => null)) as {
     tracking?: string;
@@ -354,7 +390,7 @@ async function updateListing(
   });
 
   if (result.rowsAffected === 0) return jsonError(404, 'Annonce introuvable');
-  await mirrorUserState(db, id, userStatePatch(body));
+  await writeUserState(db, id, userId, userStatePatch(body));
   return { id, ...body };
 }
 
@@ -374,16 +410,18 @@ function userStatePatch(body: {
 }
 
 /**
- * Consigne la même décision dans `listing_user_state`, où elle vivra le jour
- * où l'application portera plusieurs utilisateurs (migration 19).
+ * Consigne une décision PERSONNELLE : favori, archivage, statut, consultation.
  *
- * Les colonnes de `listings` restent la source lue par le reste du code ; on
- * écrit aux deux endroits pour que la table ne diverge pas dès le lendemain
- * de sa création. Une ligne de plus par clic, pas par collecte (§30).
+ * C'est ici que vit désormais la vérité, `listing_user_state` étant lu par les
+ * requêtes de liste et de fiche. Les colonnes de même nom sur `listings` sont
+ * encore écrites juste au-dessus — elles servent à la COLLECTE, qui ne connaît
+ * qu'un utilisateur (notifications déjà envoyées, brouillons écrits) — mais
+ * elles ne sont plus ce que l'API renvoie.
  */
-async function mirrorUserState(
+async function writeUserState(
   db: Client,
   listingId: string,
+  userId: string,
   patch: Readonly<Record<string, string | number>>,
 ): Promise<void> {
   const columns = Object.keys(patch);
@@ -396,7 +434,7 @@ async function mirrorUserState(
             .concat('updated_at = excluded.updated_at')
             .join(', ')}`,
     args: [
-      CURRENT_USER,
+      userId,
       listingId,
       ...columns.map((column) => patch[column] ?? null),
       new Date().toISOString(),
@@ -414,6 +452,7 @@ async function recordContact(
   db: Client,
   id: string,
   request: Request,
+  userId: string,
 ): Promise<Response | unknown> {
   const body = (await request.json().catch(() => null)) as {
     channel?: string;
@@ -458,7 +497,7 @@ async function recordContact(
     sql: 'UPDATE listings SET tracking = ?, updated_at = ? WHERE id = ?',
     args: ['contacted', now, id],
   });
-  await mirrorUserState(db, id, { tracking: 'contacted' });
+  await writeUserState(db, id, userId, { tracking: 'contacted' });
 
   return { id, followUpIndex, sentAt: now, documents };
 }
@@ -533,30 +572,31 @@ async function handleListingsRoute(
   request: Request,
   cors: Record<string, string>,
   local: LocalFeatures | undefined,
+  userId: string,
 ): Promise<Response> {
   // Collection : GET /api/listings
   if (id === undefined && method === 'GET') {
-    return json(await listListings(db, url, local?.readSearchFilters()), cors);
+    return json(await listListings(db, url, userId, local?.readSearchFilters()), cors);
   }
   if (id === undefined) return json({ error: 'Route inconnue' }, cors, 404);
 
   // Sous-ressource : POST /api/listings/:id/contact
   if (action === 'contact') {
     if (method !== 'POST') return json({ error: 'Route inconnue' }, cors, 404);
-    const result = await recordContact(db, id, request);
+    const result = await recordContact(db, id, request, userId);
     return result instanceof Response ? result : json(result, cors, 201);
   }
   if (action !== undefined) return json({ error: 'Route inconnue' }, cors, 404);
 
   // Élément : GET ou PATCH /api/listings/:id
   if (method === 'GET') {
-    const listing = await getListing(db, id);
+    const listing = await getListing(db, id, userId);
     return listing === null
       ? json({ error: 'Annonce introuvable' }, cors, 404)
       : json(listing, cors);
   }
   if (method === 'PATCH') {
-    const result = await updateListing(db, id, request);
+    const result = await updateListing(db, id, request, userId);
     return result instanceof Response ? result : json(result, cors);
   }
   return json({ error: 'Route inconnue' }, cors, 404);
@@ -573,6 +613,13 @@ export async function route(
   segments: readonly string[],
   cors: Record<string, string>,
   local?: LocalFeatures,
+  /**
+   * QUI demande. Le serveur local n'a qu'un utilisateur — c'est votre machine,
+   * il n'y a personne d'autre — et prend donc le défaut. Le Worker, lui,
+   * transmet l'identifiant lu dans le cookie de session : c'est là que le
+   * multi-compte prend son sens.
+   */
+  userId: string = CURRENT_USER,
 ): Promise<Response> {
   const method = request.method;
   const resource = segments[1];
@@ -595,7 +642,7 @@ export async function route(
   if (resource === 'sources' && method === 'GET') return json(await listSources(db), cors);
   if (resource === 'stats' && method === 'GET') return json(await getStats(db), cors);
   if (resource === 'listings') {
-    return handleListingsRoute(db, method, id, segments[3], url, request, cors, local);
+    return handleListingsRoute(db, method, id, segments[3], url, request, cors, local, userId);
   }
   return json({ error: 'Route inconnue' }, cors, 404);
 }

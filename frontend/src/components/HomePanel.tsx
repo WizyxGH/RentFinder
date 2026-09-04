@@ -23,7 +23,6 @@ import type { SavedSearch } from '../saved-searches.js';
 import { describeSearch } from '../saved-searches.js';
 import { formatAge, formatArea, formatCity, formatPrice, formatSourceName } from '../format.js';
 import { Badge } from '@/components/ui/badge.js';
-import { Button } from '@/components/ui/button.js';
 import { Card } from '@/components/ui/card.js';
 import { ArrowRight, Bell, Bookmark, Heart, PhoneCall, Search, TriangleAlert } from 'lucide-react';
 
@@ -299,9 +298,6 @@ export function HomePanel({
             onClick={onOpenAlerts}
           />
         </div>
-        <Button className="mt-3 w-full sm:w-auto" onClick={onOpenSearch}>
-          <Search aria-hidden="true" className="size-4" /> Ouvrir la recherche
-        </Button>
       </section>
 
       <section>

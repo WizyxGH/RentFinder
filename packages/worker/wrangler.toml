@@ -1,0 +1,16 @@
+# Worker Cloudflare — l'API du site publié (§28).
+#
+# Les trois secrets ne figurent PAS ici : ce fichier est versionné. On les
+# dépose une fois avec `wrangler secret put` (voir docs/deployment.md).
+#
+#   TURSO_DATABASE_URL   l'adresse libsql:// de la base
+#   TURSO_AUTH_TOKEN     le jeton, qui ne doit plus jamais atteindre un navigateur
+#   SESSION_SECRET       la clé de signature des sessions
+name = "rentfinder-api"
+main = "src/index.ts"
+compatibility_date = "2026-01-01"
+
+[vars]
+# L'origine autorisée à appeler l'API. Un « * » serait refusé par les
+# navigateurs dès lors qu'on envoie un cookie — et il le serait à raison.
+ALLOWED_ORIGIN = "https://wizyxgh.github.io"
