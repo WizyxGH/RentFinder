@@ -1,13 +1,18 @@
 /**
  * Page des notifications (§29).
  *
- * Regroupe ce que la cloche seule ne pouvait pas dire : quels canaux sont
- * actifs, ce qui bloque le cas échéant, et les annonces apparues récemment —
+ * UN SEUL INTERRUPTEUR (décision utilisateur du 2026-09-04). Il y en avait
+ * deux — « site ouvert » et « site fermé » —, plus une ligne d'état sur la
+ * permission du navigateur. C'était le réglage d'un système, pas d'une
+ * recherche de logement : on veut être prévenu, ou non. Allumé, on est
+ * prévenu partout où c'est possible ; le bandeau dans la page, lui, ne
+ * demande aucune permission et vient donc toujours.
+ *
+ * Ce qui reste sous l'interrupteur : les annonces apparues récemment,
  * consultables même si l'on a raté l'alerte.
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { Check, TriangleAlert } from 'lucide-react';
 import type { ListingView } from '../types.js';
 import {
   formatArea,
@@ -20,7 +25,6 @@ import {
 import { disablePush, enablePush, pushEnabled, pushSupported } from '../push.js';
 import {
   isUnreadAlert,
-  notificationPermission,
   readDismissedAlerts,
   notificationsSupported,
   readOptIn,
@@ -28,6 +32,7 @@ import {
   writeDismissedAlerts,
   writeOptIn,
 } from '../notifications.js';
+import { Switch } from '@/components/ui/switch.js';
 
 /** Au-delà, le glissement vaut décision : la ligne est écartée. */
 const DISMISS_MIN_PX = 80;
@@ -47,83 +52,6 @@ interface NotificationsPanelProps {
    * et les repères disparaîtraient sous les yeux.
    */
   readonly seenAtMs: number;
-}
-
-/** Une ligne d'état : ce qui marche, ce qui manque, et pourquoi. */
-function Status({
-  ok,
-  label,
-  detail,
-}: {
-  readonly ok: boolean;
-  readonly label: string;
-  readonly detail: string;
-}): React.JSX.Element {
-  return (
-    <li className="flex gap-2.5 rounded-xl border border-border p-3">
-      <span
-        aria-hidden="true"
-        className={`pt-0.5 ${ok ? 'text-primary' : 'text-muted-foreground'}`}
-      >
-        {ok ? <Check className="size-4" /> : <TriangleAlert className="size-4" />}
-      </span>
-      <span>
-        <strong className="font-medium">{label}</strong>
-        <span className="block text-sm text-muted-foreground">{detail}</span>
-      </span>
-    </li>
-  );
-}
-
-/** Interrupteur d'un canal d'alerte : son état EST le réglage retenu. */
-function Toggle({
-  label,
-  detail,
-  on,
-  busy,
-  disabled = false,
-  onToggle,
-}: {
-  readonly label: string;
-  readonly detail: string;
-  readonly on: boolean;
-  readonly busy: boolean;
-  readonly disabled?: boolean;
-  readonly onToggle: () => void;
-}): React.JSX.Element {
-  return (
-    <li>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={on}
-        aria-label={label}
-        disabled={disabled || busy}
-        onClick={onToggle}
-        className="flex w-full cursor-pointer items-center gap-3 rounded-xl border border-border p-3 text-left transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        <span className="min-w-0 flex-1">
-          <span className="block font-medium">{label}</span>
-          <span className="block text-sm text-muted-foreground">
-            {busy ? 'Un instant…' : detail}
-          </span>
-        </span>
-        {/* Interrupteur dessiné plutôt qu'une case : l'état se lit de loin. */}
-        <span
-          aria-hidden="true"
-          className={`flex h-6 w-11 shrink-0 items-center rounded-full p-0.5 transition-colors ${
-            on ? 'bg-primary' : 'bg-muted-foreground/30'
-          }`}
-        >
-          <span
-            className={`size-5 rounded-full bg-white shadow transition-transform ${
-              on ? 'translate-x-5' : ''
-            }`}
-          />
-        </span>
-      </button>
-    </li>
-  );
 }
 
 /**
@@ -238,62 +166,57 @@ export function NotificationsPanel({
       writeDismissedAlerts(next);
       return next;
     });
-  const [permission, setPermission] = useState(notificationPermission());
-  // Deux CHOIX distincts, retenus séparément : l'un vaut pour le site ouvert
-  // (préférence de ce navigateur), l'autre pour le site fermé (l'abonnement
-  // push lui-même, que le navigateur conserve). Un unique interrupteur les
-  // liait, et refuser l'un revenait à perdre l'autre.
-  const [openOptIn, setOpenOptIn] = useState(readOptIn());
-  const [pushOn, setPushOn] = useState(false);
-  const [busy, setBusy] = useState<'open' | 'closed' | null>(null);
+  // UN SEUL réglage visible. Il en reste deux dessous — la préférence de ce
+  // navigateur pour le bandeau, et l'abonnement push que le navigateur
+  // conserve — mais l'utilisateur n'a plus à les distinguer : ils s'allument
+  // et s'éteignent ensemble.
+  const [on, setOn] = useState(readOptIn());
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // L'abonnement push fait foi au chargement : il survit à un vidage du
+  // stockage local, là où la préférence de bandeau, non.
   useEffect(() => {
-    void pushEnabled().then(setPushOn);
+    void pushEnabled().then((subscribed) => {
+      if (subscribed) setOn(true);
+    });
   }, []);
 
-  /** Alerte pendant que le site est ouvert : bandeau, et notification si permise. */
-  const toggleOpen = async (): Promise<void> => {
+  /**
+   * Allume ou éteint les alertes, partout à la fois.
+   *
+   * À l'allumage, le bandeau dans la page est acquis d'office : il ne demande
+   * aucune permission. On tente ensuite la notification du navigateur puis
+   * l'abonnement « site fermé » ; s'ils échouent, le réglage TIENT quand même
+   * et l'on dit ce qui manque. Auparavant un refus de permission ne produisait
+   * rien du tout, et le réglage semblait ne pas se retenir.
+   */
+  const toggle = async (): Promise<void> => {
     setError(null);
-    if (openOptIn) {
+    if (on) {
       writeOptIn(false);
-      setOpenOptIn(false);
+      setOn(false);
+      setBusy(true);
+      await disablePush();
+      setBusy(false);
       return;
     }
-    setBusy('open');
-    // Le BANDEAU ne demande aucune permission : on retient le choix même si le
-    // navigateur refuse la notification système. Auparavant un refus ne
-    // produisait rien du tout — pas même un message —, et le réglage semblait
-    // ne pas se retenir.
+
     writeOptIn(true);
-    setOpenOptIn(true);
+    setOn(true);
+    setBusy(true);
     const granted = await requestNotificationPermission();
-    setPermission(granted);
     if (granted !== 'granted') {
       setError(
-        'Le navigateur refuse les notifications système : les alertes s’afficheront ' +
-          'en bandeau dans la page. Pour les recevoir hors du site, réautorisez-les ' +
-          'dans les réglages du navigateur.',
+        'Le navigateur refuse les notifications : les alertes s’afficheront en ' +
+          'bandeau dans la page. Pour les recevoir hors du site, réautorisez-les ' +
+          'dans ses réglages.',
       );
+      setBusy(false);
+      return;
     }
-    setBusy(null);
-  };
-
-  /** Alerte site fermé : l'abonnement push, conservé par le navigateur. */
-  const toggleClosed = async (): Promise<void> => {
-    setError(null);
-    setBusy('closed');
-    if (pushOn) {
-      await disablePush();
-      setPushOn(false);
-    } else {
-      const granted = await requestNotificationPermission();
-      setPermission(granted);
-      const failure = granted === 'granted' ? await enablePush() : 'Permission refusée.';
-      setError(failure);
-      setPushOn(failure === null);
-    }
-    setBusy(null);
+    if (pushSupported()) setError(await enablePush());
+    setBusy(false);
   };
 
   // HISTORIQUE : les annonces réellement signalées, datées par la collecte.
@@ -326,65 +249,38 @@ export function NotificationsPanel({
 
   return (
     <section className="flex flex-col gap-5">
-      <div>
-        <h2 className="mb-1 text-lg font-semibold">Notifications</h2>
-        <p className="text-sm text-muted-foreground">
-          Être prévenu dès qu’une annonce entre dans vos critères.
-        </p>
+      <h2 className="text-lg font-semibold">Notifications</h2>
+
+      {/* Un seul réglage. Le sous-titre « Être prévenu dès qu'une annonce
+        entre dans vos critères » et la ligne « Permission du navigateur :
+        accordée » ont été retirés : le premier redisait le nom de la page, le
+        second exposait une plomberie sur laquelle on n'agit pas d'ici. Ce qui
+        reste utile — une permission refusée — se dit dans le message
+        d'erreur, au moment où ça compte. */}
+      <div className="border-border flex items-center gap-3 rounded-xl border p-3">
+        <span className="min-w-0 flex-1">
+          <span className="block font-medium">Alertes de nouvelles annonces</span>
+          <span className="text-muted-foreground block text-sm">
+            {busy
+              ? 'Un instant…'
+              : on
+                ? 'Bandeau dans la page, et notification même site fermé.'
+                : 'Aucune alerte.'}
+          </span>
+        </span>
+        <Switch
+          checked={on}
+          disabled={busy}
+          aria-label="Alertes de nouvelles annonces"
+          onCheckedChange={() => void toggle()}
+        />
       </div>
 
-      {/* DEUX interrupteurs : chacun se retient pour lui-même. Un seul bouton
-        « Activer les notifications » liait les deux, et un refus de permission
-        n'affichait rien du tout — le réglage semblait ne pas tenir. */}
-      <ul className="flex flex-col gap-2">
-        <Toggle
-          label="Pendant que le site est ouvert"
-          detail={
-            openOptIn
-              ? permission === 'granted'
-                ? 'Bandeau dans la page et notification du navigateur.'
-                : 'Bandeau dans la page — le navigateur refuse les notifications système.'
-              : 'Aucune alerte tant que vous consultez le site.'
-          }
-          on={openOptIn}
-          busy={busy === 'open'}
-          onToggle={() => void toggleOpen()}
-        />
-        <Toggle
-          label="Site fermé"
-          detail={
-            pushOn
-              ? 'Cet appareil est abonné : la collecte vous alerte application fermée.'
-              : pushSupported()
-                ? 'Recevoir les alertes même sans avoir le site ouvert.'
-                : 'Indisponible ici. Sur iPhone, ajoutez d’abord le site à l’écran d’accueil (Partager → Sur l’écran d’accueil).'
-          }
-          on={pushOn}
-          busy={busy === 'closed'}
-          disabled={!pushSupported()}
-          onToggle={() => void toggleClosed()}
-        />
-      </ul>
-
       {error !== null && (
-        <p className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm">
+        <p className="border-destructive/40 bg-destructive/10 rounded-lg border px-3 py-2 text-sm">
           {error}
         </p>
       )}
-
-      <ul className="flex flex-col gap-2">
-        <Status
-          ok={permission === 'granted'}
-          label="Permission du navigateur"
-          detail={
-            permission === 'granted'
-              ? 'Accordée.'
-              : permission === 'denied'
-                ? 'Refusée — elle se réactive dans les réglages du navigateur.'
-                : 'Pas encore demandée.'
-          }
-        />
-      </ul>
 
       <div>
         <h3 className="mb-2 text-sm font-semibold text-muted-foreground">

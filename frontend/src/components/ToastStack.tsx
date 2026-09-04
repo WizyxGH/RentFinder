@@ -12,7 +12,14 @@
  */
 
 import { useEffect } from 'react';
-import { Bell, X } from 'lucide-react';
+import { Bell } from 'lucide-react';
+import {
+  Toast as ToastSurface,
+  ToastClose,
+  ToastDescription,
+  ToastTitle,
+  ToastViewport,
+} from '@/components/ui/toast.js';
 import { formatArea, formatCity, formatPrice, formatRooms } from '../format.js';
 import type { ListingView } from '../types.js';
 
@@ -76,22 +83,17 @@ export function ToastStack({
   if (toasts.length === 0) return null;
 
   return (
-    <div
-      // `aria-live="polite"` : le lecteur d'écran annonce le bandeau sans
-      // interrompre la lecture en cours. En bas sur téléphone (au-dessus de la
-      // barre d'onglets), en haut à droite sur grand écran.
-      aria-live="polite"
-      className="pointer-events-none fixed inset-x-3 bottom-24 z-[3000] flex flex-col gap-2 sm:inset-x-auto sm:top-4 sm:right-4 sm:bottom-auto sm:w-80"
-    >
+    <ToastViewport>
       {toasts.map((toast) => (
-        <div
+        <ToastSurface
           key={toast.id}
+          variant="accent"
           // Le bandeau MONTE dans le champ de vision plutôt que d'y
           // apparaître : arrivant seul, sans geste de l'utilisateur, il faut
           // que le mouvement attire l'œil vers lui.
-          className="rf-rise pointer-events-auto flex items-start gap-2 rounded-xl border border-hot bg-card p-3 shadow-lg"
+          className="rf-rise"
         >
-          <Bell aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-hot" />
+          <Bell aria-hidden="true" className="text-hot mt-0.5 size-4 shrink-0" />
           <button
             type="button"
             onClick={() => {
@@ -100,19 +102,12 @@ export function ToastStack({
             }}
             className="min-w-0 flex-1 cursor-pointer text-left"
           >
-            <span className="block truncate font-semibold">{toast.title}</span>
-            <span className="block truncate text-sm text-muted-foreground">{toast.body}</span>
+            <ToastTitle>{toast.title}</ToastTitle>
+            <ToastDescription>{toast.body}</ToastDescription>
           </button>
-          <button
-            type="button"
-            onClick={() => onDismiss(toast.id)}
-            aria-label="Masquer cette alerte"
-            className="shrink-0 cursor-pointer text-muted-foreground transition-colors hover:text-foreground"
-          >
-            <X aria-hidden="true" className="size-4" />
-          </button>
-        </div>
+          <ToastClose aria-label="Masquer cette alerte" onClick={() => onDismiss(toast.id)} />
+        </ToastSurface>
       ))}
-    </div>
+    </ToastViewport>
   );
 }

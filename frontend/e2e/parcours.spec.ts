@@ -246,20 +246,19 @@ test('la page Notifications dit ce qui est actif (§29)', async ({ page }) => {
   await page.getByRole('button', { name: 'Notifications' }).first().click();
 
   await expect(page.getByRole('heading', { name: 'Notifications' })).toBeVisible();
-  await expect(page.getByText('Permission du navigateur')).toBeVisible();
   await expect(page.getByText('Historique')).toBeVisible();
 
-  // DEUX réglages indépendants, chacun retenu pour lui-même : un interrupteur
-  // unique liait le site ouvert et le site fermé, et refuser l'un faisait
-  // perdre l'autre.
-  const ouvert = page.getByRole('switch', { name: 'Pendant que le site est ouvert' });
-  const ferme = page.getByRole('switch', { name: 'Site fermé' });
-  await expect(ouvert).toBeVisible();
-  await expect(ferme).toBeVisible();
+  // UN SEUL réglage. Il y en avait deux — « site ouvert » et « site fermé » —,
+  // plus une ligne d'état sur la permission du navigateur : c'était le réglage
+  // d'un système, pas d'une recherche de logement.
+  const alertes = page.getByRole('switch', { name: 'Alertes de nouvelles annonces' });
+  await expect(alertes).toBeVisible();
 
-  // Rien ne sonne sans consentement explicite : les deux partent éteints.
-  await expect(ouvert).toHaveAttribute('aria-checked', 'false');
-  await expect(ferme).toHaveAttribute('aria-checked', 'false');
+  // Rien ne sonne sans consentement explicite.
+  await expect(alertes).toHaveAttribute('aria-checked', 'false');
+
+  // La plomberie ne s'affiche plus : on n'agit pas sur la permission d'ici.
+  await expect(page.getByText('Permission du navigateur')).toBeHidden();
 
   // Page À PART, pas un onglet : aucune barre de navigation ne subsiste — ni
   // les onglets du haut sur grand écran, ni la barre basse sur mobile — et on
