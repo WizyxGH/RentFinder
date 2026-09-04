@@ -1323,9 +1323,36 @@ export function App(): React.JSX.Element {
       ) : displayMode === 'map' ? (
         <>
           <StatsStrip listings={filtered} />
-          <Suspense fallback={<MapSkeleton />}>
-            <MapView listings={ranked} onOpen={openListing} />
-          </Suspense>
+          {/* DEUX COLONNES SUR GRAND ÉCRAN, façon Airbnb : les cartes à
+            gauche, la carte à droite. La bascule Liste/Carte échangeait
+            l'une contre l'autre — on perdait les faits en regardant les
+            positions, et les positions en lisant les faits, alors que
+            l'écran a la place pour les deux. Sur téléphone il ne l'a pas :
+            la carte y reste seule, et la bascule garde tout son sens.
+
+            La carte COLLE au défilement (`sticky`) et la colonne de gauche
+            défile sous elle : c'est ce qui fait tenir la comparaison —
+            faire défiler cent annonces en gardant le plan sous les yeux. */}
+          <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] lg:items-start lg:gap-4">
+            <div className="hidden max-h-[calc(100vh-11rem)] flex-col gap-3 overflow-y-auto pr-1 lg:flex">
+              {ranked.map((listing, rank) => (
+                <ListingCard
+                  key={listing.id}
+                  listing={listing}
+                  nowMs={nowMs}
+                  rank={rank}
+                  onOpen={openListing}
+                  onFavorite={(favorite) => void handleFavorite(listing.id, favorite)}
+                  affinity={affinity.active ? affinity.scores.get(listing.id) : undefined}
+                />
+              ))}
+            </div>
+            <div className="lg:sticky lg:top-4">
+              <Suspense fallback={<MapSkeleton />}>
+                <MapView listings={ranked} onOpen={openListing} />
+              </Suspense>
+            </div>
+          </div>
         </>
       ) : (
         <>
