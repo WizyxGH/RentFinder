@@ -86,7 +86,10 @@ export function ToastStack({
       {toasts.map((toast) => (
         <div
           key={toast.id}
-          className="pointer-events-auto flex items-start gap-2 rounded-xl border border-hot bg-card p-3 shadow-lg"
+          // Le bandeau MONTE dans le champ de vision plutôt que d'y
+          // apparaître : arrivant seul, sans geste de l'utilisateur, il faut
+          // que le mouvement attire l'œil vers lui.
+          className="rf-rise pointer-events-auto flex items-start gap-2 rounded-xl border border-hot bg-card p-3 shadow-lg"
         >
           <Bell aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-hot" />
           <button

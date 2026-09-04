@@ -231,7 +231,14 @@ function Shell({
           ))}
         </nav>
       </header>
-      {children}
+      {/* Fondue au changement de vue, relancée par la `key` : sans elle, passer
+        de la liste à une fiche remplaçait l'écran d'un coup, sans qu'on sache
+        si c'était la même page qui avait changé ou une autre qui s'était
+        ouverte. Un glissement latéral, lui, aurait suggéré une direction que
+        la navigation n'a pas. */}
+      <div key={view} className="rf-fade">
+        {children}
+      </div>
       {/* `pb-20` sur mobile : sans cela, la barre fixe recouvre la fin de la
         liste et le dernier élément reste inatteignable. */}
       {onBottomSelect !== undefined && (
@@ -1088,11 +1095,12 @@ export function App(): React.JSX.Element {
                 <Flame aria-hidden="true" className="size-4" /> À contacter maintenant
               </h2>
               <div className="grid gap-3 lg:grid-cols-2">
-                {hot.map((listing) => (
+                {hot.map((listing, rank) => (
                   <ListingCard
                     key={listing.id}
                     listing={listing}
                     nowMs={nowMs}
+                    rank={rank}
                     onOpen={openListing}
                     onFavorite={(favorite) => void handleFavorite(listing.id, favorite)}
                     affinity={affinity.active ? affinity.scores.get(listing.id) : undefined}
@@ -1109,11 +1117,12 @@ export function App(): React.JSX.Element {
               </h2>
             )}
             <div className="grid gap-3 lg:grid-cols-2">
-              {rest.map((listing) => (
+              {rest.map((listing, rank) => (
                 <ListingCard
                   key={listing.id}
                   listing={listing}
                   nowMs={nowMs}
+                  rank={rank}
                   onOpen={openListing}
                   onFavorite={(favorite) => void handleFavorite(listing.id, favorite)}
                 />

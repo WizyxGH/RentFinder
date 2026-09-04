@@ -12,7 +12,11 @@
      classe `dark:` à répéter et aucun toggle à maintenir ;
    - la BASE : body (safe-area des téléphones, §36 mobile-first), champs de
      formulaire natifs (select/checkbox restent natifs : plus légers et
-     mieux adaptés au tactile que leurs équivalents scriptés, §39/§65), liens.
+     mieux adaptés au tactile que leurs équivalents scriptés, §39/§65), liens ;
+   - les MOUVEMENTS partagés (apparition d'une liste, cœur qu'on presse,
+     changement de vue). Ils sont courts — 120 à 260 ms —, ne déplacent
+     jamais un élément de plus de quelques pixels, et disparaissent
+     entièrement sous `prefers-reduced-motion`.
 --------------------------------------------------------------------------- */
 
 @import 'tailwindcss';
@@ -74,5 +78,80 @@
 
   a {
     color: var(--color-primary);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Mouvements.
+
+   Trois règles, pour que l'animation reste au service de la lecture :
+
+   1. elle DIT quelque chose — d'où vient un élément, qu'un geste a été reçu,
+      qu'une page a changé. Rien ne bouge pour décorer ;
+   2. elle est courte et faible : 120 à 260 ms, quelques pixels. Au-delà, on
+      attend l'interface au lieu de s'en servir ;
+   3. elle s'efface sous `prefers-reduced-motion`, réglage système que
+      certaines personnes activent pour ne pas avoir la nausée. Le bloc final
+      neutralise TOUT, y compris les transitions posées dans les composants.
+--------------------------------------------------------------------------- */
+
+@layer utilities {
+  @keyframes rf-rise {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes rf-fade {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes rf-pop {
+    50% {
+      transform: scale(1.28);
+    }
+    to {
+      transform: scale(1);
+    }
+  }
+
+  /* Apparition d'un élément de liste. Le décalage par rang est posé en style
+     inline (`--rf-delay`) : la liste se dessine de haut en bas, comme on la
+     lit, au lieu de surgir d'un bloc. */
+  .rf-rise {
+    animation: rf-rise 220ms ease-out both;
+    animation-delay: var(--rf-delay, 0ms);
+  }
+
+  /* Changement de vue : une simple fondue. Un glissement latéral aurait
+     suggéré une direction que la navigation n'a pas. */
+  .rf-fade {
+    animation: rf-fade 160ms ease-out both;
+  }
+
+  /* Accusé de réception d'un geste : le cœur qu'on vient de remplir. */
+  .rf-pop {
+    animation: rf-pop 260ms ease-out;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
   }
 }

@@ -32,6 +32,11 @@ import { Flame, Heart, TrainFront } from 'lucide-react';
 interface ListingCardProps {
   readonly listing: ListingView;
   readonly nowMs: number;
+  /**
+   * Rang dans la liste, pour l'apparition en cascade. Absent = pas
+   * d'animation d'entrée : c'est le cas d'une carte isolée.
+   */
+  readonly rank?: number;
   /** Ouvre la fiche. Toute la carte y mène — voir le commentaire du rendu. */
   readonly onOpen: (id: string) => void;
   /** Met (`true`) ou retire (`false`) l'annonce des favoris. */
@@ -198,6 +203,7 @@ function CardHeading({
 export function ListingCard({
   listing,
   nowMs,
+  rank,
   onOpen,
   onFavorite,
   affinity,
@@ -267,12 +273,22 @@ export function ListingCard({
         event.preventDefault();
         onOpen(listing.id);
       }}
-      className={`cursor-pointer overflow-hidden transition-shadow hover:shadow-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
+      // Le survol soulève d'un pixel et l'appui l'enfonce : sur téléphone,
+      // où il n'y a pas de survol, `active:` est le seul retour qui dise que
+      // le doigt a été reçu — la fiche met un instant à s'ouvrir.
+      className={`${rank === undefined ? '' : 'rf-rise '}cursor-pointer overflow-hidden transition-[box-shadow,transform] duration-150 hover:-translate-y-px hover:shadow-md active:translate-y-0 active:shadow-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
         isHot && !rented ? 'border-2 border-hot' : ''
       } ${archived || rented ? 'opacity-60' : uncertain ? 'opacity-70' : ''} ${
         rented ? 'grayscale' : ''
       }`}
       data-testid="listing-card"
+      {...(rank === undefined
+        ? {}
+        : {
+            // Au-delà de la dizaine, le décalage cumulé se verrait comme une
+            // attente : on plafonne, les cartes suivantes entrent ensemble.
+            style: { '--rf-delay': `${Math.min(rank, 10) * 30}ms` } as React.CSSProperties,
+          })}
     >
       {/* La photo ne porte plus de pastille de score : la barre de priorité,
           sous le titre, joue ce rôle et laisse l'image entière. */}
@@ -298,7 +314,13 @@ export function ListingCard({
                 favorite ? 'text-hot' : 'text-muted-foreground hover:text-hot'
               }`}
             >
-              <Heart aria-hidden="true" className={`size-5 ${favorite ? 'fill-current' : ''}`} />
+              {/* `key` change avec l'état : React remonte l'icône, ce qui
+                relance l'animation. Sans cela elle ne jouerait qu'une fois. */}
+              <Heart
+                key={favorite ? 'on' : 'off'}
+                aria-hidden="true"
+                className={`size-5 ${favorite ? 'rf-pop fill-current' : ''}`}
+              />
             </button>
           )}
           <StatusBadges listing={listing} rented={rented} archived={archived} affinity={affinity} />

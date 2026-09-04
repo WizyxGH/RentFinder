@@ -144,7 +144,7 @@ export function SortFilterModal({
     <div
       // Leaflet monte ses panneaux et contrôles jusqu'à z-index 1000 : en `z-50`
       // la carte passait DEVANT la modale.
-      className="fixed inset-0 z-[2000] flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"
+      className="rf-fade fixed inset-0 z-[2000] flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"
       onClick={onClose}
     >
       <div
@@ -154,7 +154,9 @@ export function SortFilterModal({
         aria-label="Trier et filtrer"
         // Le clic à l'intérieur ne doit pas fermer la modale.
         onClick={(event) => event.stopPropagation()}
-        className="max-h-[85vh] w-full overflow-y-auto rounded-t-2xl border border-border bg-card p-5 shadow-xl sm:max-w-md sm:rounded-2xl"
+        // Le voile se fond, le panneau monte : sur téléphone il vient du bas,
+        // là où le pouce l'a appelé.
+        className="rf-rise max-h-[85vh] w-full overflow-y-auto rounded-t-2xl border border-border bg-card p-5 shadow-xl sm:max-w-md sm:rounded-2xl"
       >
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold">Trier et filtrer</h2>

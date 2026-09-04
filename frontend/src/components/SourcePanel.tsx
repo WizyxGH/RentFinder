@@ -142,11 +142,12 @@ export function SourcePanel({
         </p>
       ) : (
         <ul className="flex flex-col gap-3">
-          {mine.map((listing) => (
+          {mine.map((listing, rank) => (
             <li key={listing.id}>
               <ListingCard
                 listing={listing}
                 nowMs={nowMs}
+                rank={rank}
                 onOpen={onSelect}
                 onFavorite={(favorite) => onFavorite(listing.id, favorite)}
               />
