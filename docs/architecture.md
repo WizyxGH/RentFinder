@@ -122,6 +122,55 @@ visible qu'une annonce perdue.
 - **Aucun contournement d'anti-bot** (§10) : les portails qui l'interdisent
   sont lus par leurs alertes e-mail, dans la boîte de l'utilisateur.
 
+## Ce que le multi-compte partage, et ce qu'il sépare
+
+La question se pose dès qu'on ajoute un second compte : **qui voit quoi**, et
+que deviennent les accès qui sont NOMINATIFS — un abonnement payé, une boîte
+mail.
+
+La réponse tient en une ligne : **la collecte est unique et commune, l'usage
+est personnel.**
+
+| Ce qui est COMMUN                 | Ce qui appartient à CHACUN                   |
+| --------------------------------- | -------------------------------------------- |
+| Les annonces et leurs occurrences | Favoris, suivi, archivage, consulté          |
+| L'état de santé des sources       | Critères de recherche (`app_settings`)       |
+| Le journal des collectes          | Recherches enregistrées, adresses de réf.    |
+| Le cache de géocodage             | Préférences d'alertes, abonnements push      |
+|                                   | Pièces du dossier (R2, préfixées par compte) |
+
+### Pourquoi la collecte reste unique
+
+**L'accès abonné BEP est le vôtre, et il le reste.** Un abonnement payé est
+nominatif : le décliner par compte reviendrait à le prêter. Il vit donc dans le
+`.env` de la MACHINE QUI COLLECTE, jamais en base, jamais rattaché à un compte
+du site. Les annonces qu'il révèle entrent dans la base commune — c'est le prix
+d'une collecte partagée, et c'est assumé. Qui ne le veut pas laisse les deux
+lignes vides : la source retombe en mode public.
+
+**Les alertes e-mail lisent UNE boîte, la vôtre.** Lire celle de chaque compte
+demanderait de conserver un mot de passe d'application de messagerie par
+personne — donc des identifiants de messagerie dans une base de données. Ce
+projet ne le fera pas (§26) : un mot de passe d'application Gmail ouvre toute
+la boîte, pas seulement les alertes immobilières.
+
+### Ce qu'il faudrait pour aller plus loin
+
+Deux voies existent, et aucune n'est un petit ajout :
+
+1. **Une adresse de réception par compte.** Chacun règle ses alertes de portail
+   pour qu'elles arrivent sur une adresse dédiée (`vous+alertes@…`, ou une
+   boîte du projet), et l'import trie par destinataire. Aucun mot de passe à
+   conserver, mais il faut une boîte de réception à administrer.
+2. **OAuth Gmail par compte.** Un jeton révocable et limité à la lecture,
+   au lieu d'un mot de passe. C'est la voie propre, et c'est un chantier :
+   écran de consentement Google, vérification de l'application, rafraîchissement
+   des jetons.
+
+Tant que l'outil sert une ou deux personnes, la collecte commune est la réponse
+juste : elle ne demande rien à personne et ne conserve aucun identifiant de
+tiers.
+
 ## Limites connues
 
 - La plupart des annonces viennent des alertes e-mail des portails, qui ne
