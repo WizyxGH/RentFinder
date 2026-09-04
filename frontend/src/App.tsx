@@ -71,6 +71,7 @@ import {
 import { matchesSearch } from './search.js';
 import { useNewListingAlerts } from './use-new-listing-alerts.js';
 import { readViewState, writeViewState } from './view-state.js';
+import { useWideScreen } from './use-wide-screen.js';
 import { mergeToasts, ToastStack, type Toast } from './components/ToastStack.js';
 
 // Leaflet n'entre dans le bundle que si la vue carte est ouverte (§65).
@@ -340,6 +341,144 @@ function bottomTabFor(
   return null;
 }
 
+/**
+ * Les RÉSULTATS d'une recherche : le chargement, le vide, et les deux mises
+ * en page possibles.
+ *
+ * Extrait d'`App`, qui portait tout : la coquille, la navigation, une
+ * douzaine d'écrans secondaires ET ce bloc-ci. Le fichier passait le seuil de
+ * complexité toléré, et surtout on ne trouvait plus rien dedans.
+ *
+ * DEUX MISES EN PAGE, une seule décision : au-dessus de 1024 px, les annonces
+ * et le plan tiennent côte à côte — c'est le parti d'Airbnb, et il vaut ici
+ * pour la même raison : chercher un logement, c'est comparer un loyer À un
+ * endroit. En dessous, la place manque et la bascule Liste/Carte reprend son
+ * sens.
+ */
+function SearchResults({
+  loading,
+  filtered,
+  ranked,
+  hot,
+  rest,
+  split,
+  favoritesOnly,
+  emptyBecauseFiltered,
+  nowMs,
+  affinity,
+  onOpen,
+  onFavorite,
+}: {
+  readonly loading: boolean;
+  readonly filtered: readonly ListingView[];
+  readonly ranked: readonly ListingView[];
+  readonly hot: readonly ListingView[];
+  readonly rest: readonly ListingView[];
+  /** `true` = annonces et plan côte à côte ; `false` = la liste seule. */
+  readonly split: boolean;
+  readonly favoritesOnly: boolean;
+  /** `true` si le vide vient d'un filtre, et non d'un inventaire vide. */
+  readonly emptyBecauseFiltered: boolean;
+  readonly nowMs: number;
+  readonly affinity: { active: boolean; scores: ReadonlyMap<string, number> };
+  readonly onOpen: (id: string) => void;
+  readonly onFavorite: (id: string, favorite: boolean) => void;
+}): React.JSX.Element {
+  return loading ? (
+    <ListingListSkeleton />
+  ) : filtered.length === 0 ? (
+    <p className="py-8 text-center text-muted-foreground">
+      {favoritesOnly
+        ? 'Aucun favori. Touchez le cœur d’une annonce pour la retrouver ici.'
+        : emptyBecauseFiltered
+          ? 'Aucune annonce ne correspond à ces filtres.'
+          : 'Aucune annonce ne correspond à vos critères pour l’instant.'}
+    </p>
+  ) : split ? (
+    <>
+      <StatsStrip listings={filtered} />
+      {/* DEUX COLONNES SUR GRAND ÉCRAN, façon Airbnb : les cartes à
+        gauche, la carte à droite. La bascule Liste/Carte échangeait
+        l'une contre l'autre — on perdait les faits en regardant les
+        positions, et les positions en lisant les faits, alors que
+        l'écran a la place pour les deux. Sur téléphone il ne l'a pas :
+        la carte y reste seule, et la bascule garde tout son sens.
+
+        La carte COLLE au défilement (`sticky`) et la colonne de gauche
+        défile sous elle : c'est ce qui fait tenir la comparaison —
+        faire défiler cent annonces en gardant le plan sous les yeux. */}
+      <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] lg:items-start lg:gap-4">
+        {/* `space-y-3` et NON `flex flex-col` : dans une colonne flex à
+          hauteur bornée, les enfants se COMPRIMENT pour tenir, et les
+          cartes se réduisaient à quelques pixels de haut. Un empilement
+          ordinaire les laisse à leur taille et fait défiler le reste. */}
+        <div className="hidden max-h-[calc(100vh-11rem)] space-y-3 overflow-y-auto pr-1 lg:block">
+          {ranked.map((listing, rank) => (
+            <ListingCard
+              key={listing.id}
+              listing={listing}
+              nowMs={nowMs}
+              rank={rank}
+              onOpen={onOpen}
+              onFavorite={(favorite) => onFavorite(listing.id, favorite)}
+              affinity={affinity.active ? affinity.scores.get(listing.id) : undefined}
+            />
+          ))}
+        </div>
+        <div className="lg:sticky lg:top-4">
+          <Suspense fallback={<MapSkeleton />}>
+            <MapView listings={ranked} onOpen={onOpen} />
+          </Suspense>
+        </div>
+      </div>
+    </>
+  ) : (
+    <>
+      {!favoritesOnly && <StatsStrip listings={filtered} />}
+      {hot.length > 0 && (
+        <section aria-labelledby="hot-title" className="mb-6">
+          <h2 id="hot-title" className="mb-2 flex items-center gap-1.5 text-lg font-bold">
+            <Flame aria-hidden="true" className="size-4" /> À contacter maintenant
+          </h2>
+          <div className="grid gap-3 lg:grid-cols-2">
+            {hot.map((listing, rank) => (
+              <ListingCard
+                key={listing.id}
+                listing={listing}
+                nowMs={nowMs}
+                rank={rank}
+                onOpen={onOpen}
+                onFavorite={(favorite) => onFavorite(listing.id, favorite)}
+                affinity={affinity.active ? affinity.scores.get(listing.id) : undefined}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
+      <section aria-labelledby="all-title">
+        {hot.length > 0 && (
+          <h2 id="all-title" className="mb-2 text-lg font-bold text-muted-foreground">
+            Toutes les annonces <span className="text-sm font-normal">({ranked.length})</span>
+          </h2>
+        )}
+        <div className="grid gap-3 lg:grid-cols-2">
+          {rest.map((listing, rank) => (
+            <ListingCard
+              key={listing.id}
+              listing={listing}
+              nowMs={nowMs}
+              rank={rank}
+              onOpen={onOpen}
+              onFavorite={(favorite) => onFavorite(listing.id, favorite)}
+            />
+          ))}
+        </div>
+      </section>
+    </>
+  );
+}
+
 export function App(): React.JSX.Element {
   const [listings, setListings] = useState<readonly ListingView[]>([]);
   const [sources, setSources] = useState<readonly SourceStateView[]>([]);
@@ -371,6 +510,9 @@ export function App(): React.JSX.Element {
   const [quickFilters, setQuickFilters] = useState<QuickFilterValues>(restored.quickFilters);
   // Liste ⇄ Carte : deux façons de parcourir les mêmes annonces (§36, §39).
   const [displayMode, setDisplayMode] = useState<'list' | 'map'>(restored.displayMode);
+  // Au-dessus de 1024 px, annonces et plan tiennent ensemble : la vue
+  // partagée s'impose, et la bascule n'a plus lieu d'être.
+  const wideScreen = useWideScreen();
   const [profile, setProfile] = useState<TenantProfile | null>(() => loadProfile());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -959,10 +1101,13 @@ export function App(): React.JSX.Element {
           >
             <ArrowLeft aria-hidden="true" className="size-4" /> Retour
           </Button>
-          {/* Le formulaire ne s'ouvre QUE pour modifier : huit champs dépliés
+          {/* Le formulaire ne s'ouvre QUE pour modifier — huit champs dépliés
             en permanence, pour un profil qu'on remplit une fois, occupaient
-            l'écran sans rien apprendre. */}
-          {editingProfile ? (
+            l'écran sans rien apprendre. SAUF quand il n'y a rien à résumer :
+            un profil vide n'affichait qu'une phrase et un bouton « Renseigner
+            mon profil », soit un écran entier pour un clic. On ouvre alors
+            directement le formulaire. */}
+          {editingProfile || profile === null ? (
             <ProfileForm
               initial={profile}
               onSave={(next) => {
@@ -1215,8 +1360,13 @@ export function App(): React.JSX.Element {
 
           {/* Seconde rangée : bascule de vue à gauche, compteur à droite. */}
           <div className="flex flex-wrap items-center gap-2">
-            {/* Bascule Liste ⇄ Carte. */}
-            <div className="inline-flex rounded-lg border border-border p-0.5" role="group">
+            {/* Bascule Liste ⇄ Carte, SUR PETIT ÉCRAN SEULEMENT. Au-dessus de
+              1024 px les deux s'affichent côte à côte : il n'y a plus rien à
+              choisir, et un bouton qui ne change rien est pire qu'absent. */}
+            <div
+              className="inline-flex rounded-lg border border-border p-0.5 lg:hidden"
+              role="group"
+            >
               <button
                 type="button"
                 onClick={() => setDisplayMode('list')}
@@ -1310,95 +1460,20 @@ export function App(): React.JSX.Element {
         </p>
       )}
 
-      {loading ? (
-        <ListingListSkeleton />
-      ) : filtered.length === 0 ? (
-        <p className="py-8 text-center text-muted-foreground">
-          {favoritesOnly
-            ? 'Aucun favori. Touchez le cœur d’une annonce pour la retrouver ici.'
-            : hasActiveQuickFilters(quickFilters) || selectedSources.size > 0
-              ? 'Aucune annonce ne correspond à ces filtres.'
-              : 'Aucune annonce ne correspond à vos critères pour l’instant.'}
-        </p>
-      ) : displayMode === 'map' ? (
-        <>
-          <StatsStrip listings={filtered} />
-          {/* DEUX COLONNES SUR GRAND ÉCRAN, façon Airbnb : les cartes à
-            gauche, la carte à droite. La bascule Liste/Carte échangeait
-            l'une contre l'autre — on perdait les faits en regardant les
-            positions, et les positions en lisant les faits, alors que
-            l'écran a la place pour les deux. Sur téléphone il ne l'a pas :
-            la carte y reste seule, et la bascule garde tout son sens.
-
-            La carte COLLE au défilement (`sticky`) et la colonne de gauche
-            défile sous elle : c'est ce qui fait tenir la comparaison —
-            faire défiler cent annonces en gardant le plan sous les yeux. */}
-          <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] lg:items-start lg:gap-4">
-            <div className="hidden max-h-[calc(100vh-11rem)] flex-col gap-3 overflow-y-auto pr-1 lg:flex">
-              {ranked.map((listing, rank) => (
-                <ListingCard
-                  key={listing.id}
-                  listing={listing}
-                  nowMs={nowMs}
-                  rank={rank}
-                  onOpen={openListing}
-                  onFavorite={(favorite) => void handleFavorite(listing.id, favorite)}
-                  affinity={affinity.active ? affinity.scores.get(listing.id) : undefined}
-                />
-              ))}
-            </div>
-            <div className="lg:sticky lg:top-4">
-              <Suspense fallback={<MapSkeleton />}>
-                <MapView listings={ranked} onOpen={openListing} />
-              </Suspense>
-            </div>
-          </div>
-        </>
-      ) : (
-        <>
-          {!favoritesOnly && <StatsStrip listings={filtered} />}
-          {hot.length > 0 && (
-            <section aria-labelledby="hot-title" className="mb-6">
-              <h2 id="hot-title" className="mb-2 flex items-center gap-1.5 text-lg font-bold">
-                <Flame aria-hidden="true" className="size-4" /> À contacter maintenant
-              </h2>
-              <div className="grid gap-3 lg:grid-cols-2">
-                {hot.map((listing, rank) => (
-                  <ListingCard
-                    key={listing.id}
-                    listing={listing}
-                    nowMs={nowMs}
-                    rank={rank}
-                    onOpen={openListing}
-                    onFavorite={(favorite) => void handleFavorite(listing.id, favorite)}
-                    affinity={affinity.active ? affinity.scores.get(listing.id) : undefined}
-                  />
-                ))}
-              </div>
-            </section>
-          )}
-
-          <section aria-labelledby="all-title">
-            {hot.length > 0 && (
-              <h2 id="all-title" className="mb-2 text-lg font-bold text-muted-foreground">
-                Toutes les annonces <span className="text-sm font-normal">({ranked.length})</span>
-              </h2>
-            )}
-            <div className="grid gap-3 lg:grid-cols-2">
-              {rest.map((listing, rank) => (
-                <ListingCard
-                  key={listing.id}
-                  listing={listing}
-                  nowMs={nowMs}
-                  rank={rank}
-                  onOpen={openListing}
-                  onFavorite={(favorite) => void handleFavorite(listing.id, favorite)}
-                />
-              ))}
-            </div>
-          </section>
-        </>
-      )}
+      <SearchResults
+        loading={loading}
+        filtered={filtered}
+        ranked={ranked}
+        hot={hot}
+        rest={rest}
+        split={displayMode === 'map' || wideScreen}
+        favoritesOnly={favoritesOnly}
+        emptyBecauseFiltered={hasActiveQuickFilters(quickFilters) || selectedSources.size > 0}
+        nowMs={nowMs}
+        affinity={affinity}
+        onOpen={openListing}
+        onFavorite={(id, favorite) => void handleFavorite(id, favorite)}
+      />
       {overlay}
     </Shell>
   );

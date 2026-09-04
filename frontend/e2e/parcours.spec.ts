@@ -187,14 +187,24 @@ test('la page d’état des sources est consultable (§63)', async ({ page }) =>
   await expect(page.getByText(/Aucune requête n’est émise/)).toBeVisible();
 });
 
-test('on peut basculer entre la vue Liste et la vue Carte (§36)', async ({ page }) => {
+test('annonces et plan : côte à côte sur ordinateur, alternés sur téléphone (§36)', async ({
+  page,
+}) => {
   await expect(page.getByTestId('listing-card').first()).toBeVisible();
 
-  await page.getByRole('button', { name: /Carte/ }).click();
-  // La carte s'affiche ; les cartes-annonces cèdent la place.
-  await expect(page.getByTestId('map-view')).toBeVisible();
+  const bascule = page.getByRole('button', { name: 'Liste' });
+  if (!(await bascule.isVisible())) {
+    // GRAND ÉCRAN : le plan est déjà là, à côté des annonces. Il n'y a plus
+    // rien à basculer, et la bascule a donc disparu.
+    await expect(page.getByTestId('map-view')).toBeVisible();
+    await expect(page.getByTestId('listing-card').first()).toBeVisible();
+    return;
+  }
 
-  await page.getByRole('button', { name: 'Liste' }).click();
+  // TÉLÉPHONE : la place manque, les deux vues alternent.
+  await page.getByRole('button', { name: /Carte/ }).click();
+  await expect(page.getByTestId('map-view')).toBeVisible();
+  await bascule.click();
   await expect(page.getByTestId('listing-card').first()).toBeVisible();
 });
 
