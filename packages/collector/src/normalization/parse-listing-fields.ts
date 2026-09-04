@@ -292,7 +292,7 @@ export function parseDpe(text: string | null | undefined): string | null {
   // lettre isolée. On lit donc le texte BRUT, où la parenthèse borne
   // exactement ce qu’on saute. Cinquante-cinq annonces du bulletin abonné
   // n’avaient pas de DPE alors qu’il y figurait.
-  const parenthesised = /classe\s+[ée]nerg[ée]tique\s*\([^)]*\)\s*[:\-]?\s*([A-G])\b/i.exec(text);
+  const parenthesised = /classe\s+[ée]nerg[ée]tique\s*\([^)]*\)\s*[:-]?\s*([A-G])\b/i.exec(text);
   return parenthesised?.[1] !== undefined ? parenthesised[1].toUpperCase() : null;
 }
 
