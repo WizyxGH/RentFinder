@@ -249,7 +249,7 @@ test('la page Stats présente les compteurs et la couverture par source (§33)',
 });
 
 test('les Paramètres portent l’interrupteur des alertes (§29)', async ({ page }) => {
-  await ouvrirReglage(page, 'Notifications');
+  await ouvrirReglage(page, 'Historique des alertes');
   await page.getByRole('button', { name: 'Retour' }).click();
 
   const haut = page.getByRole('navigation', { name: 'Navigation principale' });

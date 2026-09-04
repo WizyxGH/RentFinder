@@ -164,6 +164,25 @@ export async function fetchListings(options: FetchListingsOptions = {}): Promise
 }
 
 /** Marque une annonce comme consultée (posé automatiquement à l'ouverture). */
+/**
+ * UNE fiche, entière.
+ *
+ * La liste n'en transporte qu'une version allégée — sans description, sans
+ * coordonnées, sans le détail des scores — parce que ces champs pèsent les
+ * quatre cinquièmes de la charge utile et que la liste n'en affiche aucun. La
+ * fiche les demande à l'ouverture, pour une seule annonce (§30).
+ */
+export async function fetchListing(id: string): Promise<ListingView> {
+  if (DEMO) {
+    const { MOCK_LISTINGS } = await demoData();
+    const found = MOCK_LISTINGS.find((listing) => listing.id === id);
+    if (found === undefined) throw new Error('Annonce introuvable');
+    return found;
+  }
+  if (isDirectMode()) return turso.getListing(id);
+  return request<ListingView>(`/api/listings/${encodeURIComponent(id)}`);
+}
+
 export async function markViewed(id: string): Promise<void> {
   if (isDirectMode()) return turso.patchListing(id, { viewed: true });
   if (DEMO) return;

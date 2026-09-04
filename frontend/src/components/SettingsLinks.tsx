@@ -34,9 +34,13 @@ export const SETTINGS_LINKS: readonly SettingsLink[] = [
     Icon: FileText,
   },
   {
+    // L'INTERRUPTEUR EST AU-DESSUS, dans les Paramètres mêmes. Cette entrée
+    // disait « Alertes et historique » : elle promettait le réglage qu'elle
+    // n'avait pas, et le répétait à trois centimètres de lui. Elle ne mène
+    // plus qu'à ce qu'elle contient — les annonces déjà signalées.
     key: 'alerts',
-    label: 'Notifications',
-    hint: 'Alertes et historique.',
+    label: 'Historique des alertes',
+    hint: 'Les annonces signalées, datées.',
     Icon: Bell,
   },
   {

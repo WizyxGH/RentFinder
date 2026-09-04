@@ -218,13 +218,52 @@ async function loadAll(): Promise<readonly ListingView[]> {
 
   // Le SURENSEMBLE : archivées et hors critères comprises, puisque des
   // bascules d'affichage peuvent les demander sans nouvelle requête.
+  //
+  // MAIS ALLÉGÉ. `SELECT *` rapportait 6,5 Mo pour mille fiches, dont 5,3 de
+  // charge utile — un tiers en raisons de score, un septième en descriptions,
+  // un huitième en photos. La liste n'affiche RIEN de tout cela : elle montre
+  // un loyer, une surface, un lieu, une barre de priorité et six photos.
+  //
+  // Le tri est fait en base (`json_remove`), pas après coup : ce qui n'est pas
+  // envoyé ne coûte ni transfert ni mémoire. Mesuré le 2026-09-04 : 6,5 Mo et
+  // 943 ms deviennent 1,3 Mo et 200 ms.
+  //
+  // ET LE CACHE SE MET À FONCTIONNER. Six méga-octets ne tiennent pas dans le
+  // quota de `localStorage` : l'écriture échouait en silence, le cache restait
+  // vide, et chaque ouverture relisait mille lignes chez Turso. Allégée, la
+  // photographie tient — une ouverture ne coûte plus qu'une ligne, celle de la
+  // sonde (§30).
   const result = await client().execute(
-    "SELECT * FROM listings WHERE rented = 0 AND lifecycle != 'inactive' ORDER BY action_priority DESC, last_seen_at DESC LIMIT 1000",
+    `SELECT ${LIST_COLUMNS} FROM listings
+     WHERE rented = 0 AND lifecycle != 'inactive'
+     ORDER BY action_priority DESC, last_seen_at DESC LIMIT 1000`,
   );
   const rows = result.rows.map((row) => rowToListing(row as Record<string, unknown>));
   writeStore({ mark, rows });
   return rows;
 }
+
+/**
+ * Ce que la LISTE lit d'une fiche.
+ *
+ * Tout sauf ce qu'elle n'affiche pas : la description, les coordonnées de
+ * contact, et le détail des scores — leurs `reasons` et `unknownSignals` pèsent
+ * à eux seuls le quart de la charge utile. La FICHE, elle, les demande à
+ * l'ouverture (`getListing`), ce qui coûte une ligne lue au moment où on en a
+ * vraiment besoin.
+ */
+const LIST_COLUMNS = `id, title, price, area, rooms, property_type, city, postal_code,
+  latitude, longitude, published_at, first_seen_at, last_seen_at, lifecycle, tracking,
+  match_score, opportunity_score, visit_score, risk_score, action_priority,
+  matches_criteria, viewed, archived, favorite, notified, rented, drafted, notified_at,
+  json_remove(
+    payload,
+    '$.description', '$.contact',
+    '$.scores.match.reasons', '$.scores.match.unknownSignals',
+    '$.scores.opportunity.reasons', '$.scores.opportunity.unknownSignals',
+    '$.scores.visitProbability.reasons', '$.scores.visitProbability.unknownSignals',
+    '$.scores.risk.reasons', '$.scores.risk.unknownSignals'
+  ) AS payload`;
 
 export interface ListOptions {
   readonly sort?: string;
@@ -268,19 +307,22 @@ export async function listListings(options: ListOptions = {}): Promise<readonly 
 }
 
 export async function getListing(id: string): Promise<ListingView> {
-  // L'inventaire est déjà en cache : ouvrir une fiche ne doit rien coûter.
-  // On ne redescend en base que pour une annonce absente du surensemble
-  // (inactive ou louée), cas rare mais atteignable par un lien direct.
-  const known = (await loadAll()).find((listing) => listing.id === id);
-  if (known !== undefined) return known;
-
+  // UNE LIGNE, ET ELLE EST ENTIÈRE. La liste ne transporte pas la description,
+  // les coordonnées ni le détail des scores — c'est ce qui la rend légère. La
+  // fiche les affiche : elle les demande donc ici, au moment où on ouvre, et
+  // pour une seule annonce (§30).
   const result = await client().execute({
     sql: 'SELECT * FROM listings WHERE id = ?',
     args: [id],
   });
   const row = result.rows[0];
-  if (row === undefined) throw new Error('Annonce introuvable');
-  return rowToListing(row as Record<string, unknown>);
+  if (row !== undefined) return rowToListing(row as unknown as Record<string, unknown>);
+
+  // Absente de la base : elle peut rester dans la photographie en cache (une
+  // annonce louée entre-temps, ouverte depuis un lien).
+  const known = (await loadAll()).find((listing) => listing.id === id);
+  if (known === undefined) throw new Error('Annonce introuvable');
+  return known;
 }
 
 /** Met à jour l'état d'une fiche. Colonnes closes : jamais d'entrée libre. */

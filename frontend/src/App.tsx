@@ -17,6 +17,7 @@ import { MVP_CRITERIA } from '@rentfinder/shared';
 import type { ListingView, SortMode, SourceStateView, TrackingStatus } from './types.js';
 import {
   fetchFilters,
+  fetchListing,
   fetchListings,
   fetchSavedSearches,
   fetchSources,
@@ -479,6 +480,23 @@ function SearchResults({
   );
 }
 
+/**
+ * Ce qui, dans une fiche affichée, vient de VOS gestes et non de la base.
+ *
+ * Quand on recharge une annonce depuis Turso pour en obtenir la description et
+ * les scores détaillés, la réponse porte l'état tel qu'il était en base — pas
+ * celui que l'écran vient d'appliquer de façon optimiste. Sans ce report, un
+ * favori posé une seconde plus tôt se serait défait sous les yeux.
+ */
+function userState(listing: ListingView): Partial<ListingView> {
+  return {
+    favorite: listing.favorite,
+    archived: listing.archived,
+    tracking: listing.tracking,
+    viewed: listing.viewed,
+  };
+}
+
 export function App(): React.JSX.Element {
   const [listings, setListings] = useState<readonly ListingView[]>([]);
   const [sources, setSources] = useState<readonly SourceStateView[]>([]);
@@ -710,6 +728,22 @@ export function App(): React.JSX.Element {
     void markViewed(id).catch(() => {
       /* l'échec réseau n'empêche pas de consulter la fiche */
     });
+    // LA FICHE COMPLÈTE, à l'ouverture seulement. La liste ne transporte ni
+    // description, ni coordonnées, ni détail des scores — c'est ce qui la rend
+    // légère (six méga-octets de moins). On les demande ici, pour UNE annonce,
+    // au moment où elles servent (§30). L'échec n'est pas bloquant : la fiche
+    // s'affiche avec ce que la liste en savait.
+    void fetchListing(id)
+      .then((full) =>
+        setListings((current) =>
+          current.map((listing) =>
+            listing.id === id ? { ...full, viewed: true, ...userState(listing) } : listing,
+          ),
+        ),
+      )
+      .catch(() => {
+        /* fiche non rechargée : celle de la liste reste affichée */
+      });
   }, []);
 
   // §29 : bandeaux dans la page + notifications navigateur, site ouvert.
