@@ -23,6 +23,7 @@ import { createClient, type Client } from '@libsql/client/web';
 import { route } from '@rentfinder/collector/server/routes';
 import { clearedCookie, issueSession, readCookie, readSession, sessionCookie } from './auth.js';
 import { deleteDocument, listDocuments, readDocument, saveDocument } from './documents.js';
+import { forbiddenOrigin } from './origin.js';
 
 export interface Env {
   /** URL `libsql://…` de la base. Secret de la plateforme, jamais publié. */
@@ -168,6 +169,12 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const cors = corsHeaders(env, request);
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
+
+    // Avant toute lecture de session : une requête d'écriture venue d'ailleurs
+    // ne doit pas même atteindre la base.
+    if (forbiddenOrigin(request, env)) {
+      return json({ error: 'Origine refusée' }, cors, 403);
+    }
 
     const url = new URL(request.url);
     const segments = url.pathname.split('/').filter((part) => part !== '');

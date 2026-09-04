@@ -155,18 +155,36 @@ export async function readSession(
   return userId;
 }
 
+/**
+ * Attributs communs au cookie de session.
+ *
+ * `HttpOnly` : hors de portée du JavaScript de la page, donc d'un script
+ * injecté. `Secure` : jamais en clair sur le réseau.
+ *
+ * `SameSite=None` MÉRITE UNE EXPLICATION, parce que c'est le réglage permissif
+ * et qu'il a l'air d'un relâchement. Le site vit sur `github.io`, l'API sur
+ * `workers.dev` : pour un navigateur, ce sont DEUX SITES. Avec `Lax`, le cookie
+ * n'accompagne aucun `fetch` de l'un vers l'autre — la connexion réussissait,
+ * puis la requête suivante revenait « personne n'est connecté », et l'écran de
+ * connexion réapparaissait indéfiniment.
+ *
+ * `None` est donc la seule valeur qui marche ici. Ce qu'il retire — la garantie
+ * qu'un cookie ne parte jamais depuis un autre site — est remplacé par une
+ * vérification explicite de l'en-tête `Origin` à chaque requête qui écrit, dans
+ * `index.ts`. C'est un contrôle plus sûr que `SameSite` : il ne dépend ni de la
+ * version du navigateur, ni de son interprétation.
+ */
+const COOKIE_FLAGS = 'HttpOnly; Secure; SameSite=None; Path=/';
+
 /** Le cookie de session, avec les garde-fous qui le rendent inutilisable ailleurs. */
 export function sessionCookie(token: string): string {
   const maxAge = SESSION_DAYS * 86_400;
-  // `HttpOnly` : hors de portée du JavaScript de la page, donc d'un script
-  // injecté. `Secure` : jamais en clair sur le réseau. `SameSite=Lax` : le
-  // cookie ne part pas avec une requête déclenchée par un autre site.
-  return `session=${token}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${maxAge}`;
+  return `session=${token}; ${COOKIE_FLAGS}; Max-Age=${maxAge}`;
 }
 
 /** Cookie de déconnexion : le même, vidé et expiré. */
 export function clearedCookie(): string {
-  return 'session=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0';
+  return `session=; ${COOKIE_FLAGS}; Max-Age=0`;
 }
 
 /** Extrait le jeton de l'en-tête `Cookie`. */
