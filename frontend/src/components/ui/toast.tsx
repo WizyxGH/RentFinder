@@ -9,7 +9,7 @@
  */
 
 import { cva, type VariantProps } from 'class-variance-authority';
-import { X } from 'lucide-react';
+import { X } from '../icons.js';
 import { cn } from '@/lib/utils.js';
 
 const toastVariants = cva(

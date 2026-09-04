@@ -12,7 +12,7 @@
  */
 
 import { useEffect } from 'react';
-import { Bell } from 'lucide-react';
+import { Bell } from './icons.js';
 import {
   Toast as ToastSurface,
   ToastClose,

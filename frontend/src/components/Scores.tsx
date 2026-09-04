@@ -12,7 +12,7 @@
 
 import type { ExplainedScore } from '@rentfinder/shared';
 import { Card } from '@/components/ui/card.js';
-import { Check, Dot, TriangleAlert } from 'lucide-react';
+import { Check, Dot, TriangleAlert } from './icons.js';
 
 /** Palette par plage : vert au-dessus de 75, orange au-dessus de 50, rouge sinon. */
 function toneFor(value: number, invert: boolean): 'good' | 'medium' | 'bad' {

@@ -15,7 +15,7 @@
  */
 
 import { useState } from 'react';
-import { LogIn } from 'lucide-react';
+import { LogIn } from './icons.js';
 import { login } from '../api/client.js';
 import { Button } from '@/components/ui/button.js';
 import { Card } from '@/components/ui/card.js';

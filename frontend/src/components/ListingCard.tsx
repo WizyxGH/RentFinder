@@ -27,7 +27,7 @@ import { splitPhotos } from '../photos.js';
 import { SHORT_TERM_LEASE_FEATURE, STUDENT_HOUSING_FEATURE } from '@rentfinder/shared';
 import { Badge } from '@/components/ui/badge.js';
 import { Card } from '@/components/ui/card.js';
-import { Flame, Heart, TrainFront } from 'lucide-react';
+import { Flame, Heart, TrainFront } from './icons.js';
 
 interface ListingCardProps {
   readonly listing: ListingView;
@@ -327,7 +327,7 @@ export function ListingCard({
               // être visé au doigt. La zone cliquable est portée à 36 px sans
               // grossir le symbole.
               className={`-mt-1 flex size-9 cursor-pointer items-center justify-center text-xl leading-none transition-colors ${
-                favorite ? 'text-hot' : 'text-muted-foreground hover:text-hot'
+                favorite ? 'text-favorite' : 'text-muted-foreground hover:text-favorite'
               }`}
             >
               {/* `key` change avec l'état : React remonte l'icône, ce qui
@@ -335,7 +335,8 @@ export function ListingCard({
               <Heart
                 key={favorite ? 'on' : 'off'}
                 aria-hidden="true"
-                className={`size-5 ${favorite ? 'rf-pop fill-current' : ''}`}
+                weight={favorite ? 'fill' : 'regular'}
+                className={`size-5 ${favorite ? 'rf-pop' : ''}`}
               />
             </button>
           )}

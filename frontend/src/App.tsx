@@ -57,7 +57,15 @@ import {
 } from './saved-searches.js';
 import { SourcePanel } from './components/SourcePanel.js';
 import { StatsPanel } from './components/StatsPanel.js';
-import { ArrowLeft, Bell, Flame, List, Map, Search, SlidersHorizontal } from 'lucide-react';
+import {
+  ArrowLeft,
+  Bell,
+  Flame,
+  List,
+  Map,
+  Search,
+  SlidersHorizontal,
+} from './components/icons.js';
 import { SortFilterModal } from './components/SortFilterModal.js';
 import { NotificationsPanel } from './components/NotificationsPanel.js';
 import { BottomNav, type BottomTab } from './components/BottomNav.js';

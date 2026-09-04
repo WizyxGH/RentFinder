@@ -11,7 +11,7 @@
  */
 
 import type { TenantProfile } from '@rentfinder/shared';
-import { BadgeEuro, CalendarDays, Mail, Phone, ShieldCheck, User } from 'lucide-react';
+import { BadgeEuro, CalendarDays, Mail, Phone, ShieldCheck, User } from './icons.js';
 import { UNKNOWN_LABEL, formatPhone } from '../format.js';
 import { SettingsGroup, SettingsRow } from './SettingsRow.js';
 import { Button } from '@/components/ui/button.js';

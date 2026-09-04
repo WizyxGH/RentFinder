@@ -7,7 +7,7 @@
  * faire ». Un seul composant les aligne et évite qu'ils dérivent.
  */
 
-import type { LucideIcon } from 'lucide-react';
+import type { IconComponent } from './icons.js';
 
 export function SettingsRow({
   Icon,
@@ -19,7 +19,7 @@ export function SettingsRow({
   tone = 'muted',
   children,
 }: {
-  readonly Icon: LucideIcon;
+  readonly Icon: IconComponent;
   readonly label: string;
   readonly hint?: string;
   /** Court état affiché à côté de l'intitulé (« 2 pièces », « À fournir »). */

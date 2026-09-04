@@ -38,7 +38,7 @@ import {
   ImageOff,
   MapPin,
   TrainFront,
-} from 'lucide-react';
+} from './icons.js';
 
 interface ListingDetailProps {
   readonly listing: ListingView;
@@ -149,9 +149,9 @@ function DetailActions({
           title={favorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
           aria-label={favorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
           aria-pressed={favorite}
-          className={favorite ? 'text-hot' : undefined}
+          className={favorite ? 'text-favorite' : undefined}
         >
-          <Heart aria-hidden="true" className={`size-4 ${favorite ? 'fill-current' : ''}`} />
+          <Heart aria-hidden="true" weight={favorite ? 'fill' : 'regular'} className="size-4" />
         </Button>
       )}
       {onArchive !== undefined && (

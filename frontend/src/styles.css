@@ -41,6 +41,11 @@
   --color-medium: light-dark(#b45309, #fbbf24);
   --color-bad: light-dark(#b91c1c, #f87171);
   --color-hot: light-dark(#ea580c, #fb923c);
+
+  /* LE CŒUR D'UN FAVORI EST ROUGE. Il empruntait `--color-hot`, l'orange qui
+     signale une annonce à contacter d'urgence : deux idées sans rapport dans la
+     même couleur, sur la même carte, à trois centimètres l'une de l'autre. */
+  --color-favorite: light-dark(#dc2626, #f87171);
 }
 
 @layer base {

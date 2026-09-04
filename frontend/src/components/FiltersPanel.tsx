@@ -23,7 +23,7 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { Check } from 'lucide-react';
+import { Check } from './icons.js';
 import type { FilterConfig } from '../types.js';
 import { fetchFilters, saveFilters } from '../api/client.js';
 import { PanelSkeleton } from './Skeletons.js';

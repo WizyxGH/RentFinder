@@ -20,7 +20,7 @@
  */
 
 import { useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from './icons.js';
 
 /** En deçà, c'est une hésitation du doigt, pas une intention de changer de photo. */
 const SWIPE_MIN_PX = 40;

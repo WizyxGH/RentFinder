@@ -28,7 +28,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { X } from 'lucide-react';
+import { X } from './icons.js';
 import type { SortMode } from '../types.js';
 import type { PropertyType } from '@rentfinder/shared';
 import { formatPropertyType, formatSourceName } from '../format.js';

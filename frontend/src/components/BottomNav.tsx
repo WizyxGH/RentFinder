@@ -11,14 +11,14 @@
  * diverger.
  */
 
-import { Heart, Home, Search, Settings } from 'lucide-react';
+import { Heart, Home, Search, Settings, type IconComponent } from './icons.js';
 
 export type BottomTab = 'home' | 'search' | 'favorites' | 'settings';
 
 const TABS: readonly {
   readonly key: BottomTab;
   readonly label: string;
-  readonly Icon: typeof Home;
+  readonly Icon: IconComponent;
 }[] = [
   { key: 'home', label: 'Accueil', Icon: Home },
   { key: 'search', label: 'Recherche', Icon: Search },
@@ -51,9 +51,14 @@ export function BottomNav({
                 active === key ? 'text-primary' : 'text-muted-foreground'
               }`}
             >
+              {/* L'ONGLET ACTIF EST PLEIN. La couleur seule le distinguait, ce
+                qui est peu sur une barre de quatre icônes grises — et rien du
+                tout pour qui distingue mal les couleurs. La forme, elle, se
+                voit du coin de l'œil. */}
               <Icon
                 aria-hidden="true"
-                className={`size-5 ${active === key && key === 'favorites' ? 'fill-current' : ''}`}
+                weight={active === key ? 'fill' : 'regular'}
+                className="size-5"
               />
               <span className="text-[0.68rem] font-medium">{label}</span>
             </button>

@@ -24,7 +24,7 @@ import { describeSearch } from '../saved-searches.js';
 import { formatAge, formatArea, formatCity, formatPrice, formatSourceName } from '../format.js';
 import { Badge } from '@/components/ui/badge.js';
 import { Card } from '@/components/ui/card.js';
-import { ArrowRight, Bell, Bookmark, Heart, PhoneCall, Search, TriangleAlert } from 'lucide-react';
+import { ArrowRight, Bell, Bookmark, Heart, PhoneCall, Search, TriangleAlert } from './icons.js';
 
 /** Au-delà, une annonce n'est plus une nouveauté. */
 const FRESH_HOURS = 48;

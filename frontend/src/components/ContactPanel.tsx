@@ -26,7 +26,7 @@ import type { ListingView, OccurrenceView } from '../types.js';
 import { fetchDocuments, isDemoMode, type DocumentInfo } from '../api/client.js';
 import { Button, ButtonLink } from '@/components/ui/button.js';
 import { Card } from '@/components/ui/card.js';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight } from './icons.js';
 
 interface ContactPanelProps {
   readonly listing: ListingView;

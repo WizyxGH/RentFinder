@@ -18,7 +18,7 @@
  */
 
 import { useState } from 'react';
-import { ArrowLeft, Pencil, Play, Plus, Search, Trash2 } from 'lucide-react';
+import { ArrowLeft, Pencil, Play, Plus, Search, Trash2 } from './icons.js';
 import type { SavedSearch } from '../saved-searches.js';
 import { describeSearch } from '../saved-searches.js';
 import { formatAge } from '../format.js';

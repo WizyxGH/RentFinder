@@ -218,6 +218,14 @@ function scanFile(filePath) {
   const findings = [];
   const lines = content.split('\n');
 
+  // FICHIER GÉNÉRÉ : son contenu vient d'un script, lui-même analysé. Les
+  // tracés SVG des icônes sont de longues suites de chiffres où « 09-35. »
+  // passe pour un numéro de téléphone français. Analyser la sortie d'un
+  // générateur n'apprend rien de plus qu'analyser le générateur. La marque doit
+  // figurer dans les toutes premières lignes : on ne peut donc pas la glisser
+  // au milieu d'un fichier écrit à la main pour échapper au contrôle.
+  if (lines.slice(0, 3).some((line) => line.includes('Fichier GÉNÉRÉ par'))) return [];
+
   for (const rule of RULES) {
     rule.pattern.lastIndex = 0;
     let match;

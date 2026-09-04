@@ -30,7 +30,7 @@ import {
   type DocumentInfo,
 } from '../api/client.js';
 import { Button } from '@/components/ui/button.js';
-import { ChevronDown, FileCheck2, FileWarning, Trash2, Upload } from 'lucide-react';
+import { ChevronDown, FileCheck2, FileWarning, Trash2, Upload } from './icons.js';
 import { SettingsGroup, SettingsRow } from './SettingsRow.js';
 import {
   DOSSIER_SLOTS,

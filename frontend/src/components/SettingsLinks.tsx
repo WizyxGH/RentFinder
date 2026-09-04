@@ -11,16 +11,7 @@
  * pour atteindre les alertes. Ils ont maintenant leur page, comme les autres.
  */
 
-import {
-  Bell,
-  BarChart3,
-  Bookmark,
-  ChevronRight,
-  FileText,
-  MapPin,
-  Radio,
-  User,
-} from 'lucide-react';
+import { Bell, BarChart3, Bookmark, ChevronRight, FileText, MapPin, Radio, User } from './icons.js';
 
 export interface SettingsLink {
   readonly key: string;

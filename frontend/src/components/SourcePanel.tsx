@@ -18,7 +18,7 @@ import { formatAge, formatSourceName } from '../format.js';
 import { ListingCard } from './ListingCard.js';
 import { Button } from '@/components/ui/button.js';
 import { Card } from '@/components/ui/card.js';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft } from './icons.js';
 
 const HEALTH_LABELS: Record<SourceStateView['health'], string> = {
   healthy: 'OK',
