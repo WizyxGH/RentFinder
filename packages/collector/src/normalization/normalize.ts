@@ -208,6 +208,38 @@ function resolveAvailability(raw: RawListing, nowMs: number): string | null {
 }
 
 /**
+ * Les textes libres d'une annonce brute, recousus une fois pour toutes.
+ *
+ * Chaque champ dérivé se lit dans plusieurs cases à la fois : le type se
+ * devine autant dans le titre que dans le libellé de type, le meublé autant
+ * dans la description que dans la liste d'équipements. Assembler ces sources
+ * ici plutôt qu'à chaque appel évite d'éparpiller vingt `?? ''` dans le corps
+ * de `normalizeListing`, qui n'y gagnait que du bruit.
+ */
+function textSources(raw: RawListing): {
+  type: string;
+  furnished: string;
+  rooms: string;
+  bedrooms: string;
+  features: string;
+  prose: string;
+} {
+  const title = raw.title ?? '';
+  const description = raw.description ?? '';
+  const roomsText = raw.roomsText ?? '';
+  const extraFeatures = raw.extra?.['features'] ?? '';
+  const type = `${raw.propertyTypeText ?? ''} ${title}`;
+  return {
+    type,
+    furnished: `${raw.furnishedText ?? ''} ${extraFeatures} ${description}`,
+    rooms: `${roomsText} ${title}`,
+    bedrooms: `${roomsText} ${extraFeatures}`,
+    features: `${title} ${description} ${raw.furnishedText ?? ''} ${extraFeatures}`,
+    prose: `${title} ${description}`,
+  };
+}
+
+/**
  * Transforme une annonce brute en annonce normalisée.
  *
  * @returns l'annonce normalisée, ou `null` si elle est inexploitable —
@@ -231,8 +263,7 @@ export function normalizeListing(
 
   const nowIso = new Date(options.nowMs).toISOString();
   const price = parsePrice(raw.priceText);
-  const typeSource = `${raw.propertyTypeText ?? ''} ${raw.title ?? ''}`;
-  const furnishedSource = `${raw.furnishedText ?? ''} ${raw.extra?.['features'] ?? ''} ${raw.description ?? ''}`;
+  const text = textSources(raw);
   const location = resolveLocation(raw);
 
   return {
@@ -248,18 +279,15 @@ export function normalizeListing(
     charges: parseCharges(raw.chargesText) ?? parseCharges(raw.priceText),
     chargesIncluded: price.chargesIncluded,
     area: resolveArea(raw),
-    rooms: parseRooms(`${raw.roomsText ?? ''} ${raw.title ?? ''}`),
-    bedrooms: parseBedrooms(`${raw.roomsText ?? ''} ${raw.extra?.['features'] ?? ''}`),
-    propertyType: parsePropertyType(typeSource),
-    furnished: parseFurnished(furnishedSource),
-    flatShare: parseFlatShare(`${typeSource} ${raw.description ?? ''}`),
+    rooms: parseRooms(text.rooms),
+    bedrooms: parseBedrooms(text.bedrooms),
+    propertyType: parsePropertyType(text.type),
+    furnished: parseFurnished(text.furnished),
+    flatShare: parseFlatShare(`${text.type} ${raw.description ?? ''}`),
     dpe: resolveDpe(raw),
     // Publié en toutes lettres dans la description des meublés courte durée.
-    maxOccupants: parseMaxOccupants(`${raw.title ?? ''} ${raw.description ?? ''}`),
-    features: extractFeatures(
-      `${raw.title ?? ''} ${raw.description ?? ''} ${raw.furnishedText ?? ''} ${raw.extra?.['features'] ?? ''}`,
-      raw.extra,
-    ),
+    maxOccupants: parseMaxOccupants(text.prose),
+    features: extractFeatures(text.features, raw.extra),
 
     // Localisation : décisive pour la distance (§20) et le dédoublonnage (§14).
     address: location.address,

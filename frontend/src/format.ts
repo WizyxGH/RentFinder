@@ -304,6 +304,7 @@ const SOURCE_NAMES: Readonly<Record<string, string>> = {
   alberti: 'Alberti Immobilier',
   'ashley-parker': 'Ashley & Parker',
   beaumont: 'Beaumont Immobilier',
+  'borne-delaunay': 'Borne & Delaunay',
   bep: 'BEP Logement',
   'bep-abonnes': 'BEP Logement (abonné)',
   century21: 'Century 21',

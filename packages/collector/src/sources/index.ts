@@ -32,6 +32,7 @@ import { ltImmobilierScraper } from './lt-immobilier/index.js';
 import { saintRochScraper } from './saint-roch/index.js';
 import { mirabelloScraper } from './mirabello/index.js';
 import { inliScraper } from './inli/index.js';
+import { borneDelaunayScraper } from './borne-delaunay/index.js';
 import { cityaScraper } from './citya/index.js';
 import { rentumoScraper } from './rentumo/index.js';
 import { studapartScraper } from './studapart/index.js';
@@ -86,6 +87,7 @@ export const ALL_SCRAPERS: readonly Scraper[] = [
   saintRochScraper,
   mirabelloScraper,
   inliScraper,
+  borneDelaunayScraper,
   cityaScraper,
   rentumoScraper,
   studapartScraper,
