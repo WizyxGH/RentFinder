@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { normalizeListing } from '../../normalization/normalize.js';
 import {
@@ -8,6 +9,7 @@ import {
   parseAgencyByReference,
   parseListingUrl,
   parseSearchPage,
+  parseWithdrawn,
 } from './parser.js';
 
 const FIXTURES = join(import.meta.dirname, '../../../../../tests/fixtures/foncia');
@@ -140,5 +142,31 @@ describe('parseAgencyByReference (Foncia)', () => {
     // Certaines annonces relèvent d'une agence absente de la page de la ville :
     // elles gardent alors le formulaire, sans contact direct.
     expect(map.get('331707068')).toBe('6674');
+  });
+});
+
+describe('parseWithdrawn (Foncia)', () => {
+  const read = (name: string): string =>
+    readFileSync(
+      fileURLToPath(new URL(`../../../../../tests/fixtures/foncia/${name}`, import.meta.url)),
+      'utf8',
+    );
+
+  it('reconnaît une fiche retirée : bandeau et statut « deleted »', () => {
+    expect(parseWithdrawn(read('fiche-retiree.html'), '331707068')).toBe(true);
+  });
+
+  it('laisse tranquille une fiche encore ouverte à candidature', () => {
+    expect(parseWithdrawn(read('fiche-active.html'), '330719254')).toBe(false);
+  });
+
+  it('ne confond pas le statut d’une autre entrée de l’état de transfert', () => {
+    // La fiche active embarque aussi l'agence, avec son propre `status`.
+    // Le découpage par clé doit isoler celui de l'annonce demandée.
+    expect(parseWithdrawn(read('fiche-active.html'), '999999999')).toBe(false);
+  });
+
+  it('ne conclut rien d’une page vide (§17)', () => {
+    expect(parseWithdrawn('<html><body></body></html>', '331707068')).toBe(false);
   });
 });

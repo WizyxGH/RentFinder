@@ -231,3 +231,47 @@ export function parseAgencyByReference(html: string): Map<string, string> {
   }
   return byReference;
 }
+
+/**
+ * Bandeau posé par Foncia sur une fiche retirée : « Bien indisponible / Cette
+ * annonce n'est plus disponible. » La formulation est visible par un humain,
+ * ce qui la rend vérifiable à l'œil quand elle bougera.
+ */
+const WITHDRAWN_BANNER = /cette\s+annonce\s+n['’\s]?est\s+plus\s+disponible/i;
+
+/**
+ * Extrait, de l'état de transfert Angular, le fragment décrivant CETTE annonce.
+ *
+ * L'état est un objet dont les clés sont les URLs de l'API interne appelées
+ * pendant le rendu. On isole celle de l'annonce demandée, jusqu'à la clé
+ * suivante : sans ce découpage, un `status` lu au hasard pourrait être celui
+ * d'une commune ou d'un bien « similaire » affiché plus bas.
+ */
+function annonceState(html: string, reference: string): string | null {
+  const decoded = html.replace(/&q;/g, '"');
+  const start = decoded.indexOf(
+    `"GET.https://fnc-api.prod.fonciatech.net/annonces/annonces/location/${reference}."`,
+  );
+  if (start === -1) return null;
+  const rest = decoded.slice(start + 1);
+  const end = rest.search(/"(?:GET|POST)\.https:\/\//);
+  return end === -1 ? rest : rest.slice(0, end);
+}
+
+/**
+ * L'annonce est-elle retirée ? (§32)
+ *
+ * Deux signes, tous deux positifs — une fiche muette laisse le doute intact
+ * (§17) :
+ *
+ *   - le bandeau « Cette annonce n'est plus disponible », que Foncia substitue
+ *     à la fiche ; on n'y trouve alors ni prix ni dépôt de candidature ;
+ *   - le `status` de l'annonce dans l'état de transfert, qui passe d'`active`
+ *     à `deleted`. Relevé le 2026-09-04 sur une annonce vue le 2026-09-01 puis
+ *     disparue de la liste.
+ */
+export function parseWithdrawn(html: string, reference: string): boolean {
+  const state = annonceState(html, reference);
+  if (state !== null && /"status"\s*:\s*"deleted"/.test(state)) return true;
+  return WITHDRAWN_BANNER.test(cheerio.load(html).text());
+}

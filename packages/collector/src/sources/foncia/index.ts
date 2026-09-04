@@ -25,7 +25,12 @@ import type {
   StopReason,
 } from '@rentfinder/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
-import { parseAgencies, parseAgencyByReference, parseSearchPage } from './parser.js';
+import {
+  parseAgencies,
+  parseAgencyByReference,
+  parseSearchPage,
+  parseWithdrawn,
+} from './parser.js';
 
 /** Une page = tout Nice (appartements). */
 const ENTRY_URL = 'https://fr.foncia.com/location/nice-06000/appartement';
@@ -37,6 +42,21 @@ const ENTRY_URL = 'https://fr.foncia.com/location/nice-06000/appartement';
  */
 const AGENCIES_URL = 'https://fr.foncia.com/agence-immobiliere/agences-immo/nice-06_location';
 
+/**
+ * Fiches vérifiées par exécution parmi les annonces disparues de la liste.
+ *
+ * Une disparition ne dit rien à elle seule : l'annonce peut être louée comme
+ * simplement sortie de la première page. La fiche, elle, tranche — Foncia y
+ * remplace le bien par « Cette annonce n'est plus disponible » et bascule son
+ * `status` à `deleted`. Cinq vérifications par exécution suffisent à résorber
+ * le doute sans faire exploser le budget de requêtes (§30, §32).
+ */
+const MAX_WITHDRAWN_CHECKS = 5;
+
+/** Les annonces collectées sont toutes des appartements niçois. */
+const listingUrl = (reference: string): string =>
+  `https://fr.foncia.com/location/nice-06/appartement/${reference}.htm`;
+
 export const FONCIA_DESCRIPTOR: SourceDescriptor = {
   id: 'foncia',
   name: 'Foncia',
@@ -46,19 +66,58 @@ export const FONCIA_DESCRIPTOR: SourceDescriptor = {
   priority: 2,
   schedule: scheduleFor('agencyNetwork'),
   budget: budgetFor('agencyNetwork', {
-    maxPagesPerRun: 1,
+    maxPagesPerRun: 1 + MAX_WITHDRAWN_CHECKS,
     delayBetweenRequestsMs: 3_000,
   }),
   enabled: true,
   // Le formulaire de la fiche est le canal prévu (§23).
   manualOnly: true,
-  allowedPaths: ['/location/*'],
+  allowedPaths: ['/location/*', '/agence-immobiliere/*'],
   notes:
     'robots.txt vérifié le 2026-08-15 : URLs à paramètres interdites (sauf ' +
     '?datemaj), pages /location/{ville}/{type} autorisées. SSR Angular : ' +
     'ancrage sur les classes foncia-card-*, jamais sur les attributs générés ' +
-    '_ngcontent-*. Une page ~60 annonces couvre Nice — pas de pagination.',
+    '_ngcontent-*. Une page ~60 annonces couvre Nice — pas de pagination. ' +
+    'Les annonces DISPARUES de la liste voient leur fiche vérifiée (5 par ' +
+    'run) : Foncia y affiche « Cette annonce n’est plus disponible » et passe ' +
+    'le statut de l’annonce à `deleted`, ce qui lève le doute du cycle de ' +
+    'vie (§32).',
 };
+
+/**
+ * Demande aux fiches disparues si elles sont retirées.
+ *
+ * Séparée de `run` parce qu'elle est une question complète en soi — « ces
+ * annonces sont-elles encore là ? » — et parce qu'imbriquée dans la collecte
+ * elle enterrait sa propre logique sous quatre niveaux d'indentation.
+ */
+async function checkWithdrawn(
+  context: ScrapeContext,
+  vanished: readonly string[],
+): Promise<{ rentedRefs: string[]; requestCount: number; pagesFetched: number }> {
+  const rentedRefs: string[] = [];
+  let requestCount = 0;
+  let pagesFetched = 0;
+
+  for (const reference of vanished.slice(0, MAX_WITHDRAWN_CHECKS)) {
+    if (context.shouldStop()) break;
+    const url = listingUrl(reference);
+    try {
+      const page = await context.fetch(url);
+      requestCount += 1;
+      if (page.notModified) continue;
+      pagesFetched += 1;
+      if (parseWithdrawn(page.body, reference)) rentedRefs.push(reference);
+    } catch (error) {
+      // Une fiche injoignable ne prouve rien : l'annonce garde son doute (§17).
+      const message = error instanceof Error ? error.message : String(error);
+      context.log('withdrawn.check_failed', { reference, error: message });
+      if (message.includes('429')) break;
+    }
+  }
+
+  return { rentedRefs, requestCount, pagesFetched };
+}
 
 export const fonciaScraper: Scraper = {
   descriptor: FONCIA_DESCRIPTOR,
@@ -66,6 +125,7 @@ export const fonciaScraper: Scraper = {
   async run(context: ScrapeContext): Promise<ScrapeResult> {
     const listings: RawListing[] = [];
     const warnings: string[] = [];
+    const rentedRefs: string[] = [];
     let pagesFetched = 0;
     let requestCount = 0;
     let stopReason: StopReason = 'completed';
@@ -113,10 +173,21 @@ export const fonciaScraper: Scraper = {
                 },
           );
         }
+        // Ce qu'on connaissait et qui n'est plus listé : on va le demander à
+        // la fiche plutôt que de le laisser en « peut-être retirée » (§32).
+        const seen = new Set(parsed.listings.map((listing) => listing.sourceRef));
+        const vanished = [...context.knownRefs].filter((reference) => !seen.has(reference));
+        const checked = await checkWithdrawn(context, vanished);
+        requestCount += checked.requestCount;
+        pagesFetched += checked.pagesFetched;
+        rentedRefs.push(...checked.rentedRefs);
+
         context.log('page.parsed', {
           url: ENTRY_URL,
           found: parsed.listings.length,
           known,
+          vanished: vanished.length,
+          withdrawn: checked.rentedRefs.length,
         });
       }
     } catch (error) {
@@ -136,6 +207,7 @@ export const fonciaScraper: Scraper = {
     return {
       sourceId: FONCIA_DESCRIPTOR.id,
       listings,
+      rentedRefs,
       requestCount,
       pagesFetched,
       stopReason,
