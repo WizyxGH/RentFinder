@@ -74,25 +74,13 @@ import {
 import { matchesSearch } from './search.js';
 import { useNewListingAlerts } from './use-new-listing-alerts.js';
 import { readViewState, writeViewState } from './view-state.js';
+import type { View } from './router.js';
+import { useRoute } from './use-route.js';
 import { useWideScreen } from './use-wide-screen.js';
 import { mergeToasts, ToastStack, type Toast } from './components/ToastStack.js';
 
 // Leaflet n'entre dans le bundle que si la vue carte est ouverte (§65).
 const MapView = lazy(() => import('./components/MapView.js'));
-
-type View =
-  | 'home'
-  | 'list'
-  | 'detail'
-  | 'stats'
-  | 'profile'
-  | 'tenant'
-  | 'documents'
-  | 'reference'
-  | 'saved'
-  | 'sources'
-  | 'source'
-  | 'alerts';
 
 /**
  * Ce qu'un onglet peut viser. « favoris » n'est PAS une vue : c'est la liste
@@ -458,8 +446,15 @@ function userState(listing: ListingView): Partial<ListingView> {
 export function App(): React.JSX.Element {
   const [listings, setListings] = useState<readonly ListingView[]>([]);
   const [sources, setSources] = useState<readonly SourceStateView[]>([]);
-  // L'accueil est un point de situation ; la liste vit sous « Recherche ».
-  const [view, setView] = useState<View>('home');
+  /**
+   * L'ÉCRAN VIENT DE L'ADRESSE, et non d'un `useState`.
+   *
+   * C'est ce qui rend le bouton « Précédent » utilisable — il refermait le site
+   * au lieu de refermer une fiche —, permet de coller le lien d'une annonce, et
+   * fait qu'un rafraîchissement revient là où l'on était.
+   */
+  const { route, go, replace, back } = useRoute();
+  const view = route.view;
   const [savedSearches, setSavedSearches] = useState<readonly SavedSearch[]>([]);
   // Qui est connecté. `undefined` = on ne sait pas encore : montrer l'écran de
   // connexion à ce moment-là le ferait clignoter chez quelqu'un qui a déjà une
@@ -467,9 +462,29 @@ export function App(): React.JSX.Element {
   const [currentUser, setCurrentUser] = useState<string | null | undefined>(
     requiresLogin() ? undefined : 'moi',
   );
-  // Source dont on regarde la fiche ; `null` hors de cette vue.
-  const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Ce que l'écran courant regarde : l'adresse le porte, on n'en garde pas de
+  // copie. Une seconde source de vérité se serait désynchronisée au premier
+  // retour arrière.
+  const selectedId = view === 'detail' ? (route.id ?? null) : null;
+  const selectedSourceId = view === 'source' || view === 'agency' ? (route.id ?? null) : null;
+
+  /**
+   * Les écrans qui regardent quelque chose. `setView('detail')` doit alors
+   * garder l'identifiant courant : sans cela, deux appels enchaînés — « ouvre
+   * cette annonce », puis « va sur la fiche » — aboutiraient à une fiche vide.
+   */
+  const setView = (next: View): void =>
+    go((current) =>
+      next === 'detail' || next === 'source' || next === 'agency'
+        ? { view: next, ...(current.id !== undefined ? { id: current.id } : {}) }
+        : { view: next },
+    );
+
+  const setSelectedId = (id: string | null): void =>
+    go(id === null ? { view: 'list', favoritesOnly } : { view: 'detail', id });
+
+  const setSelectedSourceId = (id: string | null): void =>
+    go(id === null ? { view: 'sources' } : { view: 'source', id });
   // Réglages d'AFFICHAGE restaurés depuis ce navigateur : ils ne survivaient
   // pas à un rafraîchissement, et il fallait les refaire plusieurs fois par
   // jour. Lus une seule fois, à l'initialisation des états.
@@ -481,7 +496,14 @@ export function App(): React.JSX.Element {
   const [hideUncertain, setHideUncertain] = useState(restored.hideUncertain);
   const [includeOutOfCriteria, setIncludeOutOfCriteria] = useState(restored.includeOutOfCriteria);
   const [showArchived, setShowArchived] = useState(restored.showArchived);
-  const [favoritesOnly, setFavoritesOnly] = useState(restored.favoritesOnly);
+  /**
+   * L'ADRESSE FAIT FOI sur la liste : `/favoris` ouvre les favoris, `/recherche`
+   * tout le reste. Ailleurs — dans les paramètres, sur une fiche — c'est le
+   * dernier choix mémorisé qui reprend, faute d'adresse pour le dire.
+   */
+  const [favoritesOnly, setFavoritesOnly] = useState(
+    route.view === 'list' ? route.favoritesOnly === true : restored.favoritesOnly,
+  );
   // Filtre par source : ensemble vide = toutes les sources affichées. Une
   // annonce passe si l'une de ses occurrences vient d'une source sélectionnée.
   const [selectedSources, setSelectedSources] = useState<ReadonlySet<string>>(
@@ -498,6 +520,14 @@ export function App(): React.JSX.Element {
   const [profile, setProfile] = useState<TenantProfile | null>(() => loadProfile());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Le drapeau « favoris » se change aussi depuis la modale de filtres. Il doit
+  // alors se lire dans la barre d'adresse — mais sans empiler d'entrée : passer
+  // de la liste aux favoris n'est pas un voyage dont on revient.
+  useEffect(() => {
+    if (view !== 'list') return;
+    replace({ view: 'list', favoritesOnly });
+  }, [view, favoritesOnly, replace]);
 
   // Instant de rendu, figé par chargement : évite que chaque carte recalcule
   // « il y a X min » à partir d'une horloge légèrement différente.
@@ -1141,12 +1171,15 @@ export function App(): React.JSX.Element {
           bottomTab={bottomTab}
           onBottomSelect={selectBottomTab}
         >
+          {/* `back` et non « aller aux paramètres » : on arrive ici depuis les
+            paramètres OU depuis une annonce qu'on s'apprêtait à contacter, et
+            c'est l'historique qui sait laquelle des deux. */}
           <Button
             variant="ghost"
             className="mb-2"
             onClick={() => {
               setEditingProfile(false);
-              setView('profile');
+              back();
             }}
           >
             <ArrowLeft aria-hidden="true" className="size-4" /> Retour
@@ -1164,13 +1197,13 @@ export function App(): React.JSX.Element {
                 saveProfile(next);
                 setProfile(next);
                 setEditingProfile(false);
-                // On revient à l'annonce d'où l'on venait : le profil n'est
-                // presque jamais une fin en soi, il sert à écrire un message.
-                setView(selectedId !== null ? 'detail' : 'profile');
+                // On revient d'où l'on venait : le profil n'est presque jamais
+                // une fin en soi, il sert à écrire un message.
+                back();
               }}
               onCancel={() => {
                 setEditingProfile(false);
-                setView(selectedId !== null ? 'detail' : 'profile');
+                back();
               }}
               onClear={() => {
                 clearProfile();

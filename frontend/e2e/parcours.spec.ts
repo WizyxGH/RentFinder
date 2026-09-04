@@ -407,3 +407,28 @@ test('« Favoris » est atteignable à toute largeur', async ({ page }) => {
   await barre.getByRole('button', { name: 'Recherche' }).click();
   await expect(page.getByRole('group', { name: 'Barre de filtres' })).toBeVisible();
 });
+
+test('chaque écran a son adresse, et le retour navigateur la respecte (§39)', async ({ page }) => {
+  // L'interface n'avait aucune URL : « Précédent » quittait le site au lieu de
+  // refermer une fiche, un lien d'annonce ne se collait pas, et un
+  // rafraîchissement ramenait à l'accueil.
+  // `beforeEach` a déjà ouvert la recherche : l'adresse doit le dire.
+  await expect(page).toHaveURL(/\/recherche$/);
+
+  await page.getByTestId('listing-card').first().click();
+  await expect(page).toHaveURL(/\/annonce\//);
+  const fiche = page.url();
+
+  // Le retour du navigateur referme la fiche au lieu de sortir du site.
+  await page.goBack();
+  await expect(page).toHaveURL(/\/recherche$/);
+
+  // Et l'adresse d'une annonce se recharge telle quelle : c'est ce qui permet
+  // de l'envoyer à quelqu'un.
+  await page.goto(fiche);
+  await expect(page.getByRole('button', { name: 'Retour' }).first()).toBeVisible();
+
+  // Une adresse inconnue donne un point de départ, pas une page blanche.
+  await page.goto(new URL('/nimporte-quoi', fiche).toString());
+  await expect(page.getByRole('heading', { name: 'Maïoun' })).toBeVisible();
+});
