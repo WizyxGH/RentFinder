@@ -16,6 +16,7 @@ import type { TenantProfile } from '@rentfinder/shared';
 import { MVP_CRITERIA } from '@rentfinder/shared';
 import type { ListingView, SortMode, SourceStateView, TrackingStatus } from './types.js';
 import {
+  ApiError,
   fetchAgencies,
   fetchAgency,
   fetchFilters,
@@ -73,7 +74,12 @@ import {
 import { SortFilterModal } from './components/SortFilterModal.js';
 import { NotificationsPanel } from './components/NotificationsPanel.js';
 import { BottomNav, type BottomTab } from './components/BottomNav.js';
-import { ListingListSkeleton, MapSkeleton } from './components/Skeletons.js';
+import {
+  ListingDetailSkeleton,
+  ListingListSkeleton,
+  MapSkeleton,
+  RowsSkeleton,
+} from './components/Skeletons.js';
 import type { AgencySummary } from './api/client.js';
 import { SettingsLinks } from './components/SettingsLinks.js';
 import { ProfileSummary } from './components/ProfileSummary.js';
@@ -541,6 +547,35 @@ export function App(): React.JSX.Element {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  /**
+   * UNE FICHE OUVERTE PAR SON ADRESSE.
+   *
+   * L'écran de fiche ne s'affichait que si l'annonce était DÉJÀ dans la liste
+   * chargée. Ouvrir `/annonce/…` directement — un lien collé, un
+   * rafraîchissement, une notification — ne rendait donc rien du tout : pas un
+   * message, pas un fond, un écran noir. On va la chercher.
+   */
+  useEffect(() => {
+    if (view !== 'detail' || selectedId === null) return;
+    if (listings.some((listing) => listing.id === selectedId)) return;
+
+    let cancelled = false;
+    void fetchListing(selectedId)
+      .then((full) => {
+        if (!cancelled) setListings((current) => [...current, full]);
+      })
+      .catch(() => {
+        // Annonce introuvable ou réseau coupé : on retourne à la liste plutôt
+        // que de laisser un squelette tourner indéfiniment.
+        if (cancelled) return;
+        setError('Cette annonce est introuvable.');
+        go({ view: 'list', favoritesOnly });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [view, selectedId, listings, go, favoritesOnly]);
+
   // L'annuaire n'est demandé qu'en arrivant dessus : c'est une agrégation en
   // base, inutile à qui ne l'ouvre jamais (§30).
   useEffect(() => {
@@ -698,6 +733,13 @@ export function App(): React.JSX.Element {
       setListings(response.listings);
       setNowMs(Date.now());
     } catch (caught) {
+      // UNE SESSION EXPIRÉE N'EST PAS UNE PANNE : on renvoie à la connexion au
+      // lieu d'afficher un message rouge devant une liste vide, que rien ne
+      // permettrait de faire disparaître.
+      if (caught instanceof ApiError && caught.status === 401) {
+        setCurrentUser(null);
+        return;
+      }
       setError(caught instanceof Error ? caught.message : 'Erreur inconnue');
     } finally {
       setLoading(false);
@@ -1188,11 +1230,15 @@ export function App(): React.JSX.Element {
           bottomTab={bottomTab}
           onBottomSelect={selectBottomTab}
         >
-          <AgenciesPanel
-            agencies={agencies}
-            onBack={() => setView('profile')}
-            onOpen={(name) => go({ view: 'agency', id: name })}
-          />
+          {agencies.length === 0 && loading ? (
+            <RowsSkeleton />
+          ) : (
+            <AgenciesPanel
+              agencies={agencies}
+              onBack={() => setView('profile')}
+              onOpen={(name) => go({ view: 'agency', id: name })}
+            />
+          )}
         </Shell>
       );
     }
@@ -1207,7 +1253,7 @@ export function App(): React.JSX.Element {
           onBottomSelect={selectBottomTab}
         >
           {agencyDetail === null ? (
-            <ListingListSkeleton />
+            <RowsSkeleton />
           ) : (
             <AgencyPanel
               agency={agencyDetail.agency}
@@ -1381,7 +1427,7 @@ export function App(): React.JSX.Element {
         </Shell>
       );
     }
-    if (view === 'detail' && selected !== null) {
+    if (view === 'detail') {
       return (
         <Shell
           view={view}
@@ -1391,25 +1437,29 @@ export function App(): React.JSX.Element {
           bottomTab={bottomTab}
           onBottomSelect={selectBottomTab}
         >
-          <ListingDetail
-            listing={selected}
-            profile={profile}
-            nowMs={nowMs}
-            onBack={() => setView('list')}
-            onArchive={(archived) => void handleArchive(selected.id, archived)}
-            onFavorite={(favorite) => void handleFavorite(selected.id, favorite)}
-            onTrackingChange={(status) => void handleTrackingChange(status)}
-            onContactRecorded={(channel, message, documents) =>
-              void handleContactRecorded(channel, message, documents)
-            }
-            onOpenSource={(sourceId) => void openSource(sourceId)}
-            onConfigureProfile={() => {
-              // Venir de « Configurer mon profil », c'est vouloir le remplir :
-              // le résumé ferait faire un clic de plus pour rien.
-              setEditingProfile(true);
-              setView('tenant');
-            }}
-          />
+          {selected === null ? (
+            <ListingDetailSkeleton />
+          ) : (
+            <ListingDetail
+              listing={selected}
+              profile={profile}
+              nowMs={nowMs}
+              onBack={() => setView('list')}
+              onArchive={(archived) => void handleArchive(selected.id, archived)}
+              onFavorite={(favorite) => void handleFavorite(selected.id, favorite)}
+              onTrackingChange={(status) => void handleTrackingChange(status)}
+              onContactRecorded={(channel, message, documents) =>
+                void handleContactRecorded(channel, message, documents)
+              }
+              onOpenSource={(sourceId) => void openSource(sourceId)}
+              onConfigureProfile={() => {
+                // Venir de « Configurer mon profil », c'est vouloir le remplir :
+                // le résumé ferait faire un clic de plus pour rien.
+                setEditingProfile(true);
+                setView('tenant');
+              }}
+            />
+          )}
         </Shell>
       );
     }

@@ -445,3 +445,20 @@ test('chaque écran a son adresse, et le retour navigateur la respecte (§39)', 
   await page.goto(new URL('/nimporte-quoi', fiche).toString());
   await expect(page.getByRole('heading', { name: 'Maïoun' })).toBeVisible();
 });
+
+test('une annonce ABSENTE de la liste s’affiche par son adresse (§39)', async ({ page }) => {
+  // L'écran de fiche ne se rendait que si l'annonce était DÉJÀ dans la liste
+  // chargée. Ouvrir l'adresse directement — lien collé, rafraîchissement,
+  // notification — ne donnait alors rien du tout : pas un message, pas un
+  // fond, un écran noir.
+  //
+  // `demo:4` est HORS CRITÈRES : la liste ne la charge pas. C'est ce qui rend
+  // ce scénario probant — avec une annonce ordinaire, elle serait déjà là et
+  // le test passerait même sans le correctif.
+  await page.goto('/annonce/demo%3A4');
+
+  await expect(page.getByRole('button', { name: 'Retour' }).first()).toBeVisible();
+  // Le titre de l'annonce, et non celui du site : c'est lui qui prouve que la
+  // fiche est bien allée chercher ce que la liste n'avait pas.
+  await expect(page.getByRole('heading', { level: 1 }).last()).toContainText(/\S/);
+});

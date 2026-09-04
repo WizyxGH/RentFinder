@@ -82,3 +82,48 @@ export function PanelSkeleton({ rows = 4 }: { readonly rows?: number }): React.J
     </div>
   );
 }
+
+/**
+ * Silhouette d'une FICHE d'annonce : photo, titre, chiffres, corps de texte.
+ *
+ * Elle manquait, et son absence produisait le pire des écrans : ouvrir une
+ * adresse `/annonce/…` directement — un lien collé, un rafraîchissement —
+ * n'affichait RIEN, pas même un fond, tant que l'annonce n'était pas revenue
+ * de la base.
+ */
+export function ListingDetailSkeleton(): React.JSX.Element {
+  return (
+    <div role="status" aria-busy="true" aria-label="Chargement de l’annonce">
+      <SkeletonBlock className="h-9 w-24" />
+      <SkeletonBlock className="mt-3 h-56 w-full rounded-2xl" />
+      <SkeletonBlock className="mt-4 h-7 w-3/4" />
+      <SkeletonBlock className="mt-2 h-5 w-1/3" />
+      <div className="mt-4 flex gap-2">
+        <SkeletonBlock className="h-10 w-28 rounded-full" />
+        <SkeletonBlock className="h-10 w-28 rounded-full" />
+      </div>
+      <div className="mt-5 flex flex-col gap-2">
+        {Array.from({ length: 5 }, (_, index) => (
+          <SkeletonBlock key={index} className="h-4 w-full" />
+        ))}
+        <SkeletonBlock className="h-4 w-2/3" />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Silhouette d'une liste d'entrées courtes : agences, sources, recherches
+ * enregistrées, réglages. Ces écrans affichaient une page vide pendant leur
+ * chargement, ce qui se lit comme « il n'y a rien » plutôt que « ça arrive ».
+ */
+export function RowsSkeleton({ rows = 5 }: { readonly rows?: number }): React.JSX.Element {
+  return (
+    <div role="status" aria-busy="true" aria-label="Chargement" className="flex flex-col gap-2">
+      <SkeletonBlock className="mb-2 h-7 w-40" />
+      {Array.from({ length: rows }, (_, index) => (
+        <SkeletonBlock key={index} className="h-16 w-full rounded-xl" />
+      ))}
+    </div>
+  );
+}

@@ -92,28 +92,56 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Statut attribué à une panne de réseau.
+ *
+ * `fetch` ne rejette pas avec un code HTTP quand rien n'aboutit : il lève un
+ * `TypeError` dont le message est « Failed to fetch ». Cette phrase se
+ * retrouvait telle quelle à l'écran — en anglais, sans dire quoi faire, et
+ * sans distinguer un métro sans réseau d'une API en panne.
+ */
+export const NETWORK_ERROR_STATUS = 0;
+
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   // `credentials: 'include'` est ce qui fait tenir l'ensemble : le cookie de
   // session est posé par le Worker, sur SON domaine, et le site vit sur un
   // autre. Sans cette mention, le navigateur ne le renverrait pas, et chaque
   // requête reviendrait « connexion requise » alors qu'on vient de se
   // connecter.
-  const response = await fetch(`${API_URL}${path}`, {
-    ...init,
-    credentials: 'include',
-    headers: {
-      ...(init.body !== undefined ? { 'content-type': 'application/json' } : {}),
-      ...init.headers,
-    },
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}${path}`, {
+      ...init,
+      credentials: 'include',
+      headers: {
+        ...(init.body !== undefined ? { 'content-type': 'application/json' } : {}),
+        ...init.headers,
+      },
+    });
+  } catch {
+    // Réseau coupé, API injoignable, requête bloquée : de l'extérieur, tout se
+    // ressemble. On dit ce qu'on sait — la requête n'est pas partie — et ce
+    // qu'on peut faire, plutôt que de recopier « Failed to fetch ».
+    throw new ApiError(
+      'Connexion impossible. Vérifiez votre réseau, puis réessayez.',
+      NETWORK_ERROR_STATUS,
+    );
+  }
 
   if (!response.ok) {
     throw new ApiError(
-      response.status === 401 ? 'Jeton invalide ou expiré' : `Erreur API (${response.status})`,
+      response.status === 401
+        ? 'Votre session a expiré. Reconnectez-vous.'
+        : response.status >= 500
+          ? 'Le serveur ne répond pas correctement. Réessayez dans un instant.'
+          : `La requête a échoué (${response.status}).`,
       response.status,
     );
   }
 
+  // Une réponse vide (204) n'est pas du JSON : la parser lèverait une erreur
+  // là où tout s'est bien passé.
+  if (response.status === 204) return undefined as T;
   return (await response.json()) as T;
 }
 

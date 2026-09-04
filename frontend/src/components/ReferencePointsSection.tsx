@@ -1,5 +1,5 @@
 /**
- * Points de référence : lieu de travail, gare (§20) — écran Paramètres.
+ * Adresses de référence : lieu de travail, gare (§20) — écran Paramètres.
  *
  * Ce sont eux qui produisent le « 18 min » affiché sur chaque annonce, donc en
  * pratique l'ordre dans lequel on les regarde. Ils vivaient dans `.env` et dans
@@ -16,6 +16,7 @@
 
 import { useEffect, useState } from 'react';
 import { MapPin, Plus, Trash2 } from './icons.js';
+import { AddressField } from './AddressField.js';
 import {
   fetchReferencePoints,
   saveReferencePoints,
@@ -28,7 +29,8 @@ import { Button } from '@/components/ui/button.js';
 const MODE_LABELS: Readonly<Record<ReferenceTravelMode, string>> = {
   walking: 'à pied',
   cycling: 'à vélo',
-  transit: 'en transports',
+  transit: 'en transports en commun',
+  train: 'en train',
   driving: 'en voiture',
 };
 
@@ -102,7 +104,7 @@ export function ReferencePointsSection(): React.JSX.Element | null {
   return (
     <section aria-labelledby="reference-title" className="mt-8">
       <h2 id="reference-title" className="text-lg font-bold">
-        Points de référence
+        Adresses de référence
       </h2>
       <p className="mt-1 text-[0.85rem] text-muted-foreground">
         Le temps de trajet affiché sur chaque annonce se compte depuis ces adresses. Elles restent
@@ -131,13 +133,15 @@ export function ReferencePointsSection(): React.JSX.Element | null {
                   placeholder="Travail"
                   onChange={(event) => update(index, { label: event.target.value })}
                 />
-                <input
+                {/* On tapait à l'aveugle : une faute de frappe ne se voyait
+                  qu'à la collecte suivante, le repère restant muet sans que
+                  rien ne l'explique. */}
+                <AddressField
                   className={FIELD}
                   value={draft.address}
-                  aria-label={`Adresse de ${draft.label === '' ? `repère ${index + 1}` : draft.label}`}
+                  ariaLabel={`Adresse de ${draft.label === '' ? `repère ${index + 1}` : draft.label}`}
                   placeholder="12 rue de la République, 06300 Nice"
-                  autoComplete="off"
-                  onChange={(event) => update(index, { address: event.target.value })}
+                  onChange={(address) => update(index, { address })}
                 />
                 <select
                   className={FIELD}

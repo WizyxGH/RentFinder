@@ -21,12 +21,22 @@
  */
 
 /** Moyen de transport, pour convertir une distance en durée. */
-export type ReferenceTravelMode = 'walking' | 'cycling' | 'transit' | 'driving';
+export type ReferenceTravelMode = 'walking' | 'cycling' | 'transit' | 'train' | 'driving';
 
+/**
+ * Dans l'ordre du plus lent au plus rapide, qui est aussi celui du plus
+ * quotidien au plus exceptionnel.
+ *
+ * LE TRAIN A SA PLACE À PART. Le ranger sous « transports en commun » le
+ * comptait à 18 km/h : sur la Côte d'Azur, une commune desservie par le TER
+ * paraissait alors plus loin qu'un quartier voisin, alors qu'elle est souvent
+ * plus proche en temps.
+ */
 export const REFERENCE_TRAVEL_MODES: readonly ReferenceTravelMode[] = [
   'walking',
   'cycling',
   'transit',
+  'train',
   'driving',
 ];
 

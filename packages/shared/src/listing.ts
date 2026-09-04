@@ -14,6 +14,7 @@
  */
 
 import type { Contact } from './contact.js';
+import type { ReferenceTravelMode } from './reference-points.js';
 import type { ListingScores } from './scores.js';
 import type { IsoDateTime, Maybe, MergedField, SourceId } from './provenance.js';
 
@@ -296,7 +297,7 @@ export interface ReferenceDistance {
   /** Durée en minutes, selon le mode retenu. */
   readonly durationMinutes: number;
   /** Mode de déplacement utilisé pour l'estimation. */
-  readonly mode: 'walking' | 'cycling' | 'transit' | 'driving';
+  readonly mode: ReferenceTravelMode;
   /**
    * Origine de la durée (§17) : `transit` = itinéraire réel en transports en
    * commun (routeur externe) ; `estimate` = approximation vol d'oiseau × détour

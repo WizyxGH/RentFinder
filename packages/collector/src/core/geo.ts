@@ -41,6 +41,12 @@ const SPEED_KMH = {
   cycling: 14,
   transit: 18,
   driving: 22,
+  // LE TRAIN N'EST PAS DU TRANSPORT URBAIN. Sur la Côte d'Azur, une commune
+  // desservie par le TER est souvent plus proche EN TEMPS qu'un quartier voisin
+  // aux heures de pointe, et la ranger sous `transit` à 18 km/h la faisait
+  // paraître inaccessible. La valeur reste prudente : elle inclut l'accès à la
+  // gare et l'attente, que la ligne droite ignore.
+  train: 45,
 } as const;
 
 export type TravelMode = keyof typeof SPEED_KMH;
