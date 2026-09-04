@@ -15,8 +15,6 @@
     "collect": "pnpm --filter @rentfinder/collector run collect",
     "draft": "pnpm --filter @rentfinder/collector run draft",
     "reprocess": "pnpm --filter @rentfinder/collector run reprocess",
-    "local": "pnpm --filter @rentfinder/frontend run build:selfhost && pnpm --filter @rentfinder/collector run serve",
-    "serve": "pnpm --filter @rentfinder/collector run serve",
     "typecheck": "tsc --build --force && tsc --project tsconfig.test.json",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",

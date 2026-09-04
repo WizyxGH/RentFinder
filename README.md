@@ -52,22 +52,21 @@ Ouvert sur un téléphone, il répond à une seule question :
   (téléphone, application fermée) et par bandeau quand le site est ouvert —
   chaque annonce signalée une seule fois, et jamais deux fois le même logement
   vu par deux sources.
-- **Documents de candidature** : pièces déposées une fois (Paramètres → Dossier
-  de candidature), stockées uniquement en local (`data/`, hors dépôt), jamais
-  envoyées automatiquement.
-- **Coût : 0 €.** Deux modes coexistent. En **local**, tout tourne sur votre
-  machine (fichier SQLite + serveur local) : aucun compte, aucun quota, rien qui
-  sorte de l'appareil. En **publié**, la collecte tourne dans GitHub Actions et
-  le site est servi par GitHub Pages ; il lit Turso directement, avec un jeton
-  que vous saisissez une fois dans le navigateur. Les deux restent gratuits.
+- **Documents de candidature** : en attente d'hébergement. Les pièces vivaient
+  sur la machine qui servait le site ; ce serveur local a été retiré, et une
+  page hébergée ne peut pas lire votre disque. À joindre à la main pour
+  l'instant.
+- **Coût : 0 €.** La collecte tourne où vous voulez — votre machine (fichier
+  SQLite) ou GitHub Actions (Turso). Le site, lui, est servi par GitHub Pages et
+  parle à un Worker Cloudflare, seul détenteur du jeton de la base. Tout cela
+  tient dans les paliers gratuits.
 
 ## Architecture en bref
 
 ```
 pnpm collect : Scheduler → Scrapers → Normalisation → Dédoublonnage
              → Scoring + distances → SQLite (local) ou Turso (publié)
-pnpm local   : SQLite → API (127.0.0.1) → Frontend React
-publié       : GitHub Actions → Turso ← Worker Cloudflare ← Frontend (Pages)
+le site      : GitHub Actions → Turso ← Worker Cloudflare ← Pages
 ```
 
 Quatre destinations, les mêmes sur téléphone et sur grand écran — Accueil,
@@ -77,7 +76,7 @@ plan à côté. Détails, carte des écrans et décisions :
 [docs/architecture.md](docs/architecture.md).
 
 **Stack** : TypeScript partout — monorepo pnpm, React + Vite + Tailwind CSS
-v4 + shadcn/ui (frontend), Node 22 (collecteur + serveur local), cheerio
+v4 + shadcn/ui (frontend), Node 22 (collecteur), Worker Cloudflare (API), cheerio
 (parsing), SQLite via `@libsql/client` (base), Vitest + Playwright (tests).
 
 ## Démarrage rapide
@@ -88,8 +87,12 @@ Prérequis : Node ≥ 20.10, pnpm 9 (`corepack enable`).
 git clone <votre-fork> && cd rentfinder
 pnpm install
 pnpm collect      # collecte réelle → data/local.db (créée automatiquement)
-pnpm local        # → http://127.0.0.1:8788 : l'interface sur VOS données
+pnpm dev          # l'interface, en mode démonstration
 ```
+
+Pour voir VOS données, il faut le site publié : la collecte écrit dans Turso et
+le site l'interroge via le Worker. Voir
+[docs/deployment.md](docs/deployment.md).
 
 Relancez `pnpm collect` quand vous voulez rafraîchir (le scheduler et les
 budgets s'appliquent). `data/` est ignoré par git.
@@ -135,8 +138,6 @@ critères, sans lancer la collecte à la main :
 | Commande                      | Effet                                                                           |
 | ----------------------------- | ------------------------------------------------------------------------------- |
 | `pnpm dev`                    | frontend en mode démo                                                           |
-| `pnpm local`                  | mode local complet : (re)construit l'interface puis sert sur `data/local.db`    |
-| `pnpm serve`                  | démarrage **instantané** (sans reconstruire — si l'interface n'a pas changé)    |
 | `pnpm collect`                | un cycle de collecte (`-- --backfill`, `-- --verbose`) + notifications          |
 | `schedule-collect.ps1`        | planifie `pnpm collect` (Windows) pour des notifs automatiques (voir ci-dessus) |
 | `pnpm db:migrate`             | applique les migrations                                                         |
@@ -219,8 +220,6 @@ Pour **ajouter une source**, le mode d'emploi vit dans l'en-tête de
 | `pnpm collect` n'exécute aucune source                                         | Le scheduler estime qu'aucune n'est due (intervalles §7). Vérifier la page Sources (Paramètres → Sources) ; pour forcer, supprimer `data/local.db` (repart de zéro) ou attendre l'intervalle. |
 | Une source est `blocked`                                                       | Elle a répondu 401/403 : le scraper s'arrête définitivement et ne tentera aucun contournement (§10). Voir son verdict dans [docs/sources.md](docs/sources.md).                                |
 | Une source est `cooldown`                                                      | HTTP 429 reçu : repos automatique (durée dans Paramètres → Sources), les autres sources continuent.                                                                                           |
-| `Le port 8788 est déjà utilisé` au `pnpm local`                                | Un serveur tourne déjà — ouvrir http://127.0.0.1:8788, ou `PORT=8789 pnpm local`.                                                                                                             |
-| L'interface locale affiche « Interface non construite »                        | Lancer `pnpm local` (qui construit), pas `pnpm --filter @rentfinder/collector serve` seul.                                                                                                    |
 | 0 annonce alors que la collecte a réussi                                       | Les annonces sont hors critères (≤ 700 €, ≥ 14 m², Nice). Cocher « Afficher les annonces hors critères ».                                                                                     |
 | Un parser ne trouve plus de prix (warning « structure probablement modifiée ») | Le site a changé son HTML : suivre la procédure de réparation dans la section « scraping » de [docs/architecture.md](docs/architecture.md).                                                   |
 | Pas de notification                                                            | Vérifier les clés `VAPID_*` dans `.env`, et que les alertes sont activées depuis la cloche du site. Le notifieur ne signale que les annonces découvertes **après** son activation.            |

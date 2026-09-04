@@ -1,13 +1,16 @@
 /**
  * Routes de l'API (§36, §37, §35, §33, §63).
  *
- * Consommé par DEUX transports : le serveur local (`cli/serve.ts`, fichier
- * SQLite, 127.0.0.1) et le Worker Cloudflare du mode cloud optionnel
- * (le site publié interroge Turso directement). Il ne dépend que des standards Web
- * (`Request`, `Response`, `URL`) et de l'interface `Client` de libsql — JAMAIS
- * de `node:fs` : les fonctionnalités liées au disque (filtres éditables,
- * documents de candidature) sont INJECTÉES par le serveur local via
- * `LocalFeatures`, et répondent 501 quand elles sont absentes (mode cloud).
+ * Servi par le Worker Cloudflare, seul détenteur du jeton Turso. Ce module ne
+ * dépend que des standards Web (`Request`, `Response`, `URL`) et de l'interface
+ * `Client` de libsql — jamais de `node:fs`.
+ *
+ * IL A EU UN SECOND TRANSPORT, un serveur local qui servait aussi le site
+ * depuis la machine. Il a été retiré (décision du 2026-09-04) : deux chemins
+ * pour le même écran, c'était deux fois les mêmes cas à tenir, et le mode
+ * publié couvre désormais tout ce que faisait l'autre. Ce qui est parti avec
+ * lui : le dépôt et le téléchargement des PIÈCES du dossier, qui vivaient sur
+ * ce disque-là. La route répond 501 et le dit.
  *
  * Routes :
  *   GET   /api/listings              liste triée par priorité d'action (§36)
@@ -16,8 +19,8 @@
  *   POST  /api/listings/:id/contact  enregistrement d'un contact manuel (§22)
  *   GET   /api/sources               état des sources (§63)
  *   GET   /api/stats                 statistiques de suivi (§33)
- *   GET/PUT /api/config              filtres de recherche (§66 — local seulement)
- *   /api/documents…                  pièces de candidature (§25 — local seulement)
+ *   GET/PUT /api/config              critères de recherche (§66)
+ *   /api/documents…                  501 : elles vivaient sur le disque local
  */
 
 import type { Client } from '@libsql/client';
@@ -33,16 +36,6 @@ export interface LiveFilters {
   readonly maxPrice: number;
   readonly minPrice?: number;
   readonly minArea: number;
-}
-
-export interface LocalFeatures {
-  readonly listDocuments: () => unknown;
-  readonly saveDocument: (
-    name: string,
-    bytes: Uint8Array,
-  ) => { ok: true; document: unknown } | { ok: false; error: string };
-  readonly readDocument: (name: string) => { bytes: Uint8Array; contentType: string } | null;
-  readonly deleteDocument: (name: string) => boolean;
 }
 
 /** Statuts de suivi acceptés par l'API (§35). */
@@ -557,47 +550,6 @@ const DEFAULT_FILTERS = {
 };
 
 /**
- * Documents de candidature (§25) : stockés dans data/ (gitignoré), servis
- * uniquement en local. Aucun envoi automatique, jamais (§24).
- */
-async function handleDocumentsRoute(
-  method: string,
-  id: string | undefined,
-  url: URL,
-  request: Request,
-  cors: Record<string, string>,
-  local: LocalFeatures,
-): Promise<Response> {
-  if (id === undefined && method === 'GET') {
-    return json({ documents: local.listDocuments() }, cors);
-  }
-  if (id === undefined && method === 'POST') {
-    const name = url.searchParams.get('name') ?? '';
-    const bytes = new Uint8Array(await request.arrayBuffer());
-    const result = local.saveDocument(name, bytes);
-    return result.ok ? json(result.document, cors, 201) : jsonError(400, result.error);
-  }
-  if (id !== undefined && method === 'GET') {
-    const document = local.readDocument(id);
-    if (document === null) return jsonError(404, 'Document introuvable');
-    return new Response(new Uint8Array(document.bytes), {
-      headers: {
-        'content-type': document.contentType,
-        'content-disposition': 'inline',
-        'cache-control': 'private, no-store',
-        ...cors,
-      },
-    });
-  }
-  if (id !== undefined && method === 'DELETE') {
-    return local.deleteDocument(id)
-      ? json({ deleted: true }, cors)
-      : jsonError(404, 'Document introuvable');
-  }
-  return json({ error: 'Route inconnue' }, cors, 404);
-}
-
-/**
  * Budget et surface tels que CET utilisateur les a réglés, appliqués en direct
  * à la liste : resserrer son budget doit se voir tout de suite, sans attendre
  * la collecte suivante. Les exclusions (colocation, étudiant) restent figées à
@@ -632,7 +584,6 @@ async function handleListingsRoute(
   url: URL,
   request: Request,
   cors: Record<string, string>,
-  local: LocalFeatures | undefined,
   userId: string,
 ): Promise<Response> {
   // Collection : GET /api/listings
@@ -673,7 +624,6 @@ export async function route(
   url: URL,
   segments: readonly string[],
   cors: Record<string, string>,
-  local?: LocalFeatures,
   /**
    * QUI demande. Le serveur local n'a qu'un utilisateur — c'est votre machine,
    * il n'y a personne d'autre — et prend donc le défaut. Le Worker, lui,
@@ -691,21 +641,19 @@ export async function route(
 
   // Filtres et documents touchent le DISQUE de l'utilisateur : disponibles
   // uniquement quand le transport les fournit (mode local, §25/§66).
-  // Les documents touchent le DISQUE de la machine : indisponibles ailleurs.
-  // Les critères, eux, vivent en base et suivent donc les deux transports.
-  if (resource === 'documents' && local === undefined) {
-    return jsonError(501, 'Disponible uniquement en mode local (pnpm local)');
+  // Les pièces du dossier vivaient sur le disque de la machine qui servait le
+  // site. Ce serveur a été retiré, et elles avec : on le DIT, plutôt que de
+  // rendre une liste vide qui laisserait croire qu'il n'y a rien à joindre.
+  if (resource === 'documents') {
+    return jsonError(501, 'Les pièces du dossier ne sont plus hébergées.');
   }
   if (resource === 'config') {
     return handleConfigRoute(db, method, request, cors, userId);
   }
-  if (resource === 'documents' && local !== undefined) {
-    return handleDocumentsRoute(method, id, url, request, cors, local);
-  }
   if (resource === 'sources' && method === 'GET') return json(await listSources(db), cors);
   if (resource === 'stats' && method === 'GET') return json(await getStats(db), cors);
   if (resource === 'listings') {
-    return handleListingsRoute(db, method, id, segments[3], url, request, cors, local, userId);
+    return handleListingsRoute(db, method, id, segments[3], url, request, cors, userId);
   }
   return json({ error: 'Route inconnue' }, cors, 404);
 }

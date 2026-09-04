@@ -416,7 +416,7 @@ function SearchResults({
           hauteur bornée, les enfants se COMPRIMENT pour tenir, et les
           cartes se réduisaient à quelques pixels de haut. Un empilement
           ordinaire les laisse à leur taille et fait défiler le reste. */}
-        <div className="hidden max-h-[calc(100vh-11rem)] space-y-3 overflow-y-auto pr-1 lg:block">
+        <div className="hidden max-h-[calc(100vh-10rem)] space-y-3 overflow-y-auto pr-2 lg:block">
           {ranked.map((listing, rank) => (
             <ListingCard
               key={listing.id}

@@ -149,6 +149,6 @@ export default {
 
     // L'API sait maintenant QUI demande : favoris, suivi et archivage sont
     // lus et écrits pour cet utilisateur-là, pas pour la fiche partagée.
-    return route(db, request, url, segments, cors, undefined, userId);
+    return route(db, request, url, segments, cors, userId);
   },
 };

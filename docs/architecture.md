@@ -20,19 +20,23 @@ flowchart TB
     SCORE --> DB[(SQLite local)]
     DB --> PUSH[Web Push]
     DB -->|pnpm publish:turso| TURSO[(Turso)]
-    TURSO --> WEB[Site publié]
-    DB --> LOCAL[pnpm local]
+    TURSO --> WORKER[Worker Cloudflare]
+    WORKER --> WEB[Site — GitHub Pages]
 ```
 
-Deux modes coexistent : **local** (tout sur la machine, base SQLite, API sur
-127.0.0.1) et **publié** (collecte dans GitHub Actions, site sur GitHub Pages,
-API sur un Worker Cloudflare qui détient seul le jeton Turso et tient les
-sessions — voir `docs/deployment.md`).
+La COLLECTE tourne où l'on veut : sur la machine (fichier SQLite) ou dans
+GitHub Actions (Turso). Le SITE, lui, n'a plus qu'une forme — servi par GitHub
+Pages, il parle à un Worker Cloudflare qui détient seul le jeton de la base et
+tient les sessions (voir `docs/deployment.md`).
 
-`server/routes.ts` sert les DEUX : il ne dépend que des standards Web et de
-l'interface `Client` de libsql, jamais de `node:fs`. Ce qui touche le disque —
-filtres éditables, pièces du dossier — lui est injecté par le serveur local, et
-répond `501` ailleurs.
+Il y avait un second chemin : un serveur local qui servait aussi le site depuis
+la machine. Il a été retiré le 2026-09-04 — deux chemins pour le même écran,
+c'était deux fois les mêmes cas à tenir. Ce qui est parti avec lui : le dépôt
+des PIÈCES du dossier, qui vivaient sur ce disque-là.
+
+`server/routes.ts` ne dépend que des standards Web et de l'interface `Client` de
+libsql, jamais de `node:fs` : c'est ce qui lui permet de tourner dans un
+Worker.
 
 ## Où lire quoi
 

@@ -13,14 +13,14 @@ collecte et l'interface tournent en local.
 ```bash
 pnpm install
 pnpm collect      # collecte réelle → data/local.db (créée automatiquement)
-pnpm local        # interface + API sur http://127.0.0.1:8788
+pnpm dev          # l'interface, en mode démonstration
 ```
 
 - La base est un fichier SQLite (`data/local.db`, ignoré par git).
 - Le serveur n'écoute que sur `127.0.0.1` : il n'est joignable ni depuis le
   réseau local ni depuis Internet, donc aucun jeton n'est nécessaire.
 - Les migrations s'appliquent automatiquement au démarrage (`pnpm collect` et
-  `pnpm local`).
+  la collecte).
 - Relancez `pnpm collect` quand vous voulez rafraîchir ; le scheduler, les
   budgets et le cache s'appliquent comme prévu.
 
@@ -40,7 +40,7 @@ sans distances ni message pré-rempli.
 | `COLLECTOR_USER_AGENT`                           | User-Agent du collecteur (identifiable, honnête — §10).               |
 | `BACKFILL_ENABLED`                               | Mode backfill, `false` par défaut (§8).                               |
 
-`.env` est chargé automatiquement par `pnpm collect` et `pnpm local`. Ces
+`.env` est chargé automatiquement par les commandes de collecte. Ces
 valeurs sont privées : jamais committées, jamais journalisées (§26).
 
 ## Notifications + collecte automatique (§29)
@@ -97,15 +97,12 @@ Les valeurs de départ, tant que rien n'a été réglé, sont celles de
 | `pnpm collect`               | un cycle de collecte                                      |
 | `pnpm collect -- --verbose`  | collecte avec journalisation détaillée                    |
 | `pnpm collect -- --backfill` | descend dans l'historique (exige `BACKFILL_ENABLED=true`) |
-| `pnpm local`                 | construit l'interface et lance le serveur local           |
 | `pnpm dev`                   | interface seule ; écran de connexion tant qu'aucune base  |
 | `pnpm verify`                | format + lint + types + tests + secrets                   |
 
 ## Vérifier que tout fonctionne
 
-- `pnpm local` puis ouvrez `http://127.0.0.1:8788`.
 - La page « Sources » montre l'état et le dernier passage de chaque source.
-- Si le port 8788 est occupé : `PORT=8789 pnpm local`.
 
 ## Mode cloud optionnel — hébergement gratuit 24/7 (§28)
 
@@ -339,5 +336,5 @@ Enfin, deux réglages se répondent :
 ### Revenir au 100 % local
 
 Retirez `TURSO_DATABASE_URL` de votre environnement : `pnpm collect` et
-`pnpm local` repassent automatiquement sur le fichier SQLite local. Les deux
+`pnpm collect` repassent automatiquement sur le fichier SQLite local. Les deux
 modes partagent le même code de routes et de collecte.

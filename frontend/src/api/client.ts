@@ -67,13 +67,6 @@ export const isDirectMode = (): boolean =>
 /** Ni API, ni démonstration, ni identifiants Turso : rien à afficher. */
 export const isUnconfigured = (): boolean => API_URL === '' && !DEMO && !isDirectMode();
 
-/**
- * Mode LOCAL (`/`) : l'interface est servie par le serveur du mode zéro-cloud
- * (`pnpm local`), qui expose l'API sur la même origine, sans jeton — il
- * n'écoute que sur 127.0.0.1. Voir `packages/collector/src/cli/serve.ts`.
- */
-export const isLocalMode = (): boolean => API_URL === '/';
-
 /** Erreur d'API portant le statut HTTP, pour que l'interface réagisse finement. */
 export class ApiError extends Error {
   constructor(
@@ -95,7 +88,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   // autre. Sans cette mention, le navigateur ne le renverrait pas, et chaque
   // requête reviendrait « connexion requise » alors qu'on vient de se
   // connecter.
-  const response = await fetch(`${isLocalMode() ? '' : API_URL}${path}`, {
+  const response = await fetch(`${API_URL}${path}`, {
     ...init,
     credentials: 'include',
     headers: {
@@ -124,7 +117,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
  * nulle part.
  */
 export async function fetchCurrentUser(): Promise<string | null> {
-  if (DEMO || isLocalMode() || isDirectMode()) return LOCAL_USER;
+  if (DEMO || isDirectMode()) return LOCAL_USER;
   const response = await request<{ user: string | null }>('/api/me');
   return response.user;
 }
@@ -137,7 +130,7 @@ const LOCAL_USER = 'moi';
 
 /** `true` si cet accès demande une connexion. */
 export function requiresLogin(): boolean {
-  return !DEMO && !isLocalMode() && !isDirectMode() && API_URL !== '';
+  return !DEMO && !isDirectMode() && API_URL !== '';
 }
 
 /**
@@ -385,27 +378,6 @@ export async function fetchDocuments(): Promise<readonly DocumentInfo[]> {
   if (DEMO || isDirectMode()) return [];
   const response = await request<{ documents: readonly DocumentInfo[] }>('/api/documents');
   return response.documents;
-}
-
-export async function uploadDocument(file: File): Promise<DocumentInfo> {
-  if (DEMO || isDirectMode()) {
-    throw new ApiError('Les pièces de candidature restent sur votre machine (§25).', 400);
-  }
-  return request<DocumentInfo>(`/api/documents?name=${encodeURIComponent(file.name)}`, {
-    method: 'POST',
-    body: file,
-    headers: { 'content-type': 'application/octet-stream' },
-  });
-}
-
-export async function deleteDocument(name: string): Promise<void> {
-  if (DEMO || isDirectMode()) return;
-  await request(`/api/documents/${encodeURIComponent(name)}`, { method: 'DELETE' });
-}
-
-/** URL locale de consultation d'une pièce (ouvre dans le navigateur). */
-export function documentUrl(name: string): string {
-  return `${isLocalMode() ? '' : API_URL}/api/documents/${encodeURIComponent(name)}`;
 }
 
 /** Filtres par défaut, pour le mode démo (pas de fichier de config). */
