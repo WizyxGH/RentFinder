@@ -23,7 +23,6 @@ import {
   fetchSavedSearches,
   fetchSources,
   isDemoMode,
-  isUnconfigured,
   requiresLogin,
   markViewed,
   setArchived,
@@ -60,7 +59,6 @@ import { SourcePanel } from './components/SourcePanel.js';
 import { StatsPanel } from './components/StatsPanel.js';
 import { ArrowLeft, Bell, Flame, List, Map, Search, SlidersHorizontal } from 'lucide-react';
 import { SortFilterModal } from './components/SortFilterModal.js';
-import { ConnectPanel } from './components/ConnectPanel.js';
 import { NotificationsPanel } from './components/NotificationsPanel.js';
 import { BottomNav, type BottomTab } from './components/BottomNav.js';
 import { ListingListSkeleton, MapSkeleton } from './components/Skeletons.js';
@@ -985,23 +983,6 @@ export function App(): React.JSX.Element {
             .catch(() => setCurrentUser(null));
         }}
       />
-    );
-  }
-
-  // Pas d'accès à la base : on demande les identifiants et on s'arrête là.
-  // Sans eux, rien ne s'affiche — c'est la protection du site.
-  if (isUnconfigured()) {
-    return (
-      <Shell
-        view={view}
-        favoritesOnly={favoritesOnly}
-        onNavigate={navigate}
-        unreadAlerts={unreadAlerts}
-        bottomTab={bottomTab}
-        onBottomSelect={selectBottomTab}
-      >
-        <ConnectPanel />
-      </Shell>
     );
   }
 

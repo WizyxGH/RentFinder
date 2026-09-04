@@ -21,6 +21,8 @@
  *   GET   /api/stats                 statistiques de suivi (§33)
  *   GET/PUT /api/config              critères de recherche (§66)
  *   GET/PUT /api/settings/<clé>      réglages du compte (recherches, repères)
+ *   POST    /api/push                abonnement Web Push du compte (§29)
+ *   POST    /api/push/unsubscribe    désabonnement
  *   /api/documents…                  501 : elles vivaient sur le disque local
  */
 
@@ -501,6 +503,64 @@ async function recordContact(
 }
 
 /**
+ * Abonnements Web Push (§29).
+ *
+ * ILS N'AVAIENT AUCUNE ROUTE. Seul l'accès direct à Turso savait les écrire,
+ * depuis le navigateur — si bien que sur l'installation recommandée, celle qui
+ * passe par le Worker, activer les notifications ne s'enregistrait nulle part.
+ * Le navigateur acceptait l'abonnement, la page affichait « activé », et aucune
+ * alerte n'arrivait jamais.
+ *
+ * L'abonnement APPARTIENT À UN COMPTE : c'est ce qui permettra d'envoyer à la
+ * bonne personne quand ils seront plusieurs.
+ *
+ * Le désabonnement passe par un POST et non un DELETE : l'identifiant d'un
+ * abonnement est une URL entière, trop longue et trop chargée pour un segment
+ * de chemin, et tous les intermédiaires ne transmettent pas le corps d'un
+ * DELETE.
+ */
+async function handlePushRoute(
+  db: Client,
+  method: string,
+  action: string | undefined,
+  request: Request,
+  cors: Record<string, string>,
+  userId: string,
+): Promise<Response> {
+  if (method !== 'POST') return jsonError(404, 'Route inconnue');
+  const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+  if (body === null) return jsonError(400, 'Corps illisible');
+
+  const endpoint = typeof body['endpoint'] === 'string' ? body['endpoint'] : '';
+  if (endpoint === '') return jsonError(400, 'Abonnement incomplet');
+
+  if (action === 'unsubscribe') {
+    await db.execute({
+      sql: 'DELETE FROM push_subscriptions WHERE endpoint = ? AND user_id = ?',
+      args: [endpoint, userId],
+    });
+    return json({ ok: true }, cors);
+  }
+
+  const p256dh = typeof body['p256dh'] === 'string' ? body['p256dh'] : '';
+  const auth = typeof body['auth'] === 'string' ? body['auth'] : '';
+  // Sans les deux clés, la collecte ne pourrait pas chiffrer l'envoi : on
+  // refuse plutôt que d'enregistrer un abonnement qui échouera en silence.
+  if (p256dh === '' || auth === '') return jsonError(400, 'Abonnement incomplet');
+
+  await db.execute({
+    sql: `INSERT INTO push_subscriptions (endpoint, p256dh, auth, created_at, user_id)
+          VALUES (?,?,?,?,?)
+          ON CONFLICT(endpoint) DO UPDATE SET p256dh = excluded.p256dh,
+                                              auth = excluded.auth,
+                                              user_id = excluded.user_id,
+                                              failures = 0`,
+    args: [endpoint, p256dh, auth, new Date().toISOString(), userId],
+  });
+  return json({ ok: true }, cors);
+}
+
+/**
  * Réglages de compte, un par clé (`/api/settings/<clé>`).
  *
  * Les recherches enregistrées et les points de référence vivaient dans
@@ -716,6 +776,9 @@ export async function route(
   }
   if (resource === 'settings') {
     return handleSettingsRoute(db, method, id, request, cors, userId);
+  }
+  if (resource === 'push') {
+    return handlePushRoute(db, method, id, request, cors, userId);
   }
   if (resource === 'sources' && method === 'GET') return json(await listSources(db), cors);
   if (resource === 'stats' && method === 'GET') return json(await getStats(db), cors);

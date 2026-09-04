@@ -1,15 +1,28 @@
 /**
  * Client de l'API (§28).
  *
- * Deux modes, choisis automatiquement :
+ * UN SEUL CHEMIN : le Worker, joint par `VITE_API_URL`, avec un cookie de
+ * session. Plus le mode démonstration, réservé aux tests.
  *
- *   - MODE DÉMO  : aucune URL d'API configurée. L'interface tourne sur les
- *     données fictives de `mock-data.ts`. C'est le mode par défaut d'un
- *     `pnpm dev` fraîchement cloné, et celui des tests (§54).
+ * IL Y AVAIT UN ACCÈS DIRECT À TURSO : le navigateur ouvrait la base lui-même,
+ * avec une adresse et un jeton saisis à la première visite et gardés dans
+ * `localStorage`. Il a été retiré, pour trois raisons qui se répondent.
  *
- *   - MODE CONNECTÉ : `VITE_API_URL` est défini. Le jeton d'accès est demandé
- *     à l'utilisateur puis conservé dans `localStorage`. Il n'est JAMAIS
- *     présent dans le code ni dans le bundle publié sur GitHub Pages (§26).
+ * Ce jeton ouvrait TOUTE la base, en lecture et en écriture. Aucun mot de passe
+ * ne pouvait donc être vérifié devant : les comptes n'existaient pas sur ce
+ * chemin-là, et le laisser à côté d'un vrai écran de connexion revenait à
+ * laisser une porte ouverte à côté d'une porte fermée.
+ *
+ * Il redemandait ces identifiants à chaque vidage de cache — une adresse
+ * `libsql://` et un jeton de deux cents caractères qu'il fallait retrouver.
+ *
+ * Enfin il n'était jamais complet : ni pièces du dossier, ni abonnement aux
+ * notifications, ni — jusqu'à récemment — recherches enregistrées. Deux chemins
+ * pour le même écran, dont l'un savait faire moins, c'était deux fois les mêmes
+ * cas à tenir.
+ *
+ * Ce retrait sort aussi `@libsql/client` du bundle : le navigateur n'a plus de
+ * client de base de données à télécharger.
  */
 
 import type {
@@ -28,7 +41,6 @@ import {
   type StoredReferencePoint,
 } from '@rentfinder/shared';
 import type { SavedSearch } from '../saved-searches.js';
-import * as turso from './turso.js';
 import { byRecency } from '../recency.js';
 
 /**
@@ -66,13 +78,6 @@ const DEMO: boolean =
 
 export const isDemoMode = (): boolean => DEMO;
 
-/** Accès direct à Turso : le navigateur interroge la base, sans intermédiaire. */
-export const isDirectMode = (): boolean =>
-  API_URL === '' && !DEMO && turso.readCredentials() !== null;
-
-/** Ni API, ni démonstration, ni identifiants Turso : rien à afficher. */
-export const isUnconfigured = (): boolean => API_URL === '' && !DEMO && !isDirectMode();
-
 /** Erreur d'API portant le statut HTTP, pour que l'interface réagisse finement. */
 export class ApiError extends Error {
   constructor(
@@ -85,11 +90,7 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  // DEUX transports derrière la même fonction : le serveur local (`pnpm
-  // local`, même origine, sans jeton, il n'écoute que sur 127.0.0.1) et le
-  // Worker Cloudflare du site publié.
-  //
-  // `credentials: 'include'` est ce qui fait tenir le second : le cookie de
+  // `credentials: 'include'` est ce qui fait tenir l'ensemble : le cookie de
   // session est posé par le Worker, sur SON domaine, et le site vit sur un
   // autre. Sans cette mention, le navigateur ne le renverrait pas, et chaque
   // requête reviendrait « connexion requise » alors qu'on vient de se
@@ -123,7 +124,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
  * nulle part.
  */
 export async function fetchCurrentUser(): Promise<string | null> {
-  if (DEMO || isDirectMode()) return LOCAL_USER;
+  if (DEMO) return LOCAL_USER;
   const response = await request<{ user: string | null }>('/api/me');
   return response.user;
 }
@@ -136,7 +137,7 @@ const LOCAL_USER = 'moi';
 
 /** `true` si cet accès demande une connexion. */
 export function requiresLogin(): boolean {
-  return !DEMO && !isDirectMode() && API_URL !== '';
+  return !DEMO && API_URL !== '';
 }
 
 /**
@@ -194,16 +195,6 @@ export async function fetchListings(options: FetchListingsOptions = {}): Promise
   const includeArchived = options.includeArchived ?? false;
   const favoritesOnly = options.favoritesOnly ?? false;
 
-  if (isDirectMode()) {
-    const listings = await turso.listListings({
-      sort,
-      includeOutOfCriteria: includeAll,
-      includeArchived,
-      favoritesOnly,
-    });
-    return { listings, total: listings.length, limit: listings.length, offset: 0 };
-  }
-
   if (DEMO) {
     const { MOCK_LISTINGS } = await demoData();
     let filtered = includeAll
@@ -240,32 +231,27 @@ export async function fetchListing(id: string): Promise<ListingView> {
     if (found === undefined) throw new Error('Annonce introuvable');
     return found;
   }
-  if (isDirectMode()) return turso.getListing(id);
   return request<ListingView>(`/api/listings/${encodeURIComponent(id)}`);
 }
 
 export async function markViewed(id: string): Promise<void> {
-  if (isDirectMode()) return turso.patchListing(id, { viewed: true });
   if (DEMO) return;
   await request(`/api/listings/${id}`, { method: 'PATCH', body: JSON.stringify({ viewed: true }) });
 }
 
 /** Archive ou désarchive une annonce. */
 export async function setArchived(id: string, archived: boolean): Promise<void> {
-  if (isDirectMode()) return turso.patchListing(id, { archived });
   if (DEMO) return;
   await request(`/api/listings/${id}`, { method: 'PATCH', body: JSON.stringify({ archived }) });
 }
 
 /** Met ou retire une annonce des favoris. */
 export async function setFavorite(id: string, favorite: boolean): Promise<void> {
-  if (isDirectMode()) return turso.patchListing(id, { favorite });
   if (DEMO) return;
   await request(`/api/listings/${id}`, { method: 'PATCH', body: JSON.stringify({ favorite }) });
 }
 
 export async function updateTracking(id: string, tracking: string): Promise<void> {
-  if (isDirectMode()) return turso.patchListing(id, { tracking });
   if (DEMO) return;
   await request(`/api/listings/${encodeURIComponent(id)}`, {
     method: 'PATCH',
@@ -290,14 +276,6 @@ export async function recordContact(
   },
 ): Promise<void> {
   if (DEMO) return;
-  if (isDirectMode()) {
-    await turso.recordContact(id, {
-      channel: payload.channel,
-      message: payload.message,
-      sourceId: payload.sourceId,
-    });
-    return;
-  }
   await request(`/api/listings/${encodeURIComponent(id)}/contact`, {
     method: 'POST',
     body: JSON.stringify(payload),
@@ -305,7 +283,6 @@ export async function recordContact(
 }
 
 export async function fetchSources(): Promise<{ sources: readonly SourceStateView[] }> {
-  if (isDirectMode()) return { sources: await turso.listSources() };
   if (DEMO) {
     const { MOCK_SOURCES } = await demoData();
     return { sources: MOCK_SOURCES };
@@ -315,7 +292,6 @@ export async function fetchSources(): Promise<{ sources: readonly SourceStateVie
 
 /** Statistiques, calculées localement en démo depuis les données fictives. */
 export async function fetchStats(): Promise<StatsData> {
-  if (isDirectMode()) return turso.getStats();
   if (DEMO) {
     const { MOCK_LISTINGS } = await demoData();
     // « Pertinentes » = dans les critères, non archivée, non louée et ENCORE
@@ -375,9 +351,8 @@ export async function fetchStats(): Promise<StatsData> {
 // depuis le téléphone — or une candidature s'envoie d'où l'on est.
 //
 // RIEN N'EST ENVOYÉ AUTOMATIQUEMENT (§24) : on dépose, on consulte, on
-// supprime. En accès direct à Turso il n'y a pas de Worker, donc pas d'espace
-// de fichiers : la section se tait plutôt que de promettre un dépôt qu'elle
-// perdrait.
+// supprime. Sans API joignable, la section se tait plutôt que de promettre un
+// dépôt qu'elle perdrait.
 // ---------------------------------------------------------------------------
 
 export interface DocumentInfo {
@@ -387,7 +362,7 @@ export interface DocumentInfo {
 }
 
 /** Vrai quand un espace de fichiers est joignable (donc : un Worker). */
-export const canStoreDocuments = (): boolean => !DEMO && !isDirectMode() && API_URL !== '';
+export const canStoreDocuments = (): boolean => !DEMO && API_URL !== '';
 
 export async function fetchDocuments(): Promise<readonly DocumentInfo[]> {
   if (!canStoreDocuments()) return [];
@@ -449,38 +424,35 @@ function demoFilters(): FilterConfig {
 
 export async function fetchFilters(): Promise<FilterConfig> {
   if (DEMO) return demoFilters();
-  // En accès direct, les critères vivent dans la BASE : le site n'a aucun accès
-  // à la machine de collecte, la base est leur seul point de rencontre (§66).
-  // Base encore vierge → les valeurs par défaut, qui sont aussi celles du
-  // fichier tant que rien n'a été enregistré.
-  if (isDirectMode()) return (await turso.readSearchCriteria()) ?? demoFilters();
   return request<FilterConfig>('/api/config');
 }
 
 /** Enregistre les filtres (§66). En démo, no-op qui renvoie l'entrée. */
 export async function saveFilters(filters: FilterConfig): Promise<FilterConfig> {
   if (DEMO) return filters;
-  if (isDirectMode()) {
-    await turso.writeSearchCriteria(filters);
-    return filters;
-  }
   return request<FilterConfig>('/api/config', { method: 'PUT', body: JSON.stringify(filters) });
 }
 
-/** Abonnement Web Push : uniquement en accès direct, la base seule le stocke. */
+/**
+ * Abonnement Web Push (§29).
+ *
+ * Il ne s'enregistrait QUE par l'accès direct à Turso. Sur l'installation
+ * recommandée, le navigateur acceptait l'abonnement, la page affichait
+ * « activé », et aucune alerte n'arrivait jamais : rien ne l'avait conservé.
+ */
 export async function subscribePush(sub: {
   endpoint: string;
   p256dh: string;
   auth: string;
 }): Promise<void> {
   if (DEMO) return;
-  if (!isDirectMode()) throw new ApiError('Disponible sur le site connecté à votre base.', 400);
-  await turso.saveSubscription(sub);
+  if (API_URL === '') throw new ApiError("Aucune API n'est configurée.", 400);
+  await request('/api/push', { method: 'POST', body: JSON.stringify(sub) });
 }
 
 export async function unsubscribePush(endpoint: string): Promise<void> {
-  if (DEMO || !isDirectMode()) return;
-  await turso.removeSubscription(endpoint);
+  if (DEMO || API_URL === '') return;
+  await request('/api/push/unsubscribe', { method: 'POST', body: JSON.stringify({ endpoint }) });
 }
 
 /**
@@ -490,24 +462,18 @@ export async function unsubscribePush(endpoint: string): Promise<void> {
  * aucun accès à la machine de collecte, la base est leur seul point de
  * rencontre.
  *
- * ILS NE PASSAIENT QUE PAR L'ACCÈS DIRECT À TURSO. Sur l'installation
- * recommandée, celle qui passe par le Worker, une recherche enregistrée
- * disparaissait donc au rechargement, sans que rien ne le dise. Les deux
- * chemins écrivent maintenant la même ligne.
+ * ILS NE PASSAIENT QUE PAR L'ACCÈS DIRECT À TURSO, aujourd'hui retiré. Sur
+ * l'installation recommandée, une recherche enregistrée disparaissait donc au
+ * rechargement, sans que rien ne le dise.
  */
 async function readSetting<T>(key: string): Promise<T | null> {
   if (DEMO) return null;
-  if (isDirectMode()) return turso.readSetting<T>(key);
   if (API_URL === '') return null;
   return request<T | null>(`/api/settings/${key}`);
 }
 
 async function writeSetting(key: string, value: unknown): Promise<void> {
   if (DEMO) return;
-  if (isDirectMode()) {
-    await turso.writeSetting(key, value);
-    return;
-  }
   if (API_URL === '') return;
   await request(`/api/settings/${key}`, {
     method: 'PUT',
@@ -518,7 +484,7 @@ async function writeSetting(key: string, value: unknown): Promise<void> {
 
 /** `true` si cet accès sait conserver un réglage de compte. */
 export function settingsAvailable(): boolean {
-  return !DEMO && (isDirectMode() || API_URL !== '');
+  return !DEMO && API_URL !== '';
 }
 
 export async function fetchSavedSearches(): Promise<readonly SavedSearch[]> {
