@@ -656,6 +656,41 @@ export function parseChargesFromText(
   }
   return null;
 }
+
+/**
+ * Adjectifs qu'une annonce accole au mot « quartier » sans nommer de lieu —
+ * « quartier Calme », « secteur Résidentiel ». Ce ne sont pas des quartiers.
+ */
+const NOT_A_DISTRICT =
+  /^(calme|residentiel|anime|prise|recherche|vivant|agreable|historique|commercant|pavillonnaire|securise|dynamique|central|populaire|familial)$/i;
+
+/**
+ * QUARTIER nommé explicitement dans le texte — « quartier Riquier », « secteur
+ * du Mont Boron ».
+ *
+ * Le quartier n'était lu que dans un champ dédié, que neuf sources sur
+ * quarante remplissent : neuf pour cent des fiches en avaient un. Il est
+ * pourtant écrit dans cinquante-sept descriptions de plus, et il compte —
+ * c'est lui qui place la punaise et le lien Maps quand la rue manque (§20).
+ *
+ * LA TOURNURE SE DÉSIGNE ELLE-MÊME : « quartier X » ou « secteur X » suivi
+ * d'un NOM PROPRE. Pas de dictionnaire de quartiers niçois à tenir à jour, et
+ * surtout aucun rapprochement par ressemblance — « proche de Cimiez » ne dit
+ * pas que le bien y est. La majuscule fait le tri : « quartier calme » décrit
+ * une ambiance, « quartier Carabacel » nomme un lieu (§17).
+ */
+const NAMED_DISTRICT =
+  /\b(?:quartier|secteur)\s+(?:de\s+|du\s+|des\s+|d['’]\s?)?([A-ZÉÈÀÂÎÔÛÇ][\wÀ-ÿ'’-]+(?:[ -][A-ZÉÈÀÂÎÔÛÇ][\wÀ-ÿ'’-]+){0,2})/;
+
+/** Le quartier nommé dans le texte, ou `null`. */
+export function parseDistrict(text: string | null | undefined): string | null {
+  const cleaned = cleanText(text);
+  if (cleaned === '') return null;
+  const name = NAMED_DISTRICT.exec(cleaned)?.[1];
+  if (name === undefined) return null;
+  return NOT_A_DISTRICT.test(comparable(name)) ? null : name;
+}
+
 /** Portion de description où l'on accepte de lire une adresse (cf. ci-dessous). */
 const ADDRESS_HEAD = 120;
 

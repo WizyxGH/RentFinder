@@ -30,6 +30,7 @@ import {
   parseCharges,
   parseChargesFromText,
   parseEmail,
+  parseDistrict,
   parseDpe,
   parseFlatShare,
   parseFurnished,
@@ -174,7 +175,11 @@ function resolveLocation(raw: RawListing): {
     // des voies saisies en double par certaines sources.
     address: dedupeStreetAddress(toNull(raw.addressText) ?? extractStreetAddress(raw.description)),
     // Quartier/secteur si la source le publie (ex. Orpi `extra.quartier`).
-    district: toNull(raw.extra?.['quartier']),
+    // Champ dédié d'abord — neuf sources sur quarante le remplissent —, puis
+    // le texte, où la tournure « quartier X » se désigne elle-même.
+    district:
+      toNull(raw.extra?.['quartier']) ??
+      parseDistrict(`${raw.title ?? ''}. ${raw.description ?? ''}`),
     // Ville en forme comparable : les filtres et le dédoublonnage ignorent
     // ainsi casse et accents.
     city: raw.cityText !== undefined ? comparable(raw.cityText) || null : null,
@@ -363,7 +368,9 @@ export function normalizeListing(
  *      dans le titre et la description — « DEUX PIECES MEUBLEES », « Classe
  *      énergétique (kWh/m²/an) C » —, deux formes que l'extraction ne savait
  *      pas lire et qui laissaient cinquante-neuf et cinquante-cinq annonces
- *      du bulletin abonné sans ces valeurs, pourtant écrites.
+ *      du bulletin abonné sans ces valeurs, pourtant écrites ;
+ *   7. le QUARTIER, idem : « quartier Riquier » le nomme sans ambiguïté, et
+ *      c'est lui qui place la punaise quand la rue manque (§20).
  *
  * Rien d'autre n'est retouché : ni le cycle de vie, ni le quartier, dont la
  * valeur correcte n'est pas reconstituable depuis le texte (§17).
@@ -416,6 +423,7 @@ export function rederiveFromText(occurrence: NormalizedListing): NormalizedListi
   // description est le séjour d'un trois-pièces, pas le logement entier.
   const rooms = occurrence.rooms === null ? parseRooms(occurrence.title) : occurrence.rooms;
   const dpe = occurrence.dpe === null ? parseDpe(occurrence.description) : occurrence.dpe;
+  const district = occurrence.district === null ? parseDistrict(text) : occurrence.district;
 
   if (
     address === occurrence.address &&
@@ -424,11 +432,22 @@ export function rederiveFromText(occurrence: NormalizedListing): NormalizedListi
     flatShare === occurrence.flatShare &&
     charges === occurrence.charges &&
     rooms === occurrence.rooms &&
-    dpe === occurrence.dpe
+    dpe === occurrence.dpe &&
+    district === occurrence.district
   ) {
     return null;
   }
-  return { ...occurrence, address, propertyType, features, flatShare, charges, rooms, dpe };
+  return {
+    ...occurrence,
+    address,
+    propertyType,
+    features,
+    flatShare,
+    charges,
+    rooms,
+    dpe,
+    district,
+  };
 }
 
 /** Normalise un lot, en écartant silencieusement les annonces inexploitables. */

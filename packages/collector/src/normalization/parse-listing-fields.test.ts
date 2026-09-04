@@ -8,6 +8,7 @@ import {
   parseEmail,
   parseFlatShare,
   parseFurnished,
+  parseDistrict,
   parseDpe,
   extractFeatures,
   extractStreetAddress,
@@ -634,5 +635,25 @@ describe('parseDpe — libellé suivi de son unité', () => {
   it('ne prend pas une valeur de GES pour une classe (§17)', () => {
     expect(parseDpe('GES : 60')).toBeNull();
     expect(parseDpe('CONSOMMATION ENERGETIQUE EXCESSIVE')).toBeNull();
+  });
+});
+
+describe('parseDistrict', () => {
+  it('lit un quartier nommé, avec ou sans article', () => {
+    expect(parseDistrict('Bel appartement quartier Riquier, proche tram')).toBe('Riquier');
+    expect(parseDistrict('secteur du Mont Boron, vue mer')).toBe('Mont Boron');
+    expect(parseDistrict('quartier d’Acropolis')).toBe('Acropolis');
+    expect(parseDistrict('quartier Gambetta Thiers')).toBe('Gambetta Thiers');
+  });
+
+  it('ne prend pas une AMBIANCE pour un lieu (§17)', () => {
+    expect(parseDistrict('Dans un quartier calme et résidentiel')).toBeNull();
+    expect(parseDistrict('quartier Résidentiel')).toBeNull();
+  });
+
+  it('n’invente rien quand le mot n’y est pas', () => {
+    // « proche de Cimiez » ne dit pas que le bien y est.
+    expect(parseDistrict('Studio proche de Cimiez')).toBeNull();
+    expect(parseDistrict(null)).toBeNull();
   });
 });
