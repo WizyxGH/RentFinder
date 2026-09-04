@@ -19,6 +19,7 @@ import { cleanText, comparable } from './text.js';
 import {
   isShortTermStudentLease,
   looksLikeStreet,
+  NUMBERED_STREET,
   parseArea,
   parseBedrooms,
   parseCharges,
@@ -121,28 +122,34 @@ function buildContact(raw: RawListing, sourceId: SourceId): Contact {
 }
 
 /**
- * Nettoie une adresse dont la voie est saisie EN DOUBLE par la source, ex.
- * « Rue Edouard Scoffier 28 Rue Edouard Scoffier » → « 28 Rue Edouard Scoffier ».
- * On ne touche à rien si les deux moitiés sont des voies distinctes (§17).
+ * Nettoie une adresse où la source a collé DEUX voies dans un même champ.
+ *
+ * Deux formes rencontrées, et une seule réponse :
+ *
+ *   « Rue Edouard Scoffier 28 Rue Edouard Scoffier »          (voie répétée)
+ *   « Rue de l'Industrie 17 rue des Comptoirs du Littoral »   (voies distinctes)
+ *
+ * Dans les deux cas on garde la moitié NUMÉROTÉE. Un numéro de voie ne s'écrit
+ * pas par hasard : c'est l'adresse du bien. Le préfixe sans numéro est du
+ * contexte — un angle de rues, un secteur, ou la voie de l'agence elle-même,
+ * comme dans le JSON-LD de climmo relevé le 2026-09-04, dont la description
+ * confirmait « 17 rue des Comptoirs du Littoral ».
+ *
+ * Le collage laissait une adresse qu'aucun géocodeur ne retrouve : ni point sur
+ * la carte, ni temps de trajet (§20).
+ *
+ * PRUDENCE : la moitié conservée doit elle-même commencer par un numéro SUIVI
+ * d'un type de voie. « Rue de la Paix 12 » n'est pas deux adresses, et reste
+ * intacte (§17).
  */
 export function dedupeStreetAddress(address: string | null): string | null {
   if (address === null) return null;
   const clean = address.replace(/\s+/g, ' ').trim();
   // « <voie sans n°> <n° + voie> » : découpe au premier numéro interne.
   const match = clean.match(/^(.+?)\s+(\d+\b.*)$/);
-  if (match?.[1] !== undefined && match[2] !== undefined) {
-    const before = match[1].toLowerCase();
-    const afterNoNumber = match[2].replace(/^\d+\s*/, '').toLowerCase();
-    // Si une moitié reprend l'autre (même voie), garder celle qui porte le n°.
-    if (
-      afterNoNumber === before ||
-      afterNoNumber.includes(before) ||
-      before.includes(afterNoNumber)
-    ) {
-      return match[2];
-    }
-  }
-  return clean;
+  const tail = match?.[2];
+  if (match?.[1] === undefined || tail === undefined) return clean;
+  return NUMBERED_STREET.test(tail) ? tail : clean;
 }
 
 /** Localisation résolue depuis les multiples champs bruts possibles (§14, §20). */

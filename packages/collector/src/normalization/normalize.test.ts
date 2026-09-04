@@ -25,14 +25,40 @@ describe('dedupeStreetAddress — voie saisie en double par la source', () => {
     );
   });
 
+  it('garde la moitié numérotée quand la source colle DEUX voies', () => {
+    // Relevé dans le JSON-LD de climmo le 2026-09-04 : la voie de l'agence
+    // collée à celle du bien. Le géocodeur n'y retrouvait rien — donc ni point
+    // sur la carte, ni temps de trajet.
+    expect(dedupeStreetAddress("Rue de l'Industrie 17 rue des Comptoirs du Littoral")).toBe(
+      '17 rue des Comptoirs du Littoral',
+    );
+  });
+
+  it('ne coupe pas une adresse dont le numéro suit la voie', () => {
+    // « Rue de la Paix 12 » n'est pas deux adresses : la moitié gardée doit
+    // elle-même commencer par un numéro SUIVI d'un type de voie (§17).
+    expect(dedupeStreetAddress('Rue de la Paix 12')).toBe('Rue de la Paix 12');
+    expect(dedupeStreetAddress('Avenue Jean Médecin 06000 Nice')).toBe(
+      'Avenue Jean Médecin 06000 Nice',
+    );
+  });
+
   it('laisse une adresse normale intacte', () => {
     expect(dedupeStreetAddress('28 Rue Edouard Scoffier')).toBe('28 Rue Edouard Scoffier');
     expect(dedupeStreetAddress('12 Avenue de la Californie')).toBe('12 Avenue de la Californie');
   });
 
-  it('ne fusionne pas deux voies distinctes', () => {
+  it('tranche entre deux voies distinctes en faveur de la NUMÉROTÉE', () => {
+    // DÉCISION RETOURNÉE le 2026-09-04. On gardait la chaîne entière, par
+    // prudence : ne pas choisir entre deux voies. Mais la chaîne entière n'est
+    // une adresse pour personne — aucun géocodeur ne la résout, donc ni point
+    // sur la carte ni temps de trajet, et c'est elle qui s'affiche.
+    //
+    // Le numéro, lui, ne modifie qu'UNE voie : celle qui le suit. La moitié
+    // numérotée est donc une adresse complète et cohérente. Vérifié sur climmo,
+    // dont la description confirmait « 17 rue des Comptoirs du Littoral ».
     expect(dedupeStreetAddress('Avenue de la Gare 12 Boulevard Victor Hugo')).toBe(
-      'Avenue de la Gare 12 Boulevard Victor Hugo',
+      '12 Boulevard Victor Hugo',
     );
   });
 

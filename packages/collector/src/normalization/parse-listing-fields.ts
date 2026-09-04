@@ -422,6 +422,17 @@ const STREET_ADDRESS = new RegExp(
 );
 
 /**
+ * Une adresse qui COMMENCE par un numéro suivi d'un type de voie.
+ *
+ * Sert à trancher quand une source colle deux voies dans un champ : la
+ * moitié numérotée est celle du bien (voir `dedupeStreetAddress`).
+ */
+export const NUMBERED_STREET = new RegExp(
+  `^\\d{1,4}(?:[-/]\\d{1,3})?\\s*(?:bis|ter)?[,]?\\s+(?:${STREET_KINDS})\\b`,
+  'i',
+);
+
+/**
  * Voie SANS numéro occupant à elle seule un segment (« Rue Smolett, tout proche
  * du port… »). Les agences niçoises situent le bien ainsi bien plus souvent
  * qu'avec un numéro : l'exiger laissait 86 fiches sur 93 sans rue.
