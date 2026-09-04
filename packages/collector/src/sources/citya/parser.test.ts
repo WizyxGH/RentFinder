@@ -45,7 +45,7 @@ describe('parseDetailPage', () => {
     expect(listing?.roomsText).toBe('3 pièces');
     expect(listing?.postalCodeText).toBe('06100');
     // Seules les vraies photos (/biens/) sont retenues ; l'asset de marque
-    // (/assets/…/vesta-….webp) est écarté — sinon envoyé à tort sur Telegram.
+    // (/assets/…/vesta-….webp) est écarté — sinon envoyé à tort en alerte.
     expect(listing?.imageUrls).toHaveLength(2);
     expect(listing?.imageUrls?.every((u) => u.includes('/biens/'))).toBe(true);
   });

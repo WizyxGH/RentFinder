@@ -296,30 +296,8 @@ export interface Repository {
   readSetting(key: string): Promise<string | null>;
   /** Écrit un réglage applicatif, écrasant le précédent. */
   writeSetting(key: string, value: string): Promise<void>;
-  /** Retient qu'un message Telegram correspond à une annonce (§29). */
-  recordTelegramMessage(chatId: string, messageId: number, listingId: string): Promise<void>;
-  /**
-   * Messages Telegram d'annonces devenues INDISPONIBLES et pas encore éditées :
-   * soit louées (`rented`), soit disparues de la source (`lifecycle` inactif).
-   * `reason` distingue les deux pour adapter le texte de l'édition (§33).
-   */
-  unavailableTelegramMessages(): Promise<
-    readonly {
-      chatId: string;
-      messageId: number;
-      title: string | null;
-      reason: 'rented' | 'inactive';
-    }[]
-  >;
-  /** Marque un message Telegram comme déjà édité en « indisponible ». */
-  markTelegramRentedEdited(chatId: string, messageId: number): Promise<void>;
-  /** Retrouve l'annonce liée à un message Telegram. `null` si inconnu. */
-  listingForTelegramMessage(chatId: string, messageId: number): Promise<string | null>;
-  /** Bascule le favori d'une annonce (réaction ❤️ Telegram → favori). */
+  /** Bascule le favori d'une annonce. */
   setListingFavorite(listingId: string, favorite: boolean): Promise<void>;
-  /** Lit une valeur d'état Telegram (ex. offset getUpdates). */
-  getTelegramState(key: string): Promise<string | null>;
-  setTelegramState(key: string, value: string): Promise<void>;
   httpCache(): HttpCacheStore;
   geocodeCache(): GeocodeCacheStore;
   transitCache(): TransitCacheStore;
@@ -343,7 +321,7 @@ export interface NotifiableListing {
   readonly actionPriority: number;
   /** URL de la fiche d'origine (première occurrence), si disponible. */
   readonly url: string | null;
-  /** Photos (URLs du site d'origine, §11) — 10 max, la limite d'un album Telegram. */
+  /** Photos (URLs du site d'origine, §11) — 10 au plus, ce qu'une alerte peut porter. */
   readonly photoUrls: readonly string[];
   /** Source de l'occurrence principale (ex. `email-alerts`), pour le dédoublonnage. */
   readonly sourceId: string | null;
@@ -1209,48 +1187,6 @@ export function createRepository(db: Database): Repository {
       });
     },
 
-    async recordTelegramMessage(chatId, messageId, listingId) {
-      await db.execute({
-        sql: `INSERT INTO telegram_notifications (chat_id, message_id, listing_id, sent_at)
-              VALUES (?,?,?,?)
-              ON CONFLICT(chat_id, message_id) DO UPDATE SET listing_id = excluded.listing_id`,
-        args: [chatId, messageId, listingId, new Date().toISOString()],
-      });
-    },
-
-    async unavailableTelegramMessages() {
-      // « Loué » prime sur « disparue » si les deux sont vrais.
-      const result = await db.execute(`
-        SELECT tn.chat_id AS chat_id, tn.message_id AS message_id, l.title AS title,
-               CASE WHEN l.rented = 1 THEN 'rented' ELSE 'inactive' END AS reason
-        FROM telegram_notifications tn
-        JOIN listings l ON l.id = tn.listing_id
-        WHERE (l.rented = 1 OR l.lifecycle = 'inactive') AND tn.edited_rented = 0
-      `);
-      return result.rows.map((row) => ({
-        chatId: String(row['chat_id']),
-        messageId: Number(row['message_id']),
-        title: row['title'] === null ? null : String(row['title']),
-        reason: row['reason'] === 'rented' ? ('rented' as const) : ('inactive' as const),
-      }));
-    },
-
-    async markTelegramRentedEdited(chatId, messageId) {
-      await db.execute({
-        sql: 'UPDATE telegram_notifications SET edited_rented = 1 WHERE chat_id = ? AND message_id = ?',
-        args: [chatId, messageId],
-      });
-    },
-
-    async listingForTelegramMessage(chatId, messageId) {
-      const result = await db.execute({
-        sql: 'SELECT listing_id FROM telegram_notifications WHERE chat_id = ? AND message_id = ?',
-        args: [chatId, messageId],
-      });
-      const row = result.rows[0];
-      return row === undefined ? null : String(row['listing_id']);
-    },
-
     async setListingFavorite(listingId, favorite) {
       await db.execute({
         sql: 'UPDATE listings SET favorite = ?, updated_at = ? WHERE id = ?',
@@ -1273,23 +1209,6 @@ export function createRepository(db: Database): Repository {
               ON CONFLICT(key) DO UPDATE SET value = excluded.value,
                                              updated_at = excluded.updated_at`,
         args: [key, value, new Date().toISOString()],
-      });
-    },
-
-    async getTelegramState(key) {
-      const result = await db.execute({
-        sql: 'SELECT value FROM telegram_state WHERE key = ?',
-        args: [key],
-      });
-      const row = result.rows[0];
-      return row === undefined ? null : String(row['value']);
-    },
-
-    async setTelegramState(key, value) {
-      await db.execute({
-        sql: `INSERT INTO telegram_state (key, value) VALUES (?,?)
-              ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
-        args: [key, value],
       });
     },
 

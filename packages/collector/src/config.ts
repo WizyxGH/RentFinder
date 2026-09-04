@@ -385,7 +385,7 @@ export function loadBepCredentials(
   return { user, password };
 }
 
-/** Réglages du notifieur Telegram (§29) — PRIVÉ. */
+/** Réglages du routage en transports en commun (§20) — PRIVÉ. */
 export interface TransitConfig {
   /** Jeton Navitia personnel (§26). */
   readonly token: string;
@@ -439,49 +439,6 @@ export function loadImapConfig(env: NodeJS.ProcessEnv = process.env): ImapConfig
     user: user.trim(),
     password,
     mailbox: env['IMAP_MAILBOX']?.trim() || 'INBOX',
-  };
-}
-
-export interface TelegramConfig {
-  readonly botToken: string;
-  readonly chatId: string;
-  /** Ne notifier qu'au-delà de cette priorité d'action (0 = toutes). */
-  readonly minPriority: number;
-  /**
-   * Nb max de notifications individuelles par run avant de résumer.
-   * `Infinity` par défaut : chaque annonce a sa propre notification —
-   * `TELEGRAM_MAX_PER_RUN` permet de rétablir un plafond si ça devient trop.
-   */
-  readonly maxPerRun: number;
-}
-
-/**
- * Charge la configuration Telegram depuis l'environnement.
- *
- * Le jeton du bot et l'identifiant de conversation sont PRIVÉS : ils vivent
- * dans `.env`/secrets, jamais dans le dépôt, jamais dans les logs (§26, §66).
- * `null` si non configuré → le notifieur est simplement désactivé (le
- * collecteur tourne sans, la CI aussi).
- */
-export function loadTelegramConfig(env: NodeJS.ProcessEnv = process.env): TelegramConfig | null {
-  const botToken = env['TELEGRAM_BOT_TOKEN'];
-  const chatId = env['TELEGRAM_CHAT_ID'];
-  if (
-    botToken === undefined ||
-    botToken.trim() === '' ||
-    chatId === undefined ||
-    chatId.trim() === ''
-  ) {
-    return null;
-  }
-  const minPriority = Number.parseInt(env['TELEGRAM_MIN_PRIORITY'] ?? '', 10);
-  const maxPerRun = Number.parseInt(env['TELEGRAM_MAX_PER_RUN'] ?? '', 10);
-  return {
-    botToken,
-    chatId,
-    minPriority: Number.isFinite(minPriority) ? minPriority : 0,
-    // Sans réglage : pas de limite — une notification par annonce.
-    maxPerRun: Number.isFinite(maxPerRun) && maxPerRun > 0 ? maxPerRun : Infinity,
   };
 }
 

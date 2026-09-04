@@ -138,7 +138,7 @@ export function parseDetailPage(html: string, pageUrl: string, agencyName: strin
   // Photos du bien : elles sont sous `/media/images/agences/biens/…/location/`.
   // On exige `/biens/` pour écarter l'habillage de marque (ex.
   // `/assets/media/images/vesta-….webp`), qui matcherait sinon et serait envoyé
-  // à tort comme photo d'annonce sur Telegram (§29).
+  // à tort comme photo d'annonce dans une alerte (§29).
   const imageUrls: string[] = [];
   $('img[src], img[data-src]').each((_i, el) => {
     const src = $(el).attr('src') ?? $(el).attr('data-src') ?? '';

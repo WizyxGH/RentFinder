@@ -26,31 +26,34 @@ Copiez `.env.example` vers `.env` (ignoré par git) et renseignez ce qui vous
 concerne. Tout est optionnel — sans `.env`, la collecte fonctionne, simplement
 sans distances ni message pré-rempli.
 
-| Variable                                       | Rôle                                                                  |
-| ---------------------------------------------- | --------------------------------------------------------------------- |
-| `REFERENCE_WORK_ADDRESS` (ou `_LAT`/`_LON`)    | Lieu de travail — géocodé pour afficher le temps de trajet (§20).     |
-| `REFERENCE_STATION_ADDRESS` (ou `_LAT`/`_LON`) | Gare de référence.                                                    |
-| `TENANT_*`                                     | Profil locataire pour composer les messages de contact (§25).         |
-| `BEP_SUBSCRIBER_USER` / `_PASSWORD`            | Accès abonné BEP payé, si vous en avez un (§6).                       |
-| `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID`      | Notifications Telegram des nouvelles annonces (§29, voir ci-dessous). |
-| `COLLECTOR_USER_AGENT`                         | User-Agent du collecteur (identifiable, honnête — §10).               |
-| `BACKFILL_ENABLED`                             | Mode backfill, `false` par défaut (§8).                               |
+| Variable                                         | Rôle                                                                  |
+| ------------------------------------------------ | --------------------------------------------------------------------- |
+| `REFERENCE_WORK_ADDRESS` (ou `_LAT`/`_LON`)      | Lieu de travail — géocodé pour afficher le temps de trajet (§20).     |
+| `REFERENCE_STATION_ADDRESS` (ou `_LAT`/`_LON`)   | Gare de référence.                                                    |
+| `TENANT_*`                                       | Profil locataire pour composer les messages de contact (§25).         |
+| `BEP_SUBSCRIBER_USER` / `_PASSWORD`              | Accès abonné BEP payé, si vous en avez un (§6).                       |
+| `VAPID_PUBLIC_KEY` / `_PRIVATE_KEY` / `_SUBJECT` | Notifications Web Push des nouvelles annonces (§29, voir ci-dessous). |
+| `COLLECTOR_USER_AGENT`                           | User-Agent du collecteur (identifiable, honnête — §10).               |
+| `BACKFILL_ENABLED`                               | Mode backfill, `false` par défaut (§8).                               |
 
 `.env` est chargé automatiquement par `pnpm collect` et `pnpm local`. Ces
 valeurs sont privées : jamais committées, jamais journalisées (§26).
 
-## Notifications Telegram + collecte automatique (§29)
+## Notifications + collecte automatique (§29)
 
 Pour être prévenu **sur votre téléphone** dès qu'une annonce entre dans vos
 critères :
 
-1. **Créer le bot** dans Telegram : `@BotFather` → `/newbot` → copier le jeton.
-2. **Configurer** en une commande — le script vérifie le jeton, trouve votre
-   `chat_id` (écrivez un message à votre bot quand il le demande), remplit
-   `.env` et envoie un message de test :
+1. **Générer les clés VAPID** une fois, et les mettre dans `.env` :
    ```bash
-   node scripts/setup-telegram.mjs <JETON>
+   npx web-push generate-vapid-keys
+   # VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, puis VAPID_SUBJECT=mailto:vous@example.invalid
    ```
+   La clé PUBLIQUE entre aussi dans le bundle du site (`VAPID_PUBLIC_KEY` au
+   build) : sans elle, le navigateur ne peut pas s'abonner.
+2. **S'abonner** depuis le site : cloche en haut à droite → « Site fermé ». Sur
+   iPhone, ajoutez d'abord le site à l'écran d'accueil (Partager → Sur l'écran
+   d'accueil) : hors de ce mode, Safari n'expose pas l'API.
 3. **Planifier la collecte** pour que les notifications arrivent sans rien
    lancer à la main :
    ```powershell
@@ -62,9 +65,9 @@ critères :
    */30 * * * * cd <dépôt> && pnpm collect
    ```
 
-Sans `TELEGRAM_*`, le notifieur reste silencieusement désactivé. La collecte
-tourne sur votre machine : ordinateur éteint, pas de notification (limite
-assumée du 100 % local). Le notifieur ne signale que les annonces découvertes
+C'est la COLLECTE qui émet, directement vers le service de push du navigateur :
+aucun serveur intermédiaire. Sans les clés `VAPID_*`, le canal reste
+silencieusement désactivé. Le notifieur ne signale que les annonces découvertes
 **après** son activation, chacune une seule fois.
 
 ## Régler les filtres de recherche
@@ -100,7 +103,7 @@ jamais dans le dépôt public ; les documents de candidature, eux, restent
 STRICTEMENT locaux (§25) : le site publié n'y a pas accès.
 
 ```
-GitHub Actions (cron 30 min)  →  collecte, Telegram et Web Push, 24/7
+GitHub Actions (cron 30 min)  →  collecte et notifications Web Push, 24/7
         ↓
 Turso (base SQLite cloud privée)
         ↑  lu directement par le site
@@ -137,7 +140,7 @@ de plus que Turso.
 
 2. **Publiez l'inventaire** : `pnpm publish:turso`. Le schéma part en entier,
    les données seulement pour les annonces et l'état des sources — jamais les
-   caches de géocodage, l'historique de contacts ni les identifiants Telegram.
+   caches de géocodage ni l'historique de contacts.
 
 3. **Ouvrez le site** : il demande ces deux mêmes valeurs, une fois. Elles
    restent dans votre navigateur, jamais dans le dépôt.
@@ -148,12 +151,11 @@ reste réparable : les annonces se régénèrent, et rien de personnel n'est pub
 
 #### Étape 3 — notifications sur le téléphone (optionnel)
 
-Deux canaux, indépendants et cumulables.
-
-**Telegram** — le plus complet (photo, loyer, téléphone, bouton favori) et le
-plus fiable. Voir la section « Notifications Telegram » plus haut.
-
 **Web Push** — alerte même application fermée, sans installer d'application.
+L'alerte porte la photo, le loyer, la surface, l'adresse, la disponibilité, le
+téléphone et la priorité, avec un bouton « Appeler » : de quoi décider et agir
+sans ouvrir le site.
+
 Générez une paire de clés puis placez-les dans `.env` et dans les secrets du
 dépôt :
 
@@ -177,13 +179,13 @@ et texte seulement.
 
 #### Étape 4 — collecter PC éteint (optionnel)
 
-Pour que la collecte et les notifications Telegram tournent 24/7 :
+Pour que la collecte et les notifications tournent 24/7 :
 
 - **Variable** `CLOUD_COLLECT_ENABLED=true` (l'interrupteur de la collecte
   planifiée), et `COLLECTOR_USER_AGENT`.
-- **Secrets** : `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`, `TELEGRAM_BOT_TOKEN`,
-  `TELEGRAM_CHAT_ID`, `REFERENCE_WORK_LAT`/`_LON`, `REFERENCE_STATION_*`, et
-  `BEP_SUBSCRIBER_USER`/`_PASSWORD` si vous êtes abonné.
+- **Secrets** : `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`, `VAPID_PUBLIC_KEY`,
+  `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, `REFERENCE_WORK_LAT`/`_LON`,
+  `REFERENCE_STATION_*`, et `BEP_SUBSCRIBER_USER`/`_PASSWORD` si abonné.
 
 Les points de référence vont en **secrets**, jamais en variables : les variables
 sont lisibles par quiconque voit le dépôt.
@@ -211,7 +213,7 @@ coller deux valeurs — rien de tout cela n'est dans le dépôt public (§26).
 ### Architecture
 
 ```
-GitHub Actions (cron, gratuit)  → collecte 24/7, Telegram et Web Push
+GitHub Actions (cron, gratuit)  → collecte 24/7 et notifications Web Push
         ↓ écrit
 Turso (SQLite cloud, gratuit)   → base PRIVÉE (jeton), jamais dans le dépôt
         ↑ lit directement
@@ -258,7 +260,7 @@ les _secrets_ :
 | Secret                                    | Valeur                        |
 | ----------------------------------------- | ----------------------------- |
 | `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN` | ceux de l'étape 1             |
-| `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` | pour les notifications (§29)  |
+| `VAPID_PUBLIC_KEY` / `_PRIVATE_KEY`       | pour les notifications (§29)  |
 | `BEP_SUBSCRIBER_USER` / `_PASSWORD`       | optionnel (accès abonné payé) |
 | `REFERENCE_WORK_ADDRESS`…                 | optionnel (distances, §20)    |
 

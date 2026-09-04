@@ -158,6 +158,20 @@ describe('fiche détaillée', () => {
     expect(link).toHaveAttribute('href', 'https://portail.example.invalid/a/1');
   });
 
+  it('retient l’annonce en favori depuis la fiche', async () => {
+    // La fiche sort du composant par un `return` anticipé : `handleFavorite`,
+    // déclaré APRÈS, n'était jamais initialisé pour ce rendu et le clic levait
+    // une `ReferenceError`. Le bouton restait muet.
+    const user = userEvent.setup();
+    render(<App />);
+    const cards = await screen.findAllByTestId('listing-card');
+    await user.click(cards[0]!);
+
+    const heart = await screen.findByRole('button', { name: 'Ajouter aux favoris' });
+    await user.click(heart);
+    expect(await screen.findByRole('button', { name: 'Retirer des favoris' })).toBeInTheDocument();
+  });
+
   it('signale une valeur divergente entre sources plutôt que de la masquer (§15)', async () => {
     // L'annonce est vue à 690 € sur trois sources et 715 € sur la quatrième.
     // Ici, le champ fusionné des données fictives n'a pas de conflit ; on

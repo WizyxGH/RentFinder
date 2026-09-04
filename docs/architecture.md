@@ -18,7 +18,7 @@ flowchart TB
         NORM --> DEDUP[Dédoublonnage] --> SCORE[Scoring, distances, géocodage]
     end
     SCORE --> DB[(SQLite local)]
-    DB --> TG[Telegram]
+    DB --> PUSH[Web Push]
     DB -->|pnpm publish:turso| TURSO[(Turso)]
     TURSO --> WEB[Site publié]
     DB --> LOCAL[pnpm local]

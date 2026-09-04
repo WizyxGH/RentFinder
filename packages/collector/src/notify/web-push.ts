@@ -5,8 +5,8 @@
  * navigateur : aucun serveur intermédiaire. Les abonnements vivent dans la
  * base, déposés par le site.
  *
- * Le contenu est celui de Telegram, aux capacités du canal près : mêmes faits,
- * même ordre, mêmes libellés (module `facts.ts`). Une notification par annonce
+ * SEUL CANAL d'alerte depuis le 2026-09-04. Il porte tous les faits qui
+ * permettent de décider (module `facts.ts`), une notification par annonce
  * plutôt qu'un décompte — « 3 nouvelles annonces » n'apprenait rien et forçait
  * à ouvrir le site, ce qu'une alerte doit précisément éviter.
  */
@@ -18,8 +18,8 @@ import { availabilityLabel, locationLabel, originLabel, summarize } from './fact
 
 /**
  * Annonces poussées individuellement par exécution ; au-delà, le surplus est
- * résumé en une notification. Même garde-fou que Telegram : une pile de quinze
- * notifications ne se lit pas, elle se balaie.
+ * résumé en une notification : une pile de quinze notifications ne se lit
+ * pas, elle se balaie.
  */
 export const PUSH_MAX_INDIVIDUAL = 4;
 
@@ -65,9 +65,8 @@ export interface PushPayload {
 /**
  * Contenu de la notification d'UNE annonce (PUR, testable).
  *
- * Reprend, dans le même ordre, ce que Telegram envoie : le résumé chiffré,
- * l'adresse la plus précise connue, la disponibilité, le téléphone, l'origine
- * et la priorité. Le téléphone en clair est le geste qui fait gagner une
+ * Porte le résumé chiffré, l'adresse la plus précise connue, la
+ * disponibilité, le téléphone, l'origine et la priorité. Le téléphone en clair est le geste qui fait gagner une
  * visite : il évite d'ouvrir quoi que ce soit (§21).
  *
  * Android affiche l'image et les boutons ; iOS les ignore et se contente du

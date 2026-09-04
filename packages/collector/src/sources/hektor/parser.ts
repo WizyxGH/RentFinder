@@ -203,7 +203,7 @@ export function parseDetailPage(html: string, pageUrl: string, agencyName: strin
   // On ne garde QUE les vraies photos du bien, sous `/images/biens/` — le reste
   // du CDN est de l'habillage (avatar d'agence « contact », logos LBI/FNAIM,
   // panneaux, diaporama d'accueil) qu'il ne faut jamais prendre pour une photo
-  // d'annonce (sinon envoyée à tort sur Telegram, §29).
+  // d'annonce (sinon envoyée à tort dans une alerte, §29).
   //
   // CHARGEMENT DIFFÉRÉ. La plateforme met un SVG vide dans `src` et la vraie
   // URL dans `data-src` : lire `src` ne ramenait aucune photo sur les fiches

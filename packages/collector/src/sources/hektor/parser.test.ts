@@ -61,7 +61,7 @@ describe('parseDetailPage', () => {
     expect(listing?.extra?.['features']).toContain('Balcon');
     expect(listing?.extra?.['features']).not.toContain('Terrasse');
     // Seules les vraies photos (/images/biens/) : l'avatar d'agence et le logo
-    // du CDN sont écartés — sinon envoyés à tort comme photo sur Telegram (§29).
+    // du CDN sont écartés — sinon envoyés à tort comme photo d'alerte (§29).
     expect(listing?.imageUrls).toHaveLength(2);
     expect(listing?.imageUrls?.every((u) => u.includes('/images/biens/'))).toBe(true);
     // La photo « original » est normalisée vers la taille d'affichage.

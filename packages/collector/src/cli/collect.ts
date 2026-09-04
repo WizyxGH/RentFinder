@@ -24,16 +24,13 @@ import {
   collectorUserAgent,
   loadDotEnv,
   loadPublicConfig,
-  loadTelegramConfig,
   loadTransitConfig,
   loadImapConfig,
   withStoredCriteria,
 } from '../config.js';
 import { SEARCH_CRITERIA_SETTING } from '@rentfinder/shared';
 import { resolveReferencePoints } from '../core/reference-points.js';
-import { notifyNewListings, editRentedTelegramMessages } from '../notify/telegram.js';
 import { loadVapidConfig, sendWebPush } from '../notify/web-push.js';
-import { pollTelegramReactions } from '../notify/reactions.js';
 import { fetchAlertEmails } from '../core/email-import.js';
 import { findUndiscoveredAgencies } from '../sources/email-alerts/agency-discovery.js';
 
@@ -137,8 +134,8 @@ async function main(): Promise<void> {
 
     // §69 : un changement d'état de santé d'une source (dégradée/bloquée/
     // rétablie) est signalé dans le log de collecte — le panneau « Sources »
-    // du site en donne le détail. Pas de notification Telegram : la santé des
-    // sources est une info d'exploitation, pas une alerte à pousser.
+    // du site en donne le détail. Pas d'alerte poussée : la santé des sources
+    // est une info d'exploitation, pas une nouveauté à signaler.
     for (const t of report.healthTransitions) {
       logger.warn('source.health_changed', {
         source: t.sourceId,
@@ -148,16 +145,11 @@ async function main(): Promise<void> {
       });
     }
 
-    // §29 : pousse les nouvelles annonces sur Telegram, si configuré. Absent →
-    // silencieusement désactivé (le collecteur et la CI tournent sans).
-    // Web Push (§29) : second canal, indépendant de Telegram — il alerte
-    // téléphone rangé sans passer par une application tierce. On lit les
-    // candidates AVANT Telegram, qui les marque comme notifiées.
-    //
-    // `pushedIds` est marqué APRÈS Telegram : les deux canaux puisent dans la
-    // même file (colonne `notified`), et marquer tout de suite priverait
-    // Telegram de ce que le push vient d'envoyer.
-    let pushedIds: readonly string[] = [];
+    // §29 : alerte les nouvelles annonces par Web Push. Sans clés VAPID, le
+    // canal est silencieusement désactivé (le collecteur et la CI tournent
+    // sans). Les annonces parties sont marquées signalées dans la foulée :
+    // sans quoi les mêmes repartiraient à chaque collecte, et l'historique
+    // daté resterait vide.
     const vapid = loadVapidConfig();
     if (vapid !== null) {
       try {
@@ -169,40 +161,14 @@ async function main(): Promise<void> {
           siteUrl: process.env['SITE_URL'] ?? 'https://wizyxgh.github.io/RentFinder/',
           logger,
         });
-        pushedIds = report.notifiedIds;
+        await repository.markNotified(report.notifiedIds);
       } catch (error) {
-        // Un canal secondaire ne fait jamais échouer une collecte (§69).
+        // Le notifieur ne fait jamais échouer une collecte réussie (§69).
         logger.warn('push.failed', {
           error: error instanceof Error ? error.message : 'erreur inconnue',
         });
       }
     }
-
-    const telegram = loadTelegramConfig();
-    if (telegram !== null) {
-      try {
-        const notice = await notifyNewListings({ repository, config: telegram, logger });
-        logger.info('notify.done', { ...notice });
-        // §33 : un bien notifié puis loué voit son message édité en « LOUÉ ».
-        await editRentedTelegramMessages({ repository, config: telegram, logger });
-      } catch (error) {
-        // Le notifieur ne doit jamais faire échouer la collecte (§69).
-        logger.warn('notify.failed', {
-          error: error instanceof Error ? error.message : 'erreur inconnue',
-        });
-      }
-      // §29 : un ❤️ posé sur une annonce reçue la bascule en favori.
-      const reactions = await pollTelegramReactions({ repository, config: telegram, logger });
-      if (reactions.favorited > 0 || reactions.unfavorited > 0) {
-        logger.info('reactions.done', { ...reactions });
-      }
-    }
-
-    // Les annonces parties en Web Push sont marquées signalées, même si
-    // Telegram les a tues (priorité sous son seuil, ou doublon écarté). Sans
-    // cela, seul Telegram marquait la file : le push renvoyait les mêmes
-    // annonces à chaque collecte, et l'historique daté restait vide.
-    await repository.markNotified(pushedIds);
 
     // §47 : repérage d'agences NON scrapées citées dans les e-mails de
     // confirmation (candidates à ajouter). Lecture seule, à chaque collecte,

@@ -4,7 +4,7 @@
  * Le SCHÉMA part en entier — le collecteur cloud a besoin de toutes les tables
  * pour tourner — mais seules quelques-unes emportent leurs DONNÉES. Les autres
  * arrivent vides : leur contenu est personnel (adresses géocodées, historique
- * de contacts, identifiants Telegram) ou sans objet à distance.
+ * de contacts) ou sans objet à distance.
  *
  * Mise en place : voir docs/deployment.md. `--dry-run` montre sans écrire.
  */

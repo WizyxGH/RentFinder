@@ -23,7 +23,7 @@ const listing = (over: Record<string, unknown> = {}): never =>
 
 describe('loadVapidConfig', () => {
   it('rend null tant que le canal n’est pas configuré', () => {
-    // Sans clés, le push reste silencieusement inactif — comme Telegram.
+    // Sans clés, le canal reste silencieusement inactif.
     expect(loadVapidConfig({})).toBeNull();
     expect(loadVapidConfig({ VAPID_PUBLIC_KEY: 'abc' })).toBeNull();
     expect(loadVapidConfig({ VAPID_PUBLIC_KEY: '', VAPID_PRIVATE_KEY: 'x' })).toBeNull();
@@ -53,9 +53,9 @@ describe('pushContentFor', () => {
     expect(content.body).toContain('0600000012');
   });
 
-  it('dit les mêmes faits que Telegram : adresse, dispo, origine, priorité', () => {
-    // Le reproche fait au canal était d'être plus pauvre que Telegram à
-    // information égale — ces quatre lignes sont ce qui manquait.
+  it('porte de quoi décider sans ouvrir : adresse, dispo, origine, priorité', () => {
+    // Le canal se contentait d'un titre et de deux lignes — ces quatre-là sont
+    // ce qui manquait pour agir depuis la notification.
     const content = pushContentFor(
       listing({
         address: 'Rue Smolett',

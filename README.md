@@ -42,7 +42,7 @@ Ouvert sur un téléphone, il répond à une seule question :
 - **Suivi** : statuts (Nouveau → Contacté → … → Loué), journal des contacts
   (avec les pièces déclarées jointes), consulté/archivé/favori persistants,
   classement affiné par vos préférences (affinité transparente), page Stats.
-- **Notifications** : Telegram après chaque collecte (téléphone, app fermée) et
+- **Notifications** : Web Push après chaque collecte (téléphone, app fermée) et
   notifications navigateur site ouvert — chaque annonce signalée une seule fois.
 - **Documents de candidature** : pièces déposées une fois (onglet Paramètres),
   stockées uniquement en local (`data/`, hors dépôt), jamais envoyées
@@ -89,21 +89,19 @@ pnpm dev          # → http://localhost:5173, interface seule (pas de base)
 C'est aussi l'environnement des tests. Installation détaillée et configuration
 privée (`.env`) : [docs/deployment.md](docs/deployment.md).
 
-### Notifications Telegram + collecte automatique (§29)
+### Notifications + collecte automatique (§29)
 
 Pour être prévenu **sur votre téléphone** dès qu'une annonce entre dans vos
 critères, sans lancer la collecte à la main :
 
-1. **Créer le bot** (90 s, la seule étape manuelle — un bot appartient à votre
-   compte Telegram) : écrire à `@BotFather` → `/newbot` → copier le jeton, puis :
+1. **S'abonner aux notifications** depuis le site : cloche en haut à droite →
+   « Site fermé ». Sur iPhone, ajoutez d'abord le site à l'écran d'accueil
+   (Partager → Sur l'écran d'accueil), sans quoi Safari n'expose pas l'API.
 
-   ```bash
-   node scripts/setup-telegram.mjs <JETON>
-   ```
-
-   Le script vérifie le jeton, trouve votre `chat_id` tout seul (écrivez
-   n'importe quoi à votre bot quand il vous le demande), remplit `.env` (privé,
-   jamais committé) et envoie un message de test. Options dans `.env.example`.
+   L'alerte porte la photo, le loyer, la surface, l'adresse, la disponibilité,
+   le téléphone et la priorité — de quoi décider, et appeler, sans ouvrir le
+   site. Elle exige les clés `VAPID_*` côté collecte (voir
+   [docs/deployment.md](docs/deployment.md)).
 
 2. **Planifier la collecte** (Windows) :
 
@@ -113,11 +111,8 @@ critères, sans lancer la collecte à la main :
    # -Remove pour désinstaller.
    ```
 
-   Chaque collecte pousse alors les nouveautés sur Telegram. La tâche tourne en
-   local, tant que l'ordinateur est allumé (limite assumée du choix zéro-cloud).
+   C'est la collecte qui émet les notifications, sans serveur intermédiaire.
    Sur macOS/Linux, un `cron` équivalent : `*/30 * * * * cd <dépôt> && pnpm collect`.
-
-Sans ces variables, le notifieur reste silencieusement désactivé.
 
 ## Commandes
 
@@ -126,7 +121,7 @@ Sans ces variables, le notifieur reste silencieusement désactivé.
 | `pnpm dev`                    | frontend en mode démo                                                           |
 | `pnpm local`                  | mode local complet : (re)construit l'interface puis sert sur `data/local.db`    |
 | `pnpm serve`                  | démarrage **instantané** (sans reconstruire — si l'interface n'a pas changé)    |
-| `pnpm collect`                | un cycle de collecte (`-- --backfill`, `-- --verbose`) + notif Telegram         |
+| `pnpm collect`                | un cycle de collecte (`-- --backfill`, `-- --verbose`) + notifications          |
 | `schedule-collect.ps1`        | planifie `pnpm collect` (Windows) pour des notifs automatiques (voir ci-dessus) |
 | `pnpm db:migrate`             | applique les migrations                                                         |
 | `pnpm test` / `pnpm test:e2e` | tests Node / scénarios Playwright                                               |
@@ -182,7 +177,7 @@ Pour **ajouter une source**, le mode d'emploi vit dans l'en-tête de
   agences niçoises via les adaptateurs génériques Apimo et Hektor, Studapart
   par API publique) + PAP prête mais désactivée ; mode local zéro-cloud ;
   4 scores en anneaux ; dédoublonnage multi-signaux ; contact manuel + relance
-  - trace des pièces envoyées ; affinité et page Stats ; notifications Telegram
+  - trace des pièces envoyées ; affinité et page Stats ; notifications Web Push
     et navigateur ; documents de candidature locaux ; frontend mobile
     (Tailwind CSS + shadcn/ui) ; docs et suite Vitest + Playwright.
 - **Ensuite** : import d'alertes e-mail (seule voie conforme pour
@@ -202,7 +197,7 @@ Pour **ajouter une source**, le mode d'emploi vit dans l'en-tête de
 | L'interface locale affiche « Interface non construite »                        | Lancer `pnpm local` (qui construit), pas `pnpm --filter @rentfinder/collector serve` seul.                                                                                                    |
 | 0 annonce alors que la collecte a réussi                                       | Les annonces sont hors critères (≤ 700 €, ≥ 14 m², Nice). Cocher « Afficher les annonces hors critères ».                                                                                     |
 | Un parser ne trouve plus de prix (warning « structure probablement modifiée ») | Le site a changé son HTML : suivre la procédure de réparation dans la section « scraping » de [docs/architecture.md](docs/architecture.md).                                                   |
-| Pas de notification Telegram                                                   | Vérifier `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` dans `.env` (voir le script d'installation) ; le notifieur ne signale que les annonces découvertes **après** son activation.               |
+| Pas de notification                                                            | Vérifier les clés `VAPID_*` dans `.env`, et que « Site fermé » est activé depuis la cloche du site. Le notifieur ne signale que les annonces découvertes **après** son activation.            |
 
 ## Licence
 

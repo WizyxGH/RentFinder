@@ -1,12 +1,13 @@
 /**
  * Faits d'une annonce mis en forme pour une NOTIFICATION (§29).
  *
- * Telegram et le Web Push doivent dire la même chose : le loyer, la surface,
- * l'adresse la plus précise connue, la disponibilité, le téléphone, l'origine
- * et la priorité. Ces fonctions étaient privées au notifieur Telegram, ce qui
- * condamnait le Web Push à un texte plus pauvre. Elles vivent désormais ici,
- * sans mise en forme propre à un canal — pas de HTML, pas d'emoji : chaque
- * canal habille ce qu'il reçoit.
+ * Une alerte doit porter de quoi DÉCIDER sans ouvrir le site : le loyer, la
+ * surface, l'adresse la plus précise connue, la disponibilité, le téléphone,
+ * l'origine et la priorité.
+ *
+ * Ces fonctions vivent à part du canal qui les emploie, sans mise en forme
+ * propre à l'un d'eux — pas de HTML, pas d'emoji : le canal habille ce qu'il
+ * reçoit. C'est ce qui a permis d'en retirer un sans rien réécrire.
  *
  * Toutes sont PURES et testables sans réseau (§59).
  */

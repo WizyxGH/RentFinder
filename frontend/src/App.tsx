@@ -558,6 +558,26 @@ export function App(): React.JSX.Element {
 
   const selected = listings.find((listing) => listing.id === selectedId) ?? null;
 
+  // DÉCLARÉ ICI, avec les autres actions sur une annonce, et non plus après le
+  // rendu de la liste : la vue FICHE sort du composant par un `return` anticipé,
+  // si bien que la déclaration qui suivait n'était jamais atteinte. Le cœur de
+  // la fiche capturait alors une liaison non initialisée, et le clic levait une
+  // `ReferenceError` au lieu d'enregistrer le favori.
+  const handleFavorite = async (id: string, favorite: boolean): Promise<void> => {
+    // Optimiste ; si on n'affiche que les favoris, retirer un favori le fait
+    // disparaître de la liste.
+    setListings((current) =>
+      !favorite && favoritesOnly
+        ? current.filter((listing) => listing.id !== id)
+        : current.map((listing) => (listing.id === id ? { ...listing, favorite } : listing)),
+    );
+    try {
+      await setFavorite(id, favorite);
+    } catch {
+      setError('Le favori n’a pas pu être enregistré');
+    }
+  };
+
   const handleArchive = async (id: string, archived: boolean): Promise<void> => {
     // Optimiste : si on archive et qu'on ne montre pas les archivées, l'annonce
     // disparaît de la liste ; sinon on met simplement à jour son état.
@@ -818,21 +838,6 @@ export function App(): React.JSX.Element {
       else next.add(sourceId);
       return next;
     });
-
-  const handleFavorite = async (id: string, favorite: boolean): Promise<void> => {
-    // Optimiste ; si on n'affiche que les favoris, retirer un favori le fait
-    // disparaître de la liste.
-    setListings((current) =>
-      !favorite && favoritesOnly
-        ? current.filter((listing) => listing.id !== id)
-        : current.map((listing) => (listing.id === id ? { ...listing, favorite } : listing)),
-    );
-    try {
-      await setFavorite(id, favorite);
-    } catch {
-      setError('Le favori n’a pas pu être enregistré');
-    }
-  };
 
   return (
     <Shell

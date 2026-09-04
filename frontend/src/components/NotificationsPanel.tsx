@@ -323,11 +323,6 @@ export function NotificationsPanel({
                 : 'Pas encore demandée.'
           }
         />
-        <Status
-          ok
-          label="Telegram"
-          detail="Canal principal, le plus complet : photo, loyer, surface, téléphone. Réglé sur votre machine."
-        />
       </ul>
 
       <div>

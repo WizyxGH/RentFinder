@@ -256,12 +256,6 @@ const NARRATION: Record<string, (f: Record<string, unknown>, c: boolean) => stri
       `   ${paint(`${secs} s`, CYAN, c)} · sources : ${shortList(f['sourcesRun'])}`
     );
   },
-  'notify.done': (f, c) => {
-    const sent = num(f['sent']);
-    if (sent === 0 && num(f['candidates']) === 0)
-      return `📱 Telegram : aucune nouveauté à notifier`;
-    return `📱 Telegram : ${paint(`${sent} envoyée(s)`, GREEN, c)}`;
-  },
   'agencies.undiscovered': (f, c) => {
     const agencies = Array.isArray(f['agencies']) ? f['agencies'] : [];
     if (agencies.length === 0) return '';
@@ -271,17 +265,12 @@ const NARRATION: Record<string, (f: Record<string, unknown>, c: boolean) => stri
       c,
     );
   },
-  'reactions.done': (f, c) =>
-    `⭐ Favoris via Telegram : +${paint(String(num(f['favorited'])), GREEN, c)}` +
-    (num(f['unfavorited']) > 0 ? ` · -${num(f['unfavorited'])}` : ''),
   'pipeline.partial_failure': (f, c) =>
     paint(
       `⚠ Sources en échec : ${shortList(f['sources'])} (les autres ont continué)`,
       LEVEL_COLOR.warn,
       c,
     ),
-  // Doublon du bilan « pipeline.done » côté notifieur : on le tait.
-  'notify.telegram_sent': () => '',
   // Bruit de démarrage : on ne montre que si des migrations sont appliquées.
   'db.migration.up_to_date': () => '',
   'db.migration.done': (f) => {
