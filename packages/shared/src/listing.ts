@@ -152,6 +152,14 @@ export interface ListingOccurrence {
   /** Classe énergétique (DPE) en majuscule « A »–« G », ou `null` (§17). */
   readonly dpe: Maybe<string>;
   /**
+   * Nombre maximal d'occupants annoncé (« peut accueillir jusqu'à 4 personnes »).
+   *
+   * Décisif quand on cherche à plusieurs, et publié par les meublés courte
+   * durée (Lodgis, Studapart) que le reste de l'inventaire ignore. `null`
+   * quand la source n'en dit rien — jamais déduit du nombre de pièces (§17).
+   */
+  readonly maxOccupants: Maybe<number>;
+  /**
    * Atouts affichables extraits de l'annonce (« Ascenseur », « Balcon »,
    * « 3e étage », « Meublé »…). Liste normalisée, dédoublonnée, jamais
    * inventée : uniquement ce que la source mentionne. Vide si rien.
@@ -229,6 +237,8 @@ export interface AggregatedListing {
   readonly furnished: MergedField<Maybe<boolean>>;
   readonly flatShare: MergedField<Maybe<boolean>>;
   readonly dpe: MergedField<Maybe<string>>;
+  /** Nombre maximal d'occupants annoncé, ou `null` (§17). */
+  readonly maxOccupants: MergedField<Maybe<number>>;
   /** Union dédoublonnée des atouts de toutes les sources. */
   readonly features: readonly string[];
 

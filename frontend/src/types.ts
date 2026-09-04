@@ -50,6 +50,11 @@ export interface ListingView {
   readonly flatShare?: MergedField<boolean | null>;
   /** Classe énergétique (DPE) — absent sur les fiches anciennes. */
   readonly dpe?: MergedField<string | null>;
+  /**
+   * Nombre maximal d'occupants annoncé — absent sur les fiches anciennes.
+   * Décisif quand on cherche à plusieurs, et publié par les meublés.
+   */
+  readonly maxOccupants?: MergedField<number | null>;
   /** Atouts affichables (« Ascenseur », « Balcon »…) — absent sur les fiches anciennes. */
   readonly features?: readonly string[];
   readonly address: MergedField<string | null>;

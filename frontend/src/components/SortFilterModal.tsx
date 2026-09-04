@@ -21,7 +21,12 @@ import { Check, RotateCcw, X } from 'lucide-react';
 import type { SortMode } from '../types.js';
 import type { PropertyType } from '@rentfinder/shared';
 import { formatPropertyType, formatSourceName } from '../format.js';
-import { PillButton, ROOM_PRESETS, type QuickFilterValues } from './QuickFilters.js';
+import {
+  OCCUPANT_PRESETS,
+  PillButton,
+  ROOM_PRESETS,
+  type QuickFilterValues,
+} from './QuickFilters.js';
 import { FiltersPanel } from './FiltersPanel.js';
 import { Button } from '@/components/ui/button.js';
 
@@ -212,6 +217,31 @@ export function SortFilterModal({
                 onClick={() => patch({ minRooms: r })}
               >
                 {r}+
+              </PillButton>
+            ))}
+          </div>
+        </fieldset>
+
+        <fieldset className="mb-5">
+          <legend className="mb-2 text-sm font-semibold text-muted-foreground">
+            Nombre de personnes
+          </legend>
+          {/* Ne filtre que les annonces qui annoncent un plafond : la plupart
+            n'en publient aucun, et les écarter viderait la liste (§17). */}
+          <div className="flex flex-wrap gap-1.5">
+            <PillButton
+              selected={quickFilters.minOccupants === null}
+              onClick={() => patch({ minOccupants: null })}
+            >
+              Indifférent
+            </PillButton>
+            {OCCUPANT_PRESETS.map((count) => (
+              <PillButton
+                key={count}
+                selected={quickFilters.minOccupants === count}
+                onClick={() => patch({ minOccupants: count })}
+              >
+                {count}
               </PillButton>
             ))}
           </div>

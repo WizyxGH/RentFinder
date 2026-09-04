@@ -274,6 +274,18 @@ export function ListingDetail({
               : 'Non — logement entier'}
         </dd>
 
+        {/* Publié par les meublés courte durée, et par eux seuls : on ne
+          l'affiche donc que lorsqu'il existe (§17). */}
+        {listing.maxOccupants?.value != null && (
+          <>
+            <dt className={FACT_LABEL}>Occupants</dt>
+            <dd>
+              {listing.maxOccupants.value} personne
+              {listing.maxOccupants.value > 1 ? 's' : ''} maximum
+            </dd>
+          </>
+        )}
+
         <dt className={FACT_LABEL}>DPE</dt>
         <dd>{listing.dpe?.value ? `Classe ${listing.dpe.value}` : UNKNOWN_LABEL}</dd>
 

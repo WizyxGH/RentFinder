@@ -55,6 +55,7 @@ interface StoredViewState {
     maxPrice?: unknown;
     minArea?: unknown;
     minRooms?: unknown;
+    minOccupants?: unknown;
     types?: unknown;
   };
   selectedSources?: unknown;
@@ -100,6 +101,7 @@ export function readViewState(): ViewState {
       maxPrice: numberOrNull(quick.maxPrice, defaults.maxPrice),
       minArea: numberOrNull(quick.minArea, defaults.minArea),
       minRooms: numberOrNull(quick.minRooms, defaults.minRooms),
+      minOccupants: numberOrNull(quick.minOccupants, defaults.minOccupants),
       types: new Set(strings(quick.types) as PropertyType[]),
     },
     selectedSources: new Set(strings(stored.selectedSources)),

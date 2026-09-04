@@ -40,6 +40,7 @@ export function makeOccurrence(
     furnished: null,
     flatShare: null,
     dpe: null,
+    maxOccupants: null,
     features: [],
     address: null,
     district: null,
@@ -93,6 +94,7 @@ export interface AggregatedOverrides {
   readonly furnished?: boolean | null;
   readonly flatShare?: boolean | null;
   readonly dpe?: string | null;
+  readonly maxOccupants?: number | null;
   readonly features?: readonly string[];
   readonly city?: string | null;
   readonly postalCode?: string | null;
@@ -133,6 +135,7 @@ export function makeAggregated(overrides: AggregatedOverrides = {}): AggregatedL
     furnished: field(pick(overrides.furnished, null)),
     flatShare: field(pick(overrides.flatShare, null)),
     dpe: field(pick(overrides.dpe, null)),
+    maxOccupants: field(pick(overrides.maxOccupants, null)),
     features: pick(overrides.features, []),
     address: field(pick(overrides.address, null)),
     district: field(pick(overrides.district, null)),

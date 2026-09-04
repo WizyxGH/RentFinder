@@ -27,6 +27,7 @@ import {
   parseDpe,
   parseFlatShare,
   parseFurnished,
+  parseMaxOccupants,
   extractFeatures,
   extractStreetAddress,
   parseAvailableAt,
@@ -253,6 +254,8 @@ export function normalizeListing(
     furnished: parseFurnished(furnishedSource),
     flatShare: parseFlatShare(`${typeSource} ${raw.description ?? ''}`),
     dpe: resolveDpe(raw),
+    // Publié en toutes lettres dans la description des meublés courte durée.
+    maxOccupants: parseMaxOccupants(`${raw.title ?? ''} ${raw.description ?? ''}`),
     features: extractFeatures(
       `${raw.title ?? ''} ${raw.description ?? ''} ${raw.furnishedText ?? ''} ${raw.extra?.['features'] ?? ''}`,
       raw.extra,

@@ -303,6 +303,29 @@ function numericAttr(value: string | undefined): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+/**
+ * Nombre maximal d'occupants annoncé par la source.
+ *
+ * Les meublés courte durée le publient en toutes lettres — « peut accueillir
+ * jusqu'à 4 personnes », « 2/3 personnes », « pour 2 personnes maximum ». Le
+ * chiffre est DÉCISIF quand on cherche à plusieurs, et aucune autre donnée ne
+ * le remplace : le nombre de pièces n'en dit rien.
+ *
+ * On ne lit que ce qui est écrit, jamais une déduction (§17). Une fourchette
+ * (« 2/3 personnes ») rend son PLAFOND, qui est la promesse faite.
+ */
+export function parseMaxOccupants(text: string | null | undefined): number | null {
+  const lower = comparable(text);
+  if (lower === '') return null;
+  // « 4 personnes », « 2 3 personnes » (la barre oblique a sauté au nettoyage),
+  // « couchages ». Le dernier nombre d'une fourchette est le plafond.
+  const match = /(\d{1,2})(?:\s+(\d{1,2}))?\s+(?:personnes?|couchages?|voyageurs?)\b/.exec(lower);
+  if (match?.[1] === undefined) return null;
+  const value = Number.parseInt(match[2] ?? match[1], 10);
+  // Au-delà de 20, c'est une résidence entière ou un nombre attrapé au vol.
+  return Number.isFinite(value) && value >= 1 && value <= 20 ? value : null;
+}
+
 /** Extrait un code postal français à cinq chiffres. */
 export function parsePostalCode(text: string | null | undefined): string | null {
   const cleaned = cleanText(text);

@@ -19,6 +19,12 @@ export interface QuickFilterValues {
   readonly maxPrice: number | null;
   readonly minArea: number | null;
   readonly minRooms: number | null;
+  /**
+   * Nombre de personnes à loger. Ne filtre QUE les annonces qui annoncent un
+   * plafond : la plupart n'en publient aucun, et les écarter reviendrait à
+   * vider la liste pour une information que les sources ne donnent pas (§17).
+   */
+  readonly minOccupants: number | null;
   readonly types: ReadonlySet<PropertyType>;
 }
 
@@ -28,6 +34,7 @@ export const EMPTY_QUICK_FILTERS: QuickFilterValues = {
   maxPrice: null,
   minArea: null,
   minRooms: null,
+  minOccupants: null,
   types: new Set(),
 };
 
@@ -43,6 +50,7 @@ export const DEFAULT_QUICK_FILTERS: QuickFilterValues = {
   maxPrice: MVP_CRITERIA.maxPrice,
   minArea: MVP_CRITERIA.minArea,
   minRooms: null,
+  minOccupants: null,
   types: new Set(),
 };
 
@@ -60,6 +68,7 @@ export function hasActiveQuickFilters(v: QuickFilterValues): boolean {
     v.maxPrice !== d.maxPrice ||
     v.minArea !== d.minArea ||
     v.minRooms !== d.minRooms ||
+    v.minOccupants !== d.minOccupants ||
     v.types.size !== d.types.size
   );
 }
@@ -70,6 +79,7 @@ export interface QuickFilterable {
   readonly area: { readonly value: number | null };
   readonly rooms: { readonly value: number | null };
   readonly propertyType: { readonly value: PropertyType };
+  readonly maxOccupants?: { readonly value: number | null };
 }
 
 /**
@@ -89,10 +99,20 @@ export function matchesQuickFilters(listing: QuickFilterable, v: QuickFilterValu
   if (v.minRooms !== null && (listing.rooms.value === null || listing.rooms.value < v.minRooms)) {
     return false;
   }
+  // Le plafond d'occupants n'est publié que par une poignée de sources : une
+  // annonce muette RESTE dans la liste. Filtrer sur une donnée que presque
+  // personne ne fournit viderait l'écran sans rien apprendre (§17).
+  const occupants = listing.maxOccupants?.value ?? null;
+  if (v.minOccupants !== null && occupants !== null && occupants < v.minOccupants) {
+    return false;
+  }
   return v.types.size === 0 || v.types.has(listing.propertyType.value);
 }
 
 export const ROOM_PRESETS = [1, 2, 3, 4, 5] as const;
+
+/** Tailles de groupe courantes. Au-delà de 4, l'offre niçoise est anecdotique. */
+export const OCCUPANT_PRESETS = [1, 2, 3, 4] as const;
 
 interface QuickFiltersProps {
   readonly values: QuickFilterValues;
@@ -124,6 +144,12 @@ export function QuickFilters({ values, onChange }: QuickFiltersProps): React.JSX
             <FilterChip
               label={`≥ ${values.minArea} m²`}
               onRemove={() => patch({ minArea: null })}
+            />
+          )}
+          {values.minOccupants !== null && (
+            <FilterChip
+              label={`${values.minOccupants} personne${values.minOccupants > 1 ? 's' : ''}`}
+              onRemove={() => patch({ minOccupants: null })}
             />
           )}
           {values.minRooms !== null && (

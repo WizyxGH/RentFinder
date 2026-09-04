@@ -10,6 +10,7 @@ import {
   extractFeatures,
   extractStreetAddress,
   isShortTermStudentLease,
+  parseMaxOccupants,
   parseAvailableAt,
   parsePhone,
   parsePostalCode,
@@ -471,5 +472,30 @@ describe('parseFlatShare (§17 — colocation)', () => {
   it('rend null quand le texte ne dit rien', () => {
     expect(parseFlatShare('Studio meublé centre-ville')).toBeNull();
     expect(parseFlatShare('')).toBeNull();
+  });
+});
+
+describe('parseMaxOccupants (§17 — nombre de personnes)', () => {
+  it('lit le plafond annoncé, sous ses tournures courantes', () => {
+    // Relevé sur Lodgis le 2026-09-04.
+    expect(
+      parseMaxOccupants('cet appartement en location meublée peut accueillir jusqu’à 4 personnes'),
+    ).toBe(4);
+    expect(parseMaxOccupants('Studio pour 2 personnes')).toBe(2);
+    expect(parseMaxOccupants('3 couchages')).toBe(3);
+  });
+
+  it('retient le PLAFOND d’une fourchette — c’est la promesse faite', () => {
+    expect(parseMaxOccupants('idéal 2/3 personnes')).toBe(3);
+  });
+
+  it('ne déduit rien du nombre de pièces ni d’un chiffre isolé (§17)', () => {
+    expect(parseMaxOccupants('Appartement 3 pièces avec balcon')).toBeNull();
+    expect(parseMaxOccupants('')).toBeNull();
+    expect(parseMaxOccupants(null)).toBeNull();
+  });
+
+  it('écarte un nombre invraisemblable', () => {
+    expect(parseMaxOccupants('résidence de 400 personnes')).toBeNull();
   });
 });
