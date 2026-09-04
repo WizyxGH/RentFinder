@@ -6,7 +6,16 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { pathFromRoute, routeFromPath, sameRoute, type Route } from './router.js';
+import {
+  ALL_VIEWS,
+  VIEWS_WITH_ID,
+  pathFromRoute,
+  routeFromPath,
+  sameRoute,
+  type Route,
+  type View,
+} from './router.js';
+import { SETTINGS_LINKS } from './components/SettingsLinks.js';
 
 const ROUTES: readonly { path: string; route: Route }[] = [
   { path: '/', route: { view: 'home' } },
@@ -81,5 +90,38 @@ describe('sameRoute', () => {
     expect(sameRoute({ view: 'list' }, { view: 'list', favoritesOnly: false })).toBe(true);
     expect(sameRoute({ view: 'list' }, { view: 'list', favoritesOnly: true })).toBe(false);
     expect(sameRoute({ view: 'detail', id: 'a' }, { view: 'detail', id: 'b' })).toBe(false);
+  });
+});
+
+describe('exhaustivité de la table des routes', () => {
+  it('donne une adresse DISTINCTE à chaque écran', () => {
+    // Un écran ajouté sans adresse devenait inatteignable par URL, et le
+    // bouton qui y menait réécrivait la barre d'adresse avec « / » — donc
+    // renvoyait à l'accueil au premier rafraîchissement.
+    const paths = new Map<string, View>();
+    for (const view of ALL_VIEWS) {
+      const route: Route = VIEWS_WITH_ID.includes(view) ? { view, id: 'x' } : { view };
+      const path = pathFromRoute(route);
+      const already = paths.get(path);
+      expect(already, `${view} et ${already ?? ''} partagent l’adresse ${path}`).toBeUndefined();
+      paths.set(path, view);
+    }
+  });
+
+  it('relit chaque écran depuis son adresse', () => {
+    for (const view of ALL_VIEWS) {
+      const route: Route = VIEWS_WITH_ID.includes(view) ? { view, id: 'x' } : { view };
+      expect(routeFromPath(pathFromRoute(route)), `aller-retour de ${view}`).toEqual(route);
+    }
+  });
+});
+
+describe('les entrées des Paramètres mènent quelque part', () => {
+  it('ne propose que des écrans qui existent', () => {
+    // `onNavigate(key as View)` masquait l'erreur : une clé mal orthographiée
+    // compilait, et le clic ne faisait rien du tout.
+    for (const link of SETTINGS_LINKS) {
+      expect(ALL_VIEWS, `« ${link.label} » vise ${link.key}`).toContain(link.key);
+    }
   });
 });

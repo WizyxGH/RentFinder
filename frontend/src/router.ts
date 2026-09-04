@@ -36,6 +36,43 @@ export type View =
   | 'agency'
   | 'alerts';
 
+/**
+ * TOUS les écrans, à l'exécution.
+ *
+ * `View` est un type : il disparaît à la compilation, et rien n'empêchait donc
+ * d'ajouter un écran sans lui donner d'adresse — il devenait alors
+ * inatteignable par URL, et le bouton qui y menait réécrivait la barre
+ * d'adresse avec « / ». La table ci-dessous existe pour être PARCOURUE par un
+ * test.
+ *
+ * L'objet intermédiaire n'est pas un ornement : `Record<View, true>` force
+ * TypeScript à refuser la compilation si un écran manque ici. Un simple
+ * tableau `View[]` aurait accepté l'oubli.
+ */
+const VIEW_PRESENCE: Record<View, true> = {
+  home: true,
+  list: true,
+  detail: true,
+  stats: true,
+  profile: true,
+  tenant: true,
+  documents: true,
+  reference: true,
+  saved: true,
+  notifications: true,
+  theme: true,
+  sources: true,
+  source: true,
+  agencies: true,
+  agency: true,
+  alerts: true,
+};
+
+export const ALL_VIEWS: readonly View[] = Object.keys(VIEW_PRESENCE) as View[];
+
+/** Les écrans qui regardent quelque chose : leur adresse porte un identifiant. */
+export const VIEWS_WITH_ID: readonly View[] = ['detail', 'source', 'agency'];
+
 /** Où l'on se trouve : un écran, et ce qu'il regarde. */
 export interface Route {
   readonly view: View;
