@@ -180,14 +180,26 @@ export function ListingDetail({
   const favorite = listing.favorite === true;
 
   // Requête Maps : la localisation la plus précise disponible (§20). Rue si
-  // connue, sinon quartier, sinon ville + code postal.
-  const mapsQuery = [
-    listing.address.value ?? listing.district.value,
-    listing.postalCode.value,
-    formatCity(listing.city.value),
-  ]
-    .filter((part): part is string => part !== null && part !== '' && part !== UNKNOWN)
-    .join(', ');
+  // connue, sinon quartier.
+  //
+  // PAS DE LIEN SUR LA SEULE VILLE. Beaucoup d'alertes e-mail ne publient que
+  // « 06000 Nice » : l'épingle et le lien promettaient alors une adresse, et
+  // déposaient l'utilisateur au centre-ville. Un lien qui n'apprend rien vaut
+  // moins que pas de lien (§17, §20).
+  const placed = listing.address.value ?? listing.district.value;
+  const mapsQuery =
+    placed === null || placed === '' || placed === UNKNOWN
+      ? ''
+      : [placed, listing.postalCode.value, formatCity(listing.city.value)]
+          .filter((part): part is string => part !== null && part !== '' && part !== UNKNOWN)
+          .join(', ');
+
+  const place = formatPostalAddress({
+    address: listing.address.value,
+    postalCode: listing.postalCode.value,
+    city: listing.city.value,
+    district: listing.district.value,
+  });
 
   return (
     <div>
@@ -277,21 +289,15 @@ export function ListingDetail({
               className="text-primary underline"
               title="Ouvrir dans Maps"
             >
-              <MapPin aria-hidden="true" className="inline size-4" />{' '}
-              {formatPostalAddress({
-                address: listing.address.value,
-                postalCode: listing.postalCode.value,
-                city: listing.city.value,
-                district: listing.district.value,
-              })}
+              <MapPin aria-hidden="true" className="inline size-4" /> {place}
             </a>
           ) : (
-            formatPostalAddress({
-              address: listing.address.value,
-              postalCode: listing.postalCode.value,
-              city: listing.city.value,
-              district: listing.district.value,
-            })
+            <>
+              {place}
+              <span className="block text-[0.82rem] text-muted-foreground">
+                La source ne publie ni rue ni quartier.
+              </span>
+            </>
           )}
         </dd>
 

@@ -158,6 +158,24 @@ describe('fiche détaillée', () => {
     expect(link).toHaveAttribute('href', 'https://portail.example.invalid/a/1');
   });
 
+  it('applique les trois actions de la fiche : favori, statut, archivage', async () => {
+    // Le PIÈGE : la fiche sort du composant par un `return` anticipé. Un
+    // gestionnaire déclaré APRÈS n'est jamais initialisé pour ce rendu, et le
+    // clic lève une `ReferenceError` — silencieuse, le bouton semble inerte.
+    // C'est arrivé au favori ; ce test couvre les trois d'un coup.
+    const user = userEvent.setup();
+    render(<App />);
+    const cards = await screen.findAllByTestId('listing-card');
+    await user.click(cards[0]!);
+
+    await user.selectOptions(await screen.findByLabelText('Statut'), 'toContact');
+    expect(await screen.findByLabelText('Statut')).toHaveValue('toContact');
+
+    // L'archivage renvoie à la liste : l'annonce n'y est plus.
+    await user.click(screen.getByRole('button', { name: 'Archiver' }));
+    expect(await screen.findAllByTestId('listing-card')).not.toHaveLength(0);
+  });
+
   it('retient l’annonce en favori depuis la fiche', async () => {
     // La fiche sort du composant par un `return` anticipé : `handleFavorite`,
     // déclaré APRÈS, n'était jamais initialisé pour ce rendu et le clic levait
