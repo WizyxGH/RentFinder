@@ -38,6 +38,7 @@ import {
 import { SEARCH_CRITERIA_SETTING } from '@rentfinder/shared';
 import { resolveReferencePoints } from '../core/reference-points.js';
 import { loadVapidConfig, sendWebPush } from '../notify/web-push.js';
+import { dropRedundantNotifications } from '../notify/redundancy.js';
 import { fetchAlertEmails } from '../core/email-import.js';
 import { findUndiscoveredAgencies } from '../sources/email-alerts/agency-discovery.js';
 
@@ -172,7 +173,14 @@ async function main(): Promise<void> {
     const vapid = loadVapidConfig();
     if (vapid !== null) {
       try {
-        const pending = await repository.pendingNotifications(0);
+        // Une alerte e-mail qui décrit le même bien qu'une source directe est
+        // tue : la source directe porte un lien vers la vraie fiche, souvent un
+        // téléphone, et les honoraires. Les deux fiches restent visibles sur le
+        // site — seule la sonnerie en double disparaît (§29).
+        const pending = dropRedundantNotifications(
+          await repository.pendingNotifications(0),
+          await repository.directListingSpecKeys(),
+        );
         const report = await sendWebPush({
           repository,
           config: vapid,

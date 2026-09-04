@@ -306,6 +306,19 @@ export interface Scraper {
 export const SEARCH_CRITERIA_SETTING = 'searchCriteria';
 
 /**
+ * Clé des RECHERCHES ENREGISTRÉES dans `app_settings`.
+ *
+ * Une recherche enregistrée est un jeu complet de réglages qu'on nomme et
+ * qu'on rappelle — « Studio Libération 700 € », « 2 pièces avec parking ». Elle
+ * vit en base, et non dans le navigateur, pour la même raison que les
+ * critères : un téléphone et un ordinateur doivent voir les mêmes.
+ *
+ * La collecte ne les lit PAS. Seuls les critères actifs déterminent ce qu'on
+ * ramène ; une recherche enregistrée est un signet, pas un abonnement.
+ */
+export const SAVED_SEARCHES_SETTING = 'savedSearches';
+
+/**
  * Portails immobiliers reconnus à leur domaine.
  *
  * Les annonces importées par ALERTE E-MAIL portent une URL du portail, parfois

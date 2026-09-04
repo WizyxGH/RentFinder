@@ -21,6 +21,7 @@ import type {
   StatsData,
 } from '../types.js';
 import { MVP_CRITERIA } from '@rentfinder/shared';
+import type { SavedSearch } from '../saved-searches.js';
 import * as turso from './turso.js';
 import { byRecency } from '../recency.js';
 
@@ -392,4 +393,28 @@ export async function subscribePush(sub: {
 export async function unsubscribePush(endpoint: string): Promise<void> {
   if (DEMO || !isDirectMode()) return;
   await turso.removeSubscription(endpoint);
+}
+
+/**
+ * Recherches enregistrées (§66).
+ *
+ * Elles vivent dans `app_settings`, comme les critères : le site déployé n'a
+ * aucun accès à la machine de collecte, la base est leur seul point de
+ * rencontre. En démo et en mode API, on n'en propose pas — il n'y a pas de
+ * base à écrire, et une liste qui s'oublie au rechargement vaudrait moins que
+ * pas de liste du tout (§17).
+ */
+export async function fetchSavedSearches(): Promise<readonly SavedSearch[]> {
+  if (DEMO || !isDirectMode()) return [];
+  return turso.readSavedSearches();
+}
+
+export async function saveSavedSearches(searches: readonly SavedSearch[]): Promise<void> {
+  if (DEMO || !isDirectMode()) return;
+  await turso.writeSavedSearches(searches);
+}
+
+/** `true` si cet accès sait conserver une recherche enregistrée. */
+export function savedSearchesAvailable(): boolean {
+  return !DEMO && isDirectMode();
 }

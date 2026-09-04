@@ -13,9 +13,10 @@
  */
 
 import { createClient, type Client } from '@libsql/client/web';
-import { SEARCH_CRITERIA_SETTING } from '@rentfinder/shared';
+import { SAVED_SEARCHES_SETTING, SEARCH_CRITERIA_SETTING } from '@rentfinder/shared';
 import { byRecency } from '../recency.js';
 import type { FilterConfig, ListingView, SourceStateView, StatsData } from '../types.js';
+import type { SavedSearch } from '../saved-searches.js';
 
 const URL_KEY = 'rentfinder.tursoUrl';
 const TOKEN_KEY = 'rentfinder.tursoToken';
@@ -188,7 +189,7 @@ function writeStore(snapshot: Snapshot): void {
 export function invalidate(): void {
   memo = null;
   probedAt = 0;
-  criteriaCache = undefined;
+  settingsCache.clear();
   try {
     localStorage.removeItem(STORE_KEY);
   } catch {
@@ -239,7 +240,7 @@ export async function listListings(options: ListOptions = {}): Promise<readonly 
   // suivante. Les exclusions (colocation, étudiant) restent figées à la
   // collecte — elles demandent le texte de l'annonce, pas un nombre.
   // Un champ NULL n'exclut jamais (§17).
-  const criteria = options.includeOutOfCriteria === true ? null : await cachedCriteria();
+  const criteria = options.includeOutOfCriteria === true ? null : await readSearchCriteria();
   const kept = all.filter((l) => {
     if (options.includeOutOfCriteria !== true && !l.matchesCriteria) return false;
     if (options.includeArchived !== true && l.archived === true) return false;
@@ -454,15 +455,46 @@ async function ensureSettingsTable(): Promise<void> {
 }
 
 /**
- * Critères mémorisés pour la durée de la session : la liste se refiltre à
- * chaque changement d'onglet ou de tri, et relire une ligne à chaque fois
- * n'apprendrait rien (§30 — Turso facture les lectures).
+ * Réglages mémorisés pour la durée de la session.
+ *
+ * La liste se refiltre à chaque changement d'onglet ou de tri, et relire une
+ * ligne à chaque fois n'apprendrait rien (§30 — Turso facture les lectures).
+ * `undefined` = jamais lu ; `null` = lu, et la base n'a rien.
  */
-let criteriaCache: FilterConfig | null | undefined;
+const settingsCache = new Map<string, unknown>();
 
-async function cachedCriteria(): Promise<FilterConfig | null> {
-  if (criteriaCache === undefined) criteriaCache = await fetchSearchCriteria();
-  return criteriaCache;
+/** Lit un réglage JSON, une seule fois par session. */
+async function readSetting<T>(key: string): Promise<T | null> {
+  if (settingsCache.has(key)) return settingsCache.get(key) as T | null;
+  await ensureSettingsTable();
+  const result = await client().execute({
+    sql: 'SELECT value FROM app_settings WHERE key = ?',
+    args: [key],
+  });
+  const raw = result.rows[0]?.['value'];
+  let value: T | null = null;
+  if (typeof raw === 'string') {
+    try {
+      value = JSON.parse(raw) as T;
+    } catch {
+      // Valeur illisible : on repart des défauts plutôt que de bloquer l'écran.
+      value = null;
+    }
+  }
+  settingsCache.set(key, value);
+  return value;
+}
+
+/** Écrit un réglage JSON et rafraîchit le cache de session. */
+async function writeSetting(key: string, value: unknown): Promise<void> {
+  await ensureSettingsTable();
+  await client().execute({
+    sql: `INSERT INTO app_settings (key, value, updated_at) VALUES (?,?,?)
+          ON CONFLICT(key) DO UPDATE SET value = excluded.value,
+                                         updated_at = excluded.updated_at`,
+    args: [key, JSON.stringify(value), new Date().toISOString()],
+  });
+  settingsCache.set(key, value);
 }
 
 /**
@@ -470,32 +502,19 @@ async function cachedCriteria(): Promise<FilterConfig | null> {
  * une ligne à chaque ouverture de modale n'apprend rien (§30).
  */
 export async function readSearchCriteria(): Promise<FilterConfig | null> {
-  return cachedCriteria();
-}
-
-async function fetchSearchCriteria(): Promise<FilterConfig | null> {
-  await ensureSettingsTable();
-  const result = await client().execute({
-    sql: 'SELECT value FROM app_settings WHERE key = ?',
-    args: [SEARCH_CRITERIA_SETTING],
-  });
-  const raw = result.rows[0]?.['value'];
-  if (typeof raw !== 'string') return null;
-  try {
-    return JSON.parse(raw) as FilterConfig;
-  } catch {
-    // Valeur illisible : on repart des défauts plutôt que de bloquer l'écran.
-    return null;
-  }
+  return readSetting<FilterConfig>(SEARCH_CRITERIA_SETTING);
 }
 
 export async function writeSearchCriteria(filters: FilterConfig): Promise<void> {
-  await ensureSettingsTable();
-  await client().execute({
-    sql: `INSERT INTO app_settings (key, value, updated_at) VALUES (?,?,?)
-          ON CONFLICT(key) DO UPDATE SET value = excluded.value,
-                                         updated_at = excluded.updated_at`,
-    args: [SEARCH_CRITERIA_SETTING, JSON.stringify(filters), new Date().toISOString()],
-  });
-  criteriaCache = filters;
+  await writeSetting(SEARCH_CRITERIA_SETTING, filters);
+}
+
+/** Recherches enregistrées. Base vierge → aucune, ce qui n'est pas une erreur. */
+export async function readSavedSearches(): Promise<readonly SavedSearch[]> {
+  const value = await readSetting<readonly SavedSearch[]>(SAVED_SEARCHES_SETTING);
+  return Array.isArray(value) ? value : [];
+}
+
+export async function writeSavedSearches(searches: readonly SavedSearch[]): Promise<void> {
+  await writeSetting(SAVED_SEARCHES_SETTING, searches);
 }
