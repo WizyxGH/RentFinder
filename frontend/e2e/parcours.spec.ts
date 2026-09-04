@@ -249,7 +249,7 @@ test('les alertes se règlent depuis leur propre écran (§29)', async ({ page }
   // L'interrupteur était posé au milieu des paramètres, seul de son espèce, et
   // ne pouvait rien dire des familles d'alertes. Il a sa page.
   await ouvrirReglage(page, 'Notifications');
-  await expect(page).toHaveURL(/\/parametres\/notifications$/);
+  await expect(page).toHaveURL(/\/settings\/notifications$/);
 
   const alertes = page.getByRole('switch', { name: 'Recevoir des alertes' });
   await expect(alertes).toBeVisible();
@@ -426,15 +426,15 @@ test('chaque écran a son adresse, et le retour navigateur la respecte (§39)', 
   // refermer une fiche, un lien d'annonce ne se collait pas, et un
   // rafraîchissement ramenait à l'accueil.
   // `beforeEach` a déjà ouvert la recherche : l'adresse doit le dire.
-  await expect(page).toHaveURL(/\/recherche$/);
+  await expect(page).toHaveURL(/\/search$/);
 
   await page.getByTestId('listing-card').first().click();
-  await expect(page).toHaveURL(/\/annonce\//);
+  await expect(page).toHaveURL(/\/listing\//);
   const fiche = page.url();
 
   // Le retour du navigateur referme la fiche au lieu de sortir du site.
   await page.goBack();
-  await expect(page).toHaveURL(/\/recherche$/);
+  await expect(page).toHaveURL(/\/search$/);
 
   // Et l'adresse d'une annonce se recharge telle quelle : c'est ce qui permet
   // de l'envoyer à quelqu'un.
@@ -442,7 +442,7 @@ test('chaque écran a son adresse, et le retour navigateur la respecte (§39)', 
   await expect(page.getByRole('button', { name: 'Retour' }).first()).toBeVisible();
 
   // Une adresse inconnue donne un point de départ, pas une page blanche.
-  await page.goto(new URL('/nimporte-quoi', fiche).toString());
+  await page.goto(new URL('/nothing-here', fiche).toString());
   await expect(page.getByRole('heading', { name: 'Maïoun' })).toBeVisible();
 });
 
@@ -455,7 +455,7 @@ test('une annonce ABSENTE de la liste s’affiche par son adresse (§39)', async
   // `demo:4` est HORS CRITÈRES : la liste ne la charge pas. C'est ce qui rend
   // ce scénario probant — avec une annonce ordinaire, elle serait déjà là et
   // le test passerait même sans le correctif.
-  await page.goto('/annonce/demo%3A4');
+  await page.goto('/listing/demo%3A4');
 
   await expect(page.getByRole('button', { name: 'Retour' }).first()).toBeVisible();
   // Le titre de l'annonce, et non celui du site : c'est lui qui prouve que la

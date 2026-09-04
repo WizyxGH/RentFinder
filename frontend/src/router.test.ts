@@ -19,22 +19,22 @@ import { SETTINGS_LINKS } from './components/SettingsLinks.js';
 
 const ROUTES: readonly { path: string; route: Route }[] = [
   { path: '/', route: { view: 'home' } },
-  { path: '/recherche', route: { view: 'list' } },
-  { path: '/favoris', route: { view: 'list', favoritesOnly: true } },
-  { path: '/annonce/seloger%3A123', route: { view: 'detail', id: 'seloger:123' } },
-  { path: '/agences', route: { view: 'agencies' } },
-  { path: '/agence/century21', route: { view: 'agency', id: 'century21' } },
+  { path: '/search', route: { view: 'list' } },
+  { path: '/favorites', route: { view: 'list', favoritesOnly: true } },
+  { path: '/listing/seloger%3A123', route: { view: 'detail', id: 'seloger:123' } },
+  { path: '/agencies', route: { view: 'agencies' } },
+  { path: '/agency/century21', route: { view: 'agency', id: 'century21' } },
   { path: '/sources', route: { view: 'sources' } },
   { path: '/sources/fnaim', route: { view: 'source', id: 'fnaim' } },
-  { path: '/statistiques', route: { view: 'stats' } },
-  { path: '/alertes', route: { view: 'alerts' } },
-  { path: '/parametres', route: { view: 'profile' } },
-  { path: '/parametres/profil', route: { view: 'tenant' } },
-  { path: '/parametres/dossier', route: { view: 'documents' } },
-  { path: '/parametres/adresses', route: { view: 'reference' } },
-  { path: '/parametres/recherches', route: { view: 'saved' } },
-  { path: '/parametres/notifications', route: { view: 'notifications' } },
-  { path: '/parametres/theme', route: { view: 'theme' } },
+  { path: '/stats', route: { view: 'stats' } },
+  { path: '/alerts', route: { view: 'alerts' } },
+  { path: '/settings', route: { view: 'profile' } },
+  { path: '/settings/profile', route: { view: 'tenant' } },
+  { path: '/settings/documents', route: { view: 'documents' } },
+  { path: '/settings/addresses', route: { view: 'reference' } },
+  { path: '/settings/searches', route: { view: 'saved' } },
+  { path: '/settings/notifications', route: { view: 'notifications' } },
+  { path: '/settings/theme', route: { view: 'theme' } },
 ];
 
 describe('routeFromPath', () => {
@@ -45,29 +45,29 @@ describe('routeFromPath', () => {
   }
 
   it("décode l'identifiant : une annonce porte un « : » dans le sien", () => {
-    expect(routeFromPath('/annonce/seloger%3A12%3A34')).toEqual({
+    expect(routeFromPath('/listing/seloger%3A12%3A34')).toEqual({
       view: 'detail',
       id: 'seloger:12:34',
     });
   });
 
   it('tolère les barres obliques en trop', () => {
-    expect(routeFromPath('//recherche/')).toEqual({ view: 'list' });
+    expect(routeFromPath('//search/')).toEqual({ view: 'list' });
   });
 
   it('ramène à l’accueil ce qu’il ne connaît pas', () => {
     // Un lien devenu faux doit donner un point de départ, pas une page blanche.
     expect(routeFromPath('/nimporte-quoi')).toEqual({ view: 'home' });
-    expect(routeFromPath('/parametres/inconnu')).toEqual({ view: 'home' });
+    expect(routeFromPath('/settings/unknown')).toEqual({ view: 'home' });
   });
 
   it('exige un identifiant là où il en faut un', () => {
-    expect(routeFromPath('/annonce')).toEqual({ view: 'home' });
-    expect(routeFromPath('/agence')).toEqual({ view: 'home' });
+    expect(routeFromPath('/listing')).toEqual({ view: 'home' });
+    expect(routeFromPath('/agency')).toEqual({ view: 'home' });
   });
 
   it('ne casse pas sur une séquence d’échappement invalide', () => {
-    expect(routeFromPath('/annonce/%E0%A4%A')).toEqual({ view: 'detail', id: '%E0%A4%A' });
+    expect(routeFromPath('/listing/%E0%A4%A')).toEqual({ view: 'detail', id: '%E0%A4%A' });
   });
 });
 

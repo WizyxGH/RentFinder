@@ -9,8 +9,12 @@
  * rafraîchissement ramenait à l'accueil ; et sur Android, le geste de retour
  * fermait l'application entière.
  *
- * Les chemins sont en français et lisibles : `/annonce/seloger:123` se comprend
- * sans être développeur, et c'est ce qui se colle dans un message.
+ * LES CHEMINS SONT EN ANGLAIS. L'interface est en français, et il serait
+ * tentant de faire suivre les adresses — mais une URL n'est pas de l'interface :
+ * elle se tape, se colle dans un terminal, se retrouve dans des journaux et des
+ * outils qui ne parlent qu'anglais. Les accents et les mots français y sont une
+ * source d'échappements (`/parametres` sans accent pour éviter `%C3%A8`), et
+ * l'anglais est la langue par défaut de tout ce qui entoure une adresse web.
  *
  * CE MODULE EST PUR d'un bout à l'autre — deux fonctions qui traduisent un
  * chemin en état et l'inverse. L'accrochage à `history` vit dans le hook
@@ -94,20 +98,20 @@ export const HOME_ROUTE: Route = { view: 'home' };
  */
 const SIMPLE_ROUTES: Readonly<Record<string, View>> = {
   '': 'home',
-  recherche: 'list',
-  statistiques: 'stats',
-  alertes: 'alerts',
+  search: 'list',
+  stats: 'stats',
+  alerts: 'alerts',
   sources: 'sources',
-  agences: 'agencies',
-  bienvenue: 'onboarding',
+  agencies: 'agencies',
+  welcome: 'onboarding',
 };
 
-/** Sous-écrans des paramètres : `/parametres/<clé>`. */
+/** Sous-écrans des paramètres : `/settings/<clé>`. */
 const SETTINGS_ROUTES: Readonly<Record<string, View>> = {
-  profil: 'tenant',
-  dossier: 'documents',
-  adresses: 'reference',
-  recherches: 'saved',
+  profile: 'tenant',
+  documents: 'documents',
+  addresses: 'reference',
+  searches: 'saved',
   notifications: 'notifications',
   theme: 'theme',
 };
@@ -151,13 +155,13 @@ export function routeFromPath(pathname: string): Route {
 
   if (first === undefined) return HOME_ROUTE;
 
-  if (first === 'favoris') return { view: 'list', favoritesOnly: true };
+  if (first === 'favorites') return { view: 'list', favoritesOnly: true };
 
-  if (first === 'annonce' && second !== undefined) return { view: 'detail', id: second };
-  if (first === 'agence' && second !== undefined) return { view: 'agency', id: second };
+  if (first === 'listing' && second !== undefined) return { view: 'detail', id: second };
+  if (first === 'agency' && second !== undefined) return { view: 'agency', id: second };
   if (first === 'sources' && second !== undefined) return { view: 'source', id: second };
 
-  if (first === 'parametres') {
+  if (first === 'settings') {
     if (second === undefined) return { view: 'profile' };
     const view = SETTINGS_ROUTES[second];
     return view === undefined ? HOME_ROUTE : { view };
@@ -171,14 +175,14 @@ export function routeFromPath(pathname: string): Route {
 export function pathFromRoute(route: Route): string {
   const { view, id, favoritesOnly } = route;
 
-  if (view === 'list') return favoritesOnly === true ? '/favoris' : '/recherche';
-  if (view === 'detail') return `/annonce/${encodeURIComponent(id ?? '')}`;
-  if (view === 'agency') return `/agence/${encodeURIComponent(id ?? '')}`;
+  if (view === 'list') return favoritesOnly === true ? '/favorites' : '/search';
+  if (view === 'detail') return `/listing/${encodeURIComponent(id ?? '')}`;
+  if (view === 'agency') return `/agency/${encodeURIComponent(id ?? '')}`;
   if (view === 'source') return `/sources/${encodeURIComponent(id ?? '')}`;
-  if (view === 'profile') return '/parametres';
+  if (view === 'profile') return '/settings';
 
   const settings = SETTINGS_PATHS[view];
-  if (settings !== undefined) return `/parametres/${settings}`;
+  if (settings !== undefined) return `/settings/${settings}`;
 
   const simple = SIMPLE_PATHS[view];
   return simple === undefined || simple === '' ? '/' : `/${simple}`;
