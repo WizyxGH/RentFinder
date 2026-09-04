@@ -14,7 +14,12 @@ interface ProfileFormProps {
   readonly initial: TenantProfile | null;
   readonly onSave: (profile: TenantProfile) => void;
   readonly onCancel: () => void;
-  readonly onClear: () => void;
+  /**
+   * Absent pendant le PREMIER PARCOURS : « Effacer de cet appareil » n'a pas
+   * de sens devant un profil qu'on est en train de créer, et proposer d'effacer
+   * ce qui n'existe pas encore n'inspire rien de bon.
+   */
+  readonly onClear?: () => void;
 }
 
 const FIELD = 'flex flex-col gap-1 text-[0.88rem] text-muted-foreground';
@@ -152,9 +157,11 @@ export function ProfileForm({
         <Button type="button" variant="ghost" onClick={onCancel}>
           Annuler
         </Button>
-        <Button type="button" variant="outline" onClick={onClear}>
-          Effacer de cet appareil
-        </Button>
+        {onClear !== undefined && (
+          <Button type="button" variant="outline" onClick={onClear}>
+            Effacer de cet appareil
+          </Button>
+        )}
         <Button type="submit">Enregistrer</Button>
       </div>
     </form>

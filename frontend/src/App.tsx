@@ -23,6 +23,7 @@ import {
   fetchListing,
   fetchListings,
   fetchCurrentUser,
+  fetchOnboardingDone,
   fetchSavedSearches,
   fetchSources,
   isDemoMode,
@@ -31,6 +32,7 @@ import {
   setArchived,
   recordContact,
   saveFilters,
+  markOnboardingDone,
   saveSavedSearches,
   savedSearchesAvailable,
   setFavorite,
@@ -53,6 +55,7 @@ import { SourcesPanel } from './components/SourcesPanel.js';
 import { SavedSearchesPanel } from './components/SavedSearchesPanel.js';
 import { HomePanel } from './components/HomePanel.js';
 import { LoginScreen } from './components/LoginScreen.js';
+import { OnboardingPanel } from './components/OnboardingPanel.js';
 import {
   newSearchId,
   suggestName,
@@ -544,6 +547,7 @@ export function App(): React.JSX.Element {
   // partagée s'impose, et la bascule n'a plus lieu d'être.
   const wideScreen = useWideScreen();
   const [profile, setProfile] = useState<TenantProfile | null>(() => loadProfile());
+  const [onboardingDone, setOnboardingDone] = useState<boolean | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -759,6 +763,21 @@ export function App(): React.JSX.Element {
     if (currentUser === undefined || currentUser === null) return;
     void load();
   }, [load, currentUser]);
+
+  /**
+   * Le PREMIER PARCOURS, une seule fois par compte.
+   *
+   * `undefined` tant qu'on ne sait pas : afficher l'accueil pendant la lecture
+   * le ferait clignoter chez quelqu'un qui l'a déjà vu. En cas d'échec on
+   * considère qu'il a été fait — mieux vaut ne pas le montrer que le montrer à
+   * chaque chargement sans pouvoir le refermer.
+   */
+  useEffect(() => {
+    if (currentUser === undefined || currentUser === null) return;
+    void fetchOnboardingDone()
+      .then(setOnboardingDone)
+      .catch(() => setOnboardingDone(true));
+  }, [currentUser]);
 
   // Recherches enregistrées et santé des sources : deux lectures, une fois par
   // session, dont l'accueil a besoin dès son ouverture. Un échec n'est pas une
@@ -1077,23 +1096,61 @@ export function App(): React.JSX.Element {
   // D'où ce fragment répété aux trois sorties du composant.
   const overlay = <ToastStack toasts={toasts} onOpen={openListing} onDismiss={dismissToast} />;
 
-  // On ne sait pas encore qui regarde : un instant blanc vaut mieux qu'un
-  // écran de connexion qui clignote chez quelqu'un déjà connecté.
-  if (currentUser === undefined) return <></>;
+  /**
+   * CE QUI PASSE AVANT L'APPLICATION.
+   *
+   * Trois écrans se succèdent avant qu'il y ait quoi que ce soit à naviguer :
+   * on ne sait pas encore qui regarde, personne n'est connecté, ou le compte
+   * vient d'être créé. Aucun ne porte de coquille ni d'onglets — proposer
+   * d'aller ailleurs pendant qu'on demande un mot de passe ou qu'on présente
+   * deux réglages reviendrait à ne rien demander du tout.
+   *
+   * Regroupés ici plutôt qu'en trois sorties anticipées : le corps d'`App`
+   * dépassait sinon le seuil de complexité, et ces trois-là forment une seule
+   * question — « peut-on afficher l'application ? ».
+   */
+  const entranceScreen = (): React.JSX.Element | null => {
+    // Un instant blanc vaut mieux qu'un écran de connexion qui clignote chez
+    // quelqu'un déjà connecté.
+    if (currentUser === undefined) return <></>;
 
-  // Personne n'est connecté, et cet accès l'exige : rien ne s'affiche avant.
-  if (currentUser === null) {
-    return (
-      <LoginScreen
-        onSignedIn={() => {
-          setCurrentUser('inconnu');
-          void fetchCurrentUser()
-            .then(setCurrentUser)
-            .catch(() => setCurrentUser(null));
-        }}
-      />
-    );
-  }
+    if (currentUser === null) {
+      return (
+        <LoginScreen
+          onSignedIn={() => {
+            setCurrentUser('inconnu');
+            void fetchCurrentUser()
+              .then(setCurrentUser)
+              .catch(() => setCurrentUser(null));
+          }}
+        />
+      );
+    }
+
+    if (onboardingDone === false) {
+      return (
+        <OnboardingPanel
+          profile={profile}
+          onSaveProfile={(next) => {
+            saveProfile(next);
+            setProfile(next);
+          }}
+          onFinish={() => {
+            setOnboardingDone(true);
+            // L'écran se referme tout de suite ; la marque part en base
+            // derrière. Attendre le réseau pour retirer un écran qu'on vient de
+            // terminer donnerait l'impression d'un bouton qui ne répond pas.
+            void markOnboardingDone().catch(() => undefined);
+          }}
+        />
+      );
+    }
+
+    return null;
+  };
+
+  const entrance = entranceScreen();
+  if (entrance !== null) return entrance;
 
   // Vues « secondaires » (plein écran), regroupées hors du corps principal pour
   // garder App lisible : chacune rend sa coquille ou `null` si non concernée.

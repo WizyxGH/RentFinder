@@ -34,7 +34,8 @@ export type View =
   | 'source'
   | 'agencies'
   | 'agency'
-  | 'alerts';
+  | 'alerts'
+  | 'onboarding';
 
 /**
  * TOUS les écrans, à l'exécution.
@@ -66,6 +67,7 @@ const VIEW_PRESENCE: Record<View, true> = {
   agencies: true,
   agency: true,
   alerts: true,
+  onboarding: true,
 };
 
 export const ALL_VIEWS: readonly View[] = Object.keys(VIEW_PRESENCE) as View[];
@@ -97,6 +99,7 @@ const SIMPLE_ROUTES: Readonly<Record<string, View>> = {
   alertes: 'alerts',
   sources: 'sources',
   agences: 'agencies',
+  bienvenue: 'onboarding',
 };
 
 /** Sous-écrans des paramètres : `/parametres/<clé>`. */

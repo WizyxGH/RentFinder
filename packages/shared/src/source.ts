@@ -319,6 +319,16 @@ export const SEARCH_CRITERIA_SETTING = 'searchCriteria';
 export const SAVED_SEARCHES_SETTING = 'savedSearches';
 
 /**
+ * Clé du PREMIER PARCOURS dans `app_settings`.
+ *
+ * Elle ne retient qu'une chose : cet accueil a-t-il déjà été vu. En base et non
+ * dans le navigateur, parce qu'un compte se crée sur l'ordinateur et s'ouvre
+ * ensuite sur le téléphone — le stockage local aurait resservi le même écran de
+ * bienvenue sur chaque appareil, à quelqu'un qui a déjà tout renseigné.
+ */
+export const ONBOARDING_SETTING = 'onboarding';
+
+/**
  * Portails immobiliers reconnus à leur domaine.
  *
  * Les annonces importées par ALERTE E-MAIL portent une URL du portail, parfois

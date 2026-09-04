@@ -36,6 +36,7 @@ import type {
 import {
   MVP_CRITERIA,
   NOTIFICATION_PREFERENCES_SETTING,
+  ONBOARDING_SETTING,
   REFERENCE_POINTS_SETTING,
   parseNotificationPreferences,
   type NotificationPreferences,
@@ -634,4 +635,26 @@ export async function saveNotificationPreferences(
   preferences: NotificationPreferences,
 ): Promise<void> {
   await writeSetting(NOTIFICATION_PREFERENCES_SETTING, preferences);
+}
+
+/**
+ * Le premier parcours a-t-il été fait ?
+ *
+ * En base et non dans le navigateur : un compte se crée sur l'ordinateur et
+ * s'ouvre ensuite sur le téléphone, et resservir l'écran de bienvenue à
+ * quelqu'un qui a déjà tout renseigné donnerait l'impression d'avoir tout
+ * perdu.
+ *
+ * `true` par défaut quand aucun réglage n'est joignable (démonstration, API
+ * absente) : mieux vaut ne pas montrer l'accueil que le montrer à chaque
+ * chargement sans jamais pouvoir le refermer.
+ */
+export async function fetchOnboardingDone(): Promise<boolean> {
+  if (!settingsAvailable()) return true;
+  const stored = await readSetting<{ done?: unknown }>(ONBOARDING_SETTING);
+  return stored?.done === true;
+}
+
+export async function markOnboardingDone(): Promise<void> {
+  await writeSetting(ONBOARDING_SETTING, { done: true, at: new Date().toISOString() });
 }
