@@ -171,10 +171,22 @@ export default function MapView({ listings, onOpen }: MapViewProps): React.JSX.E
 
   return (
     <div>
+      {/* LA HAUTEUR SE CALCULE, elle n'est plus devinée.
+        `65vh` obligeait à faire défiler la page pour voir le bas de la carte
+        sur un téléphone : l'en-tête, la barre de filtres et la barre de
+        navigation basse occupent déjà un bon tiers de l'écran, et `vh` compte
+        la fenêtre BARRE D'ADRESSE MASQUÉE — donc plus grande qu'elle ne l'est
+        vraiment. `dvh` suit la fenêtre réellement visible, et l'on retire ce
+        que le reste de l'écran occupe — en-tête, barre de filtres et barre de
+        navigation basse, mesurés : environ vingt rem. Le plancher évite qu'une
+        carte devienne inutilisable sur un écran très bas (téléphone en
+        paysage).
+        Au-delà de `lg`, la carte est à côté de la liste et colle au haut de
+        l'écran : elle n'a plus que l'en-tête au-dessus d'elle. */}
       <div
         ref={containerRef}
         data-testid="map-view"
-        className="h-[65vh] w-full overflow-hidden rounded-xl border border-border"
+        className="border-border h-[max(260px,calc(100dvh-20rem))] w-full overflow-hidden rounded-xl border sm:h-[max(360px,calc(100dvh-14rem))] lg:h-[calc(100dvh-7rem)]"
       />
       {/* §17 : les annonces non localisables sont dites, pas placées au hasard. */}
       {located.length < listings.length && (

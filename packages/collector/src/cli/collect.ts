@@ -35,15 +35,113 @@ import {
   loadImapConfig,
   withStoredCriteria,
 } from '../config.js';
-import { REFERENCE_POINTS_SETTING, SEARCH_CRITERIA_SETTING } from '@rentfinder/shared';
+import {
+  NOTIFICATION_PREFERENCES_SETTING,
+  REFERENCE_POINTS_SETTING,
+  SEARCH_CRITERIA_SETTING,
+  parseNotificationPreferences,
+} from '@rentfinder/shared';
 import { resolveReferencePoints } from '../core/reference-points.js';
-import { loadVapidConfig, sendWebPush } from '../notify/web-push.js';
+import type { Logger } from '../core/logger.js';
+import type { Repository } from '../db/repository.js';
+import type { VapidConfig } from '../notify/web-push.js';
+import {
+  goneContentFor,
+  loadVapidConfig,
+  reminderContentFor,
+  sendListingAlerts,
+  sendWebPush,
+} from '../notify/web-push.js';
 import { dropRedundantNotifications } from '../notify/redundancy.js';
 import { fetchAlertEmails } from '../core/email-import.js';
 import { findUndiscoveredAgencies } from '../sources/email-alerts/agency-discovery.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS_DIR = resolve(here, '../../../../database/migrations');
+
+/**
+ * Au bout de combien de temps rappeler qu'un favori attend toujours.
+ *
+ * Vingt-quatre heures : assez pour ne pas harceler quelqu'un qui vient de
+ * mettre un logement de côté en pensant appeler le soir même, assez court pour
+ * que le rappel serve encore à quelque chose sur un marché où les biens
+ * partent en deux ou trois jours.
+ */
+const APPLICATION_REMINDER_HOURS = 24;
+
+/** Lit une valeur de réglage JSON, sans lever si elle est illisible (§69). */
+function jsonOrNull(raw: string | null): unknown {
+  if (raw === null) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Toutes les familles d'alertes, dans l'ordre où elles comptent.
+ *
+ * EXTRAITE DE `main`, qui avait fini par dépasser le seuil de complexité de ce
+ * dépôt. Ce bloc a sa propre logique — lire des préférences, choisir quoi
+ * envoyer, marquer ce qui est parti — sans rapport avec l'enchaînement de la
+ * collecte.
+ *
+ * NE LÈVE JAMAIS (§69) : un canal secondaire ne doit pas faire échouer une
+ * collecte réussie.
+ */
+async function notifyAll(deps: {
+  readonly repository: Repository;
+  readonly vapid: VapidConfig;
+  readonly logger: Logger;
+}): Promise<void> {
+  const { repository, vapid, logger } = deps;
+  try {
+    // CE DONT L'UTILISATEUR VEUT ÊTRE PRÉVENU (§29). Les préférences se
+    // règlent depuis le site et se lisent ICI : filtrer côté navigateur
+    // n'aurait rien filtré, la notification partant d'ici vers le service
+    // de push sans passer par la page.
+    const preferences = parseNotificationPreferences(
+      jsonOrNull(await repository.readSetting(NOTIFICATION_PREFERENCES_SETTING)),
+    );
+    const siteUrl = process.env['SITE_URL'] ?? 'https://wizyxgh.github.io/RentFinder/';
+    const common = { repository, config: vapid, siteUrl, logger };
+
+    if (preferences.newListings) {
+      // Une alerte e-mail qui décrit le même bien qu'une source directe est
+      // tue : la source directe porte un lien vers la vraie fiche, souvent un
+      // téléphone, et les honoraires. Les deux fiches restent visibles sur le
+      // site — seule la sonnerie en double disparaît (§29).
+      const pending = dropRedundantNotifications(
+        await repository.pendingNotifications(0),
+        await repository.directListingSpecKeys(),
+      );
+      const report = await sendWebPush({ ...common, listings: pending });
+      await repository.markNotified(report.notifiedIds);
+    }
+
+    // UN FAVORI QUI DISPARAÎT. Il quittait la liste sans un mot : on
+    // continuait d'attendre une réponse pour un bien déjà loué.
+    if (preferences.favoriteGone) {
+      const gone = await repository.goneFavorites();
+      const report = await sendListingAlerts({ ...common, listings: gone }, goneContentFor);
+      await repository.markGoneNotified(report.notifiedIds);
+    }
+
+    // UN FAVORI JAMAIS CONTACTÉ. Le marché ne patiente pas : mis de côté
+    // lundi, oublié jusqu'à jeudi, c'est une occasion manquée faute d'un
+    // rappel.
+    if (preferences.applicationReminders) {
+      const stale = await repository.staleFavorites(APPLICATION_REMINDER_HOURS);
+      const report = await sendListingAlerts({ ...common, listings: stale }, reminderContentFor);
+      await repository.markReminded(report.notifiedIds);
+    }
+  } catch (error) {
+    logger.warn('push.failed', {
+      error: error instanceof Error ? error.message : 'erreur inconnue',
+    });
+  }
+}
 
 async function main(): Promise<void> {
   // Charge la configuration privée locale (.env) avant toute lecture d'env.
@@ -176,29 +274,7 @@ async function main(): Promise<void> {
     // daté resterait vide.
     const vapid = loadVapidConfig();
     if (vapid !== null) {
-      try {
-        // Une alerte e-mail qui décrit le même bien qu'une source directe est
-        // tue : la source directe porte un lien vers la vraie fiche, souvent un
-        // téléphone, et les honoraires. Les deux fiches restent visibles sur le
-        // site — seule la sonnerie en double disparaît (§29).
-        const pending = dropRedundantNotifications(
-          await repository.pendingNotifications(0),
-          await repository.directListingSpecKeys(),
-        );
-        const report = await sendWebPush({
-          repository,
-          config: vapid,
-          listings: pending,
-          siteUrl: process.env['SITE_URL'] ?? 'https://wizyxgh.github.io/RentFinder/',
-          logger,
-        });
-        await repository.markNotified(report.notifiedIds);
-      } catch (error) {
-        // Le notifieur ne fait jamais échouer une collecte réussie (§69).
-        logger.warn('push.failed', {
-          error: error instanceof Error ? error.message : 'erreur inconnue',
-        });
-      }
+      await notifyAll({ repository, vapid, logger });
     }
 
     // Élagage des journaux : ils ne servent qu'au diagnostic, et personne ne

@@ -305,6 +305,25 @@ export interface Repository {
   directListingSpecKeys(): Promise<ReadonlySet<string>>;
   /** Marque des annonces comme notifiées, pour ne jamais les re-signaler. */
   markNotified(ids: readonly string[]): Promise<void>;
+
+  /**
+   * Favoris qui ont DISPARU de leur source, et qu'on n'a pas encore signalés.
+   *
+   * C'est l'alerte qui manquait le plus : une annonce mise de côté quittait la
+   * liste sans un mot, et l'on continuait d'attendre une réponse pour un bien
+   * déjà loué.
+   */
+  goneFavorites(): Promise<NotifiableListing[]>;
+  markGoneNotified(ids: readonly string[]): Promise<void>;
+
+  /**
+   * Favoris jamais contactés, mis de côté il y a plus de `hours` heures.
+   *
+   * Le marché ne patiente pas : un favori posé lundi et oublié jusqu'à jeudi
+   * est, le plus souvent, une occasion manquée faute d'un rappel.
+   */
+  staleFavorites(hours: number): Promise<NotifiableListing[]>;
+  markReminded(ids: readonly string[]): Promise<void>;
   /**
    * Annonces pertinentes, actives, dotées d'un e-mail de contact et pour
    * lesquelles aucun brouillon n'a encore été créé (§22). Triées par priorité.
@@ -453,6 +472,64 @@ function defaultState(sourceId: SourceId): SourceRuntimeState {
  * ligne écrite de plus par CLIC — un favori, un changement de statut : rien
  * au regard des milliers de lignes que lit une collecte (§30).
  */
+/**
+ * Une ligne de `listings` → l'objet qu'attend le notifieur.
+ *
+ * EXTRAITE D'UNE SEULE REQUÊTE. Elle vivait dans `pendingNotifications` ; les
+ * familles d'alertes ajoutées depuis — favori disparu, rappel de candidature —
+ * réclament exactement la même lecture du payload, et la recopier trois fois
+ * aurait garanti que les trois divergent.
+ */
+function toNotifiable(row: Record<string, unknown>): NotifiableListing {
+  let url: string | null = null;
+  let photoUrls: string[] = [];
+  let address: string | null = null;
+  let district: string | null = null;
+  let availableAt: string | null = null;
+  let sourceId: string | null = null;
+  let phone: string | null = null;
+  try {
+    const payload = JSON.parse(String(row['payload'] ?? '{}')) as {
+      occurrences?: { sourceUrl?: unknown; sourceId?: unknown }[];
+      imageUrls?: unknown[];
+      address?: { value?: unknown };
+      district?: { value?: unknown };
+      availableAt?: { value?: unknown };
+      contact?: { phone?: unknown };
+    };
+    const first = payload.occurrences?.[0]?.sourceUrl;
+    if (typeof first === 'string') url = first;
+    const firstSource = payload.occurrences?.[0]?.sourceId;
+    if (typeof firstSource === 'string') sourceId = firstSource;
+    if (typeof payload.contact?.phone === 'string') phone = payload.contact.phone;
+    photoUrls = (payload.imageUrls ?? [])
+      .filter((u): u is string => typeof u === 'string' && u.startsWith('http'))
+      .slice(0, 10);
+    if (typeof payload.address?.value === 'string') address = payload.address.value;
+    if (typeof payload.district?.value === 'string') district = payload.district.value;
+    if (typeof payload.availableAt?.value === 'string') availableAt = payload.availableAt.value;
+  } catch {
+    /* payload illisible : pas d'URL, le reste suffit */
+  }
+  return {
+    id: String(row['id']),
+    title: row['title'] === null ? null : String(row['title']),
+    price: row['price'] === null ? null : Number(row['price']),
+    area: row['area'] === null ? null : Number(row['area']),
+    rooms: row['rooms'] === null ? null : Number(row['rooms']),
+    city: row['city'] === null ? null : String(row['city']),
+    postalCode: row['postal_code'] === null ? null : String(row['postal_code']),
+    address,
+    district,
+    availableAt,
+    actionPriority: Number(row['action_priority'] ?? 0),
+    url,
+    photoUrls,
+    sourceId,
+    phone,
+  };
+}
+
 async function recordUserState(
   db: Database,
   listingIds: readonly string[],
@@ -1109,56 +1186,7 @@ export function createRepository(db: Database): Repository {
         args: [minPriority],
       });
 
-      return result.rows.map((row) => {
-        let url: string | null = null;
-        let photoUrls: string[] = [];
-        let address: string | null = null;
-        let district: string | null = null;
-        let availableAt: string | null = null;
-        let sourceId: string | null = null;
-        let phone: string | null = null;
-        try {
-          const payload = JSON.parse(String(row['payload'] ?? '{}')) as {
-            occurrences?: { sourceUrl?: unknown; sourceId?: unknown }[];
-            imageUrls?: unknown[];
-            address?: { value?: unknown };
-            district?: { value?: unknown };
-            availableAt?: { value?: unknown };
-            contact?: { phone?: unknown };
-          };
-          const first = payload.occurrences?.[0]?.sourceUrl;
-          if (typeof first === 'string') url = first;
-          const firstSource = payload.occurrences?.[0]?.sourceId;
-          if (typeof firstSource === 'string') sourceId = firstSource;
-          if (typeof payload.contact?.phone === 'string') phone = payload.contact.phone;
-          photoUrls = (payload.imageUrls ?? [])
-            .filter((u): u is string => typeof u === 'string' && u.startsWith('http'))
-            .slice(0, 10);
-          if (typeof payload.address?.value === 'string') address = payload.address.value;
-          if (typeof payload.district?.value === 'string') district = payload.district.value;
-          if (typeof payload.availableAt?.value === 'string')
-            availableAt = payload.availableAt.value;
-        } catch {
-          /* payload illisible : pas d'URL, le reste suffit */
-        }
-        return {
-          id: String(row['id']),
-          title: row['title'] === null ? null : String(row['title']),
-          price: row['price'] === null ? null : Number(row['price']),
-          area: row['area'] === null ? null : Number(row['area']),
-          rooms: row['rooms'] === null ? null : Number(row['rooms']),
-          city: row['city'] === null ? null : String(row['city']),
-          postalCode: row['postal_code'] === null ? null : String(row['postal_code']),
-          address,
-          district,
-          availableAt,
-          actionPriority: Number(row['action_priority'] ?? 0),
-          url,
-          photoUrls,
-          sourceId,
-          phone,
-        };
-      });
+      return result.rows.map((row) => toNotifiable(row as Record<string, unknown>));
     },
 
     async directListingSpecKeys() {
@@ -1205,6 +1233,57 @@ export function createRepository(db: Database): Repository {
         'write',
       );
       return result.reduce((total, one) => total + one.rowsAffected, 0);
+    },
+
+    async goneFavorites() {
+      const result = await db.execute({
+        // `possiblyInactive` NE SUFFIT PAS : elle signifie « pas revue au
+        // dernier passage », ce qui arrive pour une page momentanément en
+        // erreur. On attend `inactive` — plusieurs passages sans la revoir — ou
+        // le marquage « loué », qui est une certitude.
+        sql: `SELECT l.id, l.title, l.price, l.area, l.rooms, l.city, l.postal_code,
+                     l.action_priority, l.payload
+              FROM listings l
+              JOIN listing_user_state us ON us.listing_id = l.id AND us.user_id = ?
+              WHERE us.favorite = 1
+                AND us.gone_notified_at IS NULL
+                AND (l.lifecycle = 'inactive' OR l.rented = 1)
+              ORDER BY l.action_priority DESC`,
+        args: [CURRENT_USER],
+      });
+      return result.rows.map((row) => toNotifiable(row as Record<string, unknown>));
+    },
+
+    async markGoneNotified(ids) {
+      if (ids.length === 0) return;
+      await recordUserState(db, ids, { gone_notified_at: new Date().toISOString() });
+    },
+
+    async staleFavorites(hours) {
+      const since = new Date(Date.now() - hours * 3_600_000).toISOString();
+      const result = await db.execute({
+        // Un favori déjà contacté n'a pas besoin de rappel : c'est le silence
+        // d'en face qui compte alors, pas le nôtre.
+        sql: `SELECT l.id, l.title, l.price, l.area, l.rooms, l.city, l.postal_code,
+                     l.action_priority, l.payload
+              FROM listings l
+              JOIN listing_user_state us ON us.listing_id = l.id AND us.user_id = ?
+              WHERE us.favorite = 1
+                AND us.reminded_at IS NULL
+                AND us.archived = 0
+                AND us.tracking IN ('new', 'toContact')
+                AND l.lifecycle = 'active'
+                AND l.rented = 0
+                AND COALESCE(us.favorited_at, us.updated_at) <= ?
+              ORDER BY l.action_priority DESC`,
+        args: [CURRENT_USER, since],
+      });
+      return result.rows.map((row) => toNotifiable(row as Record<string, unknown>));
+    },
+
+    async markReminded(ids) {
+      if (ids.length === 0) return;
+      await recordUserState(db, ids, { reminded_at: new Date().toISOString() });
     },
 
     async markNotified(ids) {
@@ -1291,7 +1370,16 @@ export function createRepository(db: Database): Repository {
         sql: 'UPDATE listings SET favorite = ?, updated_at = ? WHERE id = ?',
         args: [favorite ? 1 : 0, new Date().toISOString(), listingId],
       });
-      await recordUserState(db, [listingId], { favorite: favorite ? 1 : 0 });
+      // LA DATE DE MISE EN FAVORI, pour le rappel de candidature. `updated_at`
+      // ne pouvait pas servir : il bouge à chaque consultation, si bien qu'un
+      // favori déposé il y a une semaine mais rouvert ce matin paraissait tout
+      // neuf. Retirer le favori efface la date ET le rappel : le remettre
+      // repart d'une intention neuve.
+      await recordUserState(db, [listingId], {
+        favorite: favorite ? 1 : 0,
+        favorited_at: favorite ? new Date().toISOString() : null,
+        ...(favorite ? {} : { reminded_at: null, gone_notified_at: null }),
+      });
     },
 
     // `app_settings` a pour clé primaire (utilisateur, réglage) depuis les

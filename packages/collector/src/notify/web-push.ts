@@ -63,6 +63,19 @@ export interface PushPayload {
 }
 
 /**
+ * L'adresse de la fiche.
+ *
+ * ELLE POINTAIT SUR `?listing=<id>`, que RIEN ne lisait côté site : toucher une
+ * notification ouvrait l'accueil, et il fallait retrouver à la main l'annonce
+ * dont on venait d'être prévenu. Depuis que chaque écran a son adresse, elle
+ * mène à la fiche.
+ */
+function listingUrl(siteUrl: string, id: string): string {
+  const base = siteUrl.endsWith('/') ? siteUrl : `${siteUrl}/`;
+  return `${base}annonce/${encodeURIComponent(id)}`;
+}
+
+/**
  * Contenu de la notification d'UNE annonce (PUR, testable).
  *
  * Porte le résumé chiffré, l'adresse la plus précise connue, la
@@ -93,7 +106,7 @@ export function pushContentFor(
   return {
     title: listing.title ?? 'Nouvelle annonce',
     body: lines.join('\n'),
-    url: `${siteUrl}?listing=${encodeURIComponent(listing.id)}`,
+    url: listingUrl(siteUrl, listing.id),
     tag: `rentfinder-${listing.id}`,
     ...(listing.photoUrls[0] !== undefined ? { image: listing.photoUrls[0] } : {}),
     listingId: listing.id,
@@ -127,6 +140,56 @@ export function pushContentsFor(
   return payloads;
 }
 
+/**
+ * Un favori qui a disparu de sa source (§29).
+ *
+ * C'est l'alerte qui manquait le plus. Une annonce mise de côté quittait la
+ * liste sans un mot : on continuait d'attendre une réponse pour un bien déjà
+ * loué, parfois plusieurs jours.
+ *
+ * Le ton l'annonce comme un fait, pas comme une alerte : il n'y a rien à faire
+ * dans la minute, seulement une case à rayer.
+ */
+export function goneContentFor(listing: NotifiableListing, siteUrl: string): PushPayload {
+  const location = locationLabel(listing);
+  return {
+    title: 'Un favori n’est plus disponible',
+    body: [listing.title ?? 'Une annonce suivie', location !== '' ? `📍 ${location}` : null]
+      .filter((line): line is string => line !== null)
+      .join('\n'),
+    url: listingUrl(siteUrl, listing.id),
+    tag: `rentfinder-gone-${listing.id}`,
+    listingId: listing.id,
+  };
+}
+
+/**
+ * Un favori jamais contacté (§29).
+ *
+ * Le marché ne patiente pas : un logement mis de côté lundi et oublié jusqu'à
+ * jeudi est le plus souvent une occasion manquée faute d'un rappel. Le
+ * téléphone est repris dans le corps du message — c'est le geste qui reste à
+ * faire, autant qu'il soit à portée de pouce (§21).
+ */
+export function reminderContentFor(listing: NotifiableListing, siteUrl: string): PushPayload {
+  const location = locationLabel(listing);
+  return {
+    title: 'Vous n’avez pas encore candidaté',
+    body: [
+      listing.title ?? 'Une annonce mise en favori',
+      summarize(listing),
+      location !== '' ? `📍 ${location}` : null,
+      listing.phone !== null ? `📞 ${listing.phone}` : null,
+    ]
+      .filter((line): line is string => line !== null && line !== '')
+      .join('\n'),
+    url: listingUrl(siteUrl, listing.id),
+    tag: `rentfinder-rappel-${listing.id}`,
+    listingId: listing.id,
+    ...(listing.phone !== null ? { phone: listing.phone } : {}),
+  };
+}
+
 export interface PushDeps {
   readonly repository: Repository;
   readonly config: VapidConfig;
@@ -153,14 +216,30 @@ export interface PushReport {
  * secondaire ne doit pas faire échouer une collecte réussie.
  */
 export async function sendWebPush(deps: PushDeps): Promise<PushReport> {
-  const { repository, config, listings, siteUrl, logger } = deps;
+  const { listings, siteUrl } = deps;
   if (listings.length === 0) return { sent: 0, notifiedIds: [] };
+  const sent = await deliver(deps, pushContentsFor(listings, siteUrl));
+  if (sent === 0) return { sent: 0, notifiedIds: [] };
+  deps.logger.info('push.sent', { sent, listings: listings.length });
+  return { sent, notifiedIds: listings.map((listing) => listing.id) };
+}
+
+/**
+ * Envoie des notifications DÉJÀ COMPOSÉES à chaque abonné.
+ *
+ * Extrait de `sendWebPush` : les familles d'alertes ajoutées depuis — favori
+ * disparu, rappel de candidature — partagent exactement cette boucle, avec sa
+ * gestion des abonnements morts. La recopier trois fois aurait garanti que
+ * seule la première continue de nettoyer.
+ */
+async function deliver(deps: PushDeps, payloads: readonly PushPayload[]): Promise<number> {
+  const { repository, config, logger } = deps;
+  if (payloads.length === 0) return 0;
 
   const subscriptions = await repository.pushSubscriptions();
-  if (subscriptions.length === 0) return { sent: 0, notifiedIds: [] };
+  if (subscriptions.length === 0) return 0;
 
   webpush.setVapidDetails(config.subject, config.publicKey, config.privateKey);
-  const payloads = pushContentsFor(listings, siteUrl);
   let sent = 0;
 
   for (const subscription of subscriptions) {
@@ -188,7 +267,28 @@ export async function sendWebPush(deps: PushDeps): Promise<PushReport> {
     }
   }
 
+  return sent;
+}
+
+/**
+ * Une famille d'alerte autre que « nouvelle annonce » : une notification par
+ * annonce, sans résumé de surplus.
+ *
+ * Ces alertes sont rares — un favori qui disparaît, un rappel — et les
+ * regrouper sous « + 3 autres » ferait perdre la seule information qui compte :
+ * LAQUELLE.
+ */
+export async function sendListingAlerts(
+  deps: PushDeps,
+  compose: (listing: NotifiableListing, siteUrl: string) => PushPayload,
+): Promise<PushReport> {
+  const { listings, siteUrl } = deps;
+  if (listings.length === 0) return { sent: 0, notifiedIds: [] };
+  const sent = await deliver(
+    deps,
+    listings.map((listing) => compose(listing, siteUrl)),
+  );
   if (sent === 0) return { sent: 0, notifiedIds: [] };
-  logger.info('push.sent', { sent, listings: listings.length });
+  deps.logger.info('push.sent', { sent, listings: listings.length });
   return { sent, notifiedIds: listings.map((listing) => listing.id) };
 }

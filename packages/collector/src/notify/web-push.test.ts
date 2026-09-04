@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { loadVapidConfig, pushContentFor, pushContentsFor } from './web-push.js';
+import {
+  goneContentFor,
+  loadVapidConfig,
+  pushContentFor,
+  pushContentsFor,
+  reminderContentFor,
+} from './web-push.js';
+import type { NotifiableListing } from '../db/repository.js';
 
 const listing = (over: Record<string, unknown> = {}): never =>
   ({
@@ -81,7 +88,10 @@ describe('pushContentFor', () => {
     expect(content.image).toBe('https://exemple.invalid/photo.jpg');
     expect(content.listingId).toBe('l1');
     expect(content.phone).toBe('0600000012');
-    expect(content.url).toContain('listing=l1');
+    // L'adresse MÈNE À LA FICHE. Elle pointait sur `?listing=<id>`, que rien
+    // ne lisait côté site : toucher la notification ouvrait l'accueil, et il
+    // fallait retrouver à la main l'annonce dont on venait d'être prévenu.
+    expect(content.url).toContain('/annonce/l1');
   });
 
   it('n’invente ni photo ni téléphone quand la source n’en publie pas (§17)', () => {
@@ -114,5 +124,45 @@ describe('pushContentsFor', () => {
     expect(contents).toHaveLength(5);
     expect(contents[4]?.title).toBe('+ 3 autres annonces');
     expect(contents[4]?.tag).toBe('rentfinder-lot');
+  });
+});
+
+describe('les autres familles d’alertes', () => {
+  const suivi: NotifiableListing = {
+    id: 'l9',
+    title: 'Studio Libération',
+    price: 690,
+    area: 28,
+    rooms: 1,
+    city: 'Nice',
+    postalCode: '06000',
+    address: null,
+    district: 'Libération',
+    availableAt: null,
+    actionPriority: 80,
+    url: 'https://exemple.invalid/a/9',
+    photoUrls: [],
+    sourceId: 'demo',
+    phone: '0600000012',
+  };
+
+  it('dit qu’un favori a disparu, et mène à sa fiche', () => {
+    const content = goneContentFor(suivi, 'https://exemple.invalid/');
+
+    expect(content.title).toMatch(/plus disponible/i);
+    expect(content.body).toContain('Studio Libération');
+    expect(content.url).toContain('/annonce/l9');
+    // Une étiquette DISTINCTE de l'alerte « nouvelle annonce » : sinon la
+    // seconde remplacerait la première dans le tiroir du téléphone.
+    expect(content.tag).not.toBe(`rentfinder-${suivi.id}`);
+  });
+
+  it('rappelle une candidature en tête avec le téléphone sous la main', () => {
+    const content = reminderContentFor(suivi, 'https://exemple.invalid/');
+
+    expect(content.title).toMatch(/candidat/i);
+    expect(content.phone).toBe('0600000012');
+    expect(content.body).toContain('0600000012');
+    expect(content.tag).not.toBe(goneContentFor(suivi, 'https://exemple.invalid/').tag);
   });
 });

@@ -99,3 +99,27 @@ test('le bouton de résultats reste visible sans dérouler la modale (§39)', as
   await dialog.getByLabel('Caractère meublé').scrollIntoViewIfNeeded();
   await expect(resultats).toBeInViewport();
 });
+
+test('la carte tient dans l’écran du téléphone, sans défilement (§39)', async ({ page }) => {
+  // Elle occupait 65 % de la hauteur de fenêtre, mesurée BARRE D'ADRESSE
+  // MASQUÉE — donc plus que l'écran réel —, en plus de l'en-tête, de la barre
+  // de filtres et de la barre de navigation basse. Il fallait défiler pour en
+  // voir le bas, sur un écran qui tient dans une main.
+  await page.setViewportSize({ width: 390, height: 740 });
+  await page.goto('/');
+  await page
+    .getByRole('navigation', { name: 'Navigation', exact: true })
+    .getByRole('button', { name: 'Recherche' })
+    .click();
+  await expect(page.getByTestId('listing-card').first()).toBeVisible();
+
+  await page.getByRole('button', { name: /Carte/ }).click();
+  const carte = page.getByTestId('map-view');
+  await expect(carte).toBeVisible();
+
+  const boite = await carte.boundingBox();
+  expect(boite).not.toBeNull();
+  // Le bas de la carte reste au-dessus du bas de l'écran : rien à faire
+  // défiler pour la voir en entier.
+  expect(boite!.y + boite!.height).toBeLessThanOrEqual(740);
+});
