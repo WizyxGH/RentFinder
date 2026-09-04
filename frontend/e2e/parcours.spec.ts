@@ -100,7 +100,7 @@ test('scénario 3 — une annonce hors critères est écartée de la liste (§53
   // Le réglage vit dans la modale « Trier et filtrer ».
   await page.getByRole('button', { name: /Trier et filtrer/ }).click();
   await page.getByRole('checkbox', { name: 'Annonces hors critères' }).check();
-  await page.getByRole('button', { name: 'Voir les résultats' }).click();
+  await page.getByRole('button', { name: /^(Voir \d+ annonces?|Aucun résultat)$/ }).click();
   await expect(page.getByText('750 €').first()).toBeVisible();
 });
 
@@ -174,7 +174,7 @@ test('le tri et le changement de statut fonctionnent (§35, §54)', async ({ pag
   const toolbar = page.getByRole('group', { name: 'Barre de filtres' });
   await toolbar.getByRole('button', { name: /Trier et filtrer/ }).click();
   await page.getByRole('button', { name: 'Loyer croissant' }).click();
-  await page.getByRole('button', { name: 'Voir les résultats' }).click();
+  await page.getByRole('button', { name: /^(Voir \d+ annonces?|Aucun résultat)$/ }).click();
   await expect(page.getByTestId('listing-card').first()).toContainText('420 €');
 
   await page.getByTestId('listing-card').first().click();
@@ -292,7 +292,7 @@ test('on peut filtrer la liste par source (menu déroulant)', async ({ page }) =
 
   // Cocher une source restreint la liste.
   await page.getByRole('checkbox', { name: 'Demo Agence' }).check();
-  await page.getByRole('button', { name: 'Voir les résultats' }).click();
+  await page.getByRole('button', { name: /^(Voir \d+ annonces?|Aucun résultat)$/ }).click();
   const filtered = await cards.count();
   expect(filtered).toBeGreaterThan(0);
   expect(filtered).toBeLessThanOrEqual(before);
@@ -300,7 +300,7 @@ test('on peut filtrer la liste par source (menu déroulant)', async ({ page }) =
   // « Tout afficher » réinitialise — il vit dans la modale, à rouvrir.
   await toolbar.getByRole('button', { name: /Trier et filtrer/ }).click();
   await page.getByRole('button', { name: /tout afficher/i }).click();
-  await page.getByRole('button', { name: 'Voir les résultats' }).click();
+  await page.getByRole('button', { name: /^(Voir \d+ annonces?|Aucun résultat)$/ }).click();
   await expect(cards).toHaveCount(before);
 });
 
@@ -316,7 +316,7 @@ test('les filtres rapides (façon SeLoger) affinent la liste et se retirent', as
   // Filtre « Pièces » : au moins 2 pièces → la liste ne grandit pas.
   await toolbar.getByRole('button', { name: /Trier et filtrer/ }).click();
   await page.getByRole('button', { name: '2+', exact: true }).click();
-  await page.getByRole('button', { name: 'Voir les résultats' }).click();
+  await page.getByRole('button', { name: /^(Voir \d+ annonces?|Aucun résultat)$/ }).click();
   const filtered = await cards.count();
   expect(filtered).toBeLessThanOrEqual(before);
 
@@ -346,7 +346,7 @@ test('la barre basse mène aux quatre destinations (mobile)', async ({ page }) =
   // collecte : il n'y a plus d'écran séparé à atteindre.
   await basse.getByRole('button', { name: 'Recherche' }).click();
   await expect(page.getByRole('dialog', { name: 'Trier et filtrer' })).toBeVisible();
-  await page.getByRole('button', { name: 'Voir les résultats' }).click();
+  await page.getByRole('button', { name: /^(Voir \d+ annonces?|Aucun résultat)$/ }).click();
 
   await basse.getByRole('button', { name: 'Paramètres' }).click();
   // Les écrans que la barre ne porte pas restent atteignables depuis ici.

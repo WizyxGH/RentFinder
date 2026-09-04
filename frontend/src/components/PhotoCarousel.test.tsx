@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { PhotoCarousel } from './PhotoCarousel.js';
 
@@ -37,5 +37,42 @@ describe('PhotoCarousel', () => {
     render(<PhotoCarousel urls={URLS} />);
     await user.click(screen.getByLabelText('Aller à la photo 3'));
     expect(screen.getByLabelText('Aller à la photo 3')).toHaveAttribute('aria-current', 'true');
+  });
+});
+
+describe('PhotoCarousel — glissement du doigt', () => {
+  const PHOTOS = ['https://exemple.invalid/1.jpg', 'https://exemple.invalid/2.jpg'];
+
+  /** Simule un glissement horizontal de `delta` pixels sur la piste. */
+  function swipe(element: HTMLElement, delta: number): void {
+    fireEvent.touchStart(element, { touches: [{ clientX: 200 }] });
+    fireEvent.touchEnd(element, { changedTouches: [{ clientX: 200 + delta }] });
+  }
+
+  it('avance d’une photo vers la gauche, recule vers la droite', () => {
+    const { container } = render(<PhotoCarousel urls={PHOTOS} />);
+    const root = container.firstElementChild as HTMLElement;
+    const track = (): HTMLElement => root.firstElementChild as HTMLElement;
+
+    expect(track().style.transform).toBe('translateX(-0%)');
+    swipe(root, -120);
+    expect(track().style.transform).toBe('translateX(-100%)');
+    swipe(root, 120);
+    expect(track().style.transform).toBe('translateX(-0%)');
+  });
+
+  it('ignore une hésitation du doigt', () => {
+    // Sous le seuil, on fait défiler la page — pas le carrousel.
+    const { container } = render(<PhotoCarousel urls={PHOTOS} />);
+    const root = container.firstElementChild as HTMLElement;
+    swipe(root, -10);
+    expect((root.firstElementChild as HTMLElement).style.transform).toBe('translateX(-0%)');
+  });
+
+  it('ne fait rien avec une seule photo', () => {
+    const { container } = render(<PhotoCarousel urls={[PHOTOS[0]!]} />);
+    const root = container.firstElementChild as HTMLElement;
+    swipe(root, -120);
+    expect((root.firstElementChild as HTMLElement).style.transform).toBe('translateX(-0%)');
   });
 });

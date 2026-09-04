@@ -37,7 +37,7 @@ for (const { name, width, height } of WIDTHS) {
     await page.getByRole('button', { name: /Trier et filtrer/ }).click();
     await expect(page.getByRole('dialog')).toBeVisible();
     expect(await overflow(page)).toBeLessThanOrEqual(1);
-    await page.getByRole('button', { name: 'Voir les résultats' }).click();
+    await page.getByRole('button', { name: /^(Voir \d+ annonces?|Aucun résultat)$/ }).click();
 
     // La fiche détaillée : titres longs, photos, tableau de scores.
     await page.getByTestId('listing-card').first().click();

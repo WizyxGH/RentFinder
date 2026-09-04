@@ -6,7 +6,7 @@
  * consultables même si l'on a raté l'alerte.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Check, TriangleAlert } from 'lucide-react';
 import type { ListingView } from '../types.js';
 import {
@@ -19,12 +19,18 @@ import {
 } from '../format.js';
 import { disablePush, enablePush, pushEnabled, pushSupported } from '../push.js';
 import {
+  isUnreadAlert,
   notificationPermission,
+  readDismissedAlerts,
   notificationsSupported,
   readOptIn,
   requestNotificationPermission,
+  writeDismissedAlerts,
   writeOptIn,
 } from '../notifications.js';
+
+/** Au-delà, le glissement vaut décision : la ligne est écartée. */
+const DISMISS_MIN_PX = 80;
 
 /** Profondeur de l'historique. Au-delà, une annonce n'est plus d'actualité. */
 const HISTORY_DAYS = 30;
@@ -33,6 +39,14 @@ interface NotificationsPanelProps {
   readonly listings: readonly ListingView[];
   readonly nowMs: number;
   readonly onOpen: (id: string) => void;
+  /**
+   * Instant de la visite PRÉCÉDENTE : ce qui est arrivé après est « non lu ».
+   *
+   * Figé par l'appelant à l'ouverture de la page, et non recalculé ici : sans
+   * cela, arriver sur l'historique marquerait tout comme lu dans la seconde,
+   * et les repères disparaîtraient sous les yeux.
+   */
+  readonly seenAtMs: number;
 }
 
 /** Une ligne d'état : ce qui marche, ce qui manque, et pourquoi. */
@@ -121,11 +135,19 @@ function Toggle({
  */
 function HistoryRow({
   listing,
+  unread,
   onOpen,
+  onDismiss,
 }: {
   readonly listing: ListingView;
+  readonly unread: boolean;
   readonly onOpen: (id: string) => void;
+  readonly onDismiss: (id: string) => void;
 }): React.JSX.Element {
+  // Abscisse du doigt au début du geste. Une `ref` : elle change à chaque
+  // touche et ne doit déclencher aucun rendu.
+  const swipeFrom = useRef<number | null>(null);
+  const [offset, setOffset] = useState(0);
   const photo = listing.imageUrls[0];
   const place = formatPostalAddress({
     address: listing.address.value,
@@ -134,12 +156,33 @@ function HistoryRow({
     district: listing.district.value,
   });
   const sources = [...new Set(listing.occurrences.map((occurrence) => occurrence.sourceId))];
+  // La ligne s'efface à mesure qu'on la pousse : le geste dit ce qu'il fera
+  // avant qu'on le relâche.
+  const fade = Math.max(0.25, 1 - Math.abs(offset) / (DISMISS_MIN_PX * 2));
 
   return (
     <button
       type="button"
       onClick={() => onOpen(listing.id)}
-      className="flex w-full cursor-pointer items-center gap-3 rounded-xl border border-border p-2.5 text-left transition-colors hover:bg-muted"
+      // Le glissement LATÉRAL écarte la ligne ; le vertical reste à la page,
+      // sans quoi on ne pourrait plus faire défiler l'historique au doigt.
+      style={{ touchAction: 'pan-y', transform: `translateX(${offset}px)`, opacity: fade }}
+      onTouchStart={(event) => {
+        swipeFrom.current = event.touches[0]?.clientX ?? null;
+      }}
+      onTouchMove={(event) => {
+        const from = swipeFrom.current;
+        if (from === null) return;
+        setOffset((event.touches[0]?.clientX ?? from) - from);
+      }}
+      onTouchEnd={() => {
+        swipeFrom.current = null;
+        if (Math.abs(offset) >= DISMISS_MIN_PX) onDismiss(listing.id);
+        setOffset(0);
+      }}
+      className={`flex w-full cursor-pointer items-center gap-3 rounded-xl border p-2.5 text-left transition-[background-color,border-color,transform,opacity] duration-150 hover:bg-muted ${
+        unread ? 'border-primary/60 bg-primary/5' : 'border-border'
+      }`}
     >
       {photo !== undefined ? (
         <img
@@ -158,6 +201,13 @@ function HistoryRow({
 
       <span className="min-w-0 flex-1">
         <span className="flex items-baseline gap-2">
+          {unread && (
+            <span
+              aria-label="Non lue"
+              title="Non lue"
+              className="size-2 shrink-0 self-center rounded-full bg-primary"
+            />
+          )}
           <strong className="font-semibold">{formatPrice(listing.price.value)}</strong>
           <span className="text-sm text-muted-foreground">{formatArea(listing.area.value)}</span>
           <span className="ml-auto shrink-0 text-xs text-muted-foreground">
@@ -177,7 +227,17 @@ export function NotificationsPanel({
   listings,
   nowMs,
   onOpen,
+  seenAtMs,
 }: NotificationsPanelProps): React.JSX.Element {
+  // Lignes écartées d'un glissement. Persisté : ranger une alerte ne doit pas
+  // se défaire au premier rechargement.
+  const [dismissed, setDismissed] = useState<ReadonlySet<string>>(readDismissedAlerts);
+  const dismiss = (id: string): void =>
+    setDismissed((current) => {
+      const next = new Set(current).add(id);
+      writeDismissedAlerts(next);
+      return next;
+    });
   const [permission, setPermission] = useState(notificationPermission());
   // Deux CHOIX distincts, retenus séparément : l'un vaut pour le site ouvert
   // (préférence de ce navigateur), l'autre pour le site fermé (l'abonnement
@@ -249,6 +309,7 @@ export function NotificationsPanel({
   const horizon = nowMs - HISTORY_DAYS * 24 * 60 * 60 * 1000;
   const history = listings
     .filter((listing) => {
+      if (dismissed.has(listing.id)) return false;
       const at = listing.notifiedAt;
       return at !== null && at !== undefined && Date.parse(at) >= horizon;
     })
@@ -344,7 +405,12 @@ export function NotificationsPanel({
                 <ul className="flex flex-col gap-1.5">
                   {day.items.map((listing) => (
                     <li key={listing.id}>
-                      <HistoryRow listing={listing} onOpen={onOpen} />
+                      <HistoryRow
+                        listing={listing}
+                        unread={isUnreadAlert(listing, seenAtMs)}
+                        onOpen={onOpen}
+                        onDismiss={dismiss}
+                      />
                     </li>
                   ))}
                 </ul>

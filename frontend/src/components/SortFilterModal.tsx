@@ -50,6 +50,16 @@ export interface SortFilterModalProps {
   /** Rechargement de la liste après enregistrement des critères de recherche. */
   readonly onCriteriaSaved: () => void;
 
+  /**
+   * Nombre d'annonces que les réglages courants laissent passer.
+   *
+   * Affiché SUR le bouton de fermeture : « Voir les résultats » n'apprenait
+   * rien, alors qu'on règle un filtre précisément pour savoir combien il en
+   * reste — et découvrir une liste vide après avoir fermé la modale oblige à
+   * la rouvrir pour comprendre.
+   */
+  readonly resultCount: number;
+
   /** Remet tri, filtres, bascules et sources à leur état d'origine. */
   readonly onReset: () => void;
   /** `true` si quelque chose s'écarte de cet état : le bouton reste sinon inerte. */
@@ -71,6 +81,7 @@ export function SortFilterModal({
   onToggleSource,
   onClearSources,
   onCriteriaSaved,
+  resultCount,
   onReset,
   dirty,
 }: SortFilterModalProps): React.JSX.Element | null {
@@ -345,7 +356,9 @@ export function SortFilterModal({
             </Button>
           )}
           <Button className="flex-1" onClick={onClose}>
-            Voir les résultats
+            {resultCount === 0
+              ? 'Aucun résultat'
+              : `Voir ${resultCount} annonce${resultCount > 1 ? 's' : ''}`}
           </Button>
         </div>
       </div>

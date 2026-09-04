@@ -104,8 +104,24 @@ function agencyHomepage(listing: ListingView): string | null {
   return portalLabel(url) !== null || /studapart|lodgis|inli/i.test(host) ? null : origin;
 }
 
-/** Une occurrence : la source, son loyer et sa surface, en lien vers l'annonce. */
-function SourceRow({ occurrence }: { readonly occurrence: OccurrenceView }): React.JSX.Element {
+/**
+ * Une occurrence : la source, en lien vers l'annonce d'origine.
+ *
+ * Le loyer et la surface ne sont rappelés QUE s'ils diffèrent de ceux retenus
+ * plus haut. Les répéter à l'identique sous chaque source encombrait la fiche
+ * d'une information déjà lue trois lignes au-dessus ; les taire quand elles
+ * divergent, en revanche, masquerait un désaccord entre sources (§15).
+ */
+function SourceRow({
+  occurrence,
+  price,
+  area,
+}: {
+  readonly occurrence: OccurrenceView;
+  readonly price: number | null;
+  readonly area: number | null;
+}): React.JSX.Element {
+  const differs = occurrence.price !== price || occurrence.area !== area;
   return (
     <>
       <a
@@ -116,10 +132,12 @@ function SourceRow({ occurrence }: { readonly occurrence: OccurrenceView }): Rea
       >
         {formatSourceName(occurrence.sourceId)}
       </a>
-      <span className="text-muted-foreground">
-        {' '}
-        — {formatPrice(occurrence.price)}, {formatArea(occurrence.area)}
-      </span>
+      {differs && (
+        <span className="text-muted-foreground">
+          {' '}
+          — {formatPrice(occurrence.price)}, {formatArea(occurrence.area)}
+        </span>
+      )}
     </>
   );
 }
@@ -212,7 +230,11 @@ function ContactDetails({
             <dd data-testid="listing-sources">
               {occurrences.map((occurrence) => (
                 <span key={occurrence.id} className="block">
-                  <SourceRow occurrence={occurrence} />
+                  <SourceRow
+                    occurrence={occurrence}
+                    price={listing.price.value}
+                    area={listing.area.value}
+                  />
                 </span>
               ))}
             </dd>

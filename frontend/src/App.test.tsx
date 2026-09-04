@@ -86,7 +86,7 @@ describe('liste des annonces', () => {
 
     await user.click(screen.getByRole('button', { name: /Trier et filtrer/ }));
     await user.click(screen.getByRole('button', { name: /loyer/i }));
-    await user.click(screen.getByRole('button', { name: /Voir les résultats/ }));
+    await user.click(screen.getByRole('button', { name: /^(Voir \d+ annonces?|Aucun résultat)$/ }));
 
     const cards = await screen.findAllByTestId('listing-card');
     // 420 € est le loyer le plus bas parmi les annonces dans les critères.

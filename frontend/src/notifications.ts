@@ -29,6 +29,7 @@ const SEEN_CAP = 500;
 const SEEN_KEY = 'rentfinder.notifiedListingIds';
 const OPTIN_KEY = 'rentfinder.notificationsOptIn';
 const ALERTS_SEEN_KEY = 'rentfinder.alertsSeenAt';
+const ALERTS_DISMISSED_KEY = 'rentfinder.dismissedAlerts';
 
 // ---------------------------------------------------------------------------
 // Capacités du navigateur
@@ -156,12 +157,53 @@ export function markAlertsSeen(nowMs: number): void {
  * l'horodatage, on ne l'invente pas (§17).
  */
 export function unreadAlertCount(listings: readonly ListingView[], seenAtMs: number): number {
-  return listings.filter((listing) => {
-    const at = listing.notifiedAt;
-    if (at === null || at === undefined) return false;
-    const timestamp = Date.parse(at);
-    return Number.isFinite(timestamp) && timestamp > seenAtMs;
-  }).length;
+  return listings.filter((listing) => isUnreadAlert(listing, seenAtMs)).length;
+}
+
+/**
+ * `true` si l'annonce a été signalée APRÈS la dernière visite de l'historique.
+ *
+ * C'est l'état « non lue » d'une ligne. Il repose sur l'horodatage posé par la
+ * collecte, comme la pastille de la cloche : les deux ne peuvent donc pas se
+ * contredire. Une annonce sans date est tenue pour lue — elle précède
+ * l'horodatage, et on ne l'invente pas (§17).
+ */
+export function isUnreadAlert(listing: ListingView, seenAtMs: number): boolean {
+  const at = listing.notifiedAt;
+  if (at === null || at === undefined) return false;
+  const timestamp = Date.parse(at);
+  return Number.isFinite(timestamp) && timestamp > seenAtMs;
+}
+
+/**
+ * Annonces ÉCARTÉES de l'historique, d'un glissement du doigt.
+ *
+ * Écarter ne touche pas à l'annonce elle-même — elle reste dans la liste, en
+ * favori, partout : c'est la LIGNE d'historique qu'on range, rien d'autre. La
+ * mémoire est propre à ce navigateur et bornée, comme celle des annonces déjà
+ * signalées.
+ */
+const DISMISSED_CAP = 500;
+
+export function readDismissedAlerts(): ReadonlySet<string> {
+  try {
+    const raw = localStorage.getItem(ALERTS_DISMISSED_KEY);
+    if (raw === null) return new Set();
+    const parsed = JSON.parse(raw) as unknown;
+    return new Set(
+      Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === 'string') : [],
+    );
+  } catch {
+    return new Set();
+  }
+}
+
+export function writeDismissedAlerts(ids: Iterable<string>): void {
+  try {
+    localStorage.setItem(ALERTS_DISMISSED_KEY, JSON.stringify([...ids].slice(-DISMISSED_CAP)));
+  } catch {
+    /* stockage indisponible : la ligne réapparaîtra, sans casse */
+  }
 }
 
 // ---------------------------------------------------------------------------

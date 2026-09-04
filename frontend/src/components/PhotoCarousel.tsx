@@ -1,15 +1,20 @@
 /**
  * Carrousel de photos d'une carte d'annonce (§36).
  *
- * Un vrai carrousel — flèches et points —, pas une barre de défilement : une
- * photo à la fois, navigation explicite. Les images sont affichées directement
+ * Un vrai carrousel — flèches, points et GLISSEMENT du doigt —, pas une barre
+ * de défilement : une photo à la fois, navigation explicite. Sur téléphone, le
+ * glissement latéral est le geste attendu ; les flèches restent pour la
+ * souris. Les images sont affichées directement
  * depuis le site d'origine (§11 : jamais téléchargées ni stockées). Une image
  * cassée (retirée côté source) est retirée du carrousel plutôt que d'afficher
  * un cadre vide.
  */
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+
+/** En deçà, c'est une hésitation du doigt, pas une intention de changer de photo. */
+const SWIPE_MIN_PX = 40;
 
 export function PhotoCarousel({
   urls,
@@ -27,6 +32,9 @@ export function PhotoCarousel({
   // Les URLs dont le chargement échoue sont retirées : le carrousel ne montre
   // que des photos réellement disponibles.
   const [broken, setBroken] = useState<ReadonlySet<string>>(new Set());
+  // Abscisse du doigt au début du geste. Une `ref` et non un état : elle change
+  // à chaque touche et ne doit déclencher aucun rendu.
+  const swipeFrom = useRef<number | null>(null);
   const photos = urls.filter((url) => !broken.has(url));
 
   if (photos.length === 0) return <></>;
@@ -39,6 +47,23 @@ export function PhotoCarousel({
       className={`relative overflow-hidden bg-muted ${
         tall ? 'h-64 w-full sm:h-80' : '-mx-3 -mt-3 mb-3 h-44 w-[calc(100%+1.5rem)]'
       }`}
+      // `touch-pan-y` : le geste VERTICAL reste à la page (on continue de faire
+      // défiler la liste en partant d'une photo), l'horizontal nous revient.
+      style={{ touchAction: 'pan-y' }}
+      onTouchStart={(event) => {
+        swipeFrom.current = event.touches[0]?.clientX ?? null;
+      }}
+      onTouchEnd={(event) => {
+        const from = swipeFrom.current;
+        swipeFrom.current = null;
+        if (from === null || photos.length < 2) return;
+        const delta = (event.changedTouches[0]?.clientX ?? from) - from;
+        if (Math.abs(delta) < SWIPE_MIN_PX) return;
+        // Le glissement ne doit pas ouvrir la fiche : toute la carte est
+        // cliquable, et un swipe s'y traduirait sinon par une navigation.
+        event.stopPropagation();
+        go(delta < 0 ? clamped + 1 : clamped - 1);
+      }}
     >
       {/* Piste : toutes les photos côte à côte, décalée par transformation. */}
       <div

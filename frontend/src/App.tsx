@@ -337,6 +337,10 @@ export function App(): React.JSX.Element {
   // lancement : compter tout l'historique afficherait « 90 » à quelqu'un qui
   // n'a rien manqué.
   const [alertsSeenAt, setAlertsSeenAt] = useState(() => readAlertsSeenAt(Date.now()));
+  // Instant de la visite PRÉCÉDENTE, figé à l'ouverture de la page. Sans lui,
+  // marquer les alertes comme vues effacerait les repères « non lue » dans la
+  // seconde où on arrive dessus.
+  const [alertsViewedFrom, setAlertsViewedFrom] = useState(alertsSeenAt);
   // Bandeaux d'alerte affichés DANS la page : la notification navigateur ne se
   // voit pas quand l'onglet a le focus, et pas du tout sans permission.
   const [toasts, setToasts] = useState<readonly Toast[]>([]);
@@ -523,7 +527,10 @@ export function App(): React.JSX.Element {
   const navigate = (next: NavTarget): void => {
     if (next === 'alerts') {
       // Consulter l'historique, c'est avoir vu les alertes : la pastille tombe.
+      // Les LIGNES, elles, gardent leur repère « non lue » — d'où l'instant
+      // précédent, mis de côté avant d'être écrasé.
       const seenAt = Date.now();
+      setAlertsViewedFrom(alertsSeenAt);
       markAlertsSeen(seenAt);
       setAlertsSeenAt(seenAt);
     }
@@ -678,7 +685,12 @@ export function App(): React.JSX.Element {
           <Button variant="ghost" className="mb-2" onClick={() => setView('list')}>
             <ArrowLeft aria-hidden="true" className="size-4" /> Retour
           </Button>
-          <NotificationsPanel listings={listings} nowMs={nowMs} onOpen={openListing} />
+          <NotificationsPanel
+            listings={listings}
+            nowMs={nowMs}
+            onOpen={openListing}
+            seenAtMs={alertsViewedFrom}
+          />
         </main>
       );
     }
@@ -986,6 +998,7 @@ export function App(): React.JSX.Element {
             onToggleSource={toggleSource}
             onClearSources={() => setSelectedSources(new Set())}
             onCriteriaSaved={() => void load()}
+            resultCount={filtered.length}
             dirty={somethingChanged}
             onReset={resetSortAndFilters}
           />

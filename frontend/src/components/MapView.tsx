@@ -37,7 +37,8 @@ const CONTACTED_STATUSES = new Set([
  * Pastille de prix, teintée selon la priorité (cohérente avec les cartes).
  *
  * Deux repères visuels s'ajoutent, comme sur les cartes des grands portails :
- * ⭐ pour un FAVORI, ✉️ pour une annonce déjà CONTACTÉE. Ils évitent de rouvrir
+ * ♥ pour un FAVORI — le même symbole que la carte et la fiche, pour qu'un seul
+ * geste se lise partout — et ✉️ pour une annonce déjà CONTACTÉE. Ils évitent de rouvrir
  * une fiche pour se souvenir de son état, et de recontacter deux fois la même
  * agence.
  */
@@ -47,7 +48,7 @@ function priceIcon(listing: ListingView): L.DivIcon {
   const favorite = listing.favorite === true;
   const contacted = CONTACTED_STATUSES.has(listing.tracking);
   // Le favori prime sur le contact : c'est le repère que l'œil cherche d'abord.
-  const badge = favorite ? '⭐' : contacted ? '✉️' : '';
+  const badge = favorite ? '♥' : contacted ? '✉️' : '';
   // Un favori garde une bordure dorée même quand il n'est pas « chaud », pour
   // rester repérable au milieu des autres pastilles.
   const border = favorite ? '#f59e0b' : hot ? '#e00034' : '#d4d4d8';

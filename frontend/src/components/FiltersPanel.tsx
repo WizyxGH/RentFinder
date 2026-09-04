@@ -31,14 +31,17 @@ interface FiltersPanelProps {
 const FIELD = 'w-28 rounded-lg border border-input bg-card px-2 py-1.5 text-right';
 const ROW = 'flex items-center justify-between gap-3 py-2';
 
-/** Choix « nature du bailleur » présentés dans l'ordre Tous / Particuliers / Agences. */
+/**
+ * Choix « nature du bailleur ». Les intitulés portent leur propre explication
+ * — « seuls », « uniquement » — plutôt qu'une note en petits caractères à côté.
+ */
 const LANDLORD_OPTIONS: readonly {
   readonly value: 'all' | 'private' | 'agency';
   readonly label: string;
 }[] = [
   { value: 'all', label: 'Tous' },
-  { value: 'private', label: 'Particuliers' },
-  { value: 'agency', label: 'Agences' },
+  { value: 'private', label: 'Particuliers seuls' },
+  { value: 'agency', label: 'Agences uniquement' },
 ];
 
 /** Choix « meublé » présentés dans l'ordre Tous / Meublé / Non meublé. */
@@ -222,12 +225,9 @@ export function FiltersPanel({ onSaved, compact = false }: FiltersPanelProps): R
           />
         </div>
         <div className={ROW}>
-          <span>
-            Bailleur
-            <span className="ml-1 text-xs text-muted-foreground">
-              (« Particuliers » masque les agences)
-            </span>
-          </span>
+          {/* Les intitulés disent eux-mêmes ce qu'ils font : « seuls » et
+            « uniquement » rendent la note explicative inutile. */}
+          <span>Bailleur</span>
           <Segmented
             ariaLabel="Nature du bailleur"
             options={LANDLORD_OPTIONS}
