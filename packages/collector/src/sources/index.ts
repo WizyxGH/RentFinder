@@ -45,7 +45,9 @@ import { papScraper } from './pap/index.js';
 import { emailAlertsScraper } from './email-alerts/index.js';
 import { ladresseScraper } from './ladresse/index.js';
 import { albertiScraper } from './alberti/index.js';
+import { akorimmoScraper } from './akorimmo/index.js';
 import { climmoScraper } from './climmo/index.js';
+import { palaisImmobilierScraper } from './palais-immobilier/index.js';
 import { beaumontScraper } from './beaumont/index.js';
 import { immoSudScraper } from './immo-sud/index.js';
 import { winterScraper } from './winter/index.js';
@@ -98,7 +100,9 @@ export const ALL_SCRAPERS: readonly Scraper[] = [
   emailAlertsScraper,
   ladresseScraper,
   albertiScraper,
+  akorimmoScraper,
   climmoScraper,
+  palaisImmobilierScraper,
   beaumontScraper,
   immoSudScraper,
   winterScraper,

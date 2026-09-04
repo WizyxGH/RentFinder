@@ -78,8 +78,18 @@ n'interdisant que `/app_dev.php`, sitemap déclaré, fiches
 | **Foch Immobilier** (groupe-foch.com)                | 2026-08-17 | ✅ **Implémentée** | Nice port, gestion locative depuis 1989. ~25 locations Nice + Cagnes.                                                              |
 | **Personal Immo** (personalimmo.fr)                  | 2026-08-17 | ✅ **Implémentée** | ~16 locations à Nice. Sitemap contenant des fiches retirées (301 → not-found) : le parser Apimo ignore désormais les fiches vides. |
 | **leprince realty** (leprincerealty.com)             | 2026-08-17 | ✅ **Implémentée** | ~6 locations Nice + Beaulieu-sur-Mer.                                                                                              |
-| **DG Immo** (dgimmo.fr)                              | 2026-08-17 | ✅ **Implémentée** | ~4 locations Nice + Saint-Laurent-du-Var.                                                                                          |
-| rivolimmo.fr                                         | 2026-08-17 | ⚪ Apimo confirmé  | Sitemap quasi vide (1 fiche) — à activer si le stock apparaît.                                                                     |
+
+Second passage du **2026-09-04**, mené avec `scripts/probe-agency.mjs` (robots.txt
+d'abord, annonces publiques ensuite, volume enfin) :
+
+| Source                                       | Vérifié    | Verdict            | Détail                                                                                                                                                                                                                       |
+| -------------------------------------------- | ---------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Palais Immobilier** (palaisimmobilier.com) | 2026-09-04 | ✅ **Implémentée** | **105 locations** dans les communes cibles — la plus grosse source locale du projet, devant fnaim.fr (~75/passage). Réseau à plusieurs bureaux (Vieux Nice, Nice Ouest). Budget de découverte porté à 40 fiches par passage. |
+| **AKOR Immo** (akorimmo.com)                 | 2026-09-04 | ✅ **Implémentée** | 4 locations ciblées sur 1 259 URL, le reste en vente. Petit volume assumé : une agence de quartier publie peu mais tôt, et une source Apimo inchangée coûte deux requêtes (§30).                                             |
+| **Votre Agence Immo** (votre-agence-immo.fr) | 2026-09-04 | ⏸️ Écartée         | robots.txt permissif, mais 3 locations ciblées seulement et plateforme inconnue : un scraper sur mesure pour trois annonces ne se rentabilise pas.                                                                           |
+| **Superimmo** (superimmo.com)                | 2026-09-04 | ⏸️ Écartée         | Agrégateur, pas une agence. `sitemap.xml` en 404 et robots.txt interdisant les endpoints JSON de listes : aucune voie de collecte conforme.                                                                                  |
+| **DG Immo** (dgimmo.fr)                      | 2026-08-17 | ✅ **Implémentée** | ~4 locations Nice + Saint-Laurent-du-Var.                                                                                                                                                                                    |
+| rivolimmo.fr                                 | 2026-08-17 | ⚪ Apimo confirmé  | Sitemap quasi vide (1 fiche) — à activer si le stock apparaît.                                                                                                                                                               |
 
 **Plateforme « La Boîte Immo / Hektor »** — adaptateur générique implémenté le
 2026-08-17 (`sources/hektor`, même logique que l'adaptateur Apimo) : listes
