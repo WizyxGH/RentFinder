@@ -19,10 +19,12 @@ import {
   fetchFilters,
   fetchListing,
   fetchListings,
+  fetchCurrentUser,
   fetchSavedSearches,
   fetchSources,
   isDemoMode,
   isUnconfigured,
+  requiresLogin,
   markViewed,
   setArchived,
   recordContact,
@@ -44,6 +46,7 @@ import { ProfileForm } from './components/ProfileForm.js';
 import { SourcesPanel } from './components/SourcesPanel.js';
 import { SavedSearchesPanel } from './components/SavedSearchesPanel.js';
 import { HomePanel } from './components/HomePanel.js';
+import { LoginScreen } from './components/LoginScreen.js';
 import { AlertsToggle } from './components/AlertsToggle.js';
 import {
   newSearchId,
@@ -503,6 +506,12 @@ export function App(): React.JSX.Element {
   // L'accueil est un point de situation ; la liste vit sous « Recherche ».
   const [view, setView] = useState<View>('home');
   const [savedSearches, setSavedSearches] = useState<readonly SavedSearch[]>([]);
+  // Qui est connecté. `undefined` = on ne sait pas encore : montrer l'écran de
+  // connexion à ce moment-là le ferait clignoter chez quelqu'un qui a déjà une
+  // session valide.
+  const [currentUser, setCurrentUser] = useState<string | null | undefined>(
+    requiresLogin() ? undefined : 'moi',
+  );
   // Source dont on regarde la fiche ; `null` hors de cette vue.
   const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -674,8 +683,18 @@ export function App(): React.JSX.Element {
   }, [sort, includeOutOfCriteria, showArchived, favoritesOnly]);
 
   useEffect(() => {
+    if (!requiresLogin()) return;
+    void fetchCurrentUser()
+      .then(setCurrentUser)
+      .catch(() => setCurrentUser(null));
+  }, []);
+
+  useEffect(() => {
+    // Rien à charger tant qu'on ne sait pas qui regarde : la requête partirait
+    // sans cookie et reviendrait « connexion requise ».
+    if (currentUser === undefined || currentUser === null) return;
     void load();
-  }, [load]);
+  }, [load, currentUser]);
 
   // Recherches enregistrées et santé des sources : deux lectures, une fois par
   // session, dont l'accueil a besoin dès son ouverture. Un échec n'est pas une
@@ -982,6 +1001,24 @@ export function App(): React.JSX.Element {
   // soit : une annonce trouvée pendant qu'on lit une fiche doit se voir aussi.
   // D'où ce fragment répété aux trois sorties du composant.
   const overlay = <ToastStack toasts={toasts} onOpen={openListing} onDismiss={dismissToast} />;
+
+  // On ne sait pas encore qui regarde : un instant blanc vaut mieux qu'un
+  // écran de connexion qui clignote chez quelqu'un déjà connecté.
+  if (currentUser === undefined) return <></>;
+
+  // Personne n'est connecté, et cet accès l'exige : rien ne s'affiche avant.
+  if (currentUser === null) {
+    return (
+      <LoginScreen
+        onSignedIn={() => {
+          setCurrentUser('inconnu');
+          void fetchCurrentUser()
+            .then(setCurrentUser)
+            .catch(() => setCurrentUser(null));
+        }}
+      />
+    );
+  }
 
   // Pas d'accès à la base : on demande les identifiants et on s'arrête là.
   // Sans eux, rien ne s'affiche — c'est la protection du site.

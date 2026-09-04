@@ -24,8 +24,15 @@ flowchart TB
     DB --> LOCAL[pnpm local]
 ```
 
-Deux modes coexistent : **local** (tout sur la machine, base SQLite) et
-**publié** (le site lit Turso directement, voir `docs/deployment.md`).
+Deux modes coexistent : **local** (tout sur la machine, base SQLite, API sur
+127.0.0.1) et **publié** (collecte dans GitHub Actions, site sur GitHub Pages,
+API sur un Worker Cloudflare qui détient seul le jeton Turso et tient les
+sessions — voir `docs/deployment.md`).
+
+`server/routes.ts` sert les DEUX : il ne dépend que des standards Web et de
+l'interface `Client` de libsql, jamais de `node:fs`. Ce qui touche le disque —
+filtres éditables, pièces du dossier — lui est injecté par le serveur local, et
+répond `501` ailleurs.
 
 ## Où lire quoi
 

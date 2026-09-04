@@ -1,4 +1,8 @@
-# Installation et usage — 100% local
+# Installation et usage
+
+Deux modes coexistent, et le même code les sert : **local** (tout sur votre
+machine) et **publié** (collecte dans GitHub Actions, site sur GitHub Pages,
+API sur un Worker Cloudflare). Ce document couvre les deux, dans cet ordre.
 
 RentFinder fonctionne **intégralement sur votre machine** : aucun compte cloud,
 aucun service à payer, aucune clé d'API. La base est un fichier SQLite, la
@@ -215,16 +219,27 @@ coller deux valeurs — rien de tout cela n'est dans le dépôt public (§26).
 ```
 GitHub Actions (cron, gratuit)  → collecte 24/7 et notifications Web Push
         ↓ écrit
-Turso (SQLite cloud, gratuit)   → base PRIVÉE (jeton), jamais dans le dépôt
-        ↑ lit directement
-GitHub Pages                    → le site (bundle public, sans secret)
+Turso (SQLite cloud, gratuit)   → base PRIVÉE, jeton jamais publié
+        ↑ lit
+Worker Cloudflare (gratuit)     → l'API, les sessions, et le SEUL détenteur
+        ↑ appelle                  du jeton Turso
+GitHub Pages                    → le site (bundle public, sans aucun secret)
 ```
 
-Le site interroge Turso sans intermédiaire : pas de serveur d'API à héberger.
+**POURQUOI UN WORKER, alors que le site parlait directement à Turso.** Le jeton
+vivait alors dans le navigateur. Il ouvrait toute la base — donc aucun mot de
+passe ne pouvait être vérifié : un écran de connexion posé devant se serait
+contourné en changeant une variable dans la console. Le Worker déplace ce jeton
+hors de portée ; le navigateur ne reçoit plus qu'un cookie de session signé.
+
+C'est ce qui rend le **multi-compte** possible : les annonces sont communes,
+mais favoris, suivi, archivage et recherches enregistrées appartiennent à
+chacun (`listing_user_state`).
 
 Vos données (annonces suivies, statuts, favoris) vivent dans **Turso**, jamais
-dans le dépôt. Vos **documents de candidature restent locaux** : l'API cloud
-répond `501` sur `/api/documents` et `/api/config` (fonctionnalités disque).
+dans le dépôt. Vos **documents de candidature restent locaux** : ils touchent
+le disque de votre machine, et l'API publiée répond donc `501` sur
+`/api/documents` et `/api/config`.
 
 ### Étapes d'activation
 
@@ -273,6 +288,43 @@ Le workflow `collect.yml` (cron toutes les 20 min) **ne fait rien** tant que
 (**Settings → Pages**, source « GitHub Actions »). À la première ouverture, le
 site demande l'adresse de votre base et son jeton — conservés dans le
 navigateur, jamais dans le bundle (§26).
+
+#### 5. L'API et les comptes — Worker Cloudflare
+
+Sans cette étape, le site reste utilisable avec l'accès direct à Turso, mais il
+n'y a **ni connexion ni comptes séparés** : quiconque ouvre la page et connaît
+le jeton voit tout.
+
+```bash
+cd packages/worker
+
+# Les trois secrets. Ils ne sont NI dans le dépôt, NI dans le bundle.
+npx wrangler secret put TURSO_DATABASE_URL   # libsql://…
+npx wrangler secret put TURSO_AUTH_TOKEN     # le jeton, qui quitte le navigateur
+npx wrangler secret put SESSION_SECRET       # une longue chaîne aléatoire, à vous
+
+npx wrangler deploy                          # affiche l'URL du Worker
+```
+
+Puis, une fois par personne :
+
+```bash
+pnpm --filter @rentfinder/worker user:add
+```
+
+La commande demande un identifiant et un mot de passe **sans l'afficher**, et
+n'écrit que son empreinte (PBKDF2, 210 000 tours). Elle ne prend pas le mot de
+passe en argument : il resterait dans l'historique du terminal.
+
+Il n'y a **pas d'écran d'inscription** sur le site, et c'est voulu : un site
+ouvert à l'inscription est un site que n'importe qui remplit.
+
+Enfin, deux réglages se répondent :
+
+- `ALLOWED_ORIGIN` dans `packages/worker/wrangler.toml` = l'adresse du site
+  (`https://<vous>.github.io`). Un `*` serait refusé par les navigateurs dès
+  lors qu'on envoie un cookie — et il le serait à raison.
+- `VITE_API_URL` du build du site = l'URL du Worker.
 
 ### Revenir au 100 % local
 

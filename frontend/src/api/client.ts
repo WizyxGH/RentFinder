@@ -86,11 +86,18 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  // Ne sert plus qu'au mode LOCAL (`pnpm local`), où l'API est sur la même
-  // origine et n'exige aucun jeton — le serveur n'écoute que sur 127.0.0.1.
-  // L'accès distant, lui, passe directement par Turso.
+  // DEUX transports derrière la même fonction : le serveur local (`pnpm
+  // local`, même origine, sans jeton, il n'écoute que sur 127.0.0.1) et le
+  // Worker Cloudflare du site publié.
+  //
+  // `credentials: 'include'` est ce qui fait tenir le second : le cookie de
+  // session est posé par le Worker, sur SON domaine, et le site vit sur un
+  // autre. Sans cette mention, le navigateur ne le renverrait pas, et chaque
+  // requête reviendrait « connexion requise » alors qu'on vient de se
+  // connecter.
   const response = await fetch(`${isLocalMode() ? '' : API_URL}${path}`, {
     ...init,
+    credentials: 'include',
     headers: {
       ...(init.body !== undefined ? { 'content-type': 'application/json' } : {}),
       ...init.headers,
@@ -105,6 +112,61 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   }
 
   return (await response.json()) as T;
+}
+
+/**
+ * Qui est connecté, si quelqu'un l'est.
+ *
+ * `null` n'est PAS une erreur : c'est la réponse normale avant de se
+ * connecter, et c'est elle qui décide d'afficher l'écran de connexion. Les
+ * modes local et démonstration n'ont pas de comptes — ils répondent donc
+ * « connecté », faute de quoi ils demanderaient un mot de passe qui n'existe
+ * nulle part.
+ */
+export async function fetchCurrentUser(): Promise<string | null> {
+  if (DEMO || isLocalMode() || isDirectMode()) return LOCAL_USER;
+  const response = await request<{ user: string | null }>('/api/me');
+  return response.user;
+}
+
+/**
+ * Utilisateur implicite des modes sans comptes. Le nom dit ce qu'il est : pas
+ * une identité vérifiée, seulement « la personne devant cette machine ».
+ */
+const LOCAL_USER = 'moi';
+
+/** `true` si cet accès demande une connexion. */
+export function requiresLogin(): boolean {
+  return !DEMO && !isLocalMode() && !isDirectMode() && API_URL !== '';
+}
+
+/**
+ * Connexion. Renvoie un message d'erreur, ou `null` si elle a réussi.
+ *
+ * Le message vient du serveur tel quel : il dit « identifiant ou mot de passe
+ * incorrect » sans préciser lequel, et ce n'est pas une maladresse — distinguer
+ * les deux apprendrait quels comptes existent.
+ */
+export async function login(identifiant: string, password: string): Promise<string | null> {
+  try {
+    await request<{ userId: string }>('/api/login', {
+      method: 'POST',
+      body: JSON.stringify({ login: identifiant, password }),
+    });
+    return null;
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) {
+      return 'Identifiant ou mot de passe incorrect.';
+    }
+    return 'La connexion a échoué. Réessayez dans un instant.';
+  }
+}
+
+export async function logout(): Promise<void> {
+  if (!requiresLogin()) return;
+  await fetch(`${API_URL}/api/logout`, { method: 'POST', credentials: 'include' }).catch(() => {
+    /* déconnexion locale malgré tout : le cookie expirera */
+  });
 }
 
 /** Applique en local le tri et le filtrage que l'API ferait en SQL. */

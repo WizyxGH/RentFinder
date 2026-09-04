@@ -67,7 +67,7 @@ Ouvert sur un téléphone, il répond à une seule question :
 pnpm collect : Scheduler → Scrapers → Normalisation → Dédoublonnage
              → Scoring + distances → SQLite (local) ou Turso (publié)
 pnpm local   : SQLite → API (127.0.0.1) → Frontend React
-publié       : Turso ← GitHub Actions (collecte) · Turso → Frontend (Pages)
+publié       : GitHub Actions → Turso ← Worker Cloudflare ← Frontend (Pages)
 ```
 
 Quatre destinations, les mêmes sur téléphone et sur grand écran — Accueil,
@@ -188,12 +188,12 @@ Pour **ajouter une source**, le mode d'emploi vit dans l'en-tête de
 - En mode local, la collecte tourne sur votre machine : ordinateur éteint, pas
   de collecte ni de notification. Le mode publié (GitHub Actions) lève cette
   limite.
-- **Un seul utilisateur.** Le schéma est prêt pour plusieurs — les décisions
-  personnelles (favori, statut, archivage) sont rattachées à un utilisateur
-  depuis la migration 19 — mais il n'y a ni identifiant ni mot de passe : le
-  site est un bundle statique qui parle directement à Turso, et dans ce modèle
-  aucun mot de passe ne peut être vérifié. Une vraie connexion demanderait un
-  petit serveur (§26).
+- **Multi-compte** : possible depuis que l'API passe par un Worker Cloudflare,
+  seul détenteur du jeton Turso. Les annonces sont communes, les décisions
+  (favori, statut, archivage, recherches enregistrées) appartiennent à chacun.
+  Les comptes se créent en ligne de commande — un site ouvert à l'inscription
+  est un site que n'importe qui remplit (§26). Sans le Worker, le site reste
+  utilisable en accès direct, mais sans comptes séparés.
 
 ## Roadmap
 
@@ -205,8 +205,7 @@ Pour **ajouter une source**, le mode d'emploi vit dans l'en-tête de
   notifications Web Push ; recherches enregistrées ; documents de candidature
   locaux ; frontend mobile ET grand écran (Tailwind CSS + shadcn/ui) ; docs et
   suite Vitest + Playwright.
-- **Ensuite** : connexion multi-utilisateur (demande un serveur, voir plus
-  haut), import d'alertes e-mail (seule voie conforme pour
+- **Ensuite** : import d'alertes e-mail (seule voie conforme pour
   Leboncoin/SeLoger/Bien'ici, et pour Jinka), davantage d'agences, relances
   automatisées,
   historique des prix enrichi.
