@@ -532,9 +532,25 @@ const NOT_A_STREET = /\b(parking|stationnement|garage|box|voiture|moto|velo|vél
 const PROSE_AFTER_STREET =
   /\b(dans|proche|avec|situ[ée]e?|id[ée]ale?|entre|r[ée]sidence|immeuble|appartement|studio|villa|copropri[ée]t[ée])\b/i;
 
+/**
+ * ÉQUIPEMENTS : les mots qu'une agence accole au nom de voie dans une accroche
+ * composée au tiret — « NICE LE PORT - RUE ARSON GRANDE TERRASSE - CALME ».
+ *
+ * Le segment commence bien par un type de voie, ne contient aucune prose, et
+ * passait donc pour une adresse : « Rue Arson Grande Terrasse » n'existe sur
+ * aucune carte. Aucune rue de l'agglomération ne porte l'un de ces mots ; les
+ * rejeter perd la rue plutôt que d'en inventer une (§17).
+ */
+const FEATURE_IN_STREET =
+  /\b(terrasse|balcon|ascenseur|meubl[ée]e?|vide|r[ée]nov[ée]e?|climatis[ée]e?|calme|[ée]tage|pi[èe]ces?|vue mer|jardin|cave|piscine)\b/i;
+
 /** `true` si le segment fraîchement extrait est bien une voie, et rien de plus. */
 function isCleanStreet(candidate: string): boolean {
-  return !NOT_A_STREET.test(candidate) && !PROSE_AFTER_STREET.test(candidate);
+  return (
+    !NOT_A_STREET.test(candidate) &&
+    !PROSE_AFTER_STREET.test(candidate) &&
+    !FEATURE_IN_STREET.test(candidate)
+  );
 }
 
 /**
@@ -566,8 +582,15 @@ const ADDRESS_HEAD = 120;
  * reconnu qu'ENTOURÉ D'ESPACES, sans quoi « Rue Jean-Jaurès » se couperait en
  * deux ; les trois tirets typographiques sont acceptés, les sites mélangeant
  * les trois.
+ *
+ * LE DEUX-POINTS EN FAIT PARTIE, et son absence coûtait cher : Citya annonce
+ * ses biens « À LOUER : AVENUE JOSEPH RAYBAUD, 06300 NICE ». Sans lui, le
+ * premier segment est « À LOUER : AVENUE JOSEPH RAYBAUD », qui ne COMMENCE pas
+ * par un type de voie — l'adresse était perdue alors qu'elle était écrite en
+ * toutes lettres. En français, le deux-points sépare l'annonce de son contenu :
+ * c'est une frontière de segment aussi sûre qu'une virgule.
  */
-const SEGMENT_BREAK = /[,;/.¶]|\s+[-–—]\s+/;
+const SEGMENT_BREAK = /[,;/.:¶]|\s+[-–—]\s+/;
 
 /**
  * Marqueur de fin de ligne, posé avant le nettoyage.

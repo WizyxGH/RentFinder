@@ -17,8 +17,9 @@
  */
 
 import * as cheerio from 'cheerio';
+import type { RawDraft } from '../shared/raw-listing.js';
 import type { RawListing } from '@rentfinder/shared';
-import { cleanText } from '../../normalization/text.js';
+import { cleanMultiline, cleanText } from '../../normalization/text.js';
 
 /** Forme d'une URL de fiche : `/location/{ville}-{dept}/{type}/{réf}.htm`. */
 const LISTING_URL_PATTERN =
@@ -247,8 +248,25 @@ const WITHDRAWN_BANNER = /cette\s+annonce\s+n['’\s]?est\s+plus\s+disponible/i;
  * suivante : sans ce découpage, un `status` lu au hasard pourrait être celui
  * d'une commune ou d'un bien « similaire » affiché plus bas.
  */
+/**
+ * L'état de transfert Angular remplace cinq caractères par des marqueurs.
+ *
+ * On ne décodait que le guillemet, ce qui suffisait à retrouver un `status`.
+ * Mais le texte des descriptions y arrive alors avec ses `&l;br&g;` intacts,
+ * et le retour à la ligne était perdu. `&a;` est décodé EN DERNIER : le faire
+ * avant transformerait un `&a;l;` littéral en `<`.
+ */
+function unescapeState(html: string): string {
+  return html
+    .replace(/&q;/g, '"')
+    .replace(/&l;/g, '<')
+    .replace(/&g;/g, '>')
+    .replace(/&s;/g, "'")
+    .replace(/&a;/g, '&');
+}
+
 function annonceState(html: string, reference: string): string | null {
-  const decoded = html.replace(/&q;/g, '"');
+  const decoded = unescapeState(html);
   const start = decoded.indexOf(
     `"GET.https://fnc-api.prod.fonciatech.net/annonces/annonces/location/${reference}."`,
   );
@@ -274,4 +292,34 @@ export function parseWithdrawn(html: string, reference: string): boolean {
   const state = annonceState(html, reference);
   if (state !== null && /"status"\s*:\s*"deleted"/.test(state)) return true;
   return WITHDRAWN_BANNER.test(cheerio.load(html).text());
+}
+
+/**
+ * Ce que la FICHE ajoute à la carte : la description entière.
+ *
+ * La carte n'en donne qu'un fragment — 99 caractères de moyenne sur les
+ * dix-huit annonces relevées le 2026-09-04, soit une demi-phrase. La fiche
+ * porte le texte complet dans son état de transfert, avec ses `<br>`, rendus
+ * ici en retours à la ligne : sans eux, les descriptions arrivaient d’un bloc.
+ *
+ * On lit l'état plutôt que le HTML visible pour la même raison qu'ailleurs : le
+ * rendu Angular s'appuie sur des classes de mise en page, l'état sur des noms
+ * de champs.
+ *
+ * @returns le complément à fusionner, ou `null` si la fiche n'apprend rien —
+ *          auquel cas on garde ce que la carte avait donné (§17).
+ */
+export function parseDetail(html: string, reference: string): RawDraft | null {
+  const state = annonceState(html, reference);
+  if (state === null) return null;
+  const raw = /"description"\s*:\s*"((?:[^"\\]|\\.)*)"/.exec(state)?.[1];
+  if (raw === undefined) return null;
+  let decoded: string;
+  try {
+    decoded = JSON.parse(`"${raw}"`) as string;
+  } catch {
+    return null;
+  }
+  const description = cleanMultiline(decoded.replace(/<br\s*\/?>/gi, '\n'));
+  return description.length > 0 ? { description } : null;
 }

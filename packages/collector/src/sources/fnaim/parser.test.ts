@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { normalizeListing } from '../../normalization/normalize.js';
-import { listUrl, parseListPage, splitTitle } from './parser.js';
+import { listUrl, parseDetail, parseListPage, splitTitle } from './parser.js';
 
 const HTML = readFileSync(
   fileURLToPath(new URL('../../../../../tests/fixtures/fnaim/liste.html', import.meta.url)),
@@ -93,5 +93,30 @@ describe('parseListPage (FNAIM)', () => {
     const empty = parseListPage('<html><body><ul></ul></body></html>', PAGE);
     expect(empty.listings).toEqual([]);
     expect(empty.hasNext).toBe(false);
+  });
+});
+
+describe('parseDetail (FNAIM)', () => {
+  const FICHE = readFileSync(
+    fileURLToPath(new URL('../../../../../tests/fixtures/fnaim/fiche.html', import.meta.url)),
+    'utf8',
+  );
+
+  it('récupère la description ENTIÈRE que la carte coupait', () => {
+    const detail = parseDetail(FICHE);
+    const carte = parseListPage(HTML, PAGE).listings[1]?.description ?? '';
+    expect(detail?.description).toBeDefined();
+    expect(detail!.description!.length).toBeGreaterThan(carte.length * 3);
+    // Ce que la troncature emportait : les conditions, et l'adresse.
+    expect(detail?.description).toContain('CORNICHE FLEURIE');
+    expect(detail?.description).toContain('honoraires charge locataire');
+  });
+
+  it('garde les retours à la ligne du texte', () => {
+    expect((parseDetail(FICHE)?.description ?? '').split('\n').length).toBeGreaterThan(2);
+  });
+
+  it('ne conclut rien d’une page sans description (§17)', () => {
+    expect(parseDetail('<html><body><p>rien</p></body></html>')).toBeNull();
   });
 });

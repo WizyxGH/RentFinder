@@ -557,3 +557,28 @@ describe('extractFeatures — atout « Réservé aux étudiants »', () => {
     expect(extractFeatures('Studio meublé, idéal étudiant')).not.toContain(STUDENT_HOUSING_FEATURE);
   });
 });
+
+describe('extractStreetAddress — le deux-points sépare l’annonce de son contenu', () => {
+  it('lit l’adresse après « À LOUER : », forme de Citya', () => {
+    expect(
+      extractStreetAddress('À LOUER : AVENUE JOSEPH RAYBAUD, 06300 NICE Appartement T1 au calme.'),
+    ).toBe('AVENUE JOSEPH RAYBAUD');
+  });
+
+  it('la lit aussi quand le quartier précède', () => {
+    expect(extractStreetAddress('Carré d’or / Rue Guiglia: Emplacement idéal pour ce 2p')).toBe(
+      'Rue Guiglia',
+    );
+  });
+
+  it('n’accole pas un équipement au nom de voie (§17)', () => {
+    // « Rue Arson Grande Terrasse » n'existe sur aucune carte : mieux vaut
+    // aucune rue qu'une rue introuvable.
+    expect(
+      extractStreetAddress('NICE LE PORT - RUE ARSON GRANDE TERRASSE - CALME - BEAUCOUP DE CHARME'),
+    ).toBeNull();
+    expect(extractStreetAddress('NICE OUEST - AVENUE FRÉMONT - T3 VIDE - BALCON')).toBe(
+      'AVENUE FRÉMONT',
+    );
+  });
+});

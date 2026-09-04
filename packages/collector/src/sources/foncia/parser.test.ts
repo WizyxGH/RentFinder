@@ -7,6 +7,7 @@ import {
   extractAddress,
   parseAgencies,
   parseAgencyByReference,
+  parseDetail,
   parseListingUrl,
   parseSearchPage,
   parseWithdrawn,
@@ -168,5 +169,31 @@ describe('parseWithdrawn (Foncia)', () => {
 
   it('ne conclut rien d’une page vide (§17)', () => {
     expect(parseWithdrawn('<html><body></body></html>', '331707068')).toBe(false);
+  });
+});
+
+describe('parseDetail (Foncia)', () => {
+  const FICHE = readFileSync(
+    fileURLToPath(
+      new URL('../../../../../tests/fixtures/foncia/fiche-description.html', import.meta.url),
+    ),
+    'utf8',
+  );
+
+  it('récupère la description entière, retours à la ligne compris', () => {
+    const detail = parseDetail(FICHE, '330719254');
+    expect(detail?.description).toContain('IMMEUBLE BOURGEOIS');
+    expect(detail?.description).toContain('Foncia Développement');
+    // Le `<br>` de la source devient un vrai retour à la ligne.
+    expect((detail?.description ?? '').split('\n').length).toBeGreaterThan(1);
+  });
+
+  it('ne prend pas la description d’une AUTRE entrée de l’état de transfert', () => {
+    // La fiche embarque aussi l'agence, qui a sa propre `description`.
+    expect(parseDetail(FICHE, '999999999')).toBeNull();
+  });
+
+  it('ne conclut rien d’une page vide (§17)', () => {
+    expect(parseDetail('<html><body></body></html>', '330719254')).toBeNull();
   });
 });

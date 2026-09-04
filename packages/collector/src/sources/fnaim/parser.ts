@@ -30,7 +30,7 @@ import * as cheerio from 'cheerio';
 import type { RawListing } from '@rentfinder/shared';
 import { cleanText } from '../../normalization/text.js';
 import { htmlToText } from '../shared/html-text.js';
-import { compactListing, type ParsedList } from '../shared/raw-listing.js';
+import { compactListing, type ParsedList, type RawDraft } from '../shared/raw-listing.js';
 
 const ORIGIN = 'https://www.fnaim.fr';
 
@@ -150,4 +150,28 @@ export function parseListPage(html: string, pageUrl: string): FnaimPage {
 export function listUrl(page: number): string {
   const base = `${ORIGIN}/liste-annonces-immobilieres/18-location-appartement-nice-06000`;
   return page <= 1 ? `${base}.htm` : `${base}-page-${page}.htm`;
+}
+
+/**
+ * Ce que la FICHE ajoute à la carte : la description entière.
+ *
+ * La carte la coupe à environ 250 caractères, sur une ellipse (« … revenus
+ * ... »). La fiche donne le texte complet — 1 900 caractères dans le cas
+ * mesuré — et, avec lui, l'adresse en toutes lettres que l'agence écrit
+ * souvent en tête (« 94 AV. DE LA CORNICHE FLEURIE 06200 NICE »), donc de quoi
+ * placer une punaise (§20) et reconnaître un doublon (§14).
+ *
+ * `itemprop="description"` : le gabarit le pose lui-même pour les moteurs de
+ * recherche. C'est un ancrage sémantique, plus stable qu'une classe de mise en
+ * page.
+ *
+ * @returns le complément à fusionner, ou `null` si la fiche n'apprend rien —
+ *          auquel cas on garde ce que la carte avait donné (§17).
+ */
+export function parseDetail(html: string): RawDraft | null {
+  const $ = cheerio.load(html);
+  const node = $('[itemprop="description"]').first();
+  if (node.length === 0) return null;
+  const description = htmlToText($, node as unknown as cheerio.Cheerio<never>);
+  return description.length > 0 ? { description } : null;
 }

@@ -25,9 +25,11 @@ import type {
   StopReason,
 } from '@rentfinder/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
+import { enrichNewListings } from '../shared/enrich.js';
 import {
   parseAgencies,
   parseAgencyByReference,
+  parseDetail,
   parseSearchPage,
   parseWithdrawn,
 } from './parser.js';
@@ -53,6 +55,17 @@ const AGENCIES_URL = 'https://fr.foncia.com/agence-immobiliere/agences-immo/nice
  */
 const MAX_WITHDRAWN_CHECKS = 5;
 
+/**
+ * Fiches visitées par exécution, pour les annonces NOUVELLES seulement.
+ *
+ * La carte ne donne qu'un fragment de description — 99 caractères de moyenne
+ * sur les dix-huit annonces relevées le 2026-09-04, soit une demi-phrase. La
+ * fiche porte le texte complet. Dix visites par cycle : le stock niçois de
+ * Foncia tourne autour de quinze annonces, une première collecte est donc
+ * couverte en deux passages (§30).
+ */
+const MAX_DETAILS = 10;
+
 /** Les annonces collectées sont toutes des appartements niçois. */
 const listingUrl = (reference: string): string =>
   `https://fr.foncia.com/location/nice-06/appartement/${reference}.htm`;
@@ -66,7 +79,7 @@ export const FONCIA_DESCRIPTOR: SourceDescriptor = {
   priority: 2,
   schedule: scheduleFor('agencyNetwork'),
   budget: budgetFor('agencyNetwork', {
-    maxPagesPerRun: 1 + MAX_WITHDRAWN_CHECKS,
+    maxPagesPerRun: 1 + MAX_WITHDRAWN_CHECKS + MAX_DETAILS,
     delayBetweenRequestsMs: 3_000,
   }),
   enabled: true,
@@ -81,7 +94,9 @@ export const FONCIA_DESCRIPTOR: SourceDescriptor = {
     'Les annonces DISPARUES de la liste voient leur fiche vérifiée (5 par ' +
     'run) : Foncia y affiche « Cette annonce n’est plus disponible » et passe ' +
     'le statut de l’annonce à `deleted`, ce qui lève le doute du cycle de ' +
-    'vie (§32).',
+    'vie (§32). La carte ne donne qu’un fragment de description : les fiches ' +
+    'des annonces nouvelles sont visitées (10 par exécution) pour la ' +
+    'récupérer entière depuis l’état de transfert.',
 };
 
 /**
@@ -182,12 +197,25 @@ export const fonciaScraper: Scraper = {
         pagesFetched += checked.pagesFetched;
         rentedRefs.push(...checked.rentedRefs);
 
+        // La fiche des annonces NOUVELLES porte la description entière ; la
+        // carte n'en donnait qu'une demi-phrase.
+        const enriched = await enrichNewListings(context, listings.splice(0), {
+          max: MAX_DETAILS,
+          detailUrl: (listing) => listing.sourceUrl,
+          parse: (html, listing) => parseDetail(html, listing.sourceRef),
+        });
+        listings.push(...enriched.listings);
+        requestCount += enriched.requestCount;
+        pagesFetched += enriched.pagesFetched;
+        warnings.push(...enriched.warnings);
+
         context.log('page.parsed', {
           url: ENTRY_URL,
           found: parsed.listings.length,
           known,
           vanished: vanished.length,
           withdrawn: checked.rentedRefs.length,
+          details: enriched.pagesFetched,
         });
       }
     } catch (error) {

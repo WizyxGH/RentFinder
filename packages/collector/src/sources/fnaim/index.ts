@@ -22,10 +22,22 @@ import type {
   StopReason,
 } from '@rentfinder/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
-import { listUrl, parseListPage } from './parser.js';
+import { enrichNewListings } from '../shared/enrich.js';
+import { listUrl, parseDetail, parseListPage } from './parser.js';
 
 /** Vingt-cinq annonces par page, du moins cher au plus cher. */
 const MAX_PAGES = 3;
+
+/**
+ * Fiches visitées par exécution, pour les annonces NOUVELLES seulement.
+ *
+ * La carte coupe la description à environ 250 caractères — 72 des 75 annonces
+ * relevées le 2026-09-04 —, et ce qu'elle coupe contient souvent l'adresse en
+ * toutes lettres. La fiche du même bien fait 1 900 caractères. Vingt visites
+ * par cycle : une première collecte s'étale sur quelques passages plutôt que
+ * de tirer soixante-quinze requêtes d'un coup (§30).
+ */
+const MAX_DETAILS = 20;
 
 export const FNAIM_DESCRIPTOR: SourceDescriptor = {
   id: 'fnaim',
@@ -37,7 +49,10 @@ export const FNAIM_DESCRIPTOR: SourceDescriptor = {
   // identifie l'agence qui la publie et donne de quoi l'appeler.
   priority: 2,
   schedule: scheduleFor('portal'),
-  budget: budgetFor('portal', { maxPagesPerRun: MAX_PAGES, maxListingsPerRun: 100 }),
+  budget: budgetFor('portal', {
+    maxPagesPerRun: MAX_PAGES + MAX_DETAILS,
+    maxListingsPerRun: 100,
+  }),
   enabled: true,
   // Petites agences : premier contact par téléphone (§23).
   manualOnly: true,
@@ -52,7 +67,9 @@ export const FNAIM_DESCRIPTOR: SourceDescriptor = {
     'URL couvre Nice. Résultats triés par loyer croissant, ce qui met la ' +
     'tranche recherchée sur les premières pages. Les cartes portent le nom de ' +
     'l’agence, son téléphone en clair, et une description qui contient ' +
-    'souvent l’adresse en toutes lettres (§14, §20).',
+    'souvent l’adresse en toutes lettres (§14, §20). La carte COUPE la ' +
+    'description : les fiches des annonces nouvelles sont visitées (20 par ' +
+    'exécution) pour la récupérer entière — <p itemprop="description">.',
 };
 
 export const fnaimScraper: Scraper = {
@@ -99,10 +116,22 @@ export const fnaimScraper: Scraper = {
       }
     }
 
-    const listings = [...byRef.values()];
+    // Les fiches NOUVELLES portent la description entière — et, avec elle,
+    // l'adresse que la carte coupait (§20, §14).
+    const enriched = await enrichNewListings(context, [...byRef.values()], {
+      max: MAX_DETAILS,
+      detailUrl: (listing) => listing.sourceUrl,
+      parse: (html) => parseDetail(html),
+    });
+    requestCount += enriched.requestCount;
+    pagesFetched += enriched.pagesFetched;
+    warnings.push(...enriched.warnings);
+
+    const listings = enriched.listings;
     context.log('list.parsed', {
       listings: listings.length,
       pages: pagesFetched,
+      details: enriched.pagesFetched,
       known: listings.filter((listing) => context.isKnown(listing.sourceRef)).length,
     });
 
