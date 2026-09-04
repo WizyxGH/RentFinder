@@ -129,14 +129,22 @@
      inline (`--rf-delay`) : la liste se dessine de haut en bas, comme on la
      lit, au lieu de surgir d'un bloc. */
   .rf-rise {
-    animation: rf-rise 220ms ease-out both;
+    /* `backwards` et NON `both`. Une animation qui « remplit » vers l'avant ne
+       s'arrête jamais aux yeux du navigateur : elle crée un contexte
+       d'empilement PERMANENT, qui enferme ses descendants. La modale de tri,
+       pourtant en z-2000, se retrouvait ainsi sous la barre d'onglets en
+       z-40 — un bouton visible et incliquable. `backwards` ne remplit que
+       l'attente du délai, et libère tout ensuite. */
+    animation: rf-rise 220ms ease-out backwards;
     animation-delay: var(--rf-delay, 0ms);
   }
 
   /* Changement de vue : une simple fondue. Un glissement latéral aurait
      suggéré une direction que la navigation n'a pas. */
   .rf-fade {
-    animation: rf-fade 160ms ease-out both;
+    /* Même raison qu'au-dessus, et pas de délai à couvrir : aucun remplissage.
+       L'animation finit sur l'opacité naturelle de l'élément. */
+    animation: rf-fade 160ms ease-out;
   }
 
   /* Accusé de réception d'un geste : le cœur qu'on vient de remplir. */
