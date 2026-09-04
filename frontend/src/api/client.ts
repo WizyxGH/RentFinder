@@ -173,6 +173,22 @@ export function requiresLogin(): boolean {
 }
 
 /**
+ * Aucune API n'est joignable, et ce n'est pas la démonstration.
+ *
+ * CE CAS N'AVAIT PLUS D'ÉCRAN. Il en avait un tant que le navigateur savait
+ * ouvrir Turso lui-même : on lui demandait alors une adresse et un jeton. Ce
+ * chemin retiré, plus rien ne le remplaçait — l'application se croyait
+ * connectée, appelait `/api/listings` en chemin relatif, recevait la page
+ * d'erreur du serveur de fichiers, et affichait une liste vide.
+ *
+ * Une liste vide est un mensonge : elle dit « aucune annonce ne correspond »
+ * là où il faut lire « le site n'est branché sur rien » (§17).
+ */
+export function isUnconfigured(): boolean {
+  return !DEMO && API_URL === '';
+}
+
+/**
  * Connexion. Renvoie un message d'erreur, ou `null` si elle a réussi.
  *
  * Le message vient du serveur tel quel : il dit « identifiant ou mot de passe

@@ -27,6 +27,7 @@ import {
   fetchSavedSearches,
   fetchSources,
   isDemoMode,
+  isUnconfigured,
   requiresLogin,
   markViewed,
   setArchived,
@@ -55,6 +56,7 @@ import { SourcesPanel } from './components/SourcesPanel.js';
 import { SavedSearchesPanel } from './components/SavedSearchesPanel.js';
 import { HomePanel } from './components/HomePanel.js';
 import { LoginScreen } from './components/LoginScreen.js';
+import { UnconfiguredScreen } from './components/UnconfiguredScreen.js';
 import { OnboardingPanel } from './components/OnboardingPanel.js';
 import {
   newSearchId,
@@ -1110,6 +1112,12 @@ export function App(): React.JSX.Element {
    * question — « peut-on afficher l'application ? ».
    */
   const entranceScreen = (): React.JSX.Element | null => {
+    // AVANT TOUT LE RESTE : sans adresse d'API, il n'y a rien à charger et rien
+    // à connecter. L'application se croyait connectée et affichait une liste
+    // vide, ce qui se lit « aucune annonce ne correspond » au lieu de « rien
+    // n'est branché ».
+    if (isUnconfigured()) return <UnconfiguredScreen />;
+
     // Un instant blanc vaut mieux qu'un écran de connexion qui clignote chez
     // quelqu'un déjà connecté.
     if (currentUser === undefined) return <></>;

@@ -191,15 +191,50 @@
       <!-- TARIF ------------------------------------------------------------ -->
       <section id="tarif" class="mx-auto max-w-5xl px-5 py-16">
         <h2 class="text-2xl font-bold tracking-tight">Tarif</h2>
-        <!-- PLACEHOLDER ASSUMÉ. Aucun prix n'est arrêté : en inventer un ici
-          serait un engagement pris sans décision. La section existe pour que la
-          page soit complète, et se remplit le jour où le tarif est fixé. -->
-        <div class="mt-6 max-w-md rounded-2xl border border-[var(--color-border)] p-6">
-          <p class="text-lg font-semibold">À définir</p>
-          <p class="mt-2 text-[0.95rem] text-[var(--color-muted-foreground)]">
-            La grille tarifaire n’est pas encore arrêtée. Laissez votre adresse pour être prévenu de
-            l’ouverture.
+        <p class="mt-2 max-w-xl text-[0.95rem] text-[var(--color-muted-foreground)]">
+          Une recherche de logement dure rarement plus de quelques mois. Le tarif suit ce rythme :
+          on paie pendant qu’on cherche.
+        </p>
+
+        <!-- LE PRIX N'EST ÉCRIT QU'ICI. Il n'est pas définitif : le répéter en
+          en-tête, dans le héros et dans le pied ferait quatre endroits à
+          corriger, et trois occasions d'en oublier un. -->
+        <div
+          class="mt-6 max-w-md rounded-2xl border border-[var(--color-border)] bg-[var(--color-card)] p-6"
+        >
+          <p class="flex items-baseline gap-1.5">
+            <span class="text-4xl font-bold tracking-tight">50 €</span>
+            <span class="text-[var(--color-muted-foreground)]">par mois</span>
           </p>
+
+          <ul class="mt-5 flex flex-col gap-2.5 text-[0.95rem]">
+            <li class="flex gap-2.5">
+              <span aria-hidden="true" class="text-[var(--color-primary)]">✓</span>
+              <span>Plusieurs dizaines de sources relevées en continu</span>
+            </li>
+            <li class="flex gap-2.5">
+              <span aria-hidden="true" class="text-[var(--color-primary)]">✓</span>
+              <span>Alertes sur votre téléphone, application fermée</span>
+            </li>
+            <li class="flex gap-2.5">
+              <span aria-hidden="true" class="text-[var(--color-primary)]">✓</span>
+              <span>Doublons écartés, prix divergents signalés</span>
+            </li>
+            <li class="flex gap-2.5">
+              <span aria-hidden="true" class="text-[var(--color-primary)]">✓</span>
+              <span>Dossier de candidature hébergé, accessible partout</span>
+            </li>
+            <li class="flex gap-2.5">
+              <span aria-hidden="true" class="text-[var(--color-primary)]">✓</span>
+              <span>Suivi de vos contacts et de vos recherches enregistrées</span>
+            </li>
+          </ul>
+
+          <a
+            href="#acces"
+            class="mt-6 inline-block w-full rounded-full bg-[var(--color-primary)] px-6 py-3 text-center font-medium text-[var(--color-primary-foreground)]"
+            >Commencer</a
+          >
         </div>
       </section>
 
