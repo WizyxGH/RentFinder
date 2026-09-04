@@ -101,7 +101,9 @@ describe('liste des annonces', () => {
     await screen.findAllByTestId('listing-card');
 
     await user.click(screen.getByRole('button', { name: /Trier et filtrer/ }));
-    await user.click(screen.getByRole('button', { name: /loyer/i }));
+    // Le tri est un MENU : un choix unique parmi quatre n'avait pas à occuper
+    // un quart du panneau en liste dépliée.
+    await user.selectOptions(screen.getByLabelText('Trier par'), 'price');
     await user.click(screen.getByRole('button', { name: /^(Voir \d+ annonces?|Aucun résultat)$/ }));
 
     const cards = await screen.findAllByTestId('listing-card');

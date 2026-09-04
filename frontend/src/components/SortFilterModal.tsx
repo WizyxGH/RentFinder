@@ -17,7 +17,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Check, RotateCcw, X } from 'lucide-react';
+import { RotateCcw, X } from 'lucide-react';
 import type { SortMode } from '../types.js';
 import type { PropertyType } from '@rentfinder/shared';
 import { formatPropertyType, formatSourceName } from '../format.js';
@@ -276,30 +276,28 @@ export function SortFilterModal({
           </fieldset>
         )}
 
-        <fieldset className="mb-5">
-          <legend className="mb-2 text-sm font-semibold text-muted-foreground">Trier par</legend>
-          <ul className="flex flex-col gap-0.5">
+        {/* UN MENU, et non une liste dépliée. Le tri est un choix unique parmi
+          quatre : déplié, il occupait un quart du panneau pour montrer trois
+          options qu'on ne prend pas, et repoussait les filtres sous la ligne
+          de flottaison. Le `<select>` natif est aussi le plus sûr au doigt
+          (§39, §65). */}
+        <div className="mb-5 flex items-center gap-3">
+          <label htmlFor="sort-select" className="text-muted-foreground text-sm font-semibold">
+            Trier par
+          </label>
+          <select
+            id="sort-select"
+            value={sort}
+            onChange={(event) => onSortChange(event.target.value as SortMode)}
+            className="min-w-0 flex-1"
+          >
             {sortOptions.map((option) => (
-              <li key={option.value}>
-                <button
-                  type="button"
-                  onClick={() => onSortChange(option.value)}
-                  aria-pressed={sort === option.value}
-                  className={`flex w-full cursor-pointer items-center gap-2 rounded-lg px-2 py-2 text-left transition-colors ${
-                    sort === option.value
-                      ? 'bg-primary/10 font-semibold text-primary'
-                      : 'hover:bg-muted'
-                  }`}
-                >
-                  <span aria-hidden="true" className="flex w-4 justify-center">
-                    {sort === option.value ? <Check className="size-4" /> : null}
-                  </span>
-                  {option.label}
-                </button>
-              </li>
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
             ))}
-          </ul>
-        </fieldset>
+          </select>
+        </div>
 
         <fieldset className="mb-5">
           <legend className="mb-2 text-sm font-semibold text-muted-foreground">Affichage</legend>

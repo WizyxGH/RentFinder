@@ -168,7 +168,9 @@ test('le tri et le changement de statut fonctionnent (§35, §54)', async ({ pag
   // Le tri vit dans la modale « Trier et filtrer ».
   const toolbar = page.getByRole('group', { name: 'Barre de filtres' });
   await toolbar.getByRole('button', { name: /Trier et filtrer/ }).click();
-  await page.getByRole('button', { name: 'Loyer croissant' }).click();
+  // Le tri est un MENU : un choix unique parmi quatre n'occupe plus un quart
+  // du panneau en liste dépliée.
+  await page.getByLabel('Trier par').selectOption('price');
   await page.getByRole('button', { name: /^(Voir \d+ annonces?|Aucun résultat)$/ }).click();
   await expect(page.getByTestId('listing-card').first()).toContainText('420 €');
 
