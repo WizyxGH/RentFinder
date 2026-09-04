@@ -60,6 +60,10 @@ test('les cibles tactiles restent atteignables au doigt', async ({ page }) => {
     .getByRole('button', { name: 'Recherche' })
     .click();
   await expect(page.getByTestId('listing-card').first()).toBeVisible();
+  // La hauteur d'un bouton de texte suit les métriques de sa police : mesurée
+  // avant que la fonte ne soit chargée, elle est celle de la police de repli.
+  // On veut les cibles AU REPOS, pas au milieu du rendu.
+  await page.evaluate(() => document.fonts.ready);
 
   // 36 px : en deçà, une cible devient difficile à viser sur un écran tactile.
   // Seuil volontairement indulgent — on cherche les oublis, pas la perfection.

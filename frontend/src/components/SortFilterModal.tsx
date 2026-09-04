@@ -63,9 +63,6 @@ export interface SortFilterModalProps {
   readonly onToggleSource: (sourceId: string) => void;
   readonly onClearSources: () => void;
 
-  /** Rechargement de la liste après enregistrement des critères de recherche. */
-  readonly onCriteriaSaved: () => void;
-
   /**
    * Nombre d'annonces que les réglages courants laissent passer.
    *
@@ -110,7 +107,6 @@ export function SortFilterModal({
   selectedSources,
   onToggleSource,
   onClearSources,
-  onCriteriaSaved,
   resultCount,
   onReset,
   dirty,
@@ -411,7 +407,7 @@ export function SortFilterModal({
               Change ce qui entre en base et déclenche une alerte. Prend effet à la prochaine
               collecte.
             </p>
-            <FiltersPanel compact onSaved={onCriteriaSaved} />
+            <FiltersPanel />
           </section>
         </div>
 

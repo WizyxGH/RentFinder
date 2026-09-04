@@ -1519,7 +1519,6 @@ export function App(): React.JSX.Element {
             selectedSources={selectedSources}
             onToggleSource={toggleSource}
             onClearSources={() => setSelectedSources(new Set())}
-            onCriteriaSaved={() => void load()}
             resultCount={filtered.length}
             dirty={somethingChanged}
             onReset={resetSortAndFilters}

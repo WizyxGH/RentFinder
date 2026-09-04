@@ -229,8 +229,10 @@ test('les critères de recherche sont réglables depuis le site (§66)', async (
   await expect(trajet).toBeVisible();
   await trajet.fill('45');
 
-  await page.getByRole('button', { name: 'Appliquer les critères' }).click();
-  await expect(page.getByText(/Critères enregistrés/)).toBeVisible();
+  // Aucun bouton à presser : le critère s'enregistre seul, comme le tri et les
+  // filtres juste au-dessus. Il fallait auparavant « Appliquer les critères »,
+  // dans le seul bloc de l'écran qui n'agissait pas à la saisie.
+  await expect(page.getByText('Enregistré', { exact: true })).toBeVisible();
 });
 
 test('la localisation ouvre Maps facilement (§20)', async ({ page }) => {
