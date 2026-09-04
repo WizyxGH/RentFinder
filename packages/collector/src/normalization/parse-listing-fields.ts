@@ -7,7 +7,11 @@
  * les filtres et les scores (§17).
  */
 
-import { SHORT_TERM_LEASE_FEATURE, type PropertyType } from '@rentfinder/shared';
+import {
+  SHORT_TERM_LEASE_FEATURE,
+  STUDENT_HOUSING_FEATURE,
+  type PropertyType,
+} from '@rentfinder/shared';
 import { cleanText, comparable } from './text.js';
 import { extractNumber, parseFrenchNumber } from './parse-number.js';
 
@@ -200,7 +204,47 @@ export function parseFlatShare(text: string | null | undefined): boolean | null 
     return false;
   }
   if (/\bcolocation\b|\bcoloc\b/.test(lower)) return true;
-  return null;
+  return SHARED_DWELLING.test(lower) ? true : null;
+}
+
+/**
+ * Logement partagé qui ne dit jamais le mot « colocation ».
+ *
+ * Relevé du 2026-09-04 sur l'inventaire : « Chambre dans jolie 5 pièces au pied
+ * de la Fac » n'était pas signalée, faute du mot-clé. Ce qui la trahit, c'est
+ * qu'on loue UNE CHAMBRE *dans* un logement plus grand — ou qu'on distingue des
+ * parties communes de parties privatives, ce que seul un logement partagé fait.
+ *
+ * « Chambre » seule ne suffit pas : une annonce de deux-pièces la mentionne
+ * dans sa composition. C'est la préposition qui porte le sens (§17).
+ */
+// La ponctuation ayant disparu de la forme comparable, « co-living » y arrive
+// écrit « co living ».
+const SHARED_DWELLING =
+  /chambre[^.;]{0,40}\b(?:dans|au sein d)\b[^.;]{0,30}(?:appartement|maison|villa|logement|colocation|t\d|f\d|\d\s*pieces?)|parties? privatives?[\s\S]{0,200}parties? communes?|parties? communes?[\s\S]{0,200}parties? privatives?|\bco ?living\b/;
+
+/**
+ * Logement qu'on ne peut PAS garder à l'année parce qu'il est réservé aux
+ * étudiants — ou loué sous un bail qui, par construction, s'arrête.
+ *
+ * ATTENTION À CE QUI N'EN EST PAS. « Idéal étudiant », « à cinq minutes de la
+ * fac », « quartier étudiant » sont des arguments de vente : deux cents
+ * annonces de l'inventaire les portent, et la plupart sont de vrais logements à
+ * l'année. Ne comptent que les formes qui engagent la DURÉE ou l'ÉLIGIBILITÉ :
+ *
+ *   - « bail étudiant » — bail meublé de neuf mois, par définition scolaire ;
+ *   - « bail mobilité » — un à dix mois, réservé par la loi aux étudiants,
+ *     stagiaires et personnes en mission, et non renouvelable ;
+ *   - résidence étudiante, CROUS, « réservé/exclusivement aux étudiants ».
+ *
+ * Le texte est comparé en forme `comparable` : minuscules, sans accent.
+ */
+const STUDENT_ONLY =
+  /residence etudiante|logement etudiant|reserv\w+ aux etudiant|exclusivement (aux |pour )?etudiant|uniquement (pour |aux )?etudiant|(location |bail )?etudiant\w{0,2} uniquement|\bcrous\b|bail etudiant|bail (de )?mobilite/;
+
+/** `true` si l'annonce réserve le logement aux étudiants ou à un bail qui s'arrête. */
+export function isStudentOnlyHousing(text: string | null | undefined): boolean {
+  return STUDENT_ONLY.test(comparable(text));
 }
 
 /**
@@ -291,6 +335,10 @@ export function extractFeatures(
     // Contrainte de DURÉE plutôt qu'agrément — mais c'est le fait le plus
     // décisif à voir quand il s'applique : le bien n'est pas louable l'été.
     [SHORT_TERM_LEASE.test(lower), SHORT_TERM_LEASE_FEATURE],
+    // Réservé aux étudiants : ce n'est pas un agrément, c'est une condition
+    // d'accès. Elle mérite d'être VUE, même quand l'utilisateur n'exclut pas
+    // ces locations.
+    [STUDENT_ONLY.test(lower), STUDENT_HOUSING_FEATURE],
   ];
   for (const [present, label] of flags) if (present) add(label);
 

@@ -634,15 +634,19 @@ export function createRepository(db: Database): Repository {
     async updateDerivedFields(occurrences) {
       if (occurrences.length === 0) return 0;
       const statements: Statement[] = occurrences.map((listing) => ({
-        // Seuls l'adresse, le TYPE et la charge utile bougent. `content_hash`
-        // suit, pour que la prochaine collecte ne réécrive pas la ligne pour
-        // rien.
+        // Seuls l'adresse, le TYPE, la COLOCATION et la charge utile bougent.
+        // `flat_share` a sa propre colonne parce que le dédoublonnage et le
+        // score la lisent sans ouvrir la charge utile : l'oublier ici aurait
+        // rendu la correction invisible là où elle compte.
+        // `content_hash` suit, pour que la prochaine collecte ne réécrive pas
+        // la ligne pour rien.
         sql: `UPDATE occurrences
-              SET address = ?, property_type = ?, payload = ?, content_hash = ?
+              SET address = ?, property_type = ?, flat_share = ?, payload = ?, content_hash = ?
               WHERE id = ?`,
         args: [
           listing.address,
           listing.propertyType,
+          listing.flatShare === null ? null : listing.flatShare ? 1 : 0,
           JSON.stringify(occurrencePayload(listing)),
           occurrenceHash(listing),
           listing.id,

@@ -14,7 +14,10 @@ import type {
 } from '@rentfinder/shared';
 import { clampScore } from '@rentfinder/shared';
 import { comparable } from '../normalization/text.js';
-import { isShortTermStudentLease } from '../normalization/parse-listing-fields.js';
+import {
+  isShortTermStudentLease,
+  isStudentOnlyHousing,
+} from '../normalization/parse-listing-fields.js';
 
 export interface MatchOutcome {
   readonly score: ExplainedScore;
@@ -40,25 +43,25 @@ const CITY_POSTAL_CODES: Readonly<Record<string, readonly string[]>> = {
 
 /**
  * Détection d'une location EXCLUSIVEMENT étudiante (décision utilisateur du
- * 2026-08-16) : on n'exclut QUE les offres réservées aux étudiants — résidences
- * étudiantes, biens « réservés/exclusivement étudiants », CROUS, ou offre
- * dédiée dans l'URL (`location-etudiants`). Un bien qui SEULEMENT accepte des
- * étudiants (« idéal étudiant », « étudiants acceptés ») est conservé.
+ * 2026-08-16) : on n'exclut QUE les offres réservées aux étudiants — résidence
+ * étudiante, bien « réservé/exclusivement étudiants », CROUS, bail étudiant,
+ * bail mobilité, ou offre dédiée dans l'URL (`location-etudiants`). Un bien qui
+ * SEULEMENT accepte des étudiants (« idéal étudiant », « étudiants acceptés »)
+ * est conservé — deux cents annonces de l'inventaire portent ce genre de
+ * formule, et la plupart sont de vrais logements à l'année.
  *
  * S'y ajoute le bail de NEUF MOIS (septembre → juin, saisonnier l'été) : il ne
  * se distingue d'une résidence étudiante que par la forme, pas par l'effet —
  * on ne peut pas y habiter à l'année.
+ *
+ * LA DÉFINITION EST CELLE DE LA NORMALISATION, pas une seconde écrite ici.
+ * `isStudentOnlyHousing` sert aussi à poser l'atout « Réservé aux étudiants »
+ * sur la carte : si les deux divergeaient, l'utilisateur verrait un badge sur
+ * une annonce non exclue, ou l'inverse.
  */
-const STUDENT_EXCLUSIVE =
-  /residence etudiante|reserv\w+ aux etudiant|exclusivement (aux |pour )?etudiant|uniquement (pour |aux )?etudiant|(location |bail )?etudiant\w{0,2} uniquement|\bcrous\b/;
-
 function isStudentHousing(listing: AggregatedListing): boolean {
   const raw = `${listing.title.value ?? ''} ${listing.description.value ?? ''}`;
-  const text = comparable(raw);
-  if (STUDENT_EXCLUSIVE.test(text)) return true;
-  // Bail de neuf mois septembre → juin, l'été repassant en saisonnier : le bien
-  // ne se garde pas à l'année, c'est bien une offre réservée aux étudiants
-  // (décision utilisateur du 2026-09-03).
+  if (isStudentOnlyHousing(raw)) return true;
   if (isShortTermStudentLease(raw)) return true;
   // Offre dédiée aux étudiants dans l'URL (ex. /…location-etudiants…/).
   return listing.occurrences.some((occurrence) =>

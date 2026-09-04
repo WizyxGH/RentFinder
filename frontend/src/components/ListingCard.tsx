@@ -23,7 +23,8 @@ import {
 } from '../format.js';
 import { AFFINITY_BADGE_THRESHOLD } from '../affinity.js';
 import { PhotoCarousel } from './PhotoCarousel.js';
-import { SHORT_TERM_LEASE_FEATURE } from '@rentfinder/shared';
+import { splitPhotos } from '../photos.js';
+import { SHORT_TERM_LEASE_FEATURE, STUDENT_HOUSING_FEATURE } from '@rentfinder/shared';
 import { Badge } from '@/components/ui/badge.js';
 import { Card } from '@/components/ui/card.js';
 import { Flame, Heart, TrainFront } from 'lucide-react';
@@ -137,6 +138,12 @@ function StatusBadges({
       {listing.features?.includes(SHORT_TERM_LEASE_FEATURE) === true && (
         <Badge variant="warning">Bail 9 mois</Badge>
       )}
+      {/* Réservé aux étudiants : condition d'ACCÈS, pas argument de vente.
+        Le badge ne s'affiche que sur les formes qui engagent la durée ou
+        l'éligibilité — jamais sur un « idéal étudiant » (§17). */}
+      {listing.features?.includes(STUDENT_HOUSING_FEATURE) === true && (
+        <Badge variant="warning">Réservé aux étudiants</Badge>
+      )}
     </>
   );
 }
@@ -221,9 +228,13 @@ export function ListingCard({
   // /1600xauto/, /640x480/…) : on dédoublonne sur l'URL débarrassée de son
   // segment de taille pour ne pas montrer deux fois la même image. Sans photo,
   // la carte reste purement textuelle.
+  //
+  // Les photos que le navigateur refuserait (http sur une page https) sont
+  // écartées ici : la carte n'a pas la place d'expliquer, la fiche s'en charge
+  // et propose les liens.
   const seenPhotoKeys = new Set<string>();
-  const photos = (listing.imageUrls ?? [])
-    .filter((url) => {
+  const photos = splitPhotos(listing.imageUrls ?? [])
+    .embeddable.filter((url) => {
       const key = url.replace(/\/(original|\d+x(?:auto|\d+)|auto x\d+|thumb\w*)\//i, '/');
       if (seenPhotoKeys.has(key)) return false;
       seenPhotoKeys.add(key);

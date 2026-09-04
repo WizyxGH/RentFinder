@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { STUDENT_HOUSING_FEATURE } from '@rentfinder/shared';
 import {
   parseArea,
   parseBedrooms,
@@ -10,6 +11,7 @@ import {
   extractFeatures,
   extractStreetAddress,
   isShortTermStudentLease,
+  isStudentOnlyHousing,
   parseMaxOccupants,
   parseAvailableAt,
   parsePhone,
@@ -497,5 +499,61 @@ describe('parseMaxOccupants (§17 — nombre de personnes)', () => {
 
   it('écarte un nombre invraisemblable', () => {
     expect(parseMaxOccupants('résidence de 400 personnes')).toBeNull();
+  });
+});
+
+describe('parseFlatShare — logement partagé sans le mot « colocation »', () => {
+  it('reconnaît une chambre louée DANS un logement plus grand', () => {
+    expect(parseFlatShare('Chambre dans jolie 5 pièces au pied de la Fac')).toBe(true);
+    expect(parseFlatShare('Chambre meublée dans un appartement rénové')).toBe(true);
+  });
+
+  it('reconnaît la distinction parties communes / parties privatives', () => {
+    expect(
+      parseFlatShare(
+        'Parties communes : entrée, pièce à vivre. Parties privatives : 2 chambres avec bureau.',
+      ),
+    ).toBe(true);
+  });
+
+  it('reconnaît le co-living', () => {
+    expect(parseFlatShare('Résidence co-living tout équipée')).toBe(true);
+  });
+
+  it('ne prend pas une chambre de la COMPOSITION du bien pour un partage (§17)', () => {
+    expect(parseFlatShare('Appartement 3 pièces : séjour, 2 chambres, cuisine')).toBeNull();
+    expect(parseFlatShare('Studio avec coin chambre séparé')).toBeNull();
+  });
+});
+
+describe('isStudentOnlyHousing', () => {
+  it('retient ce qui engage la durée ou l’éligibilité', () => {
+    expect(isStudentOnlyHousing('Studio meublé - Libération - Bail Etudiant')).toBe(true);
+    expect(isStudentOnlyHousing('Bail mobilité - 3 Pièces Meublé')).toBe(true);
+    expect(isStudentOnlyHousing('Chambre en résidence étudiante')).toBe(true);
+    expect(isStudentOnlyHousing('Logement étudiant proche campus')).toBe(true);
+  });
+
+  it('laisse passer l’argument de vente — deux cents annonces en portent un', () => {
+    expect(isStudentOnlyHousing('Studio meublé à Nice, idéal étudiant')).toBe(false);
+    expect(isStudentOnlyHousing('Studio à 5 minutes de la fac, quartier étudiant')).toBe(false);
+    expect(isStudentOnlyHousing('Étudiants acceptés avec garant')).toBe(false);
+  });
+
+  it('ne conclut rien d’un texte vide (§17)', () => {
+    expect(isStudentOnlyHousing(null)).toBe(false);
+    expect(isStudentOnlyHousing('')).toBe(false);
+  });
+});
+
+describe('extractFeatures — atout « Réservé aux étudiants »', () => {
+  it('pose l’atout sur un bail étudiant', () => {
+    expect(extractFeatures('Studio meublé, bail étudiant de septembre à juin')).toContain(
+      STUDENT_HOUSING_FEATURE,
+    );
+  });
+
+  it('ne le pose pas sur un simple « idéal étudiant »', () => {
+    expect(extractFeatures('Studio meublé, idéal étudiant')).not.toContain(STUDENT_HOUSING_FEATURE);
   });
 });

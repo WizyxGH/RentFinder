@@ -26,9 +26,19 @@ import {
 import { ScoreDetail } from './Scores.js';
 import { ContactPanel } from './ContactPanel.js';
 import { PhotoCarousel } from './PhotoCarousel.js';
+import { splitPhotos } from '../photos.js';
 import { Badge } from '@/components/ui/badge.js';
 import { Button } from '@/components/ui/button.js';
-import { Archive, ArchiveRestore, ArrowLeft, Heart, MapPin, TrainFront } from 'lucide-react';
+import {
+  Archive,
+  ArchiveRestore,
+  ArrowLeft,
+  ExternalLink,
+  Heart,
+  ImageOff,
+  MapPin,
+  TrainFront,
+} from 'lucide-react';
 
 interface ListingDetailProps {
   readonly listing: ListingView;
@@ -164,6 +174,43 @@ function DetailActions({
 const FACTS_GRID = 'mb-4 grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1 text-[0.92rem]';
 const FACT_LABEL = 'text-muted-foreground';
 
+/**
+ * Photos qu'on ne peut pas afficher, mais qu'on peut ouvrir.
+ *
+ * Le bulletin abonné de BEP héberge ses photos sur des serveurs qui ne parlent
+ * que le http ; un navigateur les bloque sur une page https. Plutôt que de
+ * laisser l'annonce muette — ce qu'elle était : le carrousel les retirait une
+ * à une sans rien dire —, on donne les liens et on explique pourquoi.
+ */
+function LinkOnlyPhotos({ urls }: { readonly urls: readonly string[] }): React.JSX.Element {
+  return (
+    <div className="bg-muted/60 mb-3 rounded-xl border border-dashed p-3">
+      <p className="text-muted-foreground mb-2 flex items-center gap-2 text-[0.85rem]">
+        <ImageOff aria-hidden="true" className="size-4 shrink-0" />
+        <span>
+          {urls.length} photo{urls.length > 1 ? 's' : ''} — le site de la source ne les sert qu’en
+          http, le navigateur refuse de les afficher ici. Elles restent ouvrables&nbsp;:
+        </span>
+      </p>
+      <ul className="flex flex-wrap gap-1.5">
+        {urls.map((url, position) => (
+          <li key={url}>
+            <a
+              href={url}
+              target="_blank"
+              rel="noreferrer"
+              className="bg-background hover:bg-accent inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[0.8rem] transition-colors"
+            >
+              Photo {position + 1}
+              <ExternalLink aria-hidden="true" className="size-3" />
+            </a>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 export function ListingDetail({
   listing,
   profile,
@@ -178,6 +225,7 @@ export function ListingDetail({
   const charges = listing.charges.value;
   const archived = listing.archived === true;
   const favorite = listing.favorite === true;
+  const photos = splitPhotos(listing.imageUrls);
 
   // Requête Maps : la localisation la plus précise disponible (§20). Rue si
   // connue, sinon quartier.
@@ -223,10 +271,13 @@ export function ListingDetail({
           téléchargées ni stockées). Le même carrousel que la carte de liste —
           flèches, points, une image à la fois — plutôt qu'un bandeau à faire
           glisser, dont rien n'indiquait qu'il continuait hors de l'écran. */}
-      {listing.imageUrls.length > 0 && (
+      {photos.embeddable.length > 0 && (
         <div className="mb-3 overflow-hidden rounded-xl">
-          <PhotoCarousel urls={listing.imageUrls.slice(0, 12)} tall />
+          <PhotoCarousel urls={photos.embeddable.slice(0, 12)} tall />
         </div>
+      )}
+      {photos.embeddable.length === 0 && photos.linkOnly.length > 0 && (
+        <LinkOnlyPhotos urls={photos.linkOnly.slice(0, 12)} />
       )}
 
       <h1 className="mb-1 text-xl font-bold">{listing.title.value ?? 'Annonce sans titre'}</h1>

@@ -212,6 +212,14 @@ export type NormalizedListing = ListingOccurrence;
  */
 export const SHORT_TERM_LEASE_FEATURE = 'Bail 9 mois (sept.–juin)';
 
+/**
+ * Atout signalant un logement RÉSERVÉ aux étudiants — résidence étudiante,
+ * bail étudiant, bail mobilité. Ce n'est pas un agrément mais une condition
+ * d'accès, et souvent une durée qui s'arrête : elle doit se voir sur la carte,
+ * que l'utilisateur exclue ou non ces locations (§17).
+ */
+export const STUDENT_HOUSING_FEATURE = 'Réservé aux étudiants';
+
 // ---------------------------------------------------------------------------
 // Étage 3 — logement unique, toutes sources confondues
 // ---------------------------------------------------------------------------

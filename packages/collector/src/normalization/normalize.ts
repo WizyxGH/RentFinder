@@ -14,10 +14,15 @@ import type {
   RawListing,
   SourceId,
 } from '@rentfinder/shared';
-import { EMPTY_CONTACT, SHORT_TERM_LEASE_FEATURE } from '@rentfinder/shared';
+import {
+  EMPTY_CONTACT,
+  SHORT_TERM_LEASE_FEATURE,
+  STUDENT_HOUSING_FEATURE,
+} from '@rentfinder/shared';
 import { cleanText, comparable } from './text.js';
 import {
   isShortTermStudentLease,
+  isStudentOnlyHousing,
   looksLikeStreet,
   NUMBERED_STREET,
   parseArea,
@@ -339,7 +344,11 @@ export function normalizeListing(
  *      justes, le titre ne nommant pas toujours le type ;
  *   3. les atouts ne sont qu'AUGMENTÉS. Les recalculer entièrement les
  *      appauvrirait : plusieurs viennent des attributs bruts du scraper
- *      (étage, ascenseur, nombre de balcons) que la base ne conserve pas.
+ *      (étage, ascenseur, nombre de balcons) que la base ne conserve pas ;
+ *   4. la COLOCATION ne se pose que sur un `null`. Un `false` en base vient
+ *      d'une source qui a dit « colocation possible » — le logement est
+ *      entier —, et un `true` n'a aucune raison d'être défait. Seul le silence
+ *      se remplit (§17).
  *
  * Rien d'autre n'est retouché : ni le cycle de vie, ni le quartier, dont la
  * valeur correcte n'est pas reconstituable depuis le texte (§17).
@@ -368,16 +377,28 @@ export function rederiveFromText(occurrence: NormalizedListing): NormalizedListi
       ? rescued
       : occurrence.propertyType;
 
-  const shortTerm =
-    isShortTermStudentLease(text) && !occurrence.features.includes(SHORT_TERM_LEASE_FEATURE);
-  const features = shortTerm
-    ? [...occurrence.features, SHORT_TERM_LEASE_FEATURE]
-    : occurrence.features;
+  // Atouts : on n'ajoute que ceux qui se lisent entièrement dans le texte
+  // conservé en base — les autres viennent d'attributs bruts que la base n'a
+  // pas gardés, et les recalculer les perdrait.
+  const gained = [
+    ...(isShortTermStudentLease(text) ? [SHORT_TERM_LEASE_FEATURE] : []),
+    ...(isStudentOnlyHousing(text) ? [STUDENT_HOUSING_FEATURE] : []),
+  ].filter((feature) => !occurrence.features.includes(feature));
+  const features = gained.length > 0 ? [...occurrence.features, ...gained] : occurrence.features;
 
-  if (address === occurrence.address && propertyType === occurrence.propertyType && !shortTerm) {
+  // Colocation : seul le silence se remplit (règle 4).
+  const flatShare =
+    occurrence.flatShare === null && parseFlatShare(text) === true ? true : occurrence.flatShare;
+
+  if (
+    address === occurrence.address &&
+    propertyType === occurrence.propertyType &&
+    gained.length === 0 &&
+    flatShare === occurrence.flatShare
+  ) {
     return null;
   }
-  return { ...occurrence, address, propertyType, features };
+  return { ...occurrence, address, propertyType, features, flatShare };
 }
 
 /** Normalise un lot, en écartant silencieusement les annonces inexploitables. */
