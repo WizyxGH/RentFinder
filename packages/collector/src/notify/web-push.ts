@@ -190,6 +190,36 @@ export function reminderContentFor(listing: NotifiableListing, siteUrl: string):
   };
 }
 
+/**
+ * Une annonce JUSTE au-dessus des critères (§29).
+ *
+ * LE TITRE LE DIT, ET LE CORPS LE CHIFFRE. Une alerte pour un logement à 730 €
+ * quand on a fixé 700 € passerait pour un défaut du filtre si rien ne
+ * l'expliquait — et la première réaction serait de couper les notifications.
+ */
+export function nearMatchContentFor(
+  listing: NotifiableListing & { readonly overshoot: string },
+  siteUrl: string,
+): PushPayload {
+  const location = locationLabel(listing);
+  return {
+    title: 'Juste au-dessus de vos critères',
+    body: [
+      listing.title ?? 'Une annonce',
+      listing.overshoot !== '' ? `⚠️ ${listing.overshoot}` : null,
+      location !== '' ? `📍 ${location}` : null,
+      listing.phone !== null ? `📞 ${listing.phone}` : null,
+    ]
+      .filter((line): line is string => line !== null && line !== '')
+      .join('\n'),
+    url: listingUrl(siteUrl, listing.id),
+    tag: `rentfinder-proche-${listing.id}`,
+    listingId: listing.id,
+    ...(listing.photoUrls[0] !== undefined ? { image: listing.photoUrls[0] } : {}),
+    ...(listing.phone !== null ? { phone: listing.phone } : {}),
+  };
+}
+
 export interface PushDeps {
   readonly repository: Repository;
   readonly config: VapidConfig;

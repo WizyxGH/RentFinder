@@ -83,7 +83,7 @@ export function ProfileSummary({
         </h2>
         <p className="mt-1 text-[0.85rem] text-muted-foreground">
           Renseigné une fois, il compose vos messages de candidature. Il reste sur cet appareil et
-          n’est jamais transmis (§26).
+          n’est jamais transmis.
         </p>
         <Button className="mt-3" onClick={onEdit}>
           Renseigner mon profil
@@ -106,7 +106,7 @@ export function ProfileSummary({
         </Button>
       </div>
       <p className="mt-1 text-[0.85rem] text-muted-foreground">
-        Reste sur cet appareil, jamais transmis (§26).
+        Reste sur cet appareil, jamais transmis.
       </p>
 
       <SettingsGroup title="Vos informations" count={`${filled}/${rows.length}`}>

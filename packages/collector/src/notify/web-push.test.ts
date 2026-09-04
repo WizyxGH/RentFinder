@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   goneContentFor,
   loadVapidConfig,
+  nearMatchContentFor,
   pushContentFor,
   pushContentsFor,
   reminderContentFor,
@@ -164,5 +165,38 @@ describe('les autres familles d’alertes', () => {
     expect(content.phone).toBe('0600000012');
     expect(content.body).toContain('0600000012');
     expect(content.tag).not.toBe(goneContentFor(suivi, 'https://exemple.invalid/').tag);
+  });
+});
+
+describe('nearMatchContentFor', () => {
+  it('dit EN QUOI l’annonce sort des critères', () => {
+    // Sans cette phrase, une alerte pour un 730 € quand on a fixé 700 €
+    // passerait pour un défaut du filtre — et la première réaction serait de
+    // couper les notifications.
+    const content = nearMatchContentFor(
+      {
+        id: 'l7',
+        title: 'Deux pièces Riquier',
+        price: 730,
+        area: 34,
+        rooms: 2,
+        city: 'Nice',
+        postalCode: '06300',
+        address: null,
+        district: null,
+        availableAt: null,
+        actionPriority: 60,
+        url: 'https://exemple.invalid/a/7',
+        photoUrls: [],
+        sourceId: 'demo',
+        phone: null,
+        overshoot: '730 € au lieu de 700 € max',
+      },
+      'https://exemple.invalid/',
+    );
+
+    expect(content.title).toMatch(/au-dessus de vos critères/i);
+    expect(content.body).toContain('730 € au lieu de 700 € max');
+    expect(content.url).toContain('/annonce/l7');
   });
 });

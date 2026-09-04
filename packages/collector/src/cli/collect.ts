@@ -43,11 +43,12 @@ import {
 } from '@rentfinder/shared';
 import { resolveReferencePoints } from '../core/reference-points.js';
 import type { Logger } from '../core/logger.js';
-import type { Repository } from '../db/repository.js';
+import type { NearMatch, NearMatchCriteria, Repository } from '../db/repository.js';
 import type { VapidConfig } from '../notify/web-push.js';
 import {
   goneContentFor,
   loadVapidConfig,
+  nearMatchContentFor,
   reminderContentFor,
   sendListingAlerts,
   sendWebPush,
@@ -94,8 +95,10 @@ async function notifyAll(deps: {
   readonly repository: Repository;
   readonly vapid: VapidConfig;
   readonly logger: Logger;
+  /** Les critères actifs : nécessaires pour juger de la « proximité ». */
+  readonly criteria: NearMatchCriteria;
 }): Promise<void> {
-  const { repository, vapid, logger } = deps;
+  const { repository, vapid, logger, criteria } = deps;
   try {
     // CE DONT L'UTILISATEUR VEUT ÊTRE PRÉVENU (§29). Les préférences se
     // règlent depuis le site et se lisent ICI : filtrer côté navigateur
@@ -117,6 +120,20 @@ async function notifyAll(deps: {
         await repository.directListingSpecKeys(),
       );
       const report = await sendWebPush({ ...common, listings: pending });
+      await repository.markNotified(report.notifiedIds);
+    }
+
+    // JUSTE AU-DESSUS DES CRITÈRES, si l'utilisateur l'a demandé. Éteint par
+    // défaut : c'est un élargissement de la recherche, pas un canal de plus.
+    if (preferences.nearMatches) {
+      const near = await repository.nearMatches({
+        cities: [...criteria.cities],
+        maxPrice: criteria.maxPrice,
+        minArea: criteria.minArea,
+      });
+      const report = await sendListingAlerts({ ...common, listings: near }, (listing, url) =>
+        nearMatchContentFor(listing as NearMatch, url),
+      );
       await repository.markNotified(report.notifiedIds);
     }
 
@@ -274,7 +291,7 @@ async function main(): Promise<void> {
     // daté resterait vide.
     const vapid = loadVapidConfig();
     if (vapid !== null) {
-      await notifyAll({ repository, vapid, logger });
+      await notifyAll({ repository, vapid, logger, criteria: config.criteria });
     }
 
     // Élagage des journaux : ils ne servent qu'au diagnostic, et personne ne

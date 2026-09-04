@@ -20,7 +20,7 @@ import type {
   SourceId,
   SourceRuntimeState,
 } from '@rentfinder/shared';
-import { CURRENT_USER } from '@rentfinder/shared';
+import { CURRENT_USER, NEAR_MATCH_MARGIN } from '@rentfinder/shared';
 import { actionPriority } from '@rentfinder/shared';
 import type { InValue } from '@libsql/client';
 import type { Database } from './client.js';
@@ -307,6 +307,16 @@ export interface Repository {
   markNotified(ids: readonly string[]): Promise<void>;
 
   /**
+   * Annonces JUSTE au-dessus des critères, jamais signalées.
+   *
+   * Elles sont écartées de la liste par un seuil binaire — un euro de trop, et
+   * l'annonce disparaît. Or c'est précisément la fourchette où l'on hésite. Le
+   * dépassement est renvoyé avec chaque annonce : une notification qui ne dirait
+   * pas EN QUOI l'annonce sort des critères ferait croire à une erreur.
+   */
+  nearMatches(criteria: NearMatchCriteria): Promise<NearMatch[]>;
+
+  /**
    * Favoris qui ont DISPARU de leur source, et qu'on n'a pas encore signalés.
    *
    * C'est l'alerte qui manquait le plus : une annonce mise de côté quittait la
@@ -480,6 +490,20 @@ function defaultState(sourceId: SourceId): SourceRuntimeState {
  * réclament exactement la même lecture du payload, et la recopier trois fois
  * aurait garanti que les trois divergent.
  */
+
+/** Ce qu'il faut savoir des critères pour juger de la proximité. */
+export interface NearMatchCriteria {
+  readonly cities: readonly string[];
+  readonly maxPrice: number;
+  readonly minArea: number;
+}
+
+/** Une annonce proche, et EN QUOI elle dépasse. */
+export interface NearMatch extends NotifiableListing {
+  /** Phrase courte reprise dans la notification : « 730 € (+30 € sur 700 €) ». */
+  readonly overshoot: string;
+}
+
 function toNotifiable(row: Record<string, unknown>): NotifiableListing {
   let url: string | null = null;
   let photoUrls: string[] = [];
@@ -1233,6 +1257,51 @@ export function createRepository(db: Database): Repository {
         'write',
       );
       return result.reduce((total, one) => total + one.rowsAffected, 0);
+    },
+
+    async nearMatches(criteria) {
+      const cities = criteria.cities.filter((city) => city !== '');
+      if (cities.length === 0) return [];
+      const maxPrice = criteria.maxPrice * (1 + NEAR_MATCH_MARGIN);
+      const minArea = criteria.minArea * (1 - NEAR_MATCH_MARGIN);
+      const placeholders = cities.map(() => '?').join(',');
+
+      const result = await db.execute({
+        // LA VILLE RESTE ÉLIMINATOIRE. Un logement dans une autre commune n'est
+        // pas « proche des critères », il est ailleurs — l'élargissement porte
+        // sur le budget et la surface, pas sur la géographie.
+        sql: `SELECT id, title, price, area, rooms, city, postal_code, action_priority, payload
+              FROM listings
+              WHERE matches_criteria = 0
+                AND notified = 0
+                AND lifecycle = 'active'
+                AND archived = 0
+                AND rented = 0
+                AND LOWER(city) IN (${placeholders})
+                AND price IS NOT NULL AND price <= ?
+                AND (area IS NULL OR area >= ?)
+                AND (price > ? OR (area IS NOT NULL AND area < ?))
+              ORDER BY action_priority DESC`,
+        args: [
+          ...cities.map((city) => city.toLowerCase()),
+          maxPrice,
+          minArea,
+          criteria.maxPrice,
+          criteria.minArea,
+        ],
+      });
+
+      return result.rows.map((row) => {
+        const listing = toNotifiable(row as Record<string, unknown>);
+        const parts: string[] = [];
+        if (listing.price !== null && listing.price > criteria.maxPrice) {
+          parts.push(`${listing.price} € au lieu de ${criteria.maxPrice} € max`);
+        }
+        if (listing.area !== null && listing.area < criteria.minArea) {
+          parts.push(`${listing.area} m² au lieu de ${criteria.minArea} m² min`);
+        }
+        return { ...listing, overshoot: parts.join(' · ') };
+      });
     },
 
     async goneFavorites() {

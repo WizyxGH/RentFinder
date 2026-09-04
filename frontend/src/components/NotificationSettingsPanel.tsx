@@ -18,7 +18,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Bell, Clock, Heart, Mail } from './icons.js';
+import { ArrowLeft, Bell, Clock, Heart, Mail, TriangleAlert } from './icons.js';
 import type { IconComponent } from './icons.js';
 import {
   DEFAULT_NOTIFICATION_PREFERENCES,
@@ -47,6 +47,12 @@ const KINDS: readonly KindInfo[] = [
     label: 'Nouvelles annonces',
     hint: 'Dès qu’un logement entre dans vos critères.',
     Icon: Bell,
+  },
+  {
+    key: 'nearMatches',
+    label: 'Juste au-dessus de vos critères',
+    hint: '10 % de budget en plus, ou 10 % de surface en moins. La notification dit lequel.',
+    Icon: TriangleAlert,
   },
   {
     key: 'applicationReminders',

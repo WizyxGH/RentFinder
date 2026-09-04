@@ -104,3 +104,15 @@ export const MVP_CRITERIA: SearchCriteria = {
   // Trajet domicile→travail ≤ 60 min (arrivée 9 h) — décision du 2026-08-22.
   maxCommuteMinutes: 60,
 };
+
+/**
+ * De combien une annonce peut dépasser les critères et rester « proche ».
+ *
+ * Dix pour cent : au-delà, ce n'est plus un arrondi mais un autre budget. Sur
+ * un plafond de 700 €, cela signale les 701–770 € — la fourchette où l'on
+ * hésite vraiment, et où une annonce bien placée mérite un coup d'œil.
+ *
+ * La même marge s'applique à la surface, dans l'autre sens : 20 m² accepte
+ * 18 m².
+ */
+export const NEAR_MATCH_MARGIN = 0.1;

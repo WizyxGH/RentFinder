@@ -8,9 +8,10 @@
  * de côté il y a trois jours, peut-être. Un favori qui disparaît, sûrement — et
  * c'est justement celle qu'on ne pouvait pas demander.
  *
- * TOUT EST ACTIF PAR DÉFAUT, sauf ce qui n'existe pas encore : quelqu'un qui
- * allume les notifications veut être prévenu, pas cocher une liste. Le réglage
- * fin est là pour éteindre ce qui gêne, pas pour construire son service.
+ * TOUT EST ACTIF PAR DÉFAUT, sauf deux choses : ce qui n'existe pas encore, et
+ * ce qui ÉLARGIT la recherche. Quelqu'un qui allume les notifications veut être
+ * prévenu, pas cocher une liste — mais il n'a pas demandé qu'on lui montre des
+ * logements au-dessus du budget qu'il vient de fixer.
  *
  * CES PRÉFÉRENCES SONT LUES PAR LA COLLECTE, qui décide seule d'envoyer ou non.
  * Filtrer côté navigateur n'aurait rien filtré : la notification part du
@@ -18,11 +19,22 @@
  */
 
 /** Les familles d'alertes, dans l'ordre où l'écran les présente. */
-export type NotificationKind = 'newListings' | 'applicationReminders' | 'favoriteGone' | 'email';
+export type NotificationKind =
+  'newListings' | 'nearMatches' | 'applicationReminders' | 'favoriteGone' | 'email';
 
 export interface NotificationPreferences {
   /** Une annonce entre dans vos critères. C'est la raison d'être de l'outil. */
   readonly newListings: boolean;
+  /**
+   * Une annonce JUSTE au-dessus des critères — 10 % de budget en plus, ou 10 %
+   * de surface en moins.
+   *
+   * Éteinte par défaut, contrairement aux autres. Ce n'est pas un canal de
+   * plus, c'est un ÉLARGISSEMENT de ce qu'on cherche : l'allumer d'office
+   * ferait sonner le téléphone pour des logements que l'utilisateur a
+   * explicitement exclus en réglant son budget.
+   */
+  readonly nearMatches: boolean;
   /** Un favori mis de côté et jamais contacté : le marché ne patiente pas. */
   readonly applicationReminders: boolean;
   /** Un favori a disparu de sa source — il est probablement loué. */
@@ -42,6 +54,7 @@ export interface NotificationPreferences {
  */
 export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
   newListings: true,
+  nearMatches: false,
   applicationReminders: true,
   favoriteGone: true,
   email: false,
@@ -70,6 +83,7 @@ export function parseNotificationPreferences(value: unknown): NotificationPrefer
 
   return {
     newListings: read('newListings'),
+    nearMatches: read('nearMatches'),
     applicationReminders: read('applicationReminders'),
     favoriteGone: read('favoriteGone'),
     // L'e-mail reste éteint tant qu'il n'est pas branché, même si la base dit
