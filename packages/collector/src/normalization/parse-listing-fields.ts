@@ -90,6 +90,40 @@ export function parseCharges(text: string | null | undefined): number | null {
 }
 
 /**
+ * Les charges lues dans le CHAMP DÉDIÉ d'une source.
+ *
+ * `parseCharges` exige le mot « charges » dans le texte, et c'est juste quand
+ * on fouille une description ou une ligne de prix : sans ce mot, un montant
+ * croisé au hasard n'est pas une provision. Mais quand la source expose un
+ * champ dont l'intitulé EST « Provision sur charges récupérables », la valeur
+ * arrive seule — « 82 € / Mois » —, le mot est resté dans l'intitulé, et la
+ * garde refusait un montant parfaitement explicite. Les fiches Apimo perdaient
+ * ainsi leurs charges alors qu'elles les publient toutes.
+ *
+ * ON N'ASSOUPLIT PAS `parseCharges` POUR AUTANT : elle est aussi appelée sur le
+ * texte du PRIX, où un montant nu est le loyer. Un « 1 782 € » y passerait pour
+ * des charges — dans les bornes, et faux de vingt fois.
+ *
+ * D'où cette fonction séparée, réservée au champ dédié : elle accepte un
+ * montant SEUL, à condition que le texte ne contienne rien d'autre qu'un
+ * nombre, une devise et une périodicité.
+ */
+export function parseChargesField(text: string | null | undefined): number | null {
+  const labelled = parseCharges(text);
+  if (labelled !== null) return labelled;
+
+  const cleaned = cleanText(text);
+  if (cleaned === '') return null;
+  // Un montant, éventuellement suivi de « € », « / mois », « par mois ».
+  const bare = cleaned.match(/^([\d\s.,]+)\s*€?\s*(?:\/|par)?\s*(?:mois|mensuel\w*)?$/i);
+  if (bare?.[1] === undefined) return null;
+
+  const value = parseFrenchNumber(bare[1]);
+  if (value === null || value < CHARGES_BOUNDS.min || value > CHARGES_BOUNDS.max) return null;
+  return value;
+}
+
+/**
  * Extrait une surface habitable en m².
  * On exige la présence d'une unité (`m2`, `m²`) : un nombre nu dans une
  * description n'est pas une surface.

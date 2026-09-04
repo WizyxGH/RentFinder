@@ -250,6 +250,50 @@ function extractApimoContent(
   };
 }
 
+/**
+ * Les listes « critères » d'une fiche Apimo, en couples intitulé → valeur.
+ *
+ * ON N'EN PRENAIT RIEN. La fiche porte pourtant, dans des blocs
+ * `module-property-info`, tout ce que le titre et la description taisent :
+ * provision sur charges, dépôt de garantie, honoraires, étage, exposition,
+ * état, type de chauffage, nombre de chambres. On lisait le prix et la surface,
+ * et on laissait le reste sur la page.
+ *
+ * Le balisage est régulier : `<li> Intitulé <span>Valeur</span></li>`. On ne
+ * cherche pas un intitulé précis — les agences en ajoutent — on ramasse tout,
+ * et l'appelant pioche ce qu'il sait nommer.
+ */
+function extractCriteria($: cheerio.CheerioAPI): Map<string, string> {
+  const criteria = new Map<string, string>();
+  $('.module-property-info li').each((_index, element) => {
+    const item = $(element);
+    const value = cleanText(item.find('span').first().text());
+    if (value === '') return;
+    // L'intitulé est ce qui reste une fois la valeur retirée : le prendre par
+    // un sélecteur supposerait une classe que toutes les fiches n'ont pas.
+    const label = cleanText(item.clone().children('span').remove().end().text());
+    if (label !== '') criteria.set(label, value);
+  });
+  return criteria;
+}
+
+/**
+ * La valeur du premier intitulé reconnu.
+ *
+ * Comparaison souple — sans accents ni casse — parce que la même idée s'écrit
+ * « Provision sur charges récupérables » chez l'un et « Charges » chez l'autre.
+ */
+function criterion(criteria: Map<string, string>, patterns: readonly RegExp[]): string | undefined {
+  for (const [label, value] of criteria) {
+    const plain = label
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
+    if (patterns.some((pattern) => pattern.test(plain))) return value;
+  }
+  return undefined;
+}
+
 /** `true` si la page est une fiche retirée / introuvable (§17). */
 function isRemovedListing(
   $: cheerio.CheerioAPI,
@@ -300,6 +344,7 @@ export function parseApimoDetail(
   if (jsonLd === null) warnings.push('JSON-LD absent ou illisible — repli sur le HTML seul');
 
   const { priceText, title, description, areaText, roomsText } = extractApimoContent($, jsonLd);
+  const criteria = extractCriteria($);
 
   // Fiche retirée : on ne produit rien plutôt qu'une fiche fantôme (§17).
   if (isRemovedListing($, jsonLd, priceText)) {
@@ -323,7 +368,11 @@ export function parseApimoDetail(
     areaText,
     roomsText,
     propertyTypeText: parsedUrl.typeSlug,
-    // Meublé : le titre et la description le disent quand c'est le cas.
+    // Les charges étaient le manque le plus coûteux : 13 % de couverture sur
+    // tout l'inventaire, alors qu'Apimo les publie sous un intitulé stable.
+    chargesText: criterion(criteria, [/provision.*charge/, /^charges?$/, /charges? locative/]),
+    // Meublé : le titre et la description le disent quand c'est le cas — et,
+    // depuis les critères, l'agence parfois explicitement.
     furnishedText: cleanText(`${title ?? ''} ${description ?? ''}`),
     // §21 : adresse exacte + coordonnées d'agence, publiées dans le JSON-LD.
     addressText: jsonLd?.streetAddress,
@@ -336,7 +385,19 @@ export function parseApimoDetail(
     publishedAtText,
     imageUrls:
       jsonLd?.imageUrls !== undefined && jsonLd.imageUrls.length > 0 ? jsonLd.imageUrls : undefined,
-    extra: { reference: parsedUrl.reference, citySlug: parsedUrl.citySlug },
+    extra: {
+      reference: parsedUrl.reference,
+      citySlug: parsedUrl.citySlug,
+      // `features` est le champ que la normalisation FOUILLE : elle y cherche
+      // l'étage, l'ascenseur, le balcon, les chambres, le DPE et le caractère
+      // meublé. Y verser les critères revient à récolter tout le bloc d'un
+      // coup, sans nommer ici ce que le pipeline sait déjà reconnaître.
+      ...(criteria.size > 0
+        ? {
+            features: [...criteria].map(([label, value]) => `${label} : ${value}`).join(' · '),
+          }
+        : {}),
+    },
   });
 
   return { listing, warnings };

@@ -28,6 +28,7 @@ import {
   parseArea,
   parseBedrooms,
   parseCharges,
+  parseChargesField,
   parseChargesFromText,
   parseEmail,
   parseDistrict,
@@ -291,7 +292,7 @@ export function normalizeListing(
     // n'est consultée qu'en dernier — mais elle porte le montant dans deux
     // cent trente-quatre annonces sur mille, là où le champ dédié est vide.
     charges:
-      parseCharges(raw.chargesText) ??
+      parseChargesField(raw.chargesText) ??
       parseCharges(raw.priceText) ??
       parseChargesFromText(text.prose, price.amount),
     chargesIncluded: price.chargesIncluded,

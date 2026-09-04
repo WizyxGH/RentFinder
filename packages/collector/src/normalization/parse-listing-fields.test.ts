@@ -4,6 +4,7 @@ import {
   parseArea,
   parseBedrooms,
   parseCharges,
+  parseChargesField,
   parseChargesFromText,
   parseEmail,
   parseFlatShare,
@@ -655,5 +656,40 @@ describe('parseDistrict', () => {
     // « proche de Cimiez » ne dit pas que le bien y est.
     expect(parseDistrict('Studio proche de Cimiez')).toBeNull();
     expect(parseDistrict(null)).toBeNull();
+  });
+});
+
+describe('parseChargesField', () => {
+  it('accepte un montant seul : la source a nommé le champ pour nous', () => {
+    // « Provision sur charges récupérables : 82 € / Mois » — le mot est resté
+    // dans l'intitulé, et la valeur arrive nue. Les fiches Apimo perdaient
+    // ainsi leurs charges alors qu'elles les publient toutes.
+    expect(parseChargesField('82 € / Mois')).toBe(82);
+    expect(parseChargesField('150 €')).toBe(150);
+    expect(parseChargesField('45')).toBe(45);
+    expect(parseChargesField('1 200 € par mois')).toBe(1200);
+  });
+
+  it('accepte toujours la forme nommée', () => {
+    expect(parseChargesField('charges : 90 €')).toBe(90);
+    expect(parseChargesField('90 € de charges')).toBe(90);
+  });
+
+  it('refuse une phrase qui contient un montant sans être une provision', () => {
+    // C'est toute la raison d'être d'une fonction séparée : ce texte-là passe
+    // par `parseCharges`, où un montant nu serait le loyer.
+    expect(parseChargesField('Loyer 1 782 € hors charges, cuisine équipée')).toBeNull();
+    expect(parseChargesField('Beau 3 pièces de 61 m²')).toBeNull();
+  });
+
+  it('refuse ce qui sort des bornes plausibles', () => {
+    expect(parseChargesField('0 €')).toBeNull();
+    expect(parseChargesField('9 999 €')).toBeNull();
+  });
+
+  it('refuse le vide', () => {
+    expect(parseChargesField('')).toBeNull();
+    expect(parseChargesField(null)).toBeNull();
+    expect(parseChargesField(undefined)).toBeNull();
   });
 });
