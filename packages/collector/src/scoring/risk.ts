@@ -111,6 +111,16 @@ const SUSPICIOUS_PATTERNS: readonly { pattern: RegExp; label: string; points: nu
   },
 ];
 
+/**
+ * `true` si le bien est un LOGEMENT, au sens où son loyer au mètre carré se
+ * compare à celui du marché résidentiel. Un parking, un garage ou un local
+ * n'entrent pas dans cette comparaison.
+ */
+function isDwelling(listing: AggregatedListing): boolean {
+  const type = listing.propertyType.value;
+  return type === 'apartment' || type === 'house' || type === 'studio' || type === 'loft';
+}
+
 /** Évalue le risque d'une annonce et énumère ses raisons. */
 export function scoreRisk(listing: AggregatedListing, options: RiskOptions): ExplainedScore {
   const reasons: ScoreReason[] = [];
@@ -121,7 +131,26 @@ export function scoreRisk(listing: AggregatedListing, options: RiskOptions): Exp
   const area = listing.area.value;
 
   // --- Loyer anormalement faible -------------------------------------------
-  if (price === null || area === null) {
+  //
+  // LA RÈGLE NE VAUT PAS PARTOUT, et l'ignorer coûtait cher. Mesuré sur
+  // l'inventaire du 2026-09-02 : sur 57 annonces « à risque », 46 étaient des
+  // COLOCATIONS, et pas une seule arnaque. Le calcul divisait le loyer d'UNE
+  // CHAMBRE par la surface de TOUT l'appartement — « 780 € / 135 m² » donne
+  // 5,8 €/m², et l'annonce partait en bas de liste comme suspecte.
+  //
+  // Même chose pour ce qui n'est pas un logement : un box à 100 € pour 15 m²
+  // n'a pas de prix au mètre carré comparable à celui d'un appartement.
+  //
+  // Dans les deux cas on ne conclut RIEN plutôt que de conclure faux : le
+  // signal rejoint les angles morts déclarés (§17, §19).
+  const wholeDwelling = listing.flatShare.value !== true && isDwelling(listing);
+  if (!wholeDwelling) {
+    unknownSignals.push(
+      listing.flatShare.value === true
+        ? 'loyer au m² (colocation : la surface est celle du logement entier)'
+        : 'loyer au m² (bien non résidentiel)',
+    );
+  } else if (price === null || area === null) {
     unknownSignals.push(price === null ? 'loyer' : 'surface');
   } else if (area > 0) {
     const pricePerSqm = price / area;

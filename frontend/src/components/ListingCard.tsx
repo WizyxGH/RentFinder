@@ -53,6 +53,14 @@ interface ListingCardProps {
  * Verte, parce qu'une priorité haute est une BONNE nouvelle — une annonce à
  * saisir, pas une alerte.
  */
+/**
+ * Score de risque à partir duquel l'annonce mérite un avertissement.
+ *
+ * Volontairement haut : un badge « suspect » posé à tort sur une annonce
+ * honnête coûte plus qu'un badge manquant — on écarte un vrai logement.
+ */
+const SUSPICIOUS_RISK = 40;
+
 function priorityLabel(priority: number): string {
   if (priority >= 85) return 'à contacter';
   if (priority >= 70) return 'à voir';
@@ -137,6 +145,14 @@ function StatusBadges({
         listing.viewed === true && !archived && <Badge>Consultée</Badge>
       )}
       {listing.priceDropped === true && <Badge variant="good">Prix en baisse</Badge>}
+      {/* « Trop beau pour être vrai ? » — le doute, pas le verdict, d'où le
+        point d'interrogation : la fiche en donne les raisons, ligne à ligne.
+        Ce badge attendait que le score cesse de se tromper. Il désignait 57
+        annonces, dont 46 colocations dont on divisait le loyer d'une chambre
+        par la surface de tout l'appartement, et pas une arnaque. La règle du
+        €/m² ne s'applique plus à elles : il en reste onze, et le seuil de 40
+        n'en retient que les plus douteuses. */}
+      {listing.scores.risk.value >= SUSPICIOUS_RISK && <Badge variant="bad">Trop beau ?</Badge>}
       {listing.flatShare?.value === true && <Badge variant="warning">Colocation</Badge>}
       {/* Bail de neuf mois : le logement n'est pas louable l'été. Le taire
         laisserait croire à un logement à l'année (§17). */}

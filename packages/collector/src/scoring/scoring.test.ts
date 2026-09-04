@@ -377,6 +377,24 @@ describe('scoreRisk (§19)', () => {
     expect(score.reasons.some((reason) => reason.code === 'price.veryLow')).toBe(true);
   });
 
+  it('ne pénalise plus une COLOCATION : la surface est celle du logement entier', () => {
+    // Mesuré le 2026-09-02 : 46 des 57 annonces « à risque » étaient des
+    // colocations, et pas une arnaque. 780 € pour une chambre dans 135 m²
+    // donnait 5,8 €/m² et reléguait l'annonce en bas de liste.
+    const score = scoreRisk(makeAggregated({ price: 780, area: 135, flatShare: true }), options);
+    expect(score.reasons.some((reason) => reason.code === 'price.veryLow')).toBe(false);
+    expect(score.unknownSignals.join(' ')).toContain('colocation');
+  });
+
+  it('ne le calcule pas sur un bien qui n’est pas un logement', () => {
+    const score = scoreRisk(
+      makeAggregated({ price: 100, area: 15, propertyType: 'parking' }),
+      options,
+    );
+    expect(score.reasons.some((reason) => reason.code === 'price.veryLow')).toBe(false);
+    expect(score.unknownSignals.join(' ')).toContain('non résidentiel');
+  });
+
   it('signale une incohérence entre pièces et surface', () => {
     const score = scoreRisk(makeAggregated({ price: 690, area: 20, rooms: 4 }), options);
     expect(score.reasons.some((reason) => reason.code === 'inconsistent.roomsArea')).toBe(true);

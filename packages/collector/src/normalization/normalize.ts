@@ -334,6 +334,36 @@ export function normalizeListing(
 }
 
 /**
+ * Champs que le rattrapage remplit UNIQUEMENT quand ils sont vides
+ * (règles 4 à 7).
+ *
+ * Séparés du reste parce qu'ils obéissent tous à la même loi — le silence se
+ * remplit, une valeur publiée ne bouge pas — et parce que les garder en ligne
+ * dans `rederiveFromText` faisait passer celle-ci au-dessus du seuil de
+ * complexité toléré.
+ */
+function fillGaps(
+  occurrence: NormalizedListing,
+  text: string,
+): Pick<NormalizedListing, 'flatShare' | 'charges' | 'rooms' | 'dpe' | 'district'> {
+  return {
+    flatShare:
+      occurrence.flatShare === null && parseFlatShare(text) === true ? true : occurrence.flatShare,
+    // Bornées par le loyer quand il est connu : au-delà, ce n'est pas une
+    // provision de charges mais un loyer qu'une tournure a laissé passer.
+    charges:
+      occurrence.charges === null
+        ? parseChargesFromText(occurrence.description, occurrence.price)
+        : occurrence.charges,
+    // Les pièces se lisent dans le TITRE : « une pièce à vivre » d'une
+    // description est le séjour d'un trois-pièces, pas le logement entier.
+    rooms: occurrence.rooms === null ? parseRooms(occurrence.title) : occurrence.rooms,
+    dpe: occurrence.dpe === null ? parseDpe(occurrence.description) : occurrence.dpe,
+    district: occurrence.district === null ? parseDistrict(text) : occurrence.district,
+  };
+}
+
+/**
  * Rejoue sur une occurrence DÉJÀ EN BASE ce que la normalisation sait faire
  * aujourd'hui de son texte (§12).
  *
@@ -408,22 +438,8 @@ export function rederiveFromText(occurrence: NormalizedListing): NormalizedListi
   ].filter((feature) => !occurrence.features.includes(feature));
   const features = gained.length > 0 ? [...occurrence.features, ...gained] : occurrence.features;
 
-  // Colocation : seul le silence se remplit (règle 4).
-  const flatShare =
-    occurrence.flatShare === null && parseFlatShare(text) === true ? true : occurrence.flatShare;
-
-  // Charges : idem (règle 5), bornées par le loyer quand il est connu.
-  const charges =
-    occurrence.charges === null
-      ? parseChargesFromText(occurrence.description, occurrence.price)
-      : occurrence.charges;
-
-  // Pièces et DPE : le silence se remplit, le reste ne bouge pas (règle 6).
-  // Les pièces se lisent dans le TITRE — « une pièce à vivre » d'une
-  // description est le séjour d'un trois-pièces, pas le logement entier.
-  const rooms = occurrence.rooms === null ? parseRooms(occurrence.title) : occurrence.rooms;
-  const dpe = occurrence.dpe === null ? parseDpe(occurrence.description) : occurrence.dpe;
-  const district = occurrence.district === null ? parseDistrict(text) : occurrence.district;
+  const filled = fillGaps(occurrence, text);
+  const { flatShare, charges, rooms, dpe, district } = filled;
 
   if (
     address === occurrence.address &&
