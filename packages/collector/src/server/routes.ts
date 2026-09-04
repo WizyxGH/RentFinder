@@ -20,11 +20,18 @@
  *   GET   /api/sources               état des sources (§63)
  *   GET   /api/stats                 statistiques de suivi (§33)
  *   GET/PUT /api/config              critères de recherche (§66)
+ *   GET/PUT /api/settings/<clé>      réglages du compte (recherches, repères)
  *   /api/documents…                  501 : elles vivaient sur le disque local
  */
 
 import type { Client } from '@libsql/client';
-import { CURRENT_USER, MVP_CRITERIA, SEARCH_CRITERIA_SETTING } from '@rentfinder/shared';
+import {
+  CURRENT_USER,
+  MVP_CRITERIA,
+  REFERENCE_POINTS_SETTING,
+  SAVED_SEARCHES_SETTING,
+  SEARCH_CRITERIA_SETTING,
+} from '@rentfinder/shared';
 
 /**
  * Fonctionnalités disponibles uniquement en mode local (elles touchent le
@@ -493,6 +500,64 @@ async function recordContact(
   return { id, followUpIndex, sentAt: now, documents };
 }
 
+/**
+ * Réglages de compte, un par clé (`/api/settings/<clé>`).
+ *
+ * Les recherches enregistrées et les points de référence vivaient dans
+ * `app_settings` mais n'avaient AUCUNE route : seul l'accès direct à Turso
+ * savait les écrire, depuis le navigateur. Sur l'installation recommandée —
+ * celle qui passe par le Worker — ils ne se conservaient donc pas, sans que
+ * rien ne le dise.
+ *
+ * La liste des clés est FERMÉE. Ouvrir `app_settings` à une clé arbitraire
+ * laisserait n'importe quel compte écrire n'importe quoi dans une table que la
+ * collecte relit.
+ */
+const WRITABLE_SETTINGS: readonly string[] = [SAVED_SEARCHES_SETTING, REFERENCE_POINTS_SETTING];
+
+async function handleSettingsRoute(
+  db: Client,
+  method: string,
+  key: string | undefined,
+  request: Request,
+  cors: Record<string, string>,
+  userId: string,
+): Promise<Response> {
+  if (key === undefined || !WRITABLE_SETTINGS.includes(key)) {
+    return jsonError(404, 'Réglage inconnu');
+  }
+
+  if (method === 'GET') {
+    const stored = await db.execute({
+      sql: 'SELECT value FROM app_settings WHERE user_id = ? AND key = ?',
+      args: [userId, key],
+    });
+    const raw = stored.rows[0]?.['value'];
+    if (typeof raw !== 'string') return json(null, cors);
+    try {
+      return json(JSON.parse(raw), cors);
+    } catch {
+      // Valeur illisible : on rend « rien de réglé » plutôt que de bloquer
+      // l'écran sur une ligne qu'on ne sait plus lire.
+      return json(null, cors);
+    }
+  }
+
+  if (method === 'PUT') {
+    const body = await request.json().catch(() => undefined);
+    if (body === undefined) return jsonError(400, 'Corps illisible');
+    await db.execute({
+      sql: `INSERT INTO app_settings (user_id, key, value, updated_at) VALUES (?,?,?,?)
+            ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value,
+                                                    updated_at = excluded.updated_at`,
+      args: [userId, key, JSON.stringify(body), new Date().toISOString()],
+    });
+    return json(body, cors);
+  }
+
+  return jsonError(404, 'Route inconnue');
+}
+
 /** Filtres de recherche éditables depuis l'interface, en mode local (§66). */
 /**
  * Critères de recherche (§66).
@@ -639,16 +704,18 @@ export async function route(
   // On décode ici une fois pour toutes, sinon la fiche ne correspond plus.
   const id = segments[2] !== undefined ? decodeURIComponent(segments[2]) : undefined;
 
-  // Filtres et documents touchent le DISQUE de l'utilisateur : disponibles
-  // uniquement quand le transport les fournit (mode local, §25/§66).
-  // Les pièces du dossier vivaient sur le disque de la machine qui servait le
-  // site. Ce serveur a été retiré, et elles avec : on le DIT, plutôt que de
-  // rendre une liste vide qui laisserait croire qu'il n'y a rien à joindre.
+  // Les pièces du dossier tiennent à un espace de fichiers, que ce module n'a
+  // pas : le Worker les traite AVANT d'arriver ici. Un transport qui monterait
+  // ces routes sans cet espace doit le dire, pas rendre une liste vide qui
+  // laisserait croire qu'il n'y a rien à joindre.
   if (resource === 'documents') {
-    return jsonError(501, 'Les pièces du dossier ne sont plus hébergées.');
+    return jsonError(501, "Ce transport n'héberge pas les pièces du dossier.");
   }
   if (resource === 'config') {
     return handleConfigRoute(db, method, request, cors, userId);
+  }
+  if (resource === 'settings') {
+    return handleSettingsRoute(db, method, id, request, cors, userId);
   }
   if (resource === 'sources' && method === 'GET') return json(await listSources(db), cors);
   if (resource === 'stats' && method === 'GET') return json(await getStats(db), cors);

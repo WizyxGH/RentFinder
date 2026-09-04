@@ -38,8 +38,8 @@ sans distances ni message pré-rempli.
 
 | Variable                                         | Rôle                                                                  |
 | ------------------------------------------------ | --------------------------------------------------------------------- |
-| `REFERENCE_WORK_ADDRESS` (ou `_LAT`/`_LON`)      | Lieu de travail — géocodé pour afficher le temps de trajet (§20).     |
-| `REFERENCE_STATION_ADDRESS` (ou `_LAT`/`_LON`)   | Gare de référence.                                                    |
+| `REFERENCE_WORK_ADDRESS` (ou `_LAT`/`_LON`)      | Lieu de travail, valeur de départ — voir ci-dessous (§20).            |
+| `REFERENCE_STATION_ADDRESS` (ou `_LAT`/`_LON`)   | Gare de référence, valeur de départ.                                  |
 | `TENANT_*`                                       | Profil locataire pour composer les messages de contact (§25).         |
 | `BEP_SUBSCRIBER_USER` / `_PASSWORD`              | Accès abonné BEP payé, si vous en avez un (§6).                       |
 | `VAPID_PUBLIC_KEY` / `_PRIVATE_KEY` / `_SUBJECT` | Notifications Web Push des nouvelles annonces (§29, voir ci-dessous). |
@@ -94,6 +94,26 @@ toujours la même chose, et rien n'indiquait lequel faisait autorité. Les
 critères vivent dans la table `app_settings`, ce qui leur permet de suivre d'un
 appareil à l'autre — et, depuis les comptes, d'appartenir à chacun. Les valeurs
 de départ sont celles de `packages/shared/src/criteria.ts`.
+
+## Points de référence (§20)
+
+Le temps de trajet affiché sur chaque annonce se compte depuis ces adresses —
+c'est donc lui qui décide, en pratique, de ce qu'on regarde en premier.
+
+Ils se règlent **depuis le site** : Paramètres → « Points de référence ». On y
+saisit une adresse en clair (« 12 rue X, Nice »), pas des coordonnées ; elle est
+géocodée à la collecte suivante, une fois, puis mise en cache. Les distances ne
+changent donc pas dans la seconde.
+
+Les variables `REFERENCE_*` de `.env` restent la valeur de DÉPART : tant que
+rien n'a été réglé depuis le site, elles font foi. Dès qu'on enregistre depuis
+l'écran, c'est le réglage qui prime — sinon une adresse saisie sur le téléphone
+aurait paru sans effet, écrasée en silence par un fichier posé sur la machine
+de collecte. Une liste vidée depuis le site est un choix, pas une absence : elle
+ne rallume pas `.env`.
+
+Ces adresses désignent un lieu de travail et un domicile. Elles vivent dans la
+base à jeton, jamais dans le dépôt (§26).
 
 ## Commandes utiles
 

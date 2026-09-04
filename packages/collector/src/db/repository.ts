@@ -1294,10 +1294,15 @@ export function createRepository(db: Database): Repository {
       await recordUserState(db, [listingId], { favorite: favorite ? 1 : 0 });
     },
 
+    // `app_settings` a pour clé primaire (utilisateur, réglage) depuis les
+    // comptes. Ces deux requêtes l'ignoraient : la lecture pouvait rendre le
+    // réglage de n'importe qui, et l'écriture échouait carrément — SQLite
+    // refuse un `ON CONFLICT(key)` qui ne désigne aucune contrainte. La
+    // collecte n'a qu'un utilisateur, mais elle doit viser le bon.
     async readSetting(key) {
       const result = await db.execute({
-        sql: 'SELECT value FROM app_settings WHERE key = ?',
-        args: [key],
+        sql: 'SELECT value FROM app_settings WHERE user_id = ? AND key = ?',
+        args: [CURRENT_USER, key],
       });
       const row = result.rows[0];
       return row === undefined ? null : String(row['value']);
@@ -1305,10 +1310,10 @@ export function createRepository(db: Database): Repository {
 
     async writeSetting(key, value) {
       await db.execute({
-        sql: `INSERT INTO app_settings (key, value, updated_at) VALUES (?,?,?)
-              ON CONFLICT(key) DO UPDATE SET value = excluded.value,
-                                             updated_at = excluded.updated_at`,
-        args: [key, value, new Date().toISOString()],
+        sql: `INSERT INTO app_settings (user_id, key, value, updated_at) VALUES (?,?,?,?)
+              ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value,
+                                                      updated_at = excluded.updated_at`,
+        args: [CURRENT_USER, key, value, new Date().toISOString()],
       });
     },
 

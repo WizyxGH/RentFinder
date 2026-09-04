@@ -11,7 +11,16 @@
  * pour atteindre les alertes. Ils ont maintenant leur page, comme les autres.
  */
 
-import { Bell, BarChart3, Bookmark, ChevronRight, FileText, Radio, User } from 'lucide-react';
+import {
+  Bell,
+  BarChart3,
+  Bookmark,
+  ChevronRight,
+  FileText,
+  MapPin,
+  Radio,
+  User,
+} from 'lucide-react';
 
 export interface SettingsLink {
   readonly key: string;
@@ -32,6 +41,12 @@ export const SETTINGS_LINKS: readonly SettingsLink[] = [
     label: 'Dossier de candidature',
     hint: 'Les pièces à joindre à une demande.',
     Icon: FileText,
+  },
+  {
+    key: 'reference',
+    label: 'Points de référence',
+    hint: 'Les adresses d’où se compte le temps de trajet.',
+    Icon: MapPin,
   },
   {
     // L'INTERRUPTEUR EST AU-DESSUS, dans les Paramètres mêmes. Cette entrée

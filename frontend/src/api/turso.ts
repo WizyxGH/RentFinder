@@ -13,10 +13,9 @@
  */
 
 import { createClient, type Client } from '@libsql/client/web';
-import { CURRENT_USER, SAVED_SEARCHES_SETTING, SEARCH_CRITERIA_SETTING } from '@rentfinder/shared';
+import { CURRENT_USER, SEARCH_CRITERIA_SETTING } from '@rentfinder/shared';
 import { byRecency } from '../recency.js';
 import type { FilterConfig, ListingView, SourceStateView, StatsData } from '../types.js';
-import type { SavedSearch } from '../saved-searches.js';
 
 const URL_KEY = 'rentfinder.tursoUrl';
 const TOKEN_KEY = 'rentfinder.tursoToken';
@@ -498,10 +497,17 @@ export async function removeSubscription(endpoint: string): Promise<void> {
  * relit au run suivant.
  *
  * La table est créée à la demande, comme les abonnements push : le site peut
- * tourner sur une base publiée avant l'ajout de cette fonctionnalité.
+ * tourner sur une base publiée avant l'ajout de cette fonctionnalité. Sa clé
+ * primaire est (utilisateur, réglage) — la même que la migration 0019, sans
+ * quoi une base créée par ce chemin refuserait ensuite les écritures du
+ * Worker.
  */
 const SETTINGS_TABLE = `CREATE TABLE IF NOT EXISTS app_settings (
-   key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at TEXT NOT NULL
+   user_id TEXT NOT NULL DEFAULT '${CURRENT_USER}',
+   key TEXT NOT NULL,
+   value TEXT NOT NULL,
+   updated_at TEXT NOT NULL,
+   PRIMARY KEY (user_id, key)
  )`;
 
 /**
@@ -528,12 +534,12 @@ async function ensureSettingsTable(): Promise<void> {
 const settingsCache = new Map<string, unknown>();
 
 /** Lit un réglage JSON, une seule fois par session. */
-async function readSetting<T>(key: string): Promise<T | null> {
+export async function readSetting<T>(key: string): Promise<T | null> {
   if (settingsCache.has(key)) return settingsCache.get(key) as T | null;
   await ensureSettingsTable();
   const result = await client().execute({
-    sql: 'SELECT value FROM app_settings WHERE key = ?',
-    args: [key],
+    sql: 'SELECT value FROM app_settings WHERE user_id = ? AND key = ?',
+    args: [CURRENT_USER, key],
   });
   const raw = result.rows[0]?.['value'];
   let value: T | null = null;
@@ -550,13 +556,13 @@ async function readSetting<T>(key: string): Promise<T | null> {
 }
 
 /** Écrit un réglage JSON et rafraîchit le cache de session. */
-async function writeSetting(key: string, value: unknown): Promise<void> {
+export async function writeSetting(key: string, value: unknown): Promise<void> {
   await ensureSettingsTable();
   await client().execute({
-    sql: `INSERT INTO app_settings (key, value, updated_at) VALUES (?,?,?)
-          ON CONFLICT(key) DO UPDATE SET value = excluded.value,
-                                         updated_at = excluded.updated_at`,
-    args: [key, JSON.stringify(value), new Date().toISOString()],
+    sql: `INSERT INTO app_settings (user_id, key, value, updated_at) VALUES (?,?,?,?)
+          ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value,
+                                                  updated_at = excluded.updated_at`,
+    args: [CURRENT_USER, key, JSON.stringify(value), new Date().toISOString()],
   });
   settingsCache.set(key, value);
 }
@@ -571,14 +577,4 @@ export async function readSearchCriteria(): Promise<FilterConfig | null> {
 
 export async function writeSearchCriteria(filters: FilterConfig): Promise<void> {
   await writeSetting(SEARCH_CRITERIA_SETTING, filters);
-}
-
-/** Recherches enregistrées. Base vierge → aucune, ce qui n'est pas une erreur. */
-export async function readSavedSearches(): Promise<readonly SavedSearch[]> {
-  const value = await readSetting<readonly SavedSearch[]>(SAVED_SEARCHES_SETTING);
-  return Array.isArray(value) ? value : [];
-}
-
-export async function writeSavedSearches(searches: readonly SavedSearch[]): Promise<void> {
-  await writeSetting(SAVED_SEARCHES_SETTING, searches);
 }

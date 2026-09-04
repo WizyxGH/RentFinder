@@ -39,7 +39,7 @@ import {
   loadTransitConfig,
   withStoredCriteria,
 } from '../config.js';
-import { SEARCH_CRITERIA_SETTING } from '@rentfinder/shared';
+import { REFERENCE_POINTS_SETTING, SEARCH_CRITERIA_SETTING } from '@rentfinder/shared';
 import { referencePointsDeclared, resolveReferencePoints } from '../core/reference-points.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -125,12 +125,14 @@ async function main(): Promise<void> {
     // résoudre à vide reviendrait à les effacer de tout l'inventaire : on
     // s'arrête plutôt que d'écrire une régression silencieuse (§17).
     const registry = createRegistry(ALL_SCRAPERS);
+    const storedPoints = await repository.readSetting(REFERENCE_POINTS_SETTING);
     const referencePoints = await resolveReferencePoints({
       cache: repository.geocodeCache(),
       nowMs: systemClock.now(),
       logger,
+      stored: storedPoints,
     });
-    if (referencePoints.length === 0 && referencePointsDeclared()) {
+    if (referencePoints.length === 0 && referencePointsDeclared(storedPoints)) {
       throw new Error(
         'Points de référence déclarés mais non résolus : rescoring interrompu ' +
           '(il effacerait les distances de toutes les fiches).',

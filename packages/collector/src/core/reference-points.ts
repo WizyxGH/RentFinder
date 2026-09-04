@@ -6,6 +6,11 @@
  *   - `REFERENCE_*_ADDRESS`      : une adresse, géocodée une fois puis mise en
  *     cache — on saisit « 12 rue X, Nice » sans aller chercher son GPS.
  *
+ * ET DEPUIS LE SITE. Les points réglés dans l'écran Paramètres priment sur
+ * `.env` : sans cela, une adresse saisie sur le téléphone aurait paru sans
+ * effet, silencieusement écrasée par un fichier posé sur la machine de
+ * collecte. Rien de réglé = `.env`, comme avant.
+ *
  * POURQUOI UN MODULE À PART. Cette résolution vivait dans la commande de
  * collecte. Une seconde commande (`reprocess`) s'est contentée des seules
  * coordonnées explicites — et comme l'utilisateur ne déclare qu'une ADRESSE,
@@ -14,6 +19,7 @@
  * l'oubli EFFACE des données n'a pas sa place dans un appelant.
  */
 
+import { parseReferencePoints, type StoredReferencePoint } from '@rentfinder/shared';
 import type { Logger } from './logger.js';
 import type { ReferencePoint } from '../config.js';
 import { collectorUserAgent, loadReferenceAddresses, loadReferencePoints } from '../config.js';
@@ -24,6 +30,27 @@ export interface ReferencePointsDeps {
   readonly cache: GeocodeCacheStore;
   readonly nowMs: number;
   readonly logger: Logger;
+  /**
+   * Ce que l'écran Paramètres a enregistré (JSON brut de `app_settings`).
+   * Absent ou illisible, on retombe sur `.env`.
+   */
+  readonly stored?: string | null;
+}
+
+/**
+ * Les points déclarés : ceux du site s'ils existent, ceux de `.env` sinon.
+ *
+ * Un tableau VIDE enregistré depuis le site est une décision — « je ne veux
+ * aucune distance » — et non une absence de réglage : il ne fait pas
+ * retomber sur `.env`.
+ */
+function declaredAddresses(stored: string | null | undefined): StoredReferencePoint[] | null {
+  if (typeof stored !== 'string') return null;
+  try {
+    return parseReferencePoints(JSON.parse(stored));
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -34,8 +61,11 @@ export interface ReferencePointsDeps {
  * il ne l'est pas quand on s'apprête à réécrire des fiches existantes.
  */
 export async function resolveReferencePoints(deps: ReferencePointsDeps): Promise<ReferencePoint[]> {
-  const points = [...loadReferencePoints()];
-  const toGeocode = loadReferenceAddresses();
+  const fromSite = declaredAddresses(deps.stored);
+  // Les coordonnées explicites de `.env` sont exactes ; on les garde tant que
+  // le site ne s'est pas prononcé.
+  const points = fromSite === null ? [...loadReferencePoints()] : [];
+  const toGeocode = fromSite ?? loadReferenceAddresses();
   if (toGeocode.length === 0) return points;
 
   const geocoder = createGeocoder({
@@ -66,6 +96,8 @@ export async function resolveReferencePoints(deps: ReferencePointsDeps): Promise
  * échoué » — le second cas doit interrompre un rescoring, sous peine d'effacer
  * les distances de tout l'inventaire.
  */
-export function referencePointsDeclared(): boolean {
+export function referencePointsDeclared(stored?: string | null): boolean {
+  const fromSite = declaredAddresses(stored);
+  if (fromSite !== null) return fromSite.length > 0;
   return loadReferencePoints().length > 0 || loadReferenceAddresses().length > 0;
 }

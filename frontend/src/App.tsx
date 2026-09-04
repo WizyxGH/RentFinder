@@ -40,6 +40,7 @@ import { formatSourceName } from './format.js';
 import { markAlertsSeen, readAlertsSeenAt, unreadAlertCount } from './notifications.js';
 import { Button } from '@/components/ui/button.js';
 import { DocumentsSection } from './components/DocumentsSection.js';
+import { ReferencePointsSection } from './components/ReferencePointsSection.js';
 import { ListingCard } from './components/ListingCard.js';
 import { ListingDetail } from './components/ListingDetail.js';
 import { ProfileForm } from './components/ProfileForm.js';
@@ -89,6 +90,7 @@ type View =
   | 'profile'
   | 'tenant'
   | 'documents'
+  | 'reference'
   | 'saved'
   | 'sources'
   | 'source'
@@ -1130,6 +1132,23 @@ export function App(): React.JSX.Element {
             <ArrowLeft aria-hidden="true" className="size-4" /> Retour
           </Button>
           <DocumentsSection />
+        </Shell>
+      );
+    }
+    if (view === 'reference') {
+      return (
+        <Shell
+          view={view}
+          favoritesOnly={favoritesOnly}
+          onNavigate={navigate}
+          unreadAlerts={unreadAlerts}
+          bottomTab={bottomTab}
+          onBottomSelect={selectBottomTab}
+        >
+          <Button variant="ghost" className="mb-2" onClick={() => setView('profile')}>
+            <ArrowLeft aria-hidden="true" className="size-4" /> Retour
+          </Button>
+          <ReferencePointsSection />
         </Shell>
       );
     }

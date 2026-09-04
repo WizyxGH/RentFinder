@@ -20,7 +20,13 @@ import type {
   SourceStateView,
   StatsData,
 } from '../types.js';
-import { MVP_CRITERIA } from '@rentfinder/shared';
+import {
+  MVP_CRITERIA,
+  REFERENCE_POINTS_SETTING,
+  SAVED_SEARCHES_SETTING,
+  parseReferencePoints,
+  type StoredReferencePoint,
+} from '@rentfinder/shared';
 import type { SavedSearch } from '../saved-searches.js';
 import * as turso from './turso.js';
 import { byRecency } from '../recency.js';
@@ -478,25 +484,74 @@ export async function unsubscribePush(endpoint: string): Promise<void> {
 }
 
 /**
- * Recherches enregistrées (§66).
+ * Réglages de compte (§66) : recherches enregistrées, points de référence.
  *
- * Elles vivent dans `app_settings`, comme les critères : le site déployé n'a
+ * Ils vivent dans `app_settings`, comme les critères — le site déployé n'a
  * aucun accès à la machine de collecte, la base est leur seul point de
- * rencontre. En démo et en mode API, on n'en propose pas — il n'y a pas de
- * base à écrire, et une liste qui s'oublie au rechargement vaudrait moins que
- * pas de liste du tout (§17).
+ * rencontre.
+ *
+ * ILS NE PASSAIENT QUE PAR L'ACCÈS DIRECT À TURSO. Sur l'installation
+ * recommandée, celle qui passe par le Worker, une recherche enregistrée
+ * disparaissait donc au rechargement, sans que rien ne le dise. Les deux
+ * chemins écrivent maintenant la même ligne.
  */
+async function readSetting<T>(key: string): Promise<T | null> {
+  if (DEMO) return null;
+  if (isDirectMode()) return turso.readSetting<T>(key);
+  if (API_URL === '') return null;
+  return request<T | null>(`/api/settings/${key}`);
+}
+
+async function writeSetting(key: string, value: unknown): Promise<void> {
+  if (DEMO) return;
+  if (isDirectMode()) {
+    await turso.writeSetting(key, value);
+    return;
+  }
+  if (API_URL === '') return;
+  await request(`/api/settings/${key}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(value),
+  });
+}
+
+/** `true` si cet accès sait conserver un réglage de compte. */
+export function settingsAvailable(): boolean {
+  return !DEMO && (isDirectMode() || API_URL !== '');
+}
+
 export async function fetchSavedSearches(): Promise<readonly SavedSearch[]> {
-  if (DEMO || !isDirectMode()) return [];
-  return turso.readSavedSearches();
+  return (await readSetting<readonly SavedSearch[]>(SAVED_SEARCHES_SETTING)) ?? [];
 }
 
 export async function saveSavedSearches(searches: readonly SavedSearch[]): Promise<void> {
-  if (DEMO || !isDirectMode()) return;
-  await turso.writeSavedSearches(searches);
+  await writeSetting(SAVED_SEARCHES_SETTING, searches);
 }
 
 /** `true` si cet accès sait conserver une recherche enregistrée. */
 export function savedSearchesAvailable(): boolean {
-  return !DEMO && isDirectMode();
+  return settingsAvailable();
+}
+
+/**
+ * Points de référence : lieu de travail, gare (§20).
+ *
+ * Ils décident du temps de trajet affiché sur chaque annonce. Ils vivaient
+ * dans `.env` et dans les secrets GitHub — changer d'employeur demandait
+ * d'éditer un fichier sur la machine de collecte. Ils se règlent désormais
+ * depuis l'écran Paramètres, et la collecte suivante les géocode.
+ *
+ * `null` = rien de réglé depuis le site, donc `.env` fait foi. Un tableau vide
+ * est autre chose : c'est le choix de n'afficher aucune distance.
+ */
+export async function fetchReferencePoints(): Promise<readonly StoredReferencePoint[] | null> {
+  const stored = await readSetting<unknown>(REFERENCE_POINTS_SETTING);
+  return stored === null ? null : parseReferencePoints(stored);
+}
+
+export type { StoredReferencePoint };
+
+export async function saveReferencePoints(points: readonly StoredReferencePoint[]): Promise<void> {
+  await writeSetting(REFERENCE_POINTS_SETTING, points);
 }

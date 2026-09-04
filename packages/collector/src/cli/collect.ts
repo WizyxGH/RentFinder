@@ -35,7 +35,7 @@ import {
   loadImapConfig,
   withStoredCriteria,
 } from '../config.js';
-import { SEARCH_CRITERIA_SETTING } from '@rentfinder/shared';
+import { REFERENCE_POINTS_SETTING, SEARCH_CRITERIA_SETTING } from '@rentfinder/shared';
 import { resolveReferencePoints } from '../core/reference-points.js';
 import { loadVapidConfig, sendWebPush } from '../notify/web-push.js';
 import { dropRedundantNotifications } from '../notify/redundancy.js';
@@ -109,13 +109,14 @@ async function main(): Promise<void> {
       excludeFlatShare: config.criteria.excludeFlatShare ?? false,
     });
 
-    // Points de référence : coordonnées explicites (§20), complétées par les
-    // adresses géocodées une fois (REFERENCE_*_ADDRESS) — l'utilisateur peut
-    // ainsi saisir « 12 rue X, Nice » au lieu de chercher ses coordonnées GPS.
+    // Points de référence (§20) : ceux réglés depuis l'écran Paramètres s'ils
+    // existent, sinon ceux de `.env`. Les adresses sont géocodées une fois puis
+    // mises en cache — on saisit « 12 rue X, Nice », pas des coordonnées.
     const referencePoints = await resolveReferencePoints({
       cache: repository.geocodeCache(),
       nowMs: systemClock.now(),
       logger,
+      stored: await repository.readSetting(REFERENCE_POINTS_SETTING),
     });
 
     // §20 : routage transports en commun si un jeton Navitia est configuré,
