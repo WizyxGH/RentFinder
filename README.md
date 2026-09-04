@@ -55,20 +55,26 @@ Ouvert sur un téléphone, il répond à une seule question :
 - **Documents de candidature** : pièces déposées une fois (Paramètres → Dossier
   de candidature), stockées uniquement en local (`data/`, hors dépôt), jamais
   envoyées automatiquement.
-- **Coût : 0 €, et 100% local** — tout tourne sur votre machine (fichier SQLite
-  - serveur local). Aucun compte, aucun quota, aucun secret cloud à gérer, et
-    vos données ne quittent jamais l'appareil.
+- **Coût : 0 €.** Deux modes coexistent. En **local**, tout tourne sur votre
+  machine (fichier SQLite + serveur local) : aucun compte, aucun quota, rien qui
+  sorte de l'appareil. En **publié**, la collecte tourne dans GitHub Actions et
+  le site est servi par GitHub Pages ; il lit Turso directement, avec un jeton
+  que vous saisissez une fois dans le navigateur. Les deux restent gratuits.
 
 ## Architecture en bref
 
 ```
 pnpm collect : Scheduler → Scrapers → Normalisation → Dédoublonnage
-             → Scoring + distances → SQLite local (data/local.db)
+             → Scoring + distances → SQLite (local) ou Turso (publié)
 pnpm local   : SQLite → API (127.0.0.1) → Frontend React
+publié       : Turso ← GitHub Actions (collecte) · Turso → Frontend (Pages)
 ```
 
-Vos annonces, statuts et distances restent dans un fichier SQLite local, jamais
-publié. Détails, diagramme et décisions : [docs/architecture.md](docs/architecture.md).
+Quatre destinations, les mêmes sur téléphone et sur grand écran — Accueil,
+Recherche, Favoris, Paramètres. L'accueil fait le point (ce qui est arrivé, ce
+qui attend un appel) ; la recherche affiche les annonces et, sur ordinateur, le
+plan à côté. Détails, carte des écrans et décisions :
+[docs/architecture.md](docs/architecture.md).
 
 **Stack** : TypeScript partout — monorepo pnpm, React + Vite + Tailwind CSS
 v4 + shadcn/ui (frontend), Node 22 (collecteur + serveur local), cheerio
@@ -179,20 +185,30 @@ Pour **ajouter une source**, le mode d'emploi vit dans l'en-tête de
   Seule voie restante : l'import d'alertes e-mail, non construite à ce jour.
 - Les notifications ne sont pas de l'instantané : elles partent au rythme des
   collectes (tâche planifiée + intervalles adaptatifs par source, §7).
-- La collecte tourne sur votre machine : ordinateur éteint, pas de collecte ni
-  de notification (limite assumée du choix 100 % local).
+- En mode local, la collecte tourne sur votre machine : ordinateur éteint, pas
+  de collecte ni de notification. Le mode publié (GitHub Actions) lève cette
+  limite.
+- **Un seul utilisateur.** Le schéma est prêt pour plusieurs — les décisions
+  personnelles (favori, statut, archivage) sont rattachées à un utilisateur
+  depuis la migration 19 — mais il n'y a ni identifiant ni mot de passe : le
+  site est un bundle statique qui parle directement à Turso, et dans ce modèle
+  aucun mot de passe ne peut être vérifié. Une vraie connexion demanderait un
+  petit serveur (§26).
 
 ## Roadmap
 
 - **Actuel** : pipeline complet, 23 sources actives (portails + réseaux +
   agences niçoises via les adaptateurs génériques Apimo et Hektor, Studapart
-  par API publique) + PAP prête mais désactivée ; mode local zéro-cloud ;
-  4 scores en anneaux ; dédoublonnage multi-signaux ; contact manuel + relance
-  - trace des pièces envoyées ; affinité et page Stats ; notifications Web Push
-    et navigateur ; documents de candidature locaux ; frontend mobile
-    (Tailwind CSS + shadcn/ui) ; docs et suite Vitest + Playwright.
-- **Ensuite** : import d'alertes e-mail (seule voie conforme pour
-  Leboncoin/SeLoger/Bien'ici), davantage d'agences, relances automatisées,
+  par API publique) + PAP prête mais désactivée ; mode local zéro-cloud et mode
+  publié (Actions + Pages + Turso) ; dédoublonnage multi-signaux ; contact
+  manuel + relance et trace des pièces envoyées ; affinité et statistiques ;
+  notifications Web Push ; recherches enregistrées ; documents de candidature
+  locaux ; frontend mobile ET grand écran (Tailwind CSS + shadcn/ui) ; docs et
+  suite Vitest + Playwright.
+- **Ensuite** : connexion multi-utilisateur (demande un serveur, voir plus
+  haut), import d'alertes e-mail (seule voie conforme pour
+  Leboncoin/SeLoger/Bien'ici, et pour Jinka), davantage d'agences, relances
+  automatisées,
   historique des prix enrichi.
 - **Plus tard** : scores calibrés sur les résultats réels, scheduler optimisé
   dynamiquement.
