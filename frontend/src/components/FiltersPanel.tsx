@@ -3,8 +3,11 @@
  *
  * À ne pas confondre avec les filtres d'affichage de la modale, qui ne font que
  * trier ce qui est déjà là : ici on décide ce qui entrera dans la base et ce
- * qui déclenchera une alerte. Les deux vivent désormais dans la même modale,
- * dans deux sections distinctes, parce qu'on les cherche au même endroit.
+ * qui déclenchera une alerte. Les deux vivent dans la même modale parce qu'on
+ * les cherche au même endroit — mais dans deux familles nettement séparées,
+ * l'une titrée « Affiner ces résultats », celle-ci dans son propre cadre. Sans
+ * cette séparation, neuf blocs de même poids ne disaient plus lequel agissait
+ * sur quoi.
  *
  * Budget et surface s'appliquent immédiatement à l'affichage ; les exclusions
  * (colocation, étudiant) sont figées à la collecte et prennent effet au
@@ -119,7 +122,7 @@ export function FiltersPanel({ onSaved, compact = false }: FiltersPanelProps): R
       landlordFilter: 'all',
       furnishedFilter: 'all',
     });
-    setMessage('Valeurs par défaut restaurées — « Enregistrer » pour appliquer.');
+    setMessage('Valeurs par défaut restaurées — « Appliquer » pour les enregistrer.');
   };
 
   const handleSave = async (): Promise<void> => {
@@ -127,9 +130,9 @@ export function FiltersPanel({ onSaved, compact = false }: FiltersPanelProps): R
     setMessage(null);
     try {
       await saveFilters(filters);
-      setMessage(
-        'Filtres enregistrés. Le budget et la surface s’appliquent tout de suite ; les exclusions au prochain « pnpm collect ».',
-      );
+      // Le message nommait « pnpm collect » : une commande, dans un écran
+      // qu'on ouvre depuis un téléphone où elle ne se tape pas.
+      setMessage('Critères enregistrés. Ils prendront effet à la prochaine collecte.');
       onSaved();
     } catch {
       setMessage('Échec de l’enregistrement.');
@@ -260,14 +263,23 @@ export function FiltersPanel({ onSaved, compact = false }: FiltersPanelProps): R
         </div>
       </dl>
 
-      <div className="mt-4 flex items-center gap-3">
+      {/* DANS LA MODALE, deux boutons portaient le mot « Réinitialiser » à un
+        écran d'intervalle : celui-ci ramène les CRITÈRES aux valeurs du projet,
+        celui du pied défait le tri et les filtres d'affichage. Le même mot pour
+        deux portées différentes ne laissait aucun moyen de deviner laquelle.
+        Ici on nomme donc ce qu'on restaure. */}
+      <div className="mt-4 flex flex-wrap items-center gap-2">
         <Button onClick={() => void handleSave()} disabled={saving}>
           {saving ? 'Enregistrement…' : compact ? 'Appliquer les critères' : 'Enregistrer'}
         </Button>
         <Button variant="outline" onClick={handleReset} disabled={saving}>
-          Réinitialiser
+          {compact ? 'Valeurs par défaut' : 'Réinitialiser'}
         </Button>
-        {message !== null && <p className="text-sm text-muted-foreground">{message}</p>}
+        {message !== null && (
+          <p role="status" className="w-full text-sm text-muted-foreground">
+            {message}
+          </p>
+        )}
       </div>
     </section>
   );

@@ -217,9 +217,10 @@ test('l’interface est utilisable sur mobile sans défilement horizontal (§39)
 
 test('les critères de recherche sont réglables depuis le site (§66)', async ({ page }) => {
   // Ils avaient leur propre onglet, puis un repli dans la modale — où on ne
-  // les trouvait pas davantage. Ils sont maintenant à plat, sous les filtres
-  // rapides, et débarrassés du budget et de la surface que ceux-ci portent
-  // déjà : les mêmes deux réglages figuraient deux fois dans le même écran.
+  // les trouvait pas davantage. Ils sont maintenant dans leur propre cadre,
+  // sous les filtres d'affichage, et débarrassés du budget et de la surface que
+  // ceux-ci portent déjà : les mêmes deux réglages figuraient deux fois dans le
+  // même écran.
   const toolbar = page.getByRole('group', { name: 'Barre de filtres' });
   await toolbar.getByRole('button', { name: /Trier et filtrer/ }).click();
 
@@ -229,7 +230,7 @@ test('les critères de recherche sont réglables depuis le site (§66)', async (
   await trajet.fill('45');
 
   await page.getByRole('button', { name: 'Appliquer les critères' }).click();
-  await expect(page.getByText(/Filtres enregistrés/)).toBeVisible();
+  await expect(page.getByText(/Critères enregistrés/)).toBeVisible();
 });
 
 test('la localisation ouvre Maps facilement (§20)', async ({ page }) => {

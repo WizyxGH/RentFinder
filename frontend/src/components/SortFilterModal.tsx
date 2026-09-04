@@ -6,11 +6,21 @@
  * source. Sur mobile, trois menus côte à côte tenaient mal ; et rien n'indiquait
  * qu'ils formaient un même réglage.
  *
- * S'y ajoutent, repliés en bas, les CRITÈRES DE RECHERCHE — ce qui est collecté
- * et signalé. Ils vivaient dans un onglet « Alertes » à part, où on ne les
- * trouvait pas : quand on veut resserrer sa recherche, c'est ici qu'on ouvre.
- * La distinction reste explicite — affiner l'affichage n'est pas changer ce
- * qu'on collecte — mais les deux se règlent au même endroit.
+ * DEUX FAMILLES DE RÉGLAGES, ET IL FAUT QUE ÇA SE VOIE. Affiner l'affichage
+ * retire des annonces de l'écran, tout de suite, sans rien changer d'autre.
+ * Régler les critères change ce qui ENTRE dans la base et ce qui déclenche une
+ * alerte, à la collecte suivante. Ces deux familles se sont retrouvées ici
+ * parce qu'on les cherche au même endroit — mais elles étaient présentées à
+ * l'identique : neuf blocs de même poids, séparés par des intitulés gris
+ * interchangeables. On ne savait plus lequel agissait sur quoi.
+ *
+ * Chaque famille a donc son titre, sa phrase d'explication, et la seconde son
+ * propre cadre. Le tri, lui, remonte en tête : il donne son nom à la modale et
+ * se perdait entre « Type de bien » et « Affichage ».
+ *
+ * L'EN-TÊTE ET LE PIED SONT FIXES. Le bouton qui compte — celui qui dit combien
+ * d'annonces restent — se trouvait après huit sections de défilement, et le
+ * nombre qu'il porte est précisément ce qu'on regarde en réglant.
  *
  * Accessibilité : `role="dialog"` + `aria-modal`, fermeture par Échap ou par le
  * fond, et le focus part sur le premier contrôle.
@@ -68,8 +78,8 @@ export interface SortFilterModalProps {
 
   /**
    * Enregistre le jeu de réglages courant sous un nom. Absent quand l'accès
-   * n'a pas de base où l'écrire (démo, mode API) : le bouton ne s'affiche
-   * alors pas, plutôt que de promettre un enregistrement sans lendemain.
+   * n'a pas de base où l'écrire (démo) : le bouton ne s'affiche alors pas,
+   * plutôt que de promettre un enregistrement sans lendemain.
    */
   readonly onSaveSearch?: (name: string) => Promise<void>;
   /** Nom proposé, calculé à partir des critères courants. */
@@ -79,6 +89,11 @@ export interface SortFilterModalProps {
   readonly onReset: () => void;
   /** `true` si quelque chose s'écarte de cet état : le bouton reste sinon inerte. */
   readonly dirty: boolean;
+}
+
+/** Intitulé d'un réglage, à l'intérieur d'une famille. */
+function FieldLabel({ children }: { readonly children: React.ReactNode }): React.JSX.Element {
+  return <legend className="mb-2 text-sm font-medium text-muted-foreground">{children}</legend>;
 }
 
 export function SortFilterModal({
@@ -167,10 +182,11 @@ export function SortFilterModal({
         // Le clic à l'intérieur ne doit pas fermer la modale.
         onClick={(event) => event.stopPropagation()}
         // Le voile se fond, le panneau monte : sur téléphone il vient du bas,
-        // là où le pouce l'a appelé.
-        className="rf-rise max-h-[85vh] w-full overflow-y-auto rounded-t-2xl border border-border bg-card p-5 shadow-xl sm:max-w-md sm:rounded-2xl"
+        // là où le pouce l'a appelé. `flex-col` + `min-h-0` sur le corps : c'est
+        // ce qui fixe l'en-tête et le pied pendant que le milieu défile.
+        className="rf-rise flex max-h-[85vh] w-full flex-col rounded-t-2xl border border-border bg-card shadow-xl sm:max-w-md sm:rounded-2xl"
       >
-        <div className="mb-4 flex items-center justify-between">
+        <div className="flex items-center justify-between border-b border-border px-5 py-3.5">
           <h2 className="text-lg font-semibold">Trier et filtrer</h2>
           <Button
             variant="ghost"
@@ -183,237 +199,247 @@ export function SortFilterModal({
           </Button>
         </div>
 
-        <fieldset className="mb-5">
-          <legend className="mb-2 text-sm font-semibold text-muted-foreground">Budget</legend>
-          {/* Fourchette libre plutôt que des paliers : chaque recherche a son
-            propre encadrement, et un plancher sert à écarter les annonces trop
-            bon marché pour être crédibles. */}
-          <div className="flex items-center gap-2">
-            <NumberField
-              label="de"
-              suffix="€"
-              value={quickFilters.minPrice}
-              onChange={(v) => patch({ minPrice: v })}
-            />
-            <NumberField
-              label="à"
-              suffix="€"
-              value={quickFilters.maxPrice}
-              onChange={(v) => patch({ maxPrice: v })}
-            />
-          </div>
-        </fieldset>
-
-        <fieldset className="mb-5">
-          <legend className="mb-2 text-sm font-semibold text-muted-foreground">Surface</legend>
-          {/* Un seul champ : une surface MINIMALE suffit à cet usage. */}
-          <NumberField
-            label="au moins"
-            suffix="m²"
-            value={quickFilters.minArea}
-            onChange={(v) => patch({ minArea: v })}
-          />
-        </fieldset>
-
-        <fieldset className="mb-5">
-          <legend className="mb-2 text-sm font-semibold text-muted-foreground">Pièces</legend>
-          <div className="flex flex-wrap gap-1.5">
-            <PillButton
-              selected={quickFilters.minRooms === null}
-              onClick={() => patch({ minRooms: null })}
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+          {/* LE TRI D'ABORD : il donne son nom à la modale, et se perdait entre
+            « Type de bien » et « Affichage ». Un menu et non une liste dépliée —
+            c'est un choix unique parmi quatre, et le `<select>` natif est le
+            plus sûr au doigt (§39, §65). */}
+          <div className="flex items-center gap-3">
+            <label htmlFor="sort-select" className="text-sm font-medium text-muted-foreground">
+              Trier par
+            </label>
+            <select
+              id="sort-select"
+              value={sort}
+              onChange={(event) => onSortChange(event.target.value as SortMode)}
+              className="min-w-0 flex-1"
             >
-              Indifférent
-            </PillButton>
-            {ROOM_PRESETS.map((r) => (
-              <PillButton
-                key={r}
-                selected={quickFilters.minRooms === r}
-                onClick={() => patch({ minRooms: r })}
-              >
-                {r}+
-              </PillButton>
-            ))}
-          </div>
-        </fieldset>
-
-        <fieldset className="mb-5">
-          <legend className="mb-2 text-sm font-semibold text-muted-foreground">
-            Nombre de personnes
-          </legend>
-          {/* Ne filtre que les annonces qui annoncent un plafond : la plupart
-            n'en publient aucun, et les écarter viderait la liste (§17). */}
-          <div className="flex flex-wrap gap-1.5">
-            <PillButton
-              selected={quickFilters.minOccupants === null}
-              onClick={() => patch({ minOccupants: null })}
-            >
-              Indifférent
-            </PillButton>
-            {OCCUPANT_PRESETS.map((count) => (
-              <PillButton
-                key={count}
-                selected={quickFilters.minOccupants === count}
-                onClick={() => patch({ minOccupants: count })}
-              >
-                {count}
-              </PillButton>
-            ))}
-          </div>
-        </fieldset>
-
-        {availableTypes.length > 1 && (
-          <fieldset className="mb-5">
-            <legend className="mb-2 text-sm font-semibold text-muted-foreground">
-              Type de bien
-            </legend>
-            {/* Pilules plutôt que cases à cocher : même geste que « Pièces »
-              juste au-dessus, et une sélection lisible d'un coup d'œil. */}
-            <div className="flex flex-wrap gap-1.5">
-              <PillButton
-                selected={quickFilters.types.size === 0}
-                onClick={() => patch({ types: new Set() })}
-              >
-                Tous
-              </PillButton>
-              {availableTypes.map((type) => (
-                <PillButton
-                  key={type}
-                  selected={quickFilters.types.has(type)}
-                  onClick={() => toggleType(type)}
-                >
-                  {formatPropertyType(type)}
-                </PillButton>
+              {sortOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
               ))}
-            </div>
-          </fieldset>
-        )}
+            </select>
+          </div>
 
-        {/* UN MENU, et non une liste dépliée. Le tri est un choix unique parmi
-          quatre : déplié, il occupait un quart du panneau pour montrer trois
-          options qu'on ne prend pas, et repoussait les filtres sous la ligne
-          de flottaison. Le `<select>` natif est aussi le plus sûr au doigt
-          (§39, §65). */}
-        <div className="mb-5 flex items-center gap-3">
-          <label htmlFor="sort-select" className="text-muted-foreground text-sm font-semibold">
-            Trier par
-          </label>
-          <select
-            id="sort-select"
-            value={sort}
-            onChange={(event) => onSortChange(event.target.value as SortMode)}
-            className="min-w-0 flex-1"
+          <section aria-labelledby="refine-title" className="mt-6">
+            <h3 id="refine-title" className="font-semibold">
+              Affiner ces résultats
+            </h3>
+            <p className="mt-0.5 mb-3 text-[0.82rem] text-muted-foreground">
+              N’agit que sur l’affichage, tout de suite. Rien n’est collecté ni oublié.
+            </p>
+
+            <fieldset className="mb-4">
+              <FieldLabel>Budget</FieldLabel>
+              {/* Fourchette libre plutôt que des paliers : chaque recherche a son
+                propre encadrement, et un plancher sert à écarter les annonces
+                trop bon marché pour être crédibles. */}
+              <div className="flex items-center gap-2">
+                <NumberField
+                  label="de"
+                  suffix="€"
+                  value={quickFilters.minPrice}
+                  onChange={(v) => patch({ minPrice: v })}
+                />
+                <NumberField
+                  label="à"
+                  suffix="€"
+                  value={quickFilters.maxPrice}
+                  onChange={(v) => patch({ maxPrice: v })}
+                />
+              </div>
+            </fieldset>
+
+            <fieldset className="mb-4">
+              <FieldLabel>Surface</FieldLabel>
+              {/* Un seul champ : une surface MINIMALE suffit à cet usage. */}
+              <NumberField
+                label="au moins"
+                suffix="m²"
+                value={quickFilters.minArea}
+                onChange={(v) => patch({ minArea: v })}
+              />
+            </fieldset>
+
+            <fieldset className="mb-4">
+              <FieldLabel>Pièces</FieldLabel>
+              <div className="flex flex-wrap gap-1.5">
+                <PillButton
+                  selected={quickFilters.minRooms === null}
+                  onClick={() => patch({ minRooms: null })}
+                >
+                  Indifférent
+                </PillButton>
+                {ROOM_PRESETS.map((r) => (
+                  <PillButton
+                    key={r}
+                    selected={quickFilters.minRooms === r}
+                    onClick={() => patch({ minRooms: r })}
+                  >
+                    {r}+
+                  </PillButton>
+                ))}
+              </div>
+            </fieldset>
+
+            <fieldset className="mb-4">
+              <FieldLabel>Nombre de personnes</FieldLabel>
+              {/* Ne filtre que les annonces qui annoncent un plafond : la plupart
+                n'en publient aucun, et les écarter viderait la liste (§17). */}
+              <div className="flex flex-wrap gap-1.5">
+                <PillButton
+                  selected={quickFilters.minOccupants === null}
+                  onClick={() => patch({ minOccupants: null })}
+                >
+                  Indifférent
+                </PillButton>
+                {OCCUPANT_PRESETS.map((count) => (
+                  <PillButton
+                    key={count}
+                    selected={quickFilters.minOccupants === count}
+                    onClick={() => patch({ minOccupants: count })}
+                  >
+                    {count}
+                  </PillButton>
+                ))}
+              </div>
+            </fieldset>
+
+            {availableTypes.length > 1 && (
+              <fieldset className="mb-4">
+                <FieldLabel>Type de bien</FieldLabel>
+                {/* Pilules plutôt que cases à cocher : même geste que « Pièces »
+                  juste au-dessus, et une sélection lisible d'un coup d'œil. */}
+                <div className="flex flex-wrap gap-1.5">
+                  <PillButton
+                    selected={quickFilters.types.size === 0}
+                    onClick={() => patch({ types: new Set() })}
+                  >
+                    Tous
+                  </PillButton>
+                  {availableTypes.map((type) => (
+                    <PillButton
+                      key={type}
+                      selected={quickFilters.types.has(type)}
+                      onClick={() => toggleType(type)}
+                    >
+                      {formatPropertyType(type)}
+                    </PillButton>
+                  ))}
+                </div>
+              </fieldset>
+            )}
+
+            <fieldset className="mb-4">
+              <FieldLabel>Affichage</FieldLabel>
+              <ul className="flex flex-col gap-0.5">
+                {toggles.map(([label, checked, setter]) => (
+                  <li key={label}>
+                    <label className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-2 hover:bg-muted">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(event) => setter(event.target.checked)}
+                      />
+                      <span>{label}</span>
+                    </label>
+                  </li>
+                ))}
+              </ul>
+            </fieldset>
+
+            {sources.length > 1 && (
+              <fieldset>
+                <legend className="mb-2 flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                  Sources
+                  {selectedSources.size > 0 && (
+                    <button
+                      type="button"
+                      onClick={onClearSources}
+                      className="cursor-pointer font-normal underline hover:text-foreground"
+                    >
+                      tout afficher
+                    </button>
+                  )}
+                </legend>
+                <input
+                  type="search"
+                  value={sourceQuery}
+                  onChange={(event) => setSourceQuery(event.target.value)}
+                  placeholder="Filtrer les sources…"
+                  aria-label="Filtrer les sources par nom"
+                  className="mb-2 w-full rounded-lg border border-border px-2 py-1.5 text-sm"
+                />
+                <ul className="flex max-h-56 flex-col overflow-y-auto">
+                  {shownSources.length === 0 && (
+                    <li className="px-2 py-1.5 text-sm text-muted-foreground">
+                      Aucune source trouvée.
+                    </li>
+                  )}
+                  {shownSources.map((sourceId) => (
+                    <li key={sourceId}>
+                      <label className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-muted">
+                        <input
+                          type="checkbox"
+                          checked={selectedSources.has(sourceId)}
+                          onChange={() => onToggleSource(sourceId)}
+                        />
+                        <span className="truncate">{formatSourceName(sourceId)}</span>
+                      </label>
+                    </li>
+                  ))}
+                </ul>
+              </fieldset>
+            )}
+          </section>
+
+          {/* L'AUTRE FAMILLE, dans son propre cadre. Elle vivait derrière un
+            repli et on ne la trouvait pas ; dépliée à plat, elle se confondait
+            avec les filtres d'affichage. Ce qu'elle contient est ce que les
+            filtres rapides ne disent PAS — trajet, exclusions, bailleur,
+            meublé ; le budget et la surface n'y sont plus, ils étaient posés
+            deux fois dans le même écran. */}
+          <section
+            aria-labelledby="criteria-title"
+            className="mt-6 rounded-xl border border-border bg-muted/40 p-4"
           >
-            {sortOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+            <h3 id="criteria-title" className="font-semibold">
+              Ce qui est collecté et signalé
+            </h3>
+            <p className="mt-0.5 mb-3 text-[0.82rem] text-muted-foreground">
+              Change ce qui entre en base et déclenche une alerte. Prend effet à la prochaine
+              collecte.
+            </p>
+            <FiltersPanel compact onSaved={onCriteriaSaved} />
+          </section>
         </div>
 
-        <fieldset className="mb-5">
-          <legend className="mb-2 text-sm font-semibold text-muted-foreground">Affichage</legend>
-          <ul className="flex flex-col gap-0.5">
-            {toggles.map(([label, checked, setter]) => (
-              <li key={label}>
-                <label className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-2 hover:bg-muted">
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    onChange={(event) => setter(event.target.checked)}
-                  />
-                  <span>{label}</span>
-                </label>
-              </li>
-            ))}
-          </ul>
-        </fieldset>
-
-        {sources.length > 1 && (
-          <fieldset className="mb-5">
-            <legend className="mb-2 flex items-center gap-2 text-sm font-semibold text-muted-foreground">
-              Sources
-              {selectedSources.size > 0 && (
-                <button
-                  type="button"
-                  onClick={onClearSources}
-                  className="cursor-pointer font-normal underline hover:text-foreground"
-                >
-                  tout afficher
-                </button>
-              )}
-            </legend>
-            <input
-              type="search"
-              value={sourceQuery}
-              onChange={(event) => setSourceQuery(event.target.value)}
-              placeholder="Filtrer les sources…"
-              aria-label="Filtrer les sources par nom"
-              className="mb-2 w-full rounded-lg border border-border px-2 py-1.5 text-sm"
-            />
-            <ul className="flex max-h-56 flex-col overflow-y-auto">
-              {shownSources.length === 0 && (
-                <li className="px-2 py-1.5 text-sm text-muted-foreground">
-                  Aucune source trouvée.
-                </li>
-              )}
-              {shownSources.map((sourceId) => (
-                <li key={sourceId}>
-                  <label className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-muted">
-                    <input
-                      type="checkbox"
-                      checked={selectedSources.has(sourceId)}
-                      onChange={() => onToggleSource(sourceId)}
-                    />
-                    <span className="truncate">{formatSourceName(sourceId)}</span>
-                  </label>
-                </li>
-              ))}
-            </ul>
-          </fieldset>
-        )}
-
-        {/* CRITÈRES DE COLLECTE, à plat. Ils vivaient derrière un repli, et on
-          ne les trouvait pas : un panneau qu'il faut d'abord déplier pour
-          savoir ce qu'il contient n'existe pas vraiment. Ce qui reste ici est
-          ce que les filtres rapides ne disent PAS — trajet, exclusions,
-          bailleur, meublé ; le budget et la surface ont disparu d'ici, ils
-          étaient posés deux fois dans le même écran. */}
-        <fieldset className="mb-5">
-          <legend className="mb-2 text-sm font-semibold text-muted-foreground">
-            Ce qui est collecté et signalé
-          </legend>
-          <FiltersPanel compact onSaved={onCriteriaSaved} />
-        </fieldset>
-
-        {/* Réglages éparpillés sur quatre sections : les défaire un à un était
-          fastidieux. Le bouton s'efface quand il n'y a rien à défaire, plutôt
-          que de promettre une action sans effet. */}
-        {/* GARDER CE JEU DE RÉGLAGES, ici et pas ailleurs : c'est le seul
-          écran où on les voit tous ensemble, et c'est en le refermant qu'on
-          sait si la recherche est la bonne. Le bouton vivait dans la barre
-          d'outils, à côté des résultats mais loin des réglages qui les
-          produisent. */}
-        {onSaveSearch !== undefined && (
-          <div className="mb-3">
+        {/* PIED FIXE. Le bouton porte le nombre d'annonces qui restent : c'est
+          ce qu'on regarde en réglant, et il se trouvait après huit sections de
+          défilement. « Enregistrer cette recherche » l'accompagne — c'est le
+          seul écran où l'on voit tous les réglages ensemble, et c'est en le
+          refermant qu'on sait si la recherche est la bonne. */}
+        <div className="flex flex-col gap-2 border-t border-border px-5 py-3">
+          {onSaveSearch !== undefined && (
             <SaveSearchButton suggestion={saveSuggestion ?? 'Ma recherche'} onSave={onSaveSearch} />
-          </div>
-        )}
-
-        <div className="flex gap-2">
-          {/* Le mot seul : le pictogramme de flèche circulaire doublait un
-            libellé déjà sans ambiguïté, et rétrécissait d'autant le bouton
-            principal sur téléphone. */}
-          {dirty && (
-            <Button variant="outline" onClick={onReset}>
-              Réinitialiser
-            </Button>
           )}
-          <Button className="flex-1" onClick={onClose}>
-            {resultCount === 0
-              ? 'Aucun résultat'
-              : `Voir ${resultCount} annonce${resultCount > 1 ? 's' : ''}`}
-          </Button>
+          <div className="flex gap-2">
+            {/* Le mot seul : le pictogramme de flèche circulaire doublait un
+              libellé déjà sans ambiguïté, et rétrécissait d'autant le bouton
+              principal sur téléphone. Il ne s'affiche que s'il y a quelque
+              chose à défaire. */}
+            {dirty && (
+              <Button variant="outline" onClick={onReset}>
+                Tout réinitialiser
+              </Button>
+            )}
+            <Button className="flex-1" onClick={onClose}>
+              {resultCount === 0
+                ? 'Aucun résultat'
+                : `Voir ${resultCount} annonce${resultCount > 1 ? 's' : ''}`}
+            </Button>
+          </div>
         </div>
       </div>
     </div>

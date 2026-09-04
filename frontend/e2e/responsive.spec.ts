@@ -71,3 +71,27 @@ test('les cibles tactiles restent atteignables au doigt', async ({ page }) => {
   }
   expect(small, `cibles trop petites : ${small.join(', ')}`).toEqual([]);
 });
+
+test('le bouton de résultats reste visible sans dérouler la modale (§39)', async ({ page }) => {
+  // Le pied de la modale porte le NOMBRE d'annonces qui restent : c'est ce
+  // qu'on regarde en réglant un filtre. Il se trouvait après huit sections de
+  // défilement, si bien qu'on réglait sans jamais voir l'effet du réglage.
+  await page.setViewportSize({ width: 360, height: 740 });
+  await page.goto('/');
+  await page
+    .getByRole('navigation', { name: 'Navigation', exact: true })
+    .getByRole('button', { name: 'Recherche' })
+    .click();
+  await page.getByRole('button', { name: /Trier et filtrer/ }).click();
+
+  const dialog = page.getByRole('dialog', { name: 'Trier et filtrer' });
+  const resultats = dialog.getByRole('button', {
+    name: /^(Voir \d+ annonces?|Aucun résultat)$/,
+  });
+  await expect(resultats).toBeInViewport();
+
+  // Et il y reste après avoir déroulé jusqu'aux critères de collecte, tout en
+  // bas : c'est bien un pied fixe, pas le hasard d'un panneau assez court.
+  await dialog.getByText('Ce qui est collecté et signalé').scrollIntoViewIfNeeded();
+  await expect(resultats).toBeInViewport();
+});
