@@ -3,7 +3,14 @@
  *
  *   pnpm collect                 collecte normale
  *   pnpm collect -- --backfill   récupération volontaire d'annonces plus anciennes
- *   pnpm collect -- --dry-run    exécute sans écrire en base
+ *   pnpm collect -- --verbose    ajoute le détail technique au journal
+ *
+ * Il n'y a PAS de `--dry-run` ici. L'en-tête en promettait un, que rien
+ * n'implémentait : la collecte écrivait, notifiait, et disait le contraire.
+ * Une collecte touche l'état des sources, les occurrences, le cycle de vie,
+ * les fiches et les caches — la neutraliser à moitié serait pire que de ne
+ * pas l'offrir. Le drapeau est donc refusé explicitement plutôt que ignoré en
+ * silence ; `pnpm reprocess -- --dry-run`, lui, existe pour de bon.
  *
  * C'est cette commande qu'appelle le workflow GitHub Actions. Elle ne prend
  * aucune décision : elle assemble les composants et délègue au pipeline.
@@ -56,6 +63,18 @@ async function main(): Promise<void> {
 
   // §8 : le backfill exige une intention explicite, en argument ET en
   // configuration. Une seule des deux ne suffit pas.
+  // Refus explicite : mieux vaut ne rien faire que faire l'inverse de ce
+  // qu'on annonce. Voir l'en-tête.
+  if (args.has('--dry-run')) {
+    logger.error('collect.dry_run_unsupported', {
+      reason:
+        'la collecte écrit toujours ; utilisez `pnpm reprocess -- --dry-run` ' +
+        'pour un essai à blanc sur les annonces déjà en base',
+    });
+    process.exitCode = 2;
+    return;
+  }
+
   const mode = args.has('--backfill') && backfillEnabled() ? 'backfill' : 'live';
   if (args.has('--backfill') && mode === 'live') {
     logger.warn('backfill.refused', {
