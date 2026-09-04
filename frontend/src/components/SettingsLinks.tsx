@@ -1,101 +1,162 @@
 /**
- * Accès aux écrans secondaires depuis les Paramètres (§39).
+ * Les Paramètres, rangés (§39).
  *
- * La barre basse du téléphone ne porte que quatre destinations, et les onglets
- * du haut portent les MÊMES : tout le reste se rejoint ici — les écrans qu'on
- * ouvre une fois par mois, et ceux qu'on remplit une fois pour toutes.
+ * C'ÉTAIT UNE LISTE PLATE DE SIX ENTRÉES, dans l'ordre où elles étaient
+ * apparues : le profil locataire à côté de l'état de santé des sources, les
+ * recherches enregistrées entre les alertes et les statistiques. Rien ne disait
+ * ce qui relevait de SOI, de sa RECHERCHE, ou de l'APPLICATION — donc rien
+ * n'aidait à trouver, et chaque ajout aggravait le cas.
  *
- * LE PROFIL ET LE DOSSIER EN FONT PARTIE. Ils occupaient tout le premier écran
- * des Paramètres : huit champs dépliés et une liste de fichiers, pour deux
- * réglages qu'on ne touche presque jamais, devant lesquels il fallait défiler
- * pour atteindre les alertes. Ils ont maintenant leur page, comme les autres.
+ * Trois groupes, dans l'ordre où l'on s'en sert :
+ *
+ *   VOUS       ce qu'on remplit une fois et qui sert à candidater ;
+ *   RECHERCHE  ce qui décide de ce qu'on voit et de ce qui alerte ;
+ *   APPLICATION l'apparence et l'état de l'outil lui-même.
+ *
+ * LES PRÉCISIONS DISENT CE QU'ON Y FAIT, pas ce que c'est. « Vos jeux de
+ * critères, à rappeler d'un geste » décrivait joliment un concept ; « Retrouver
+ * une recherche déjà réglée » dit à quoi sert le clic qu'on s'apprête à faire.
  */
 
-import { Bell, BarChart3, Bookmark, ChevronRight, FileText, MapPin, Radio, User } from './icons.js';
+import {
+  Agency,
+  BarChart3,
+  Bell,
+  Bookmark,
+  ChevronRight,
+  FileText,
+  MapPin,
+  Palette,
+  Radio,
+  User,
+  type IconComponent,
+} from './icons.js';
 
 export interface SettingsLink {
   readonly key: string;
   readonly label: string;
   readonly hint: string;
-  readonly Icon: typeof Bell;
+  readonly Icon: IconComponent;
 }
 
-export const SETTINGS_LINKS: readonly SettingsLink[] = [
+interface SettingsSection {
+  readonly title: string;
+  readonly links: readonly SettingsLink[];
+}
+
+export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
   {
-    key: 'tenant',
-    label: 'Profil locataire',
-    hint: 'Sert à préparer vos messages de contact.',
-    Icon: User,
+    title: 'Vous',
+    links: [
+      {
+        key: 'tenant',
+        label: 'Profil locataire',
+        hint: 'Votre situation, pour écrire vos messages sans les retaper.',
+        Icon: User,
+      },
+      {
+        key: 'documents',
+        label: 'Dossier de candidature',
+        hint: 'Déposez vos pièces une fois, joignez-les partout.',
+        Icon: FileText,
+      },
+    ],
   },
   {
-    key: 'documents',
-    label: 'Dossier de candidature',
-    hint: 'Les pièces à joindre à une demande.',
-    Icon: FileText,
+    title: 'Votre recherche',
+    links: [
+      {
+        key: 'reference',
+        label: 'Adresses de référence',
+        hint: 'D’où se comptent les temps de trajet affichés.',
+        Icon: MapPin,
+      },
+      {
+        key: 'saved',
+        label: 'Recherches enregistrées',
+        hint: 'Retrouver une recherche déjà réglée, sans tout refaire.',
+        Icon: Bookmark,
+      },
+      {
+        // L'INTERRUPTEUR VIT DERRIÈRE CETTE PORTE, et non plus au-dessus de la
+        // liste. Il y était seul de son espèce — un réglage posé au milieu de
+        // liens — et ne pouvait rien dire des familles d'alertes.
+        key: 'notifications',
+        label: 'Notifications',
+        hint: 'Ce dont vous voulez être prévenu, et comment.',
+        Icon: Bell,
+      },
+    ],
   },
   {
-    key: 'reference',
-    label: 'Points de référence',
-    hint: 'Les adresses d’où se compte le temps de trajet.',
-    Icon: MapPin,
+    title: 'Application',
+    links: [
+      {
+        key: 'theme',
+        label: 'Apparence',
+        hint: 'Clair, sombre, ou comme votre appareil.',
+        Icon: Palette,
+      },
+      {
+        key: 'sources',
+        label: 'Sources',
+        hint: 'Les sites visités, et lesquels répondent encore.',
+        Icon: Radio,
+      },
+      {
+        key: 'agencies',
+        label: 'Agences',
+        hint: 'Qui publie quoi, et comment les joindre.',
+        Icon: Agency,
+      },
+      {
+        key: 'stats',
+        label: 'Statistiques',
+        hint: 'Couverture des sources et taux de réponse.',
+        Icon: BarChart3,
+      },
+    ],
   },
-  {
-    // L'INTERRUPTEUR EST AU-DESSUS, dans les Paramètres mêmes. Cette entrée
-    // disait « Alertes et historique » : elle promettait le réglage qu'elle
-    // n'avait pas, et le répétait à trois centimètres de lui. Elle ne mène
-    // plus qu'à ce qu'elle contient — les annonces déjà signalées.
-    key: 'alerts',
-    label: 'Historique des alertes',
-    hint: 'Les annonces signalées, datées.',
-    Icon: Bell,
-  },
-  {
-    key: 'saved',
-    label: 'Recherches enregistrées',
-    hint: 'Vos jeux de critères, à rappeler d’un geste.',
-    Icon: Bookmark,
-  },
-  {
-    key: 'stats',
-    label: 'Statistiques',
-    hint: 'Couverture des sources et taux de réponse.',
-    Icon: BarChart3,
-  },
-  { key: 'sources', label: 'Sources', hint: 'État de santé de chaque site.', Icon: Radio },
 ];
+
+/** Toutes les entrées à plat — pour qui a besoin de la liste, non des groupes. */
+export const SETTINGS_LINKS: readonly SettingsLink[] = SETTINGS_SECTIONS.flatMap(
+  (section) => section.links,
+);
 
 export function SettingsLinks({
   onNavigate,
-  bare = false,
 }: {
   readonly onNavigate: (key: string) => void;
-  /**
-   * `true` quand la liste EST la page : ni titre ni marge d'introduction. Le
-   * titre « Autres réglages » n'avait de sens que sous quelque chose.
-   */
-  readonly bare?: boolean;
 }): React.JSX.Element {
   return (
-    <nav aria-label="Réglages" className={bare ? '' : 'mt-6'}>
-      {!bare && <h2 className="mb-2 text-lg font-bold">Autres réglages</h2>}
-      <ul className="flex flex-col gap-2">
-        {SETTINGS_LINKS.map(({ key, label, hint, Icon }) => (
-          <li key={key}>
-            <button
-              type="button"
-              onClick={() => onNavigate(key)}
-              className="flex w-full cursor-pointer items-center gap-3 rounded-xl border border-border p-3 text-left transition-colors hover:bg-muted"
-            >
-              <Icon aria-hidden="true" className="size-5 shrink-0 text-muted-foreground" />
-              <span className="min-w-0 flex-1">
-                <span className="block font-medium">{label}</span>
-                <span className="block text-[0.82rem] text-muted-foreground">{hint}</span>
-              </span>
-              <ChevronRight aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
-            </button>
-          </li>
-        ))}
-      </ul>
+    <nav aria-label="Réglages">
+      {SETTINGS_SECTIONS.map((section) => (
+        <section key={section.title} className="mb-5">
+          <h2 className="text-muted-foreground mb-2 text-sm font-semibold">{section.title}</h2>
+          <ul className="flex flex-col gap-2">
+            {section.links.map(({ key, label, hint, Icon }) => (
+              <li key={key}>
+                <button
+                  type="button"
+                  onClick={() => onNavigate(key)}
+                  className="border-border hover:bg-muted flex w-full cursor-pointer items-center gap-3 rounded-xl border p-3 text-left transition-colors"
+                >
+                  <Icon aria-hidden="true" className="text-muted-foreground size-5 shrink-0" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-medium">{label}</span>
+                    <span className="text-muted-foreground block text-[0.82rem]">{hint}</span>
+                  </span>
+                  <ChevronRight
+                    aria-hidden="true"
+                    className="text-muted-foreground size-4 shrink-0"
+                  />
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
     </nav>
   );
 }

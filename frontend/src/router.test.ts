@@ -13,6 +13,7 @@ const ROUTES: readonly { path: string; route: Route }[] = [
   { path: '/recherche', route: { view: 'list' } },
   { path: '/favoris', route: { view: 'list', favoritesOnly: true } },
   { path: '/annonce/seloger%3A123', route: { view: 'detail', id: 'seloger:123' } },
+  { path: '/agences', route: { view: 'agencies' } },
   { path: '/agence/century21', route: { view: 'agency', id: 'century21' } },
   { path: '/sources', route: { view: 'sources' } },
   { path: '/sources/fnaim', route: { view: 'source', id: 'fnaim' } },

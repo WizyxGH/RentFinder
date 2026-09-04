@@ -245,20 +245,33 @@ test('la page Stats présente les compteurs et la couverture par source (§33)',
   await expect(page.getByText(/Taux de réponse/)).toBeVisible();
 });
 
-test('les Paramètres portent l’interrupteur des alertes (§29)', async ({ page }) => {
-  await ouvrirReglage(page, 'Historique des alertes');
-  await page.getByRole('button', { name: 'Retour' }).click();
+test('les alertes se règlent depuis leur propre écran (§29)', async ({ page }) => {
+  // L'interrupteur était posé au milieu des paramètres, seul de son espèce, et
+  // ne pouvait rien dire des familles d'alertes. Il a sa page.
+  await ouvrirReglage(page, 'Notifications');
+  await expect(page).toHaveURL(/\/parametres\/notifications$/);
 
+  const alertes = page.getByRole('switch', { name: 'Recevoir des alertes' });
+  await expect(alertes).toBeVisible();
+  // Rien ne sonne sans consentement explicite.
+  await expect(alertes).toHaveAttribute('aria-checked', 'false');
+  // Et le détail par famille ne s'affiche pas tant que rien n'est allumé :
+  // régler finement quelque chose de muet n'apprendrait rien.
+  await expect(page.getByRole('switch', { name: 'Nouvelles annonces' })).toHaveCount(0);
+});
+
+test('les paramètres sont rangés par sujet (§39)', async ({ page }) => {
   const haut = page.getByRole('navigation', { name: 'Navigation principale' });
   const barre = (await haut.isVisible())
     ? haut
     : page.getByRole('navigation', { name: 'Navigation', exact: true });
   await barre.getByRole('button', { name: 'Paramètres' }).click();
 
-  const alertes = page.getByRole('switch', { name: 'Alertes de nouvelles annonces' });
-  await expect(alertes).toBeVisible();
-  // Rien ne sonne sans consentement explicite.
-  await expect(alertes).toHaveAttribute('aria-checked', 'false');
+  // Une liste plate de six entrées ne disait pas ce qui relevait de soi, de sa
+  // recherche, ou de l'outil.
+  for (const titre of ['Vous', 'Votre recherche', 'Application']) {
+    await expect(page.getByRole('heading', { name: titre })).toBeVisible();
+  }
 });
 
 test('la page Notifications est un historique (§29)', async ({ page }) => {

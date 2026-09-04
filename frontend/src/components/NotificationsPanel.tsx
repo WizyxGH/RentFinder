@@ -7,7 +7,8 @@
  * réglages. Ce qu'on vient chercher ici, c'est ce qui est passé — les
  * annonces signalées, datées, consultables même si l'on a raté l'alerte.
  *
- * L'interrupteur vit désormais dans `AlertsToggle`, monté par les Paramètres.
+ * L'interrupteur vit désormais dans « Paramètres → Notifications », avec le
+ * détail par famille d'alertes.
  */
 
 import { useRef, useState } from 'react';

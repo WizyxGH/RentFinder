@@ -32,6 +32,7 @@ export type View =
   | 'theme'
   | 'sources'
   | 'source'
+  | 'agencies'
   | 'agency'
   | 'alerts';
 
@@ -58,6 +59,7 @@ const SIMPLE_ROUTES: Readonly<Record<string, View>> = {
   statistiques: 'stats',
   alertes: 'alerts',
   sources: 'sources',
+  agences: 'agencies',
 };
 
 /** Sous-écrans des paramètres : `/parametres/<clé>`. */

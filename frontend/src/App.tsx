@@ -16,6 +16,8 @@ import type { TenantProfile } from '@rentfinder/shared';
 import { MVP_CRITERIA } from '@rentfinder/shared';
 import type { ListingView, SortMode, SourceStateView, TrackingStatus } from './types.js';
 import {
+  fetchAgencies,
+  fetchAgency,
   fetchFilters,
   fetchListing,
   fetchListings,
@@ -40,6 +42,9 @@ import { markAlertsSeen, readAlertsSeenAt, unreadAlertCount } from './notificati
 import { Button } from '@/components/ui/button.js';
 import { DocumentsSection } from './components/DocumentsSection.js';
 import { ReferencePointsSection } from './components/ReferencePointsSection.js';
+import { NotificationSettingsPanel } from './components/NotificationSettingsPanel.js';
+import { ThemePanel } from './components/ThemePanel.js';
+import { AgenciesPanel, AgencyPanel } from './components/AgenciesPanel.js';
 import { ListingCard } from './components/ListingCard.js';
 import { ListingDetail } from './components/ListingDetail.js';
 import { ProfileForm } from './components/ProfileForm.js';
@@ -47,7 +52,6 @@ import { SourcesPanel } from './components/SourcesPanel.js';
 import { SavedSearchesPanel } from './components/SavedSearchesPanel.js';
 import { HomePanel } from './components/HomePanel.js';
 import { LoginScreen } from './components/LoginScreen.js';
-import { AlertsToggle } from './components/AlertsToggle.js';
 import {
   newSearchId,
   suggestName,
@@ -70,6 +74,7 @@ import { SortFilterModal } from './components/SortFilterModal.js';
 import { NotificationsPanel } from './components/NotificationsPanel.js';
 import { BottomNav, type BottomTab } from './components/BottomNav.js';
 import { ListingListSkeleton, MapSkeleton } from './components/Skeletons.js';
+import type { AgencySummary } from './api/client.js';
 import { SettingsLinks } from './components/SettingsLinks.js';
 import { ProfileSummary } from './components/ProfileSummary.js';
 import {
@@ -464,6 +469,13 @@ export function App(): React.JSX.Element {
   const { route, go, replace, back } = useRoute();
   const view = route.view;
   const [savedSearches, setSavedSearches] = useState<readonly SavedSearch[]>([]);
+  // L'annuaire des agences et la fiche ouverte. Chargés à la demande : ils
+  // demandent une agrégation en base que la liste ne transporte pas (§30).
+  const [agencies, setAgencies] = useState<readonly AgencySummary[]>([]);
+  const [agencyDetail, setAgencyDetail] = useState<{
+    agency: AgencySummary;
+    listings: readonly ListingView[];
+  } | null>(null);
   // Qui est connecté. `undefined` = on ne sait pas encore : montrer l'écran de
   // connexion à ce moment-là le ferait clignoter chez quelqu'un qui a déjà une
   // session valide.
@@ -528,6 +540,23 @@ export function App(): React.JSX.Element {
   const [profile, setProfile] = useState<TenantProfile | null>(() => loadProfile());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // L'annuaire n'est demandé qu'en arrivant dessus : c'est une agrégation en
+  // base, inutile à qui ne l'ouvre jamais (§30).
+  useEffect(() => {
+    if (view !== 'agencies') return;
+    void fetchAgencies()
+      .then(setAgencies)
+      .catch(() => setError('L’annuaire des agences n’a pas pu être chargé'));
+  }, [view]);
+
+  useEffect(() => {
+    if (view !== 'agency' || selectedSourceId === null) return;
+    setAgencyDetail(null);
+    void fetchAgency(selectedSourceId)
+      .then(setAgencyDetail)
+      .catch(() => setError('Cette agence n’a pas pu être chargée'));
+  }, [view, selectedSourceId]);
 
   // Le drapeau « favoris » se change aussi depuis la modale de filtres. Il doit
   // alors se lire dans la barre d'adresse — mais sans empiler d'entrée : passer
@@ -1093,13 +1122,14 @@ export function App(): React.JSX.Element {
           bottomTab={bottomTab}
           onBottomSelect={selectBottomTab}
         >
-          <h1 className="mb-3 text-xl font-bold">Paramètres</h1>
-          {/* Le seul réglage qui vaut d'être ici, plutôt que derrière un lien :
-            on l'allume une fois, et c'est lui qui fait vivre l'outil. */}
-          <AlertsToggle />
-          {/* `navigate` et non `setView` : certaines vues doivent CHARGER
-            leurs données avant d'apparaître (les sources, notamment). */}
-          <SettingsLinks onNavigate={(key) => navigate(key as View)} bare />
+          <h1 className="mb-4 text-xl font-bold">Paramètres</h1>
+          {/* L'INTERRUPTEUR DES ALERTES VIVAIT ICI, seul de son espèce au
+            milieu de liens. Il est passé derrière « Notifications », qui porte
+            aussi le détail par famille d'alertes.
+
+            `navigate` et non `setView` : certaines vues doivent CHARGER leurs
+            données avant d'apparaître (les sources, notamment). */}
+          <SettingsLinks onNavigate={(key) => navigate(key as View)} />
         </Shell>
       );
     }
@@ -1117,6 +1147,77 @@ export function App(): React.JSX.Element {
             <ArrowLeft aria-hidden="true" className="size-4" /> Retour
           </Button>
           <DocumentsSection />
+        </Shell>
+      );
+    }
+    if (view === 'notifications') {
+      return (
+        <Shell
+          view={view}
+          favoritesOnly={favoritesOnly}
+          onNavigate={navigate}
+          unreadAlerts={unreadAlerts}
+          bottomTab={bottomTab}
+          onBottomSelect={selectBottomTab}
+        >
+          <NotificationSettingsPanel onBack={() => setView('profile')} />
+        </Shell>
+      );
+    }
+    if (view === 'theme') {
+      return (
+        <Shell
+          view={view}
+          favoritesOnly={favoritesOnly}
+          onNavigate={navigate}
+          unreadAlerts={unreadAlerts}
+          bottomTab={bottomTab}
+          onBottomSelect={selectBottomTab}
+        >
+          <ThemePanel onBack={() => setView('profile')} />
+        </Shell>
+      );
+    }
+    if (view === 'agencies') {
+      return (
+        <Shell
+          view={view}
+          favoritesOnly={favoritesOnly}
+          onNavigate={navigate}
+          unreadAlerts={unreadAlerts}
+          bottomTab={bottomTab}
+          onBottomSelect={selectBottomTab}
+        >
+          <AgenciesPanel
+            agencies={agencies}
+            onBack={() => setView('profile')}
+            onOpen={(name) => go({ view: 'agency', id: name })}
+          />
+        </Shell>
+      );
+    }
+    if (view === 'agency') {
+      return (
+        <Shell
+          view={view}
+          favoritesOnly={favoritesOnly}
+          onNavigate={navigate}
+          unreadAlerts={unreadAlerts}
+          bottomTab={bottomTab}
+          onBottomSelect={selectBottomTab}
+        >
+          {agencyDetail === null ? (
+            <ListingListSkeleton />
+          ) : (
+            <AgencyPanel
+              agency={agencyDetail.agency}
+              listings={agencyDetail.listings}
+              nowMs={nowMs}
+              onBack={() => setView('agencies')}
+              onOpenListing={(id) => setSelectedId(id)}
+              onFavorite={(id, favorite) => void handleFavorite(id, favorite)}
+            />
+          )}
         </Shell>
       );
     }

@@ -21,6 +21,8 @@
  *   GET   /api/stats                 statistiques de suivi (§33)
  *   GET/PUT /api/config              critères de recherche (§66)
  *   GET/PUT /api/settings/<clé>      réglages du compte (recherches, repères)
+ *   GET     /api/agencies            annuaire des agences rencontrées
+ *   GET     /api/agencies/<nom>      une agence et ses annonces
  *   POST    /api/push                abonnement Web Push du compte (§29)
  *   POST    /api/push/unsubscribe    désabonnement
  *   /api/documents…                  501 : elles vivaient sur le disque local
@@ -30,6 +32,7 @@ import type { Client } from '@libsql/client';
 import {
   CURRENT_USER,
   MVP_CRITERIA,
+  NOTIFICATION_PREFERENCES_SETTING,
   REFERENCE_POINTS_SETTING,
   SAVED_SEARCHES_SETTING,
   SEARCH_CRITERIA_SETTING,
@@ -241,6 +244,88 @@ async function getListing(db: Client, id: string, userId: string): Promise<unkno
       outcome: attempt['outcome'],
       documents: parseDocumentsList(attempt['documents']),
     })),
+  };
+}
+
+/**
+ * L'annuaire des agences rencontrées.
+ *
+ * IL N'EXISTAIT PAS. Le nom d'une agence apparaissait sur une fiche, sans rien
+ * derrière : impossible de savoir combien d'annonces elle publiait, ni de
+ * retrouver son numéro sans rouvrir une annonce au hasard. Or c'est une
+ * question qu'on se pose vraiment — une agence qu'on a déjà appelée, un
+ * interlocuteur qui a plusieurs biens dans le quartier.
+ *
+ * L'AGRÉGATION SE FAIT EN BASE, en une requête. La faire côté navigateur
+ * aurait demandé de transporter les coordonnées de toutes les annonces, que la
+ * liste retire précisément pour ne pas les payer (§30).
+ *
+ * Le nom est la clé, faute de mieux : les sources ne publient pas
+ * d'identifiant d'agence. Deux orthographes donneront donc deux entrées — on
+ * préfère ça à un regroupement inventé (§17).
+ */
+async function listAgencies(db: Client): Promise<unknown> {
+  const result = await db.execute(`
+    SELECT o.contact_agency                AS name,
+           COUNT(DISTINCT o.listing_id)    AS listings,
+           MAX(o.contact_phone)            AS phone,
+           MAX(o.contact_email)            AS email,
+           GROUP_CONCAT(DISTINCT o.source_id) AS sources,
+           MAX(l.last_seen_at)             AS lastSeenAt
+    FROM occurrences o
+    JOIN listings l ON l.id = o.listing_id
+    WHERE o.contact_agency IS NOT NULL AND TRIM(o.contact_agency) != ''
+      AND l.lifecycle != 'inactive' AND l.rented = 0
+    GROUP BY o.contact_agency
+    ORDER BY listings DESC, name ASC
+  `);
+
+  return {
+    agencies: result.rows.map((row) => ({
+      name: String(row['name']),
+      listings: Number(row['listings']),
+      phone: row['phone'] ?? null,
+      email: row['email'] ?? null,
+      sources: String(row['sources'] ?? '')
+        .split(',')
+        .filter((one) => one !== ''),
+      lastSeenAt: row['lastSeenAt'] ?? null,
+    })),
+  };
+}
+
+/** Une agence et ce qu'elle propose en ce moment. */
+async function getAgency(db: Client, name: string, userId: string): Promise<unknown> {
+  const listings = await db.execute({
+    sql: `SELECT ${USER_STATE_COLUMNS} FROM listings ${USER_STATE_JOIN}
+          WHERE listings.id IN (
+            SELECT listing_id FROM occurrences WHERE contact_agency = ?
+          )
+          AND listings.lifecycle != 'inactive' AND listings.rented = 0
+          ORDER BY listings.action_priority DESC, listings.last_seen_at DESC
+          LIMIT 200`,
+    args: [userId, name],
+  });
+
+  const contact = await db.execute({
+    sql: `SELECT MAX(contact_phone) AS phone, MAX(contact_email) AS email,
+                 GROUP_CONCAT(DISTINCT source_id) AS sources
+          FROM occurrences WHERE contact_agency = ?`,
+    args: [name],
+  });
+  const row = contact.rows[0];
+
+  return {
+    agency: {
+      name,
+      listings: listings.rows.length,
+      phone: row?.['phone'] ?? null,
+      email: row?.['email'] ?? null,
+      sources: String(row?.['sources'] ?? '')
+        .split(',')
+        .filter((one) => one !== ''),
+    },
+    listings: listings.rows.map((one) => rowToListing(one as Record<string, unknown>)),
   };
 }
 
@@ -573,7 +658,11 @@ async function handlePushRoute(
  * laisserait n'importe quel compte écrire n'importe quoi dans une table que la
  * collecte relit.
  */
-const WRITABLE_SETTINGS: readonly string[] = [SAVED_SEARCHES_SETTING, REFERENCE_POINTS_SETTING];
+const WRITABLE_SETTINGS: readonly string[] = [
+  SAVED_SEARCHES_SETTING,
+  REFERENCE_POINTS_SETTING,
+  NOTIFICATION_PREFERENCES_SETTING,
+];
 
 async function handleSettingsRoute(
   db: Client,
@@ -779,6 +868,9 @@ export async function route(
   }
   if (resource === 'push') {
     return handlePushRoute(db, method, id, request, cors, userId);
+  }
+  if (resource === 'agencies' && method === 'GET') {
+    return json(id === undefined ? await listAgencies(db) : await getAgency(db, id, userId), cors);
   }
   if (resource === 'sources' && method === 'GET') return json(await listSources(db), cors);
   if (resource === 'stats' && method === 'GET') return json(await getStats(db), cors);

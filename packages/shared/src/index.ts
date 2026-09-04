@@ -16,3 +16,4 @@ export * from './message.js';
 export * from './address.js';
 export * from './user.js';
 export * from './reference-points.js';
+export * from './notification-preferences.js';

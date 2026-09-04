@@ -35,7 +35,10 @@ import type {
 } from '../types.js';
 import {
   MVP_CRITERIA,
+  NOTIFICATION_PREFERENCES_SETTING,
   REFERENCE_POINTS_SETTING,
+  parseNotificationPreferences,
+  type NotificationPreferences,
   SAVED_SEARCHES_SETTING,
   parseReferencePoints,
   type StoredReferencePoint,
@@ -290,6 +293,72 @@ export async function fetchSources(): Promise<{ sources: readonly SourceStateVie
   return request<{ sources: readonly SourceStateView[] }>('/api/sources');
 }
 
+/**
+ * Une agence de l'annuaire.
+ *
+ * Le nom est la clé : les sources ne publient pas d'identifiant d'agence. Deux
+ * orthographes donnent donc deux entrées, ce qui vaut mieux qu'un regroupement
+ * inventé mélangeant deux enseignes (§17).
+ */
+export interface AgencySummary {
+  readonly name: string;
+  readonly listings: number;
+  readonly phone: string | null;
+  readonly email: string | null;
+  readonly sources: readonly string[];
+}
+
+/** L'annuaire, agrégé en base : la liste ne transporte pas les coordonnées. */
+export async function fetchAgencies(): Promise<readonly AgencySummary[]> {
+  if (DEMO) {
+    const { MOCK_LISTINGS } = await demoData();
+    const byName = new Map<string, { count: number; sources: Set<string> }>();
+    for (const listing of MOCK_LISTINGS) {
+      const name = listing.contact?.agencyName;
+      if (typeof name !== 'string' || name === '') continue;
+      const entry = byName.get(name) ?? { count: 0, sources: new Set<string>() };
+      entry.count += 1;
+      for (const one of listing.occurrences) entry.sources.add(one.sourceId);
+      byName.set(name, entry);
+    }
+    return [...byName.entries()]
+      .map(([name, entry]) => ({
+        name,
+        listings: entry.count,
+        phone: null,
+        email: null,
+        sources: [...entry.sources],
+      }))
+      .sort((a, b) => b.listings - a.listings);
+  }
+  const response = await request<{ agencies: readonly AgencySummary[] }>('/api/agencies');
+  return response.agencies;
+}
+
+/** Une agence et ce qu'elle propose en ce moment. */
+export async function fetchAgency(
+  name: string,
+): Promise<{ agency: AgencySummary; listings: readonly ListingView[] }> {
+  if (DEMO) {
+    const { MOCK_LISTINGS } = await demoData();
+    const listings = MOCK_LISTINGS.filter((one) => one.contact?.agencyName === name);
+    const sources = new Set(listings.flatMap((one) => one.occurrences.map((o) => o.sourceId)));
+    return {
+      agency: {
+        name,
+        listings: listings.length,
+        phone: listings[0]?.contact?.phone ?? null,
+        email: listings[0]?.contact?.email ?? null,
+        sources: [...sources],
+      },
+      listings,
+    };
+  }
+  return request<{ agency: AgencySummary; listings: readonly ListingView[] }>(
+    `/api/agencies/${encodeURIComponent(name)}`,
+  );
+}
+
 /** Statistiques, calculées localement en démo depuis les données fictives. */
 export async function fetchStats(): Promise<StatsData> {
   if (DEMO) {
@@ -520,4 +589,21 @@ export type { StoredReferencePoint };
 
 export async function saveReferencePoints(points: readonly StoredReferencePoint[]): Promise<void> {
   await writeSetting(REFERENCE_POINTS_SETTING, points);
+}
+
+/**
+ * Ce dont on veut être prévenu (§29).
+ *
+ * Ces préférences sont lues par la COLLECTE, qui décide seule d'envoyer ou non.
+ * Filtrer côté navigateur n'aurait rien filtré : la notification part du
+ * collecteur vers le service de push, sans passer par la page.
+ */
+export async function fetchNotificationPreferences(): Promise<NotificationPreferences> {
+  return parseNotificationPreferences(await readSetting<unknown>(NOTIFICATION_PREFERENCES_SETTING));
+}
+
+export async function saveNotificationPreferences(
+  preferences: NotificationPreferences,
+): Promise<void> {
+  await writeSetting(NOTIFICATION_PREFERENCES_SETTING, preferences);
 }
