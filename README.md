@@ -52,10 +52,11 @@ Ouvert sur un téléphone, il répond à une seule question :
   (téléphone, application fermée) et par bandeau quand le site est ouvert —
   chaque annonce signalée une seule fois, et jamais deux fois le même logement
   vu par deux sources.
-- **Documents de candidature** : en attente d'hébergement. Les pièces vivaient
-  sur la machine qui servait le site ; ce serveur local a été retiré, et une
-  page hébergée ne peut pas lire votre disque. À joindre à la main pour
-  l'instant.
+- **Dossier de candidature** : vos pièces déposées une fois, rangées selon la
+  liste limitative du décret n° 2015-1437, et accessibles depuis vos appareils
+  — une candidature s'envoie d'où l'on est. Elles sont dans l'espace de
+  fichiers du Worker, séparées par compte, et **jamais envoyées
+  automatiquement** : c'est vous qui joignez.
 - **Coût : 0 €.** La collecte tourne où vous voulez — votre machine (fichier
   SQLite) ou GitHub Actions (Turso). Le site, lui, est servi par GitHub Pages et
   parle à un Worker Cloudflare, seul détenteur du jeton de la base. Tout cela

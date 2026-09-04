@@ -14,3 +14,13 @@ compatibility_date = "2026-01-01"
 # L'origine autorisée à appeler l'API. Un « * » serait refusé par les
 # navigateurs dès lors qu'on envoie un cookie — et il le serait à raison.
 ALLOWED_ORIGIN = "https://wizyxgh.github.io"
+
+# Les pièces du dossier de candidature (§25). À créer une fois :
+#
+#   npx wrangler r2 bucket create rentfinder-documents
+#
+# Sans ce binding, la fonctionnalité répond 501 et l'écran le dit — plutôt que
+# d'accepter des fichiers pour les perdre au rechargement.
+[[r2_buckets]]
+binding = "DOCUMENTS"
+bucket_name = "rentfinder-documents"

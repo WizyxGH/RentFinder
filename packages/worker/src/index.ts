@@ -22,6 +22,7 @@
 import { createClient, type Client } from '@libsql/client/web';
 import { route } from '@rentfinder/collector/server/routes';
 import { clearedCookie, issueSession, readCookie, readSession, sessionCookie } from './auth.js';
+import { deleteDocument, listDocuments, readDocument, saveDocument } from './documents.js';
 
 export interface Env {
   /** URL `libsql://…` de la base. Secret de la plateforme, jamais publié. */
@@ -31,6 +32,12 @@ export interface Env {
   readonly SESSION_SECRET: string;
   /** Origine autorisée à appeler l'API (le site). */
   readonly ALLOWED_ORIGIN?: string;
+  /**
+   * Espace de fichiers des pièces du dossier (§25). Absent = la
+   * fonctionnalité répond 501 et le dit, plutôt que d'accepter des fichiers
+   * pour les perdre.
+   */
+  readonly DOCUMENTS?: R2Bucket;
 }
 
 function corsHeaders(env: Env, request: Request): Record<string, string> {
@@ -110,6 +117,53 @@ async function login(db: Client, request: Request, env: Env, cors: Record<string
 const DUMMY_HASH =
   'pbkdf2$210000$AAAAAAAAAAAAAAAAAAAAAA==$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=';
 
+/**
+ * Les pièces du dossier (§25).
+ *
+ * Elles vivent dans R2, préfixées par le compte : un dossier de candidature
+ * contient une fiche de paie et une pièce d'identité, il n'y a pas de pièces
+ * communes.
+ *
+ * RIEN N'EST ENVOYÉ AUTOMATIQUEMENT (§24) : on stocke, on liste, on rend, on
+ * supprime. C'est vous qui joignez.
+ */
+async function documents(
+  request: Request,
+  env: Env,
+  cors: Record<string, string>,
+  userId: string,
+  name: string | undefined,
+): Promise<Response> {
+  const bucket = env.DOCUMENTS;
+  if (bucket === undefined) {
+    return json({ error: 'Aucun espace de fichiers configuré.' }, cors, 501);
+  }
+
+  if (request.method === 'GET' && name === undefined) {
+    return json({ documents: await listDocuments(bucket, userId) }, cors);
+  }
+  if (request.method === 'GET' && name !== undefined) {
+    const found = await readDocument(bucket, userId, decodeURIComponent(name));
+    if (found === null) return json({ error: 'Pièce introuvable' }, cors, 404);
+    for (const [key, value] of Object.entries(cors)) found.headers.set(key, value);
+    return found;
+  }
+  if (request.method === 'POST') {
+    const form = await request.formData().catch(() => null);
+    const file = form?.get('file');
+    if (!(file instanceof File)) return json({ error: 'Aucun fichier reçu' }, cors, 400);
+    const result = await saveDocument(bucket, userId, file.name, await file.arrayBuffer());
+    return result.ok ? json(result.document, cors, 201) : json({ error: result.error }, cors, 400);
+  }
+  if (request.method === 'DELETE' && name !== undefined) {
+    const done = await deleteDocument(bucket, userId, decodeURIComponent(name));
+    return done
+      ? new Response(null, { status: 204, headers: cors })
+      : json({ error: 'Nom refusé' }, cors, 400);
+  }
+  return json({ error: 'Route inconnue' }, cors, 404);
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const cors = corsHeaders(env, request);
@@ -146,6 +200,10 @@ export default {
     if (segments[1] === 'me') return json({ user: userId }, cors);
 
     if (userId === null) return json({ error: 'Connexion requise' }, cors, 401);
+
+    if (segments[1] === 'documents') {
+      return documents(request, env, cors, userId, segments[2]);
+    }
 
     // L'API sait maintenant QUI demande : favoris, suivi et archivage sont
     // lus et écrits pour cet utilisateur-là, pas pour la fiche partagée.
