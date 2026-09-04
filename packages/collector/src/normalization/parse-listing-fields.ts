@@ -131,8 +131,28 @@ export function parseRooms(text: string | null | undefined): number | null {
     if (value >= 1 && value <= 20) return value;
   }
 
+  // EN TOUTES LETTRES, en dernier recours. Le bulletin abonné de BEP titre
+  // « DEUX PIECES MEUBLEES, 30 M² » : cinquante-neuf annonces n’avaient aucun
+  // nombre de pièces alors qu’il était écrit. Ce texte-là ne vient que du
+  // titre et du champ de pièces, jamais de la description — « une pièce à
+  // vivre » y désigne le séjour d’un trois-pièces, pas le logement entier.
+  const spelled = /\b(une?|deux|trois|quatre|cinq|six)\s+pieces?\b/.exec(lower);
+  const word = spelled?.[1];
+  if (word !== undefined) return SPELLED_ROOMS[word] ?? null;
+
   return null;
 }
+
+/** Nombres écrits, en forme `comparable` (minuscules, sans accent). */
+const SPELLED_ROOMS: Readonly<Record<string, number>> = {
+  un: 1,
+  une: 1,
+  deux: 2,
+  trois: 3,
+  quatre: 4,
+  cinq: 5,
+  six: 6,
+};
 
 /** Extrait un nombre de chambres. */
 export function parseBedrooms(text: string | null | undefined): number | null {
@@ -263,7 +283,17 @@ export function parseDpe(text: string | null | undefined): string | null {
   // pour une détection robuste, puis on cherche la lettre qui SUIT le mot-clé.
   const flat = comparable(text);
   const match = flat.match(/\b(?:dpe|classe\s+energ\w*|etiquette\s+energ\w*)\b\W*\b([a-g])\b/);
-  return match?.[1] !== undefined ? match[1].toUpperCase() : null;
+  if (match?.[1] !== undefined) return match[1].toUpperCase();
+
+  // Forme du bulletin BEP : « Classe énergétique (kWh/m²/an) C ». L’unité
+  // s’intercale entre le libellé et la lettre, et `comparable` l’aplatit en
+  // mots — « kwh m2 an » — que le motif ci-dessus refuse de franchir, à juste
+  // titre : sauter des mots quelconques ferait attraper n’importe quelle
+  // lettre isolée. On lit donc le texte BRUT, où la parenthèse borne
+  // exactement ce qu’on saute. Cinquante-cinq annonces du bulletin abonné
+  // n’avaient pas de DPE alors qu’il y figurait.
+  const parenthesised = /classe\s+[ée]nerg[ée]tique\s*\([^)]*\)\s*[:\-]?\s*([A-G])\b/i.exec(text);
+  return parenthesised?.[1] !== undefined ? parenthesised[1].toUpperCase() : null;
 }
 
 /**

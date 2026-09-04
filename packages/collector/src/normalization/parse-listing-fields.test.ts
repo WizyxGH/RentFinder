@@ -608,3 +608,31 @@ describe('parseChargesFromText', () => {
     expect(parseChargesFromText(null)).toBeNull();
   });
 });
+
+describe('parseRooms — nombres écrits en toutes lettres', () => {
+  it('lit le titre du bulletin abonné BEP', () => {
+    expect(parseRooms('DEUX PIECES MEUBLEES — NICE OUEST')).toBe(2);
+    expect(parseRooms('TROIS PIECES VIDE — CIMIEZ')).toBe(3);
+    expect(parseRooms('UNE PIECE')).toBe(1);
+  });
+
+  it('laisse le chiffre l’emporter quand il y en a un', () => {
+    expect(parseRooms('4 pièces (quatre pièces)')).toBe(4);
+  });
+
+  it('ne conclut rien d’un texte sans nombre de pièces', () => {
+    expect(parseRooms('Appartement lumineux')).toBeNull();
+  });
+});
+
+describe('parseDpe — libellé suivi de son unité', () => {
+  it('lit la forme du bulletin BEP', () => {
+    expect(parseDpe('Classe énergétique (kWh/m²/an) C ( BULLETIN N° 10600 )')).toBe('C');
+    expect(parseDpe('classe energetique (kwh/m2/an) : D')).toBe('D');
+  });
+
+  it('ne prend pas une valeur de GES pour une classe (§17)', () => {
+    expect(parseDpe('GES : 60')).toBeNull();
+    expect(parseDpe('CONSOMMATION ENERGETIQUE EXCESSIVE')).toBeNull();
+  });
+});

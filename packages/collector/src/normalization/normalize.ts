@@ -358,7 +358,12 @@ export function normalizeListing(
  *      se remplit (§17) ;
  *   5. les CHARGES aussi ne se posent que sur un `null`, et seulement si elles
  *      restent sous le loyer. Une source qui publie un montant fait autorité
- *      sur une phrase.
+ *      sur une phrase ;
+ *   6. le NOMBRE DE PIÈCES et le DPE, même règle du silence. Ils sont lus
+ *      dans le titre et la description — « DEUX PIECES MEUBLEES », « Classe
+ *      énergétique (kWh/m²/an) C » —, deux formes que l'extraction ne savait
+ *      pas lire et qui laissaient cinquante-neuf et cinquante-cinq annonces
+ *      du bulletin abonné sans ces valeurs, pourtant écrites.
  *
  * Rien d'autre n'est retouché : ni le cycle de vie, ni le quartier, dont la
  * valeur correcte n'est pas reconstituable depuis le texte (§17).
@@ -406,16 +411,24 @@ export function rederiveFromText(occurrence: NormalizedListing): NormalizedListi
       ? parseChargesFromText(occurrence.description, occurrence.price)
       : occurrence.charges;
 
+  // Pièces et DPE : le silence se remplit, le reste ne bouge pas (règle 6).
+  // Les pièces se lisent dans le TITRE — « une pièce à vivre » d'une
+  // description est le séjour d'un trois-pièces, pas le logement entier.
+  const rooms = occurrence.rooms === null ? parseRooms(occurrence.title) : occurrence.rooms;
+  const dpe = occurrence.dpe === null ? parseDpe(occurrence.description) : occurrence.dpe;
+
   if (
     address === occurrence.address &&
     propertyType === occurrence.propertyType &&
     gained.length === 0 &&
     flatShare === occurrence.flatShare &&
-    charges === occurrence.charges
+    charges === occurrence.charges &&
+    rooms === occurrence.rooms &&
+    dpe === occurrence.dpe
   ) {
     return null;
   }
-  return { ...occurrence, address, propertyType, features, flatShare, charges };
+  return { ...occurrence, address, propertyType, features, flatShare, charges, rooms, dpe };
 }
 
 /** Normalise un lot, en écartant silencieusement les annonces inexploitables. */
