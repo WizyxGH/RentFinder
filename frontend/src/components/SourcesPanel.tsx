@@ -34,9 +34,16 @@ interface SourcesPanelProps {
   readonly sources: readonly SourceStateView[];
   readonly nowMs: number;
   readonly onBack: () => void;
+  /** Ouvre la fiche d'une source : ses infos ET ses annonces actives. */
+  readonly onOpenSource?: (sourceId: string) => void;
 }
 
-export function SourcesPanel({ sources, nowMs, onBack }: SourcesPanelProps): React.JSX.Element {
+export function SourcesPanel({
+  sources,
+  nowMs,
+  onBack,
+  onOpenSource,
+}: SourcesPanelProps): React.JSX.Element {
   return (
     <div>
       <header className="mb-2 flex items-center justify-between">
@@ -60,8 +67,21 @@ export function SourcesPanel({ sources, nowMs, onBack }: SourcesPanelProps): Rea
               className={`border-l-4 ${HEALTH_BORDER[source.health]}`}
             >
               <div className="mb-2 flex justify-between">
-                <strong>{formatSourceName(source.sourceId)}</strong>
-                <span className="text-[0.8rem] text-muted-foreground">
+                {/* Le nom mène au catalogue de la source. Le reste de la carte
+                  reste inerte : on ne voulait pas qu'un clic sur un chiffre
+                  d'observabilité fasse changer de page. */}
+                {onOpenSource === undefined ? (
+                  <strong>{formatSourceName(source.sourceId)}</strong>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => onOpenSource(source.sourceId)}
+                    className="hover:text-primary cursor-pointer text-left font-bold transition-colors"
+                  >
+                    {formatSourceName(source.sourceId)}
+                  </button>
+                )}
+                <span className="text-muted-foreground text-[0.8rem]">
                   {HEALTH_LABELS[source.health]}
                 </span>
               </div>

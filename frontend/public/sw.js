@@ -22,14 +22,23 @@ self.addEventListener('push', (event) => {
   const phone = payload.phone;
   // Chemins ABSOLUS depuis la portée du worker : le site vit sous /<dépôt>/.
   //
-  // PAS D'`icon`. C'est la grande vignette carrée d'Android : elle affichait le
-  // logo de l'application — la même maison sur chaque alerte, qui n'apprenait
-  // rien et volait la place de la photo du bien. `badge`, lui, est la silhouette
-  // monochrome de la barre d'état : elle sert à reconnaître l'expéditeur d'un
-  // coup d'œil, et reste.
+  // TROIS IMAGES, TROIS RÔLES, et il faut les bons fichiers :
+  //
+  //   `badge`  silhouette de la barre d'état. Android n'en garde QUE LE CANAL
+  //            ALPHA et la reteint. On lui donnait `icon-192.png`, qui est
+  //            opaque de bord à bord : tout était « plein », d'où le CARRÉ NOIR
+  //            que l'utilisateur voyait à la place du logo. `badge-96.png` est
+  //            la même maison, blanche sur fond transparent — le seul format
+  //            qu'Android sache découper.
+  //   `icon`   vignette de la notification : l'identité de l'application, pour
+  //            reconnaître l'expéditeur avant même de lire le titre.
+  //   `image`  la photo du bien, quand la source en publie une. Elle ne
+  //            remplace pas l'icône : elles s'affichent à deux endroits
+  //            différents, et la plupart des annonces n'ont pas de photo.
   const base = self.registration.scope;
   const options = {
-    badge: `${base}icon-192.png`,
+    badge: `${base}badge-96.png`,
+    icon: `${base}icon-192.png`,
     body: payload.body || '',
     // `tag` dédoublonne : deux envois rapprochés ne s'empilent pas.
     tag: payload.tag || 'rentfinder',

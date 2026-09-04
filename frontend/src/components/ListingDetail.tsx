@@ -55,6 +55,8 @@ interface ListingDetailProps {
     message: string,
     documents: readonly string[],
   ) => void;
+  /** Ouvre la fiche de la source : ses infos et ses annonces actives. */
+  readonly onOpenSource?: (sourceId: string) => void;
   readonly onConfigureProfile: () => void;
 }
 
@@ -182,6 +184,19 @@ const FACT_LABEL = 'text-muted-foreground';
  * laisser l'annonce muette — ce qu'elle était : le carrousel les retirait une
  * à une sans rien dire —, on donne les liens et on explique pourquoi.
  */
+function Photos({ urls }: { readonly urls: readonly string[] }): React.JSX.Element | null {
+  const photos = splitPhotos(urls);
+  if (photos.embeddable.length > 0) {
+    return (
+      <div className="mb-3 overflow-hidden rounded-xl">
+        <PhotoCarousel urls={photos.embeddable.slice(0, 12)} tall />
+      </div>
+    );
+  }
+  if (photos.linkOnly.length === 0) return null;
+  return <LinkOnlyPhotos urls={photos.linkOnly.slice(0, 12)} />;
+}
+
 function LinkOnlyPhotos({ urls }: { readonly urls: readonly string[] }): React.JSX.Element {
   return (
     <div className="bg-muted/60 mb-3 rounded-xl border border-dashed p-3">
@@ -211,6 +226,23 @@ function LinkOnlyPhotos({ urls }: { readonly urls: readonly string[] }): React.J
   );
 }
 
+/**
+ * Requête Maps : la localisation la plus précise disponible (§20). Rue si
+ * connue, sinon quartier. Chaîne vide quand il n'y a rien à pointer.
+ *
+ * PAS DE LIEN SUR LA SEULE VILLE. Beaucoup d'alertes e-mail ne publient que
+ * « 06000 Nice » : l'épingle et le lien promettaient alors une adresse, et
+ * déposaient l'utilisateur au centre-ville. Un lien qui n'apprend rien vaut
+ * moins que pas de lien (§17, §20).
+ */
+function mapsQueryOf(listing: ListingView): string {
+  const placed = listing.address.value ?? listing.district.value;
+  if (placed === null || placed === '' || placed === UNKNOWN) return '';
+  return [placed, listing.postalCode.value, formatCity(listing.city.value)]
+    .filter((part): part is string => part !== null && part !== '' && part !== UNKNOWN)
+    .join(', ');
+}
+
 export function ListingDetail({
   listing,
   profile,
@@ -220,27 +252,14 @@ export function ListingDetail({
   onFavorite,
   onTrackingChange,
   onContactRecorded,
+  onOpenSource,
   onConfigureProfile,
 }: ListingDetailProps): React.JSX.Element {
   const charges = listing.charges.value;
   const archived = listing.archived === true;
   const favorite = listing.favorite === true;
-  const photos = splitPhotos(listing.imageUrls);
 
-  // Requête Maps : la localisation la plus précise disponible (§20). Rue si
-  // connue, sinon quartier.
-  //
-  // PAS DE LIEN SUR LA SEULE VILLE. Beaucoup d'alertes e-mail ne publient que
-  // « 06000 Nice » : l'épingle et le lien promettaient alors une adresse, et
-  // déposaient l'utilisateur au centre-ville. Un lien qui n'apprend rien vaut
-  // moins que pas de lien (§17, §20).
-  const placed = listing.address.value ?? listing.district.value;
-  const mapsQuery =
-    placed === null || placed === '' || placed === UNKNOWN
-      ? ''
-      : [placed, listing.postalCode.value, formatCity(listing.city.value)]
-          .filter((part): part is string => part !== null && part !== '' && part !== UNKNOWN)
-          .join(', ');
+  const mapsQuery = mapsQueryOf(listing);
 
   const place = formatPostalAddress({
     address: listing.address.value,
@@ -270,15 +289,9 @@ export function ListingDetail({
       {/* Photos : affichées directement depuis le site d'origine (§11 : jamais
           téléchargées ni stockées). Le même carrousel que la carte de liste —
           flèches, points, une image à la fois — plutôt qu'un bandeau à faire
-          glisser, dont rien n'indiquait qu'il continuait hors de l'écran. */}
-      {photos.embeddable.length > 0 && (
-        <div className="mb-3 overflow-hidden rounded-xl">
-          <PhotoCarousel urls={photos.embeddable.slice(0, 12)} tall />
-        </div>
-      )}
-      {photos.embeddable.length === 0 && photos.linkOnly.length > 0 && (
-        <LinkOnlyPhotos urls={photos.linkOnly.slice(0, 12)} />
-      )}
+          glisser, dont rien n'indiquait qu'il continuait hors de l'écran.
+          Quand aucune n'est affichable, `Photos` propose les liens. */}
+      <Photos urls={listing.imageUrls} />
 
       <h1 className="mb-1 text-xl font-bold">{listing.title.value ?? 'Annonce sans titre'}</h1>
 
@@ -420,6 +433,7 @@ export function ListingDetail({
         listing={listing}
         profile={profile}
         onRecorded={onContactRecorded}
+        onOpenSource={onOpenSource}
         onConfigureProfile={onConfigureProfile}
       />
 

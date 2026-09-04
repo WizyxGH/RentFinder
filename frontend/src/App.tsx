@@ -36,6 +36,7 @@ import { ListingCard } from './components/ListingCard.js';
 import { ListingDetail } from './components/ListingDetail.js';
 import { ProfileForm } from './components/ProfileForm.js';
 import { SourcesPanel } from './components/SourcesPanel.js';
+import { SourcePanel } from './components/SourcePanel.js';
 import { StatsPanel } from './components/StatsPanel.js';
 import { ArrowLeft, Bell, Flame, List, Map, Search, SlidersHorizontal } from 'lucide-react';
 import { SortFilterModal } from './components/SortFilterModal.js';
@@ -60,7 +61,7 @@ import { mergeToasts, ToastStack, type Toast } from './components/ToastStack.js'
 // Leaflet n'entre dans le bundle que si la vue carte est ouverte (§65).
 const MapView = lazy(() => import('./components/MapView.js'));
 
-type View = 'list' | 'detail' | 'stats' | 'profile' | 'sources' | 'alerts';
+type View = 'list' | 'detail' | 'stats' | 'profile' | 'sources' | 'source' | 'alerts';
 
 /**
  * Ce qu'un onglet peut viser. « favoris » n'est PAS une vue : c'est la liste
@@ -303,6 +304,8 @@ export function App(): React.JSX.Element {
   const [listings, setListings] = useState<readonly ListingView[]>([]);
   const [sources, setSources] = useState<readonly SourceStateView[]>([]);
   const [view, setView] = useState<View>('list');
+  // Source dont on regarde la fiche ; `null` hors de cette vue.
+  const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   // Réglages d'AFFICHAGE restaurés depuis ce navigateur : ils ne survivaient
   // pas à un rafraîchissement, et il fallait les refaire plusieurs fois par
@@ -563,6 +566,23 @@ export function App(): React.JSX.Element {
     }
   };
 
+  /**
+   * Ouvre la fiche d'une source. L'état d'exécution est chargé au passage
+   * quand il manque — venir depuis une annonce ne l'a pas fait charger — mais
+   * son échec n'empêche rien : les annonces, elles, sont déjà là.
+   */
+  const openSource = async (sourceId: string): Promise<void> => {
+    setSelectedSourceId(sourceId);
+    setView('source');
+    if (sources.length > 0) return;
+    try {
+      const response = await fetchSources();
+      setSources(response.sources);
+    } catch {
+      // La fiche reste lisible sans l'encart « Collecte » (§69).
+    }
+  };
+
   const selected = listings.find((listing) => listing.id === selectedId) ?? null;
 
   // DÉCLARÉ ICI, avec les autres actions sur une annonce, et non plus après le
@@ -748,7 +768,34 @@ export function App(): React.JSX.Element {
           bottomTab={bottomTab}
           onBottomSelect={selectBottomTab}
         >
-          <SourcesPanel sources={sources} nowMs={nowMs} onBack={() => setView('list')} />
+          <SourcesPanel
+            sources={sources}
+            nowMs={nowMs}
+            onBack={() => setView('list')}
+            onOpenSource={(sourceId) => void openSource(sourceId)}
+          />
+        </Shell>
+      );
+    }
+    if (view === 'source' && selectedSourceId !== null) {
+      return (
+        <Shell
+          view={view}
+          favoritesOnly={favoritesOnly}
+          onNavigate={navigate}
+          unreadAlerts={unreadAlerts}
+          bottomTab={bottomTab}
+          onBottomSelect={selectBottomTab}
+        >
+          <SourcePanel
+            sourceId={selectedSourceId}
+            state={sources.find((one) => one.sourceId === selectedSourceId) ?? null}
+            listings={listings}
+            nowMs={nowMs}
+            onBack={() => setView('sources')}
+            onSelect={openListing}
+            onFavorite={(id, favorite) => void handleFavorite(id, favorite)}
+          />
         </Shell>
       );
     }
@@ -787,6 +834,7 @@ export function App(): React.JSX.Element {
             onContactRecorded={(channel, message, documents) =>
               void handleContactRecorded(channel, message, documents)
             }
+            onOpenSource={(sourceId) => void openSource(sourceId)}
             onConfigureProfile={() => {
               // Venir de « Configurer mon profil », c'est vouloir le remplir :
               // le résumé ferait faire un clic de plus pour rien.

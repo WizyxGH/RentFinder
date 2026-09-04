@@ -26,12 +26,15 @@ import type { ListingView, OccurrenceView } from '../types.js';
 import { fetchDocuments, isDemoMode, type DocumentInfo } from '../api/client.js';
 import { Button, ButtonLink } from '@/components/ui/button.js';
 import { Card } from '@/components/ui/card.js';
+import { ChevronRight } from 'lucide-react';
 
 interface ContactPanelProps {
   readonly listing: ListingView;
   readonly profile: TenantProfile | null;
   readonly onRecorded: (channel: string, message: string, documents: readonly string[]) => void;
   readonly onConfigureProfile: () => void;
+  /** Ouvre la fiche de la source : ses infos et ses annonces actives. */
+  readonly onOpenSource?: (sourceId: string) => void;
 }
 
 /** Construit le lien à ouvrir selon le canal disponible. */
@@ -116,10 +119,12 @@ function SourceRow({
   occurrence,
   price,
   area,
+  onOpenSource,
 }: {
   readonly occurrence: OccurrenceView;
   readonly price: number | null;
   readonly area: number | null;
+  readonly onOpenSource?: (sourceId: string) => void;
 }): React.JSX.Element {
   const differs = occurrence.price !== price || occurrence.area !== area;
   return (
@@ -132,6 +137,20 @@ function SourceRow({
       >
         {formatSourceName(occurrence.sourceId)}
       </a>
+      {/* Le nom ouvre l'annonce chez la source ; la flèche ouvre la fiche de
+        la source ICI — ses coordonnées, sa santé, et tout ce qu'elle propose
+        d'autre en ce moment. Deux destinations, deux cibles distinctes. */}
+      {onOpenSource !== undefined && (
+        <button
+          type="button"
+          onClick={() => onOpenSource(occurrence.sourceId)}
+          aria-label={`Voir toutes les annonces de ${formatSourceName(occurrence.sourceId)}`}
+          title={`Voir toutes les annonces de ${formatSourceName(occurrence.sourceId)}`}
+          className="text-muted-foreground hover:text-primary ml-1 cursor-pointer align-middle transition-colors"
+        >
+          <ChevronRight aria-hidden="true" className="inline size-4" />
+        </button>
+      )}
       {differs && (
         <span className="text-muted-foreground">
           {' '}
@@ -145,9 +164,11 @@ function SourceRow({
 function ContactDetails({
   listing,
   hasAnyContact,
+  onOpenSource,
 }: {
   readonly listing: ListingView;
   readonly hasAnyContact: boolean;
+  readonly onOpenSource?: (sourceId: string) => void;
 }): React.JSX.Element {
   const { name, agencyName, phone, email, formUrl, providedBy } = listing.contact;
   const homepage = agencyHomepage(listing);
@@ -234,6 +255,7 @@ function ContactDetails({
                     occurrence={occurrence}
                     price={listing.price.value}
                     area={listing.area.value}
+                    onOpenSource={onOpenSource}
                   />
                 </span>
               ))}
@@ -268,6 +290,7 @@ export function ContactPanel({
   profile,
   onRecorded,
   onConfigureProfile,
+  onOpenSource,
 }: ContactPanelProps): React.JSX.Element {
   // §34 : une annonce déjà contactée propose une RELANCE, brève, plutôt que
   // de regénérer le premier message.
@@ -342,7 +365,7 @@ export function ContactPanel({
         Contact
       </h3>
 
-      <ContactDetails listing={listing} hasAnyContact={hasAnyContact} />
+      <ContactDetails listing={listing} hasAnyContact={hasAnyContact} onOpenSource={onOpenSource} />
 
       {profile === null ? (
         <div>
