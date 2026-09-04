@@ -94,8 +94,8 @@ test('le bouton de résultats reste visible sans dérouler la modale (§39)', as
   });
   await expect(resultats).toBeInViewport();
 
-  // Et il y reste après avoir déroulé jusqu'aux critères de collecte, tout en
-  // bas : c'est bien un pied fixe, pas le hasard d'un panneau assez court.
-  await dialog.getByText('Ce qui est collecté et signalé').scrollIntoViewIfNeeded();
+  // Et il y reste après avoir déroulé jusqu'au dernier filtre, tout en bas :
+  // c'est bien un pied fixe, pas le hasard d'un panneau assez court.
+  await dialog.getByLabel('Caractère meublé').scrollIntoViewIfNeeded();
   await expect(resultats).toBeInViewport();
 });

@@ -12,7 +12,6 @@ import { describe, expect, it, beforeEach, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { App } from './App.js';
-import { MVP_CRITERIA } from '@rentfinder/shared';
 import { MOCK_LISTINGS } from './api/mock-data.js';
 
 /**
@@ -42,6 +41,9 @@ async function renderSearch(): Promise<void> {
   await user.click(tabs[0]!);
 }
 
+// Le rappel « ≤ 700 € · ≥ 20 m² » de l'en-tête avait son test ici. Il a été
+// retiré de l'écran : il ne se modifiait pas, ne se retirait pas, et doublait
+// les puces de filtres juste dessous — qui, elles, se manipulent.
 describe('liste des annonces', () => {
   it('affiche les annonces correspondant aux critères', async () => {
     await renderSearch();
@@ -72,17 +74,6 @@ describe('liste des annonces', () => {
     const cards = await screen.findAllByTestId('listing-card');
     expect(cards).toHaveLength(MOCK_LISTINGS.length);
     expect(screen.getByText(/750 €/)).toBeInTheDocument();
-  });
-
-  it('rappelle les critères actifs (§36)', async () => {
-    await renderSearch();
-    // On lit les critères depuis la configuration : les figer ici faisait
-    // échouer le test au moindre changement de surface minimale.
-    expect(
-      await screen.findByText(
-        new RegExp(`≤ ${MVP_CRITERIA.maxPrice} € · ≥ ${MVP_CRITERIA.minArea} m²`),
-      ),
-    ).toBeInTheDocument();
   });
 
   it('classe par priorité d’action, pas par prix (§36)', async () => {

@@ -114,46 +114,6 @@ const SORT_OPTIONS: readonly { value: SortMode; label: string }[] = [
 ];
 
 /**
- * Bandeau de synthèse (§33) : de quoi comprendre l'état de la recherche d'un
- * coup d'œil, sans page dédiée. Calculé depuis les annonces déjà chargées —
- * aucun appel supplémentaire.
- */
-function StatsStrip({
-  listings,
-}: {
-  readonly listings: readonly ListingView[];
-}): React.JSX.Element {
-  const hot = listings.filter((l) => l.actionPriority >= HOT_PRIORITY).length;
-  const contacted = listings.filter((l) =>
-    ['contacted', 'replied', 'visitOffered', 'visitScheduled', 'visited'].includes(l.tracking),
-  ).length;
-  const replied = listings.filter((l) =>
-    ['replied', 'visitOffered', 'visitScheduled', 'visited'].includes(l.tracking),
-  ).length;
-
-  const cells: readonly { label: string; value: number; tone?: string }[] = [
-    { label: 'pertinentes', value: listings.length },
-    { label: 'à contacter', value: hot, tone: 'text-hot' },
-    { label: 'contactées', value: contacted },
-    { label: 'réponses', value: replied, tone: 'text-good' },
-  ];
-
-  return (
-    <dl className="my-3 grid grid-cols-4 gap-2">
-      {cells.map((cell) => (
-        <div
-          key={cell.label}
-          className="rounded-xl border border-border bg-card px-2 py-2 text-center"
-        >
-          <dd className={`text-xl font-bold ${cell.tone ?? ''}`}>{cell.value}</dd>
-          <dt className="text-[0.7rem] text-muted-foreground">{cell.label}</dt>
-        </div>
-      ))}
-    </dl>
-  );
-}
-
-/**
  * Coquille commune : en-tête persistant + navigation par onglets.
  * L'onglet actif est souligné — l'utilisateur sait toujours où il est.
  */
@@ -204,11 +164,8 @@ function Shell({
     >
       <header className="mb-4">
         <div className="flex items-baseline justify-between gap-2">
-          <h1 className="text-2xl font-bold tracking-tight">Recherche Nice</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Maïoun</h1>
           <div className="flex items-center gap-2">
-            <p className="text-sm font-medium text-muted-foreground">
-              ≤ {MVP_CRITERIA.maxPrice} € · ≥ {MVP_CRITERIA.minArea} m²
-            </p>
             {/* Seule entrée vers les notifications : ce n'est pas un onglet.
               Régler ses alertes n'est pas un endroit où l'on navigue, c'est un
               aparté dont on revient — la page s'ouvre donc par-dessus, sans la
@@ -402,7 +359,6 @@ function SearchResults({
     </p>
   ) : split ? (
     <>
-      <StatsStrip listings={filtered} />
       {/* DEUX COLONNES SUR GRAND ÉCRAN, façon Airbnb : les cartes à
         gauche, la carte à droite. La bascule Liste/Carte échangeait
         l'une contre l'autre — on perdait les faits en regardant les
@@ -440,7 +396,6 @@ function SearchResults({
     </>
   ) : (
     <>
-      {!favoritesOnly && <StatsStrip listings={filtered} />}
       {hot.length > 0 && (
         <section aria-labelledby="hot-title" className="mb-6">
           <h2 id="hot-title" className="mb-2 flex items-center gap-1.5 text-lg font-bold">
@@ -968,6 +923,17 @@ export function App(): React.JSX.Element {
     }
   };
 
+  /** Renomme une recherche. Le nom est la seule chose qu'on relit vraiment. */
+  const renameSavedSearch = async (id: string, name: string): Promise<void> => {
+    const next = savedSearches.map((saved) => (saved.id === id ? { ...saved, name } : saved));
+    setSavedSearches(next);
+    try {
+      await saveSavedSearches(next);
+    } catch {
+      setError('Le nouveau nom n’a pas pu être enregistré');
+    }
+  };
+
   const deleteSavedSearch = async (id: string): Promise<void> => {
     const next = savedSearches.filter((saved) => saved.id !== id);
     setSavedSearches(next);
@@ -1170,6 +1136,16 @@ export function App(): React.JSX.Element {
             onBack={() => setView('profile')}
             onApply={(saved) => void applySavedSearch(saved)}
             onDelete={(id) => void deleteSavedSearch(id)}
+            onRename={(id, name) => void renameSavedSearch(id, name)}
+            onSaveCurrent={(name) => void saveCurrentSearch(name)}
+            suggestion={suggestName(
+              {
+                cities: [...MVP_CRITERIA.cities],
+                maxPrice: MVP_CRITERIA.maxPrice,
+                minArea: MVP_CRITERIA.minArea,
+              },
+              quickFilters,
+            )}
           />
         </Shell>
       );
@@ -1522,19 +1498,6 @@ export function App(): React.JSX.Element {
             resultCount={filtered.length}
             dirty={somethingChanged}
             onReset={resetSortAndFilters}
-            {...(savedSearchesAvailable()
-              ? {
-                  onSaveSearch: saveCurrentSearch,
-                  saveSuggestion: suggestName(
-                    {
-                      cities: [...MVP_CRITERIA.cities],
-                      maxPrice: MVP_CRITERIA.maxPrice,
-                      minArea: MVP_CRITERIA.minArea,
-                    },
-                    quickFilters,
-                  ),
-                }
-              : {})}
           />
 
           {/* Rangée des filtres rapides. */}

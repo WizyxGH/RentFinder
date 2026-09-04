@@ -6,21 +6,22 @@
  * source. Sur mobile, trois menus côte à côte tenaient mal ; et rien n'indiquait
  * qu'ils formaient un même réglage.
  *
- * DEUX FAMILLES DE RÉGLAGES, ET IL FAUT QUE ÇA SE VOIE. Affiner l'affichage
- * retire des annonces de l'écran, tout de suite, sans rien changer d'autre.
- * Régler les critères change ce qui ENTRE dans la base et ce qui déclenche une
- * alerte, à la collecte suivante. Ces deux familles se sont retrouvées ici
- * parce qu'on les cherche au même endroit — mais elles étaient présentées à
- * l'identique : neuf blocs de même poids, séparés par des intitulés gris
- * interchangeables. On ne savait plus lequel agissait sur quoi.
+ * UNE SEULE LISTE DE FILTRES. On avait un temps séparé « ce qui s'affiche » de
+ * « ce qui est collecté », avec deux titres et un encadré. La distinction était
+ * juste sur le papier et fausse en pratique : la collecte ramène tout, ces
+ * réglages ne font que trier. Deux familles à comprendre pour un seul geste —
+ * régler sa recherche — c'était une explication de plus à lire, pas une aide.
  *
- * Chaque famille a donc son titre, sa phrase d'explication, et la seconde son
- * propre cadre. Le tri, lui, remonte en tête : il donne son nom à la modale et
- * se perdait entre « Type de bien » et « Affichage ».
+ * Le tri est en tête : il donne son nom à la modale et se perdait entre « Type
+ * de bien » et « Affichage ».
  *
  * L'EN-TÊTE ET LE PIED SONT FIXES. Le bouton qui compte — celui qui dit combien
  * d'annonces restent — se trouvait après huit sections de défilement, et le
  * nombre qu'il porte est précisément ce qu'on regarde en réglant.
+ *
+ * ON N'ENREGISTRE PAS UNE RECHERCHE ICI. C'est le travail de la page dédiée :
+ * un bouton « Enregistrer » à côté d'un bouton « Réinitialiser » et d'un bouton
+ * « Voir 42 annonces » faisait trois verbes concurrents dans un même pied.
  *
  * Accessibilité : `role="dialog"` + `aria-modal`, fermeture par Échap ou par le
  * fond, et le focus part sur le premier contrôle.
@@ -38,7 +39,6 @@ import {
   type QuickFilterValues,
 } from './QuickFilters.js';
 import { FiltersPanel } from './FiltersPanel.js';
-import { SaveSearchButton } from './SaveSearchButton.js';
 import { Button } from '@/components/ui/button.js';
 
 export interface SortFilterModalProps {
@@ -73,15 +73,6 @@ export interface SortFilterModalProps {
    */
   readonly resultCount: number;
 
-  /**
-   * Enregistre le jeu de réglages courant sous un nom. Absent quand l'accès
-   * n'a pas de base où l'écrire (démo) : le bouton ne s'affiche alors pas,
-   * plutôt que de promettre un enregistrement sans lendemain.
-   */
-  readonly onSaveSearch?: (name: string) => Promise<void>;
-  /** Nom proposé, calculé à partir des critères courants. */
-  readonly saveSuggestion?: string;
-
   /** Remet tri, filtres, bascules et sources à leur état d'origine. */
   readonly onReset: () => void;
   /** `true` si quelque chose s'écarte de cet état : le bouton reste sinon inerte. */
@@ -110,8 +101,6 @@ export function SortFilterModal({
   resultCount,
   onReset,
   dirty,
-  onSaveSearch,
-  saveSuggestion,
 }: SortFilterModalProps): React.JSX.Element | null {
   const panel = useRef<HTMLDivElement>(null);
   // Filtre de la liste des sources : elles sont une quarantaine, retrouver
@@ -218,14 +207,7 @@ export function SortFilterModal({
             </select>
           </div>
 
-          <section aria-labelledby="refine-title" className="mt-6">
-            <h3 id="refine-title" className="font-semibold">
-              Affiner ces résultats
-            </h3>
-            <p className="mt-0.5 mb-3 text-[0.82rem] text-muted-foreground">
-              N’agit que sur l’affichage, tout de suite. Rien n’est collecté ni oublié.
-            </p>
-
+          <div className="mt-5">
             <fieldset className="mb-4">
               <FieldLabel>Budget</FieldLabel>
               {/* Fourchette libre plutôt que des paliers : chaque recherche a son
@@ -388,27 +370,13 @@ export function SortFilterModal({
                 </ul>
               </fieldset>
             )}
-          </section>
 
-          {/* L'AUTRE FAMILLE, dans son propre cadre. Elle vivait derrière un
-            repli et on ne la trouvait pas ; dépliée à plat, elle se confondait
-            avec les filtres d'affichage. Ce qu'elle contient est ce que les
-            filtres rapides ne disent PAS — trajet, exclusions, bailleur,
-            meublé ; le budget et la surface n'y sont plus, ils étaient posés
-            deux fois dans le même écran. */}
-          <section
-            aria-labelledby="criteria-title"
-            className="mt-6 rounded-xl border border-border bg-muted/40 p-4"
-          >
-            <h3 id="criteria-title" className="font-semibold">
-              Ce qui est collecté et signalé
-            </h3>
-            <p className="mt-0.5 mb-3 text-[0.82rem] text-muted-foreground">
-              Change ce qui entre en base et déclenche une alerte. Prend effet à la prochaine
-              collecte.
-            </p>
+            {/* Trajet, exclusions, bailleur, meublé : les mêmes filtres que
+              ci-dessus, dans la même liste. Ils étaient dans un encadré à part,
+              sous un titre qui promettait de changer « ce qui est collecté » —
+              or on collecte tout, et ils ne font que trier. */}
             <FiltersPanel />
-          </section>
+          </div>
         </div>
 
         {/* PIED FIXE. Le bouton porte le nombre d'annonces qui restent : c'est
@@ -417,25 +385,21 @@ export function SortFilterModal({
           seul écran où l'on voit tous les réglages ensemble, et c'est en le
           refermant qu'on sait si la recherche est la bonne. */}
         <div className="flex flex-col gap-2 border-t border-border px-5 py-3">
-          {onSaveSearch !== undefined && (
-            <SaveSearchButton suggestion={saveSuggestion ?? 'Ma recherche'} onSave={onSaveSearch} />
-          )}
-          <div className="flex gap-2">
-            {/* Le mot seul : le pictogramme de flèche circulaire doublait un
-              libellé déjà sans ambiguïté, et rétrécissait d'autant le bouton
-              principal sur téléphone. Il ne s'affiche que s'il y a quelque
-              chose à défaire. */}
-            {dirty && (
-              <Button variant="outline" onClick={onReset}>
-                Tout réinitialiser
-              </Button>
-            )}
-            <Button className="flex-1" onClick={onClose}>
-              {resultCount === 0
-                ? 'Aucun résultat'
-                : `Voir ${resultCount} annonce${resultCount > 1 ? 's' : ''}`}
+          <Button className="w-full" onClick={onClose}>
+            {resultCount === 0
+              ? 'Aucun résultat'
+              : `Voir ${resultCount} annonce${resultCount > 1 ? 's' : ''}`}
+          </Button>
+          {/* EN DESSOUS, et discret. Côte à côte, les deux boutons se
+            disputaient la largeur d'un téléphone et le geste de sortie —
+            celui qu'on fait à chaque ouverture — se retrouvait rétréci par
+            celui qu'on fait une fois sur vingt. Il ne s'affiche que s'il y a
+            quelque chose à défaire. */}
+          {dirty && (
+            <Button variant="ghost" className="w-full" onClick={onReset}>
+              Réinitialiser
             </Button>
-          </div>
+          )}
         </div>
       </div>
     </div>

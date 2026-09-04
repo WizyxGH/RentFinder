@@ -54,10 +54,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('la liste répond à « que dois-je contacter maintenant ? » (§36)', async ({ page }) => {
-  await expect(page.getByRole('heading', { name: 'Recherche Nice' })).toBeVisible();
-
-  // Les critères actifs sont rappelés sans ambiguïté.
-  await expect(page.getByText(/≤ 700 € · ≥ \d+ m²/)).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Maïoun' })).toBeVisible();
 
   const cards = page.getByTestId('listing-card');
   await expect(cards.first()).toBeVisible();
@@ -216,15 +213,12 @@ test('l’interface est utilisable sur mobile sans défilement horizontal (§39)
 });
 
 test('les critères de recherche sont réglables depuis le site (§66)', async ({ page }) => {
-  // Ils avaient leur propre onglet, puis un repli dans la modale — où on ne
-  // les trouvait pas davantage. Ils sont maintenant dans leur propre cadre,
-  // sous les filtres d'affichage, et débarrassés du budget et de la surface que
-  // ceux-ci portent déjà : les mêmes deux réglages figuraient deux fois dans le
-  // même écran.
+  // Ils avaient leur propre onglet, puis un repli dans la modale, puis un
+  // encadré à part — trois façons de les mettre à l'écart. Ils sont maintenant
+  // dans la même liste que les autres filtres, et se comportent comme eux.
   const toolbar = page.getByRole('group', { name: 'Barre de filtres' });
   await toolbar.getByRole('button', { name: /Trier et filtrer/ }).click();
 
-  await expect(page.getByText('Ce qui est collecté et signalé')).toBeVisible();
   const trajet = page.getByLabel('Trajet max domicile→travail (min)');
   await expect(trajet).toBeVisible();
   await trajet.fill('45');
