@@ -43,6 +43,7 @@ import { ProfileForm } from './components/ProfileForm.js';
 import { SourcesPanel } from './components/SourcesPanel.js';
 import { SavedSearchesPanel } from './components/SavedSearchesPanel.js';
 import { HomePanel } from './components/HomePanel.js';
+import { AlertsToggle } from './components/AlertsToggle.js';
 import {
   newSearchId,
   suggestName,
@@ -1036,6 +1037,9 @@ export function App(): React.JSX.Element {
           onBottomSelect={selectBottomTab}
         >
           <h1 className="mb-3 text-xl font-bold">Paramètres</h1>
+          {/* Le seul réglage qui vaut d'être ici, plutôt que derrière un lien :
+            on l'allume une fois, et c'est lui qui fait vivre l'outil. */}
+          <AlertsToggle />
           {/* `navigate` et non `setView` : certaines vues doivent CHARGER
             leurs données avant d'apparaître (les sources, notamment). */}
           <SettingsLinks onNavigate={(key) => navigate(key as View)} bare />

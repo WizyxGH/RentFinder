@@ -12,9 +12,17 @@ import type {
   StopReason,
 } from '@rentfinder/shared';
 import { budgetFor, scheduleFor } from '../../core/budgets.js';
-import { parseListPage } from './parser.js';
+import { enrichNewListings } from '../shared/enrich.js';
+import { parseDetail, parseListPage } from './parser.js';
 
 /** Catégorie « location meublée » filtrée sur le département 06 (`france-6`). */
+/**
+ * Fiches visitées par exécution, pour les annonces NOUVELLES seulement. Le
+ * stock niçois de Lodgis tourne autour de dix annonces : une première collecte
+ * est couverte en un passage.
+ */
+const MAX_DETAILS = 12;
+
 const LIST_URL =
   'https://www.lodgis.com/fr/france,location-meublee/location-meuble-france-6_20242.cat.html';
 
@@ -29,7 +37,7 @@ export const LODGIS_DESCRIPTOR: SourceDescriptor = {
   // les sources de priorité 2, toujours éligibles, remplissaient les 6 places.
   priority: 2,
   schedule: scheduleFor('agencyNetwork'),
-  budget: budgetFor('agencyNetwork', { maxPagesPerRun: 1, maxListingsPerRun: 30 }),
+  budget: budgetFor('agencyNetwork', { maxPagesPerRun: 1 + MAX_DETAILS, maxListingsPerRun: 30 }),
   enabled: true,
   // Premier contact via le formulaire du site, à la main de l'utilisateur (§23).
   manualOnly: true,
@@ -80,7 +88,21 @@ export const lodgisScraper: Scraper = {
           : 'tooManyErrors';
     }
 
-    context.log('list.parsed', { listings: listings.length });
+    // La carte ne porte qu'une photo et aucun texte. La fiche en publie
+    // dix-neuf, et un paragraphe qui dit le nombre de personnes que le
+    // logement accueille — ce qui distingue un deux-pièces d'une chambre en
+    // colocation. Sept annonces au stock : la visite coûte peu (§30).
+    const enriched = await enrichNewListings(context, listings.splice(0), {
+      max: MAX_DETAILS,
+      detailUrl: (listing) => listing.sourceUrl,
+      parse: (html) => parseDetail(html),
+    });
+    listings.push(...enriched.listings);
+    requestCount += enriched.requestCount;
+    pagesFetched += enriched.pagesFetched;
+    warnings.push(...enriched.warnings);
+
+    context.log('list.parsed', { listings: listings.length, details: enriched.pagesFetched });
     return {
       sourceId: LODGIS_DESCRIPTOR.id,
       listings,

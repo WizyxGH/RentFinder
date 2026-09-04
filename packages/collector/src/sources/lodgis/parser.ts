@@ -20,8 +20,9 @@
 
 import * as cheerio from 'cheerio';
 import type { RawListing } from '@rentfinder/shared';
+import { htmlToText } from '../shared/html-text.js';
 import { cleanText } from '../../normalization/text.js';
-import { compactListing, type ParsedList } from '../shared/raw-listing.js';
+import { compactListing, type ParsedList, type RawDraft } from '../shared/raw-listing.js';
 
 /** Référence Lodgis (« LPA26747 ») lue dans l'URL de la fiche. */
 function referenceFrom(href: string): string | null {
@@ -86,6 +87,50 @@ function buildListing(fields: {
   });
 }
 
+/**
+ * Ce que la FICHE ajoute à la carte : le descriptif, et toutes les photos.
+ *
+ * La carte n'en portait qu'une, celle d'`og:image`, et aucun texte — sept
+ * annonces sans description ni galerie alors que la fiche publie dix-neuf
+ * clichés et un paragraphe qui dit l'essentiel : « peut accueillir jusqu'à 4
+ * personnes ». Ce chiffre est ce qui distingue un logement où tenir à deux
+ * d'une chambre en colocation, et la normalisation sait déjà le lire.
+ *
+ * LES PHOTOS EXISTENT EN QUATRE TAILLES, et le même cliché revient sous deux
+ * noms — `appartement-nice--G11.jpg` et `appartement-nice-sejour-G11.jpg`.
+ * On ne garde que le dossier `/G/`, le plus grand, et on dédoublonne sur le
+ * CODE DE PRISE DE VUE qui termine le nom (G11, E21, Y14…) : sans cela, la
+ * galerie montrait deux fois chaque pièce.
+ */
+export function parseDetail(html: string): RawDraft | null {
+  const $ = cheerio.load(html);
+  const description = htmlToText($, '.appart__infos__description');
+
+  const byShot = new Map<string, string>();
+  for (const match of html.matchAll(PHOTO_URL)) {
+    const url = match[0];
+    const shot = SHOT_CODE.exec(url)?.[1];
+    if (shot === undefined) continue;
+    // À code égal, le nom le plus court est le générique : on le préfère,
+    // l'autre ne fait qu'y ajouter le nom de la pièce.
+    const kept = byShot.get(shot);
+    if (kept === undefined || url.length < kept.length) byShot.set(shot, url);
+  }
+  const imageUrls = [...byShot.values()].sort();
+
+  if (description === '' && imageUrls.length === 0) return null;
+  return {
+    ...(description !== '' ? { description } : {}),
+    ...(imageUrls.length > 0 ? { imageUrls } : {}),
+  };
+}
+
+/** Photos en pleine taille : le dossier `/G/` de la référence. */
+const PHOTO_URL =
+  /https:\/\/www\.lodgis\.com\/photos\/[a-z]+\/[a-z]+\/\d+\/G\/[^"' ]+\.jpg(?:\?v=\d+)?/gi;
+
+/** Code de prise de vue en fin de nom : `…-G11.jpg`, `…--E21.jpg?v=…`. */
+const SHOT_CODE = /-([A-Z]\d{2})\.jpg/;
 /** Parse la page catégorie et rend une annonce par carte `div.card__appart`. */
 export function parseListPage(html: string, pageUrl: string, agencyName: string): ParsedList {
   const $ = cheerio.load(html);

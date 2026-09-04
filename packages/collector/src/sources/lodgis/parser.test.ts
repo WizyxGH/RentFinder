@@ -1,5 +1,7 @@
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { parseListPage } from './parser.js';
+import { parseDetail, parseListPage } from './parser.js';
 
 const PAGE =
   'https://www.lodgis.com/fr/france,location-meublee/location-meuble-france-6_20242.cat.html';
@@ -56,5 +58,37 @@ describe('parseListPage (Lodgis)', () => {
     expect(l?.priceText).toBeUndefined();
     expect(l?.areaText).toBe('18 m²');
     expect(l?.roomsText).toMatch(/studio/i);
+  });
+});
+
+describe('parseDetail (Lodgis)', () => {
+  const FICHE = readFileSync(
+    fileURLToPath(new URL('../../../../../tests/fixtures/lodgis/fiche.html', import.meta.url)),
+    'utf8',
+  );
+  const detail = parseDetail(FICHE);
+
+  it('récupère le descriptif, que la carte ne portait pas', () => {
+    expect(detail?.description).toContain('Avenue Des Baumettes');
+    // La phrase décisive : ce nombre distingue un logement où tenir à deux
+    // d'une chambre en colocation, et la normalisation sait déjà le lire.
+    expect(detail?.description).toContain('peut accueillir');
+  });
+
+  it('ne garde qu’une image par prise de vue', () => {
+    // La fiche publie « --G11 » et « -sejour-G11 » : c'est le même cliché.
+    const urls = detail?.imageUrls ?? [];
+    const codes = urls.map((url) => /-([A-Z]\d{2})\.jpg/.exec(url)?.[1]);
+    expect(new Set(codes).size).toBe(codes.length);
+    expect(urls.length).toBeGreaterThan(2);
+  });
+
+  it('préfère le nom générique au nom de pièce', () => {
+    expect(detail?.imageUrls?.some((url) => url.includes('--G11.jpg'))).toBe(true);
+    expect(detail?.imageUrls?.some((url) => url.includes('sejour-G11'))).toBe(false);
+  });
+
+  it('ne conclut rien d’une page sans description ni photo (§17)', () => {
+    expect(parseDetail('<html><body><p>rien</p></body></html>')).toBeNull();
   });
 });

@@ -100,6 +100,48 @@ export interface ParsedDetail {
 const PROPERTY_TYPE_WORD =
   /\b(studio|studette|appartement|appart|maison|villa|loft|duplex|pi[eè]ces?|chambre|parking|garage|local|bureau)\b/i;
 
+/**
+ * Ce que la fiche dit de l'ENDROIT : la position, et le quartier.
+ *
+ * Sorti du corps principal, qui passait le seuil de complexité toléré, et
+ * qui mêlait de toute façon trois sujets sans rapport — le loyer, les
+ * diagnostics, et le lieu.
+ */
+function locationOf(
+  html: string,
+  title: string,
+): { latitude?: number; longitude?: number; district?: string } {
+  // COORDONNÉES DU BIEN. La fiche porte une carte, et l'adresse de son
+  // iframe contient la position : `/googlemapPOI.asp?long=…&lat=…`. Vérifié
+  // le 2026-09-04 sur les cinq annonces en ligne — cinq points distincts,
+  // tous dans Nice : c'est bien le logement qui est situé, et non l'agence,
+  // comme chez d'autres sources où le même point revient partout (§17, §20).
+  //
+  // C'est la seule position exacte que Saint Roch publie : ni rue ni numéro
+  // n'apparaissent ailleurs sur la page.
+  const point = /googlemapPOI\.asp\?long=(-?\d+\.\d+)&(?:amp;)?lat=(-?\d+\.\d+)/i.exec(html);
+  const longitude = point?.[1] !== undefined ? Number(point[1]) : undefined;
+  const latitude = point?.[2] !== undefined ? Number(point[2]) : undefined;
+
+  // QUARTIER. Le h1 s'ouvre sur la ville puis le quartier, sous deux formes
+  // selon l'âge de la fiche : « Nice Saint Roch - Studio meublé - 22.81m² »
+  // et « Nice Saint Roch 3 Pieces de 64.57m² ». Dans les deux cas le quartier
+  // s'arrête au premier tiret OU au premier chiffre.
+  //
+  // Encore faut-il que ce soit un quartier : « Nice Studio meublé 22m² » n'en
+  // nomme aucun, et la même découpe y attraperait le type du bien. On refuse
+  // donc ce qui ressemble à un type plutôt que d'inventer un lieu (§17).
+  const districtMatch = /^\s*Nice\s+([^-–—\d]{2,40}?)\s*(?:[-–—]|\d)/i.exec(title);
+  const candidate = districtMatch?.[1]?.trim();
+  const district =
+    candidate !== undefined && !PROPERTY_TYPE_WORD.test(candidate) ? candidate : undefined;
+  return {
+    ...(latitude !== undefined ? { latitude } : {}),
+    ...(longitude !== undefined ? { longitude } : {}),
+    ...(district !== undefined ? { district } : {}),
+  };
+}
+
 export function parseDetailPage(html: string, pageUrl: string, agencyName: string): ParsedDetail {
   const parsedUrl = parseListingUrl(pageUrl, pageUrl);
   if (parsedUrl === null) {
@@ -130,30 +172,7 @@ export function parseDetailPage(html: string, pageUrl: string, agencyName: strin
   );
   const chargesAmount = chargesMatch?.[1] ?? chargesMatch?.[2];
 
-  // COORDONNÉES DU BIEN. La fiche porte une carte, et l'adresse de son
-  // iframe contient la position : `/googlemapPOI.asp?long=…&lat=…`. Vérifié
-  // le 2026-09-04 sur les cinq annonces en ligne — cinq points distincts,
-  // tous dans Nice : c'est bien le logement qui est situé, et non l'agence,
-  // comme chez d'autres sources où le même point revient partout (§17, §20).
-  //
-  // C'est la seule position exacte que Saint Roch publie : ni rue ni numéro
-  // n'apparaissent ailleurs sur la page.
-  const point = /googlemapPOI\.asp\?long=(-?\d+\.\d+)&(?:amp;)?lat=(-?\d+\.\d+)/i.exec(html);
-  const longitude = point?.[1] !== undefined ? Number(point[1]) : undefined;
-  const latitude = point?.[2] !== undefined ? Number(point[2]) : undefined;
-
-  // QUARTIER. Le h1 s'ouvre sur la ville puis le quartier, sous deux formes
-  // selon l'âge de la fiche : « Nice Saint Roch - Studio meublé - 22.81m² »
-  // et « Nice Saint Roch 3 Pieces de 64.57m² ». Dans les deux cas le quartier
-  // s'arrête au premier tiret OU au premier chiffre.
-  //
-  // Encore faut-il que ce soit un quartier : « Nice Studio meublé 22m² » n'en
-  // nomme aucun, et la même découpe y attraperait le type du bien. On refuse
-  // donc ce qui ressemble à un type plutôt que d'inventer un lieu (§17).
-  const districtMatch = /^\s*Nice\s+([^-–—\d]{2,40}?)\s*(?:[-–—]|\d)/i.exec(title);
-  const candidate = districtMatch?.[1]?.trim();
-  const district =
-    candidate !== undefined && !PROPERTY_TYPE_WORD.test(candidate) ? candidate : undefined;
+  const { latitude, longitude, district } = locationOf(html, title);
 
   // DPE/GES : lettre portée par la classe CSS de la cellule du bilan.
   const dpe = /colorDPE([A-G])\b/.exec(html)?.[1] ?? null;

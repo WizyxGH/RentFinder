@@ -246,7 +246,23 @@ test('la page Stats présente les compteurs et la couverture par source (§33)',
   await expect(page.getByText(/Taux de réponse/)).toBeVisible();
 });
 
-test('la page Notifications dit ce qui est actif (§29)', async ({ page }) => {
+test('les Paramètres portent l’interrupteur des alertes (§29)', async ({ page }) => {
+  await ouvrirReglage(page, 'Notifications');
+  await page.getByRole('button', { name: 'Retour' }).click();
+
+  const haut = page.getByRole('navigation', { name: 'Navigation principale' });
+  const barre = (await haut.isVisible())
+    ? haut
+    : page.getByRole('navigation', { name: 'Navigation', exact: true });
+  await barre.getByRole('button', { name: 'Paramètres' }).click();
+
+  const alertes = page.getByRole('switch', { name: 'Alertes de nouvelles annonces' });
+  await expect(alertes).toBeVisible();
+  // Rien ne sonne sans consentement explicite.
+  await expect(alertes).toHaveAttribute('aria-checked', 'false');
+});
+
+test('la page Notifications est un historique (§29)', async ({ page }) => {
   // Chromium headless refuse les notifications quoi qu'il arrive. On ne teste
   // donc pas l'activation, mais le fait que la page RENDE COMPTE de l'état —
   // c'est précisément ce que la cloche seule ne savait pas dire.
@@ -258,16 +274,12 @@ test('la page Notifications dit ce qui est actif (§29)', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Notifications' })).toBeVisible();
   await expect(page.getByText('Historique')).toBeVisible();
 
-  // UN SEUL réglage. Il y en avait deux — « site ouvert » et « site fermé » —,
-  // plus une ligne d'état sur la permission du navigateur : c'était le réglage
-  // d'un système, pas d'une recherche de logement.
-  const alertes = page.getByRole('switch', { name: 'Alertes de nouvelles annonces' });
-  await expect(alertes).toBeVisible();
+  // RIEN QU'UN HISTORIQUE. La page a porté deux interrupteurs, puis un seul,
+  // puis plus aucun : on vient ici voir ce qui est PASSÉ, pas régler. Le
+  // réglage a rejoint les Paramètres.
+  await expect(page.getByRole('switch', { name: 'Alertes de nouvelles annonces' })).toBeHidden();
 
-  // Rien ne sonne sans consentement explicite.
-  await expect(alertes).toHaveAttribute('aria-checked', 'false');
-
-  // La plomberie ne s'affiche plus : on n'agit pas sur la permission d'ici.
+  // La plomberie ne s'affiche pas davantage : on n'agit pas sur la permission.
   await expect(page.getByText('Permission du navigateur')).toBeHidden();
 
   // Page À PART, pas un onglet : aucune barre de navigation ne subsiste — ni

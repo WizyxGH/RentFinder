@@ -83,31 +83,6 @@ function sameName(a: string | undefined, b: string): boolean {
 }
 
 /**
- * Site de l'agence, déduit de l'URL de l'annonce.
- *
- * L'agence publie sa fiche sur son propre site : la racine de cette URL EST sa
- * page d'accueil. Rien n'est inventé (§17), et aucune table de correspondance
- * à tenir à jour.
- *
- * Les annonces venues d'une ALERTE E-MAIL pointent vers un portail : la racine
- * de `seloger.com` n'est pas la page de l'agence, on ne lie donc rien.
- */
-function agencyHomepage(listing: ListingView): string | null {
-  const url = listing.contact.formUrl ?? listing.occurrences[0]?.sourceUrl ?? null;
-  if (url === null) return null;
-  let origin: string;
-  let host: string;
-  try {
-    const parsed = new URL(url);
-    origin = parsed.origin;
-    host = parsed.hostname;
-  } catch {
-    return null;
-  }
-  return portalLabel(url) !== null || /studapart|lodgis|inli/i.test(host) ? null : origin;
-}
-
-/**
  * Une occurrence : la source, en lien vers l'annonce d'origine.
  *
  * Le loyer et la surface ne sont rappelés QUE s'ils diffèrent de ceux retenus
@@ -171,7 +146,12 @@ function ContactDetails({
   readonly onOpenSource?: (sourceId: string) => void;
 }): React.JSX.Element {
   const { name, agencyName, phone, email, formUrl, providedBy } = listing.contact;
-  const homepage = agencyHomepage(listing);
+  // La source qui a fourni ces coordonnées, à défaut la première occurrence.
+  const contactSource = providedBy[0] ?? listing.occurrences[0]?.sourceId ?? null;
+  const openSource =
+    onOpenSource !== undefined && contactSource !== null
+      ? (): void => onOpenSource(contactSource)
+      : null;
   const occurrences = listing.occurrences;
   // Le formulaire mène souvent à l'annonce elle-même : la ligne « Source »
   // ci-dessous porte alors déjà ce lien, et la répéter n'apprend rien (§15).
@@ -189,20 +169,25 @@ function ContactDetails({
           <>
             <dt className="text-muted-foreground">Agence</dt>
             <dd>
-              {/* Le nom mène au site de l'agence : on y trouve ses autres biens,
-                ses horaires et son adresse — utile avant d'appeler. */}
-              {homepage !== null ? (
-                <a
-                  href={homepage}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  className="text-primary underline"
-                  title={`Ouvrir le site de ${agencyName}`}
+              {/* Le nom mène à SA PAGE ICI : ses coordonnées, l'état de sa
+                collecte, et toutes ses annonces actives — ce qu'on veut avant
+                d'appeler.
+
+                Il ouvrait auparavant la page d'ACCUEIL de l'agence, ce qui
+                trompait deux fois : on croyait retomber sur l'annonce, et on
+                arrivait sur un site à parcourir. Le lien vers l'annonce
+                d'origine existe, une ligne plus bas, sous « Source ». */}
+              {openSource === null ? (
+                agencyName
+              ) : (
+                <button
+                  type="button"
+                  onClick={openSource}
+                  className="text-primary cursor-pointer underline"
+                  title={`Voir ${agencyName} et ses annonces`}
                 >
                   {agencyName}
-                </a>
-              ) : (
-                agencyName
+                </button>
               )}
             </dd>
           </>

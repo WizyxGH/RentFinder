@@ -1,18 +1,16 @@
 /**
  * Page des notifications (§29).
  *
- * UN SEUL INTERRUPTEUR (décision utilisateur du 2026-09-04). Il y en avait
- * deux — « site ouvert » et « site fermé » —, plus une ligne d'état sur la
- * permission du navigateur. C'était le réglage d'un système, pas d'une
- * recherche de logement : on veut être prévenu, ou non. Allumé, on est
- * prévenu partout où c'est possible ; le bandeau dans la page, lui, ne
- * demande aucune permission et vient donc toujours.
+ * RIEN QU'UN HISTORIQUE (décision utilisateur du 2026-09-04). La page a porté
+ * successivement deux interrupteurs, puis un seul, puis plus aucun : le
+ * réglage « être prévenu, ou non » a rejoint les Paramètres, avec les autres
+ * réglages. Ce qu'on vient chercher ici, c'est ce qui est passé — les
+ * annonces signalées, datées, consultables même si l'on a raté l'alerte.
  *
- * Ce qui reste sous l'interrupteur : les annonces apparues récemment,
- * consultables même si l'on a raté l'alerte.
+ * L'interrupteur vit désormais dans `AlertsToggle`, monté par les Paramètres.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import type { ListingView } from '../types.js';
 import {
   formatArea,
@@ -22,17 +20,12 @@ import {
   formatSourceName,
   formatTime,
 } from '../format.js';
-import { disablePush, enablePush, pushEnabled, pushSupported } from '../push.js';
 import {
   isUnreadAlert,
   readDismissedAlerts,
   notificationsSupported,
-  readOptIn,
-  requestNotificationPermission,
   writeDismissedAlerts,
-  writeOptIn,
 } from '../notifications.js';
-import { Switch } from '@/components/ui/switch.js';
 
 /** Au-delà, le glissement vaut décision : la ligne est écartée. */
 const DISMISS_MIN_PX = 80;
@@ -166,59 +159,6 @@ export function NotificationsPanel({
       writeDismissedAlerts(next);
       return next;
     });
-  // UN SEUL réglage visible. Il en reste deux dessous — la préférence de ce
-  // navigateur pour le bandeau, et l'abonnement push que le navigateur
-  // conserve — mais l'utilisateur n'a plus à les distinguer : ils s'allument
-  // et s'éteignent ensemble.
-  const [on, setOn] = useState(readOptIn());
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  // L'abonnement push fait foi au chargement : il survit à un vidage du
-  // stockage local, là où la préférence de bandeau, non.
-  useEffect(() => {
-    void pushEnabled().then((subscribed) => {
-      if (subscribed) setOn(true);
-    });
-  }, []);
-
-  /**
-   * Allume ou éteint les alertes, partout à la fois.
-   *
-   * À l'allumage, le bandeau dans la page est acquis d'office : il ne demande
-   * aucune permission. On tente ensuite la notification du navigateur puis
-   * l'abonnement « site fermé » ; s'ils échouent, le réglage TIENT quand même
-   * et l'on dit ce qui manque. Auparavant un refus de permission ne produisait
-   * rien du tout, et le réglage semblait ne pas se retenir.
-   */
-  const toggle = async (): Promise<void> => {
-    setError(null);
-    if (on) {
-      writeOptIn(false);
-      setOn(false);
-      setBusy(true);
-      await disablePush();
-      setBusy(false);
-      return;
-    }
-
-    writeOptIn(true);
-    setOn(true);
-    setBusy(true);
-    const granted = await requestNotificationPermission();
-    if (granted !== 'granted') {
-      setError(
-        'Le navigateur refuse les notifications : les alertes s’afficheront en ' +
-          'bandeau dans la page. Pour les recevoir hors du site, réautorisez-les ' +
-          'dans ses réglages.',
-      );
-      setBusy(false);
-      return;
-    }
-    if (pushSupported()) setError(await enablePush());
-    setBusy(false);
-  };
-
   // HISTORIQUE : les annonces réellement signalées, datées par la collecte.
   // Auparavant cette section comparait la liste courante à une mémoire du
   // navigateur — perdue au premier nettoyage, vide sur un autre appareil, et
@@ -250,38 +190,6 @@ export function NotificationsPanel({
   return (
     <section className="flex flex-col gap-5">
       <h2 className="text-lg font-semibold">Notifications</h2>
-
-      {/* Un seul réglage. Le sous-titre « Être prévenu dès qu'une annonce
-        entre dans vos critères » et la ligne « Permission du navigateur :
-        accordée » ont été retirés : le premier redisait le nom de la page, le
-        second exposait une plomberie sur laquelle on n'agit pas d'ici. Ce qui
-        reste utile — une permission refusée — se dit dans le message
-        d'erreur, au moment où ça compte. */}
-      <div className="border-border flex items-center gap-3 rounded-xl border p-3">
-        <span className="min-w-0 flex-1">
-          <span className="block font-medium">Alertes de nouvelles annonces</span>
-          <span className="text-muted-foreground block text-sm">
-            {busy
-              ? 'Un instant…'
-              : on
-                ? 'Bandeau dans la page, et notification même site fermé.'
-                : 'Aucune alerte.'}
-          </span>
-        </span>
-        <Switch
-          checked={on}
-          disabled={busy}
-          aria-label="Alertes de nouvelles annonces"
-          onCheckedChange={() => void toggle()}
-        />
-      </div>
-
-      {error !== null && (
-        <p className="border-destructive/40 bg-destructive/10 rounded-lg border px-3 py-2 text-sm">
-          {error}
-        </p>
-      )}
-
       <div>
         <h3 className="mb-2 text-sm font-semibold text-muted-foreground">
           {history.length > 0 ? `Historique (${history.length})` : 'Historique'}
