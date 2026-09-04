@@ -28,6 +28,7 @@ import {
   type QuickFilterValues,
 } from './QuickFilters.js';
 import { FiltersPanel } from './FiltersPanel.js';
+import { SaveSearchButton } from './SaveSearchButton.js';
 import { Button } from '@/components/ui/button.js';
 
 export interface SortFilterModalProps {
@@ -65,6 +66,15 @@ export interface SortFilterModalProps {
    */
   readonly resultCount: number;
 
+  /**
+   * Enregistre le jeu de réglages courant sous un nom. Absent quand l'accès
+   * n'a pas de base où l'écrire (démo, mode API) : le bouton ne s'affiche
+   * alors pas, plutôt que de promettre un enregistrement sans lendemain.
+   */
+  readonly onSaveSearch?: (name: string) => Promise<void>;
+  /** Nom proposé, calculé à partir des critères courants. */
+  readonly saveSuggestion?: string;
+
   /** Remet tri, filtres, bascules et sources à leur état d'origine. */
   readonly onReset: () => void;
   /** `true` si quelque chose s'écarte de cet état : le bouton reste sinon inerte. */
@@ -89,6 +99,8 @@ export function SortFilterModal({
   resultCount,
   onReset,
   dirty,
+  onSaveSearch,
+  saveSuggestion,
 }: SortFilterModalProps): React.JSX.Element | null {
   const panel = useRef<HTMLDivElement>(null);
   // Filtre de la liste des sources : elles sont une quarantaine, retrouver
@@ -361,23 +373,33 @@ export function SortFilterModal({
           </fieldset>
         )}
 
-        {/* CRITÈRES DE COLLECTE, repliés : on les règle une fois, pas à chaque
-          consultation. Déplié, on retrouve exactement l'ancien onglet
-          « Alertes » — devenu enregistrable depuis le site déployé, où il
-          refusait jusqu'ici toute modification. */}
-        <details className="mb-5 rounded-xl border border-border">
-          <summary className="cursor-pointer list-none px-3 py-2.5 text-sm font-semibold text-muted-foreground">
-            Critères de recherche
-            <span className="ml-1 font-normal">— ce qui est collecté et signalé</span>
-          </summary>
-          <div className="border-t border-border px-3 py-3">
-            <FiltersPanel compact onSaved={onCriteriaSaved} />
-          </div>
-        </details>
+        {/* CRITÈRES DE COLLECTE, à plat. Ils vivaient derrière un repli, et on
+          ne les trouvait pas : un panneau qu'il faut d'abord déplier pour
+          savoir ce qu'il contient n'existe pas vraiment. Ce qui reste ici est
+          ce que les filtres rapides ne disent PAS — trajet, exclusions,
+          bailleur, meublé ; le budget et la surface ont disparu d'ici, ils
+          étaient posés deux fois dans le même écran. */}
+        <fieldset className="mb-5">
+          <legend className="mb-2 text-sm font-semibold text-muted-foreground">
+            Ce qui est collecté et signalé
+          </legend>
+          <FiltersPanel compact onSaved={onCriteriaSaved} />
+        </fieldset>
 
         {/* Réglages éparpillés sur quatre sections : les défaire un à un était
           fastidieux. Le bouton s'efface quand il n'y a rien à défaire, plutôt
           que de promettre une action sans effet. */}
+        {/* GARDER CE JEU DE RÉGLAGES, ici et pas ailleurs : c'est le seul
+          écran où on les voit tous ensemble, et c'est en le refermant qu'on
+          sait si la recherche est la bonne. Le bouton vivait dans la barre
+          d'outils, à côté des résultats mais loin des réglages qui les
+          produisent. */}
+        {onSaveSearch !== undefined && (
+          <div className="mb-3">
+            <SaveSearchButton suggestion={saveSuggestion ?? 'Ma recherche'} onSave={onSaveSearch} />
+          </div>
+        )}
+
         <div className="flex gap-2">
           {/* Le mot seul : le pictogramme de flèche circulaire doublait un
             libellé déjà sans ambiguïté, et rétrécissait d'autant le bouton

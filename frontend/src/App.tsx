@@ -51,7 +51,6 @@ import {
   toSavedView,
   type SavedSearch,
 } from './saved-searches.js';
-import { SaveSearchButton } from './components/SaveSearchButton.js';
 import { SourcePanel } from './components/SourcePanel.js';
 import { StatsPanel } from './components/StatsPanel.js';
 import { ArrowLeft, Bell, Flame, List, Map, Search, SlidersHorizontal } from 'lucide-react';
@@ -1397,23 +1396,6 @@ export function App(): React.JSX.Element {
               </button>
             </div>
 
-            {/* Garder le jeu de réglages qu'on vient de composer. Le bouton
-            est ICI, à côté des résultats qu'il décrit — pas enfoui dans la
-            modale, qu'on referme précisément quand on est satisfait. */}
-            {savedSearchesAvailable() && (
-              <SaveSearchButton
-                suggestion={suggestName(
-                  {
-                    cities: [...MVP_CRITERIA.cities],
-                    maxPrice: MVP_CRITERIA.maxPrice,
-                    minArea: MVP_CRITERIA.minArea,
-                  },
-                  quickFilters,
-                )}
-                onSave={saveCurrentSearch}
-              />
-            )}
-
             {/* Compteur de résultats, poussé à droite (repère façon SeLoger).
             Il distingue les annonces ACTIVES de celles disparues de leur source :
             un total unique laissait croire à deux fois plus d'opportunités, et
@@ -1451,6 +1433,19 @@ export function App(): React.JSX.Element {
             resultCount={filtered.length}
             dirty={somethingChanged}
             onReset={resetSortAndFilters}
+            {...(savedSearchesAvailable()
+              ? {
+                  onSaveSearch: saveCurrentSearch,
+                  saveSuggestion: suggestName(
+                    {
+                      cities: [...MVP_CRITERIA.cities],
+                      maxPrice: MVP_CRITERIA.maxPrice,
+                      minArea: MVP_CRITERIA.minArea,
+                    },
+                    quickFilters,
+                  ),
+                }
+              : {})}
           />
 
           {/* Rangée des filtres rapides. */}

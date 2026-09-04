@@ -154,45 +154,56 @@ export function FiltersPanel({ onSaved, compact = false }: FiltersPanelProps): R
         {/* Une seule ligne « de … à … » : les deux bornes formaient deux
           réglages distincts, présentés dans l'ordre inverse de la lecture
           (maximum avant minimum), alors qu'elles décrivent UN budget. */}
-        <div className={ROW}>
-          <label htmlFor="minPrice">Budget (€/mois)</label>
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">de</span>
-            <input
-              id="minPrice"
-              type="number"
-              min={0}
-              aria-label="Loyer minimum"
-              className={FIELD}
-              value={filters.minPrice ?? 0}
-              onChange={(e) => set({ minPrice: Number(e.target.value) })}
-            />
-            <span className="text-sm text-muted-foreground">à</span>
-            <input
-              id="maxPrice"
-              type="number"
-              min={0}
-              aria-label="Loyer maximum"
-              className={FIELD}
-              value={filters.maxPrice}
-              onChange={(e) => set({ maxPrice: Number(e.target.value) })}
-            />
-          </div>
-        </div>
-        <p className="pt-1 text-xs text-muted-foreground">
-          Le plancher écarte les annonces trop bon marché pour être un logement (parkings, caves).
-        </p>
-        <div className={ROW}>
-          <label htmlFor="minArea">Surface minimum (m²)</label>
-          <input
-            id="minArea"
-            type="number"
-            min={0}
-            className={FIELD}
-            value={filters.minArea}
-            onChange={(e) => set({ minArea: Number(e.target.value) })}
-          />
-        </div>
+        {/* BUDGET ET SURFACE NE S'AFFICHENT PAS DANS LA MODALE : les filtres
+          rapides, trois centimètres plus haut, portent déjà les mêmes deux
+          réglages. Les montrer deux fois posait la question « lequel des deux
+          compte ? » — à laquelle il n'y avait pas de bonne réponse. C'est
+          « Enregistrer cette recherche » qui reporte les valeurs des filtres
+          rapides sur les critères de collecte. */}
+        {!compact && (
+          <>
+            <div className={ROW}>
+              <label htmlFor="minPrice">Budget (€/mois)</label>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">de</span>
+                <input
+                  id="minPrice"
+                  type="number"
+                  min={0}
+                  aria-label="Loyer minimum"
+                  className={FIELD}
+                  value={filters.minPrice ?? 0}
+                  onChange={(e) => set({ minPrice: Number(e.target.value) })}
+                />
+                <span className="text-sm text-muted-foreground">à</span>
+                <input
+                  id="maxPrice"
+                  type="number"
+                  min={0}
+                  aria-label="Loyer maximum"
+                  className={FIELD}
+                  value={filters.maxPrice}
+                  onChange={(e) => set({ maxPrice: Number(e.target.value) })}
+                />
+              </div>
+            </div>
+            <p className="pt-1 text-xs text-muted-foreground">
+              Le plancher écarte les annonces trop bon marché pour être un logement (parkings,
+              caves).
+            </p>
+            <div className={ROW}>
+              <label htmlFor="minArea">Surface minimum (m²)</label>
+              <input
+                id="minArea"
+                type="number"
+                min={0}
+                className={FIELD}
+                value={filters.minArea}
+                onChange={(e) => set({ minArea: Number(e.target.value) })}
+              />
+            </div>
+          </>
+        )}
         <div className={ROW}>
           <label htmlFor="maxCommuteMinutes">Trajet max domicile→travail (min)</label>
           <input
@@ -251,7 +262,7 @@ export function FiltersPanel({ onSaved, compact = false }: FiltersPanelProps): R
 
       <div className="mt-4 flex items-center gap-3">
         <Button onClick={() => void handleSave()} disabled={saving}>
-          {saving ? 'Enregistrement…' : 'Enregistrer'}
+          {saving ? 'Enregistrement…' : compact ? 'Appliquer les critères' : 'Enregistrer'}
         </Button>
         <Button variant="outline" onClick={handleReset} disabled={saving}>
           Réinitialiser

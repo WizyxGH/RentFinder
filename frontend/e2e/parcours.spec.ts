@@ -216,17 +216,19 @@ test('l’interface est utilisable sur mobile sans défilement horizontal (§39)
 });
 
 test('les critères de recherche sont réglables depuis le site (§66)', async ({ page }) => {
-  // Ils avaient leur propre onglet « Alertes », où on ne les trouvait pas :
-  // ils sont désormais repliés dans la modale qu'on ouvre pour affiner.
+  // Ils avaient leur propre onglet, puis un repli dans la modale — où on ne
+  // les trouvait pas davantage. Ils sont maintenant à plat, sous les filtres
+  // rapides, et débarrassés du budget et de la surface que ceux-ci portent
+  // déjà : les mêmes deux réglages figuraient deux fois dans le même écran.
   const toolbar = page.getByRole('group', { name: 'Barre de filtres' });
   await toolbar.getByRole('button', { name: /Trier et filtrer/ }).click();
-  await page.getByText('Critères de recherche').click();
 
-  const budget = page.getByLabel('Loyer maximum');
-  await expect(budget).toBeVisible();
-  await budget.fill('600');
+  await expect(page.getByText('Ce qui est collecté et signalé')).toBeVisible();
+  const trajet = page.getByLabel('Trajet max domicile→travail (min)');
+  await expect(trajet).toBeVisible();
+  await trajet.fill('45');
 
-  await page.getByRole('button', { name: 'Enregistrer' }).click();
+  await page.getByRole('button', { name: 'Appliquer les critères' }).click();
   await expect(page.getByText(/Filtres enregistrés/)).toBeVisible();
 });
 
