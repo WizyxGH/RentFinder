@@ -30,11 +30,11 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: pnpm/action-setup@v4
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: pnpm
@@ -76,11 +76,11 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: pnpm/action-setup@v4
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: pnpm
@@ -109,11 +109,15 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           # Gitleaks a besoin de l'historique pour analyser les commits.
           fetch-depth: 0
 
+      # Reste en v2 : c'est la dernière version majeure publiée par ce projet.
+      # GitHub la force sur Node 24 en signalant la fin de Node 20 ; l'action
+      # fonctionne, et la remplacer par une version qu'on n'a pas vérifiée
+      # serait pire que l'avertissement. Idem pour `pnpm/action-setup@v4`.
       - name: Gitleaks
         uses: gitleaks/gitleaks-action@v2
         env:
