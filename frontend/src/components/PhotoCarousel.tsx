@@ -2,12 +2,21 @@
  * Carrousel de photos d'une carte d'annonce (§36).
  *
  * Un vrai carrousel — flèches, points et GLISSEMENT du doigt —, pas une barre
- * de défilement : une photo à la fois, navigation explicite. Sur téléphone, le
- * glissement latéral est le geste attendu ; les flèches restent pour la
- * souris. Les images sont affichées directement
- * depuis le site d'origine (§11 : jamais téléchargées ni stockées). Une image
- * cassée (retirée côté source) est retirée du carrousel plutôt que d'afficher
- * un cadre vide.
+ * de défilement : une photo à la fois, navigation explicite.
+ *
+ * CHAQUE GESTE À SA PLACE. Le glissement latéral est le geste du téléphone ;
+ * les flèches sont celui de la souris, et ne s'affichent donc QUE sur grand
+ * écran. Superposées à la photo sur un écran tactile, elles mangeaient l'image
+ * pour doubler un geste déjà naturel.
+ *
+ * ET LA SÉRIE A DEUX BOUTS. Le carrousel bouclait : à la dernière photo, un
+ * glissement ramenait à la première. Rien ne le disait, et on croyait avoir
+ * raté un geste ou vu deux fois la même image. La série s'arrête maintenant à
+ * ses extrémités — la flèche s'y éteint, le glissement n'y produit rien.
+ *
+ * Les images sont affichées directement depuis le site d'origine (§11 : jamais
+ * téléchargées ni stockées). Une image cassée (retirée côté source) est retirée
+ * du carrousel plutôt que d'afficher un cadre vide.
  */
 
 import { useRef, useState } from 'react';
@@ -15,6 +24,16 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 /** En deçà, c'est une hésitation du doigt, pas une intention de changer de photo. */
 const SWIPE_MIN_PX = 40;
+
+/**
+ * Flèches : masquées sur téléphone, éteintes au bout de la série.
+ *
+ * `disabled:opacity-30` plutôt que de les retirer : une flèche qui disparaît
+ * décale l'autre et fait sauter la photo. Éteinte, elle dit « c'est le bout »
+ * en restant à sa place.
+ */
+const ARROW =
+  'absolute top-1/2 hidden size-7 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-black/45 text-white transition-[background-color,opacity] hover:bg-black/65 disabled:cursor-default disabled:opacity-30 disabled:hover:bg-black/45 sm:flex';
 
 export function PhotoCarousel({
   urls,
@@ -39,8 +58,10 @@ export function PhotoCarousel({
 
   if (photos.length === 0) return <></>;
 
-  const clamped = Math.min(index, photos.length - 1);
-  const go = (next: number): void => setIndex((next + photos.length) % photos.length);
+  const last = photos.length - 1;
+  const clamped = Math.min(index, last);
+  // Bornée, et non circulaire : `go(-1)` sur la première ne fait rien.
+  const go = (next: number): void => setIndex(Math.max(0, Math.min(next, last)));
 
   return (
     <div
@@ -60,8 +81,12 @@ export function PhotoCarousel({
         const delta = (event.changedTouches[0]?.clientX ?? from) - from;
         if (Math.abs(delta) < SWIPE_MIN_PX) return;
         // Le glissement ne doit pas ouvrir la fiche : toute la carte est
-        // cliquable, et un swipe s'y traduirait sinon par une navigation.
+        // cliquable, et un swipe s'y traduirait sinon par une navigation. Vrai
+        // AUSSI au bout de la série, où le geste ne change pas de photo : on a
+        // glissé, on n'a pas tapé.
         event.stopPropagation();
+        // `go` borne : à la première, un glissement vers la droite ne fait
+        // rien ; à la dernière, un glissement vers la gauche non plus.
         go(delta < 0 ? clamped + 1 : clamped - 1);
       }}
     >
@@ -85,25 +110,29 @@ export function PhotoCarousel({
 
       {photos.length > 1 && (
         <>
+          {/* `hidden sm:flex` : la souris seule a besoin de flèches. Sur
+            téléphone, le glissement fait le même travail sans rien couvrir. */}
           <button
             type="button"
             aria-label="Photo précédente"
+            disabled={clamped === 0}
             onClick={(event) => {
               event.stopPropagation();
               go(clamped - 1);
             }}
-            className="absolute top-1/2 left-1.5 flex size-7 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-black/45 text-white transition-colors hover:bg-black/65"
+            className={`${ARROW} left-1.5`}
           >
             <ChevronLeft aria-hidden="true" className="size-4" />
           </button>
           <button
             type="button"
             aria-label="Photo suivante"
+            disabled={clamped === last}
             onClick={(event) => {
               event.stopPropagation();
               go(clamped + 1);
             }}
-            className="absolute top-1/2 right-1.5 flex size-7 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-black/45 text-white transition-colors hover:bg-black/65"
+            className={`${ARROW} right-1.5`}
           >
             <ChevronRight aria-hidden="true" className="size-4" />
           </button>

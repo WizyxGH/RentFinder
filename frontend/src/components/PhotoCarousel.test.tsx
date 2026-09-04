@@ -18,7 +18,7 @@ describe('PhotoCarousel', () => {
     expect(screen.queryByLabelText('Photo suivante')).not.toBeInTheDocument();
   });
 
-  it('avance et boucle avec la flèche suivante', async () => {
+  it('avance et S’ARRÊTE à la dernière photo', async () => {
     const user = userEvent.setup();
     render(<PhotoCarousel urls={URLS} />);
     const next = screen.getByLabelText('Photo suivante');
@@ -26,10 +26,17 @@ describe('PhotoCarousel', () => {
     await user.click(next);
     expect(screen.getByLabelText('Aller à la photo 2')).toHaveAttribute('aria-current', 'true');
 
-    // 2 → 3 → boucle vers 1.
+    // 2 → 3, puis plus rien : la série bouclait, et on croyait avoir raté un
+    // geste ou revu deux fois la même image.
     await user.click(next);
-    await user.click(next);
-    expect(screen.getByLabelText('Aller à la photo 1')).toHaveAttribute('aria-current', 'true');
+    expect(screen.getByLabelText('Aller à la photo 3')).toHaveAttribute('aria-current', 'true');
+    expect(next).toBeDisabled();
+  });
+
+  it('éteint la flèche « précédente » sur la première photo', () => {
+    render(<PhotoCarousel urls={URLS} />);
+    expect(screen.getByLabelText('Photo précédente')).toBeDisabled();
+    expect(screen.getByLabelText('Photo suivante')).toBeEnabled();
   });
 
   it('saute directement à une photo via son point', async () => {
@@ -67,6 +74,22 @@ describe('PhotoCarousel — glissement du doigt', () => {
     const root = container.firstElementChild as HTMLElement;
     swipe(root, -10);
     expect((root.firstElementChild as HTMLElement).style.transform).toBe('translateX(-0%)');
+  });
+
+  it('ne dépasse aucun des deux bouts de la série', () => {
+    const { container } = render(<PhotoCarousel urls={PHOTOS} />);
+    const root = container.firstElementChild as HTMLElement;
+    const track = (): HTMLElement => root.firstElementChild as HTMLElement;
+
+    // Sur la PREMIÈRE, glisser vers la droite ne ramène pas à la dernière.
+    swipe(root, 120);
+    expect(track().style.transform).toBe('translateX(-0%)');
+
+    // Sur la DERNIÈRE, glisser vers la gauche ne revient pas à la première.
+    swipe(root, -120);
+    expect(track().style.transform).toBe('translateX(-100%)');
+    swipe(root, -120);
+    expect(track().style.transform).toBe('translateX(-100%)');
   });
 
   it('ne fait rien avec une seule photo', () => {
