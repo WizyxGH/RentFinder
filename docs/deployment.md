@@ -76,9 +76,19 @@ silencieusement désactivé. Le notifieur ne signale que les annonces découvert
 
 ## Régler les filtres de recherche
 
-Éditez `config/search.json` (ville, budget, surface, exclusions), voir
-[config/README.md](../config/README.md). Les changements s'appliquent à la
-prochaine collecte.
+**Depuis le site** : « Trier et filtrer » → « Ce qui est collecté et signalé ».
+Le budget et la surface s'appliquent immédiatement ; les exclusions
+(colocation, location étudiante) prennent effet à la collecte suivante — elles
+demandent le texte de l'annonce, pas un nombre.
+
+Il n'y a **plus de fichier de configuration**. `config/search.json` a été
+retiré : il portait les mêmes réglages que la base, les deux ne disaient pas
+toujours la même chose, et rien n'indiquait lequel faisait autorité. Les
+critères vivent dans la table `app_settings`, ce qui leur permet de suivre d'un
+appareil à l'autre — et, depuis les comptes, d'appartenir à chacun.
+
+Les valeurs de départ, tant que rien n'a été réglé, sont celles de
+`packages/shared/src/criteria.ts`.
 
 ## Commandes utiles
 

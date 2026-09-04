@@ -83,7 +83,10 @@ async function main(): Promise<void> {
     });
   }
 
-  // §66 : filtres lus depuis config/search.json (éditable), défauts en secours.
+  // §66 : défauts du projet, que les critères réglés depuis le site
+  // remplacent juste en dessous. Il n’y a plus de fichier de configuration :
+  // un réglage à deux domiciles est un réglage dont personne ne sait lequel
+  // fait autorité.
   const fileConfig = loadPublicConfig((message) => logger.warn('config.invalid', { message }));
 
   const db = openDatabaseFromEnv();

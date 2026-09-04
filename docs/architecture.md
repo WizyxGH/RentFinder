@@ -36,20 +36,20 @@ répond `501` ailleurs.
 
 ## Où lire quoi
 
-| Sujet                      | Fichier                                                |
-| -------------------------- | ------------------------------------------------------ |
-| Ordonnancement des sources | `collector/src/core/scheduler.ts`                      |
-| Budgets et politesse HTTP  | `collector/src/core/budgets.ts`, `core/http-client.ts` |
-| Ajouter une source         | en-tête de `collector/src/sources/index.ts`            |
-| Adaptateurs de plateforme  | `sources/apimo`, `hektor`, `adaptimmo`, `ics`          |
-| Normalisation des champs   | `collector/src/normalization/`                         |
-| Dédoublonnage              | `collector/src/deduplication/`                         |
-| Scoring                    | `collector/src/scoring/`                               |
-| Schéma et migrations       | `database/migrations/`                                 |
-| Enchaînement complet       | `collector/src/pipeline.ts`                            |
-| Critères de recherche      | `config/search.json`, `shared/src/criteria.ts`         |
-| Recherches enregistrées    | `frontend/src/saved-searches.ts`                       |
-| Réglages partagés en base  | `app_settings` (voir `shared/src/source.ts`)           |
+| Sujet                      | Fichier                                                 |
+| -------------------------- | ------------------------------------------------------- |
+| Ordonnancement des sources | `collector/src/core/scheduler.ts`                       |
+| Budgets et politesse HTTP  | `collector/src/core/budgets.ts`, `core/http-client.ts`  |
+| Ajouter une source         | en-tête de `collector/src/sources/index.ts`             |
+| Adaptateurs de plateforme  | `sources/apimo`, `hektor`, `adaptimmo`, `ics`           |
+| Normalisation des champs   | `collector/src/normalization/`                          |
+| Dédoublonnage              | `collector/src/deduplication/`                          |
+| Scoring                    | `collector/src/scoring/`                                |
+| Schéma et migrations       | `database/migrations/`                                  |
+| Enchaînement complet       | `collector/src/pipeline.ts`                             |
+| Critères de recherche      | `app_settings` (base), défauts `shared/src/criteria.ts` |
+| Recherches enregistrées    | `frontend/src/saved-searches.ts`                        |
+| Réglages partagés en base  | `app_settings` (voir `shared/src/source.ts`)            |
 
 ## Les écrans
 

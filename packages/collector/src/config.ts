@@ -14,7 +14,6 @@
  * public.
  */
 
-import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import type { SearchCriteria, TenantProfile } from '@rentfinder/shared';
 import { MVP_CRITERIA } from '@rentfinder/shared';
@@ -72,7 +71,6 @@ export const PUBLIC_CONFIG: PublicConfig = {
  * Résolu depuis ce module (dist/config.js) pour être trouvé quel que soit le
  * répertoire d'exécution du CLI.
  */
-const SEARCH_CONFIG_URL = new URL('../../../config/search.json', import.meta.url);
 
 /** Filtres éditables depuis l'interface (sous-ensemble de SearchCriteria). */
 export interface EditableFilters {
@@ -113,46 +111,6 @@ export function withStoredCriteria(config: PublicConfig, stored: string | null):
   return { ...config, criteria: { ...config.criteria, ...filters } };
 }
 
-/** Lit les filtres courants (fichier + défauts) pour les présenter à l'UI. */
-export function readSearchFilters(): EditableFilters {
-  const c = loadPublicConfig().criteria;
-  return {
-    cities: c.cities,
-    maxPrice: c.maxPrice,
-    minArea: c.minArea,
-    ...(c.minPrice !== undefined ? { minPrice: c.minPrice } : {}),
-    ...(c.maxCommuteMinutes !== undefined ? { maxCommuteMinutes: c.maxCommuteMinutes } : {}),
-    ...(c.excludeFlatShare !== undefined ? { excludeFlatShare: c.excludeFlatShare } : {}),
-    ...(c.excludeStudent !== undefined ? { excludeStudent: c.excludeStudent } : {}),
-    landlordFilter: c.landlordFilter ?? 'all',
-    furnishedFilter: c.furnishedFilter ?? 'all',
-  };
-}
-
-/**
- * Écrit les filtres dans `config/search.json`, en préservant les clés non
- * éditables du fichier (ex. `referencePricePerSqm`, `_commentaire`). Valide les
- * types ; lève sur entrée aberrante. Écriture atomique-ish (une seule passe).
- */
-export function writeSearchFilters(input: unknown): EditableFilters {
-  const filters = validateFilters(input);
-
-  // Repartir du fichier existant pour ne pas perdre les autres réglages.
-  let existing: Record<string, unknown> = {};
-  try {
-    existing = JSON.parse(readFileSync(fileURLToPath(SEARCH_CONFIG_URL), 'utf8')) as Record<
-      string,
-      unknown
-    >;
-  } catch {
-    /* fichier absent ou illisible : on repart de zéro */
-  }
-
-  const merged = { ...existing, ...filters };
-  writeFileSync(fileURLToPath(SEARCH_CONFIG_URL), `${JSON.stringify(merged, null, 2)}\n`, 'utf8');
-  return filters;
-}
-
 /** Valide et normalise les filtres reçus de l'interface. */
 function validateFilters(input: unknown): EditableFilters {
   if (typeof input !== 'object' || input === null) throw new Error('Filtres invalides');
@@ -188,64 +146,23 @@ function validateFilters(input: unknown): EditableFilters {
 }
 
 /**
- * Charge la configuration publique en fusionnant `config/search.json` (s'il
- * existe) par-dessus les défauts. C'est le fichier que l'utilisateur édite
- * pour régler SES filtres sans toucher au code (§66).
+ * Configuration publique du projet.
  *
- * Tolérant par conception : fichier absent → défauts ; JSON invalide → défauts
- * + avertissement. Une faute de frappe dans la config ne doit jamais casser la
- * collecte, seulement être signalée.
+ * ELLE NE VIENT PLUS D'UN FICHIER. `config/search.json` a été retiré : il
+ * portait les mêmes réglages que la base, et les deux ne disaient pas toujours
+ * la même chose — le fichier vivait sur UNE machine, la base suivait
+ * l'utilisateur. Un réglage à deux endroits est un réglage dont personne ne
+ * sait lequel fait autorité.
  *
- * @param onWarn rappel optionnel pour journaliser une config illisible.
+ * Les valeurs ci-dessous sont donc les DÉFAUTS du projet, et les critères
+ * réglés depuis le site (table `app_settings`) les remplacent — voir
+ * `withStoredCriteria`, appelé juste après par la collecte.
+ *
+ * Le paramètre `onWarn` est conservé : les appelants le passent, et il servira
+ * de nouveau le jour où une valeur invalide viendra de la base.
  */
-export function loadPublicConfig(onWarn?: (message: string) => void): PublicConfig {
-  let raw: string;
-  try {
-    raw = readFileSync(fileURLToPath(SEARCH_CONFIG_URL), 'utf8');
-  } catch {
-    // Fichier absent : comportement par défaut, sans bruit.
-    return PUBLIC_CONFIG;
-  }
-
-  try {
-    const parsed = JSON.parse(raw) as Partial<SearchCriteria> & Partial<PublicConfig>;
-    // Les champs de critères connus sont fusionnés ; les clés inconnues (dont
-    // le « _commentaire » d'aide) sont ignorées sans dommage.
-    const criteria: SearchCriteria = {
-      ...MVP_CRITERIA,
-      ...(parsed.cities !== undefined ? { cities: parsed.cities } : {}),
-      ...(parsed.maxPrice !== undefined ? { maxPrice: parsed.maxPrice } : {}),
-      ...(parsed.minArea !== undefined ? { minArea: parsed.minArea } : {}),
-      ...(parsed.excludeFlatShare !== undefined
-        ? { excludeFlatShare: parsed.excludeFlatShare }
-        : {}),
-      ...(parsed.minPrice !== undefined ? { minPrice: parsed.minPrice } : {}),
-      ...(parsed.excludeStudent !== undefined ? { excludeStudent: parsed.excludeStudent } : {}),
-      ...(parsed.furnished !== undefined ? { furnished: parsed.furnished } : {}),
-      ...(parsed.propertyTypes !== undefined ? { propertyTypes: parsed.propertyTypes } : {}),
-      ...(parsed.minRooms !== undefined ? { minRooms: parsed.minRooms } : {}),
-      ...(parsed.landlordFilter !== undefined ? { landlordFilter: parsed.landlordFilter } : {}),
-      ...(parsed.furnishedFilter !== undefined ? { furnishedFilter: parsed.furnishedFilter } : {}),
-      ...(parsed.maxCommuteMinutes !== undefined
-        ? { maxCommuteMinutes: parsed.maxCommuteMinutes }
-        : {}),
-      ...(parsed.energyClasses !== undefined ? { energyClasses: parsed.energyClasses } : {}),
-    };
-
-    return {
-      ...PUBLIC_CONFIG,
-      criteria,
-      ...(typeof parsed.maxSourcesPerRun === 'number'
-        ? { maxSourcesPerRun: parsed.maxSourcesPerRun }
-        : {}),
-      ...(typeof parsed.referencePricePerSqm === 'number'
-        ? { referencePricePerSqm: parsed.referencePricePerSqm }
-        : {}),
-    };
-  } catch {
-    onWarn?.('config/search.json illisible (JSON invalide) — filtres par défaut appliqués');
-    return PUBLIC_CONFIG;
-  }
+export function loadPublicConfig(_onWarn?: (message: string) => void): PublicConfig {
+  return PUBLIC_CONFIG;
 }
 
 // ---------------------------------------------------------------------------

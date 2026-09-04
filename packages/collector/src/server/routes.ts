@@ -21,7 +21,7 @@
  */
 
 import type { Client } from '@libsql/client';
-import { CURRENT_USER } from '@rentfinder/shared';
+import { CURRENT_USER, MVP_CRITERIA, SEARCH_CRITERIA_SETTING } from '@rentfinder/shared';
 
 /**
  * Fonctionnalités disponibles uniquement en mode local (elles touchent le
@@ -36,8 +36,6 @@ export interface LiveFilters {
 }
 
 export interface LocalFeatures {
-  readonly readSearchFilters: () => LiveFilters;
-  readonly writeSearchFilters: (input: unknown) => unknown;
   readonly listDocuments: () => unknown;
   readonly saveDocument: (
     name: string,
@@ -503,23 +501,60 @@ async function recordContact(
 }
 
 /** Filtres de recherche éditables depuis l'interface, en mode local (§66). */
+/**
+ * Critères de recherche (§66).
+ *
+ * ILS VIVENT EN BASE, ET NULLE PART AILLEURS. Ils ont longtemps eu deux
+ * domiciles : `config/search.json` sur la machine de collecte, et
+ * `app_settings` pour le site. Les deux ne disaient pas toujours la même
+ * chose, et rien n'indiquait lequel faisait autorité. Le fichier a été retiré ;
+ * la base suit l'utilisateur d'un appareil à l'autre, ce qu'un fichier ne
+ * saura jamais faire.
+ *
+ * Chaque compte a les siens : la clé est (utilisateur, réglage).
+ */
 async function handleConfigRoute(
+  db: Client,
   method: string,
   request: Request,
   cors: Record<string, string>,
-  local: LocalFeatures,
+  userId: string,
 ): Promise<Response> {
-  if (method === 'GET') return json(local.readSearchFilters(), cors);
+  if (method === 'GET') {
+    const stored = await db.execute({
+      sql: 'SELECT value FROM app_settings WHERE user_id = ? AND key = ?',
+      args: [userId, SEARCH_CRITERIA_SETTING],
+    });
+    const raw = stored.rows[0]?.['value'];
+    if (typeof raw !== 'string') return json(DEFAULT_FILTERS, cors);
+    try {
+      return json(JSON.parse(raw), cors);
+    } catch {
+      // Valeur illisible : on rend les défauts plutôt que de bloquer l'écran.
+      return json(DEFAULT_FILTERS, cors);
+    }
+  }
   if (method === 'PUT') {
     const body = await request.json().catch(() => null);
-    try {
-      return json(local.writeSearchFilters(body), cors);
-    } catch (error) {
-      return jsonError(400, error instanceof Error ? error.message : 'Filtres invalides');
-    }
+    if (body === null || typeof body !== 'object') return jsonError(400, 'Filtres invalides');
+    await db.execute({
+      sql: `INSERT INTO app_settings (user_id, key, value, updated_at) VALUES (?,?,?,?)
+            ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value,
+                                                    updated_at = excluded.updated_at`,
+      args: [userId, SEARCH_CRITERIA_SETTING, JSON.stringify(body), new Date().toISOString()],
+    });
+    return json(body, cors);
   }
   return json({ error: 'Route inconnue' }, cors, 404);
 }
+
+/** Ce qu'on rend tant que personne n'a rien réglé. */
+const DEFAULT_FILTERS = {
+  cities: [...MVP_CRITERIA.cities],
+  maxPrice: MVP_CRITERIA.maxPrice,
+  minArea: MVP_CRITERIA.minArea,
+  ...(MVP_CRITERIA.minPrice !== undefined ? { minPrice: MVP_CRITERIA.minPrice } : {}),
+};
 
 /**
  * Documents de candidature (§25) : stockés dans data/ (gitignoré), servis
@@ -562,6 +597,32 @@ async function handleDocumentsRoute(
   return json({ error: 'Route inconnue' }, cors, 404);
 }
 
+/**
+ * Budget et surface tels que CET utilisateur les a réglés, appliqués en direct
+ * à la liste : resserrer son budget doit se voir tout de suite, sans attendre
+ * la collecte suivante. Les exclusions (colocation, étudiant) restent figées à
+ * la collecte — elles demandent le texte de l'annonce, pas un nombre.
+ */
+async function liveFilters(db: Client, userId: string): Promise<LiveFilters | undefined> {
+  const stored = await db.execute({
+    sql: 'SELECT value FROM app_settings WHERE user_id = ? AND key = ?',
+    args: [userId, SEARCH_CRITERIA_SETTING],
+  });
+  const raw = stored.rows[0]?.['value'];
+  if (typeof raw !== 'string') return undefined;
+  try {
+    const parsed = JSON.parse(raw) as Partial<LiveFilters>;
+    if (typeof parsed.maxPrice !== 'number' || typeof parsed.minArea !== 'number') return undefined;
+    return {
+      maxPrice: parsed.maxPrice,
+      minArea: parsed.minArea,
+      ...(typeof parsed.minPrice === 'number' ? { minPrice: parsed.minPrice } : {}),
+    };
+  } catch {
+    return undefined;
+  }
+}
+
 /** Ressource `listings` : collection, élément et sous-ressource `contact`. */
 async function handleListingsRoute(
   db: Client,
@@ -576,7 +637,7 @@ async function handleListingsRoute(
 ): Promise<Response> {
   // Collection : GET /api/listings
   if (id === undefined && method === 'GET') {
-    return json(await listListings(db, url, userId, local?.readSearchFilters()), cors);
+    return json(await listListings(db, url, userId, await liveFilters(db, userId)), cors);
   }
   if (id === undefined) return json({ error: 'Route inconnue' }, cors, 404);
 
@@ -630,11 +691,13 @@ export async function route(
 
   // Filtres et documents touchent le DISQUE de l'utilisateur : disponibles
   // uniquement quand le transport les fournit (mode local, §25/§66).
-  if ((resource === 'config' || resource === 'documents') && local === undefined) {
+  // Les documents touchent le DISQUE de la machine : indisponibles ailleurs.
+  // Les critères, eux, vivent en base et suivent donc les deux transports.
+  if (resource === 'documents' && local === undefined) {
     return jsonError(501, 'Disponible uniquement en mode local (pnpm local)');
   }
-  if (resource === 'config' && local !== undefined) {
-    return handleConfigRoute(method, request, cors, local);
+  if (resource === 'config') {
+    return handleConfigRoute(db, method, request, cors, userId);
   }
   if (resource === 'documents' && local !== undefined) {
     return handleDocumentsRoute(method, id, url, request, cors, local);

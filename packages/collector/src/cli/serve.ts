@@ -20,7 +20,7 @@ import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { route, type LocalFeatures } from '../server/routes.js';
-import { loadDotEnv, readSearchFilters, writeSearchFilters } from '../config.js';
+import { loadDotEnv } from '../config.js';
 import { deleteDocument, listDocuments, readDocument, saveDocument } from '../server/documents.js';
 import { openDatabaseFromEnv } from '../db/client.js';
 import { migrate } from '../db/migrate.js';
@@ -133,8 +133,6 @@ async function main(): Promise<void> {
         // disque (filtres, documents) ne sont fournies QU'ICI — jamais par le
         // Worker cloud (§25, §66).
         const localFeatures: LocalFeatures = {
-          readSearchFilters,
-          writeSearchFilters,
           listDocuments,
           saveDocument,
           readDocument,

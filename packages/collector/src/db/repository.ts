@@ -314,7 +314,7 @@ export interface Repository {
   markDrafted(ids: readonly string[]): Promise<void>;
   /**
    * Réglage applicatif partagé avec le site (§66), en JSON. `null` si absent :
-   * la valeur du fichier `config/search.json` fait alors seule autorité.
+   * les défauts du projet font alors seule autorité.
    */
   readSetting(key: string): Promise<string | null>;
   /** Écrit un réglage applicatif, écrasant le précédent. */
