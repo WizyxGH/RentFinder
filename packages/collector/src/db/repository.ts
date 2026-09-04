@@ -20,6 +20,7 @@ import type {
   SourceId,
   SourceRuntimeState,
 } from '@rentfinder/shared';
+import { CURRENT_USER } from '@rentfinder/shared';
 import { actionPriority } from '@rentfinder/shared';
 import type { InValue } from '@libsql/client';
 import type { Database } from './client.js';
@@ -428,6 +429,51 @@ function defaultState(sourceId: SourceId): SourceRuntimeState {
     lastNewListingCount: 0,
     averageNewListingCount: 0,
   };
+}
+
+/**
+ * Consigne une décision PERSONNELLE sur une annonce.
+ *
+ * Ces états — vu, archivé, favori, statut de suivi, alerte envoyée, brouillon
+ * écrit — vivent encore dans des colonnes de `listings`, où le reste du code
+ * les lit. Ils vivent AUSSI, depuis la migration 19, dans
+ * `listing_user_state`, rattachés à un utilisateur : c'est là qu'ils iront le
+ * jour où l'application en portera plusieurs, et une fiche partagée ne peut
+ * pas garder le favori de l'un pour l'autre.
+ *
+ * ÉCRIRE AUX DEUX ENDROITS PLUTÔT QUE DE FIGER UNE COPIE : une table remplie
+ * une fois par la migration puis laissée de côté aurait divergé dès le
+ * lendemain, et la bascule serait partie de données fausses. Le coût est une
+ * ligne écrite de plus par CLIC — un favori, un changement de statut : rien
+ * au regard des milliers de lignes que lit une collecte (§30).
+ */
+async function recordUserState(
+  db: Database,
+  listingIds: readonly string[],
+  patch: Readonly<Record<string, string | number | null>>,
+): Promise<void> {
+  if (listingIds.length === 0) return;
+  const columns = Object.keys(patch);
+  if (columns.length === 0) return;
+  const now = new Date().toISOString();
+  // `notified_at` garde sa PREMIÈRE valeur : une annonce re-signalée plus
+  // tard ne doit pas remonter l'historique.
+  const updates = columns
+    .map((column) =>
+      column === 'notified_at'
+        ? `${column} = COALESCE(listing_user_state.${column}, excluded.${column})`
+        : `${column} = excluded.${column}`,
+    )
+    .concat('updated_at = excluded.updated_at');
+  await db.batch(
+    listingIds.map((listingId) => ({
+      sql: `INSERT INTO listing_user_state (user_id, listing_id, ${columns.join(', ')}, updated_at)
+            VALUES (?, ?, ${columns.map(() => '?').join(', ')}, ?)
+            ON CONFLICT(user_id, listing_id) DO UPDATE SET ${updates.join(', ')}`,
+      args: [CURRENT_USER, listingId, ...columns.map((column) => patch[column] ?? null), now],
+    })),
+    'write',
+  );
 }
 
 export function createRepository(db: Database): Repository {
@@ -1145,6 +1191,7 @@ export function createRepository(db: Database): Repository {
               WHERE id IN (${placeholders})`,
         args: [new Date().toISOString(), ...ids],
       });
+      await recordUserState(db, ids, { notified: 1, notified_at: new Date().toISOString() });
     },
 
     async pendingDrafts() {
@@ -1209,6 +1256,7 @@ export function createRepository(db: Database): Repository {
         sql: `UPDATE listings SET drafted = 1 WHERE id IN (${placeholders})`,
         args: [...ids],
       });
+      await recordUserState(db, ids, { drafted: 1 });
     },
 
     async setListingFavorite(listingId, favorite) {
@@ -1216,6 +1264,7 @@ export function createRepository(db: Database): Repository {
         sql: 'UPDATE listings SET favorite = ?, updated_at = ? WHERE id = ?',
         args: [favorite ? 1 : 0, new Date().toISOString(), listingId],
       });
+      await recordUserState(db, [listingId], { favorite: favorite ? 1 : 0 });
     },
 
     async readSetting(key) {

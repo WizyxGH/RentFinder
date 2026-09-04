@@ -13,7 +13,7 @@
  */
 
 import { createClient, type Client } from '@libsql/client/web';
-import { SAVED_SEARCHES_SETTING, SEARCH_CRITERIA_SETTING } from '@rentfinder/shared';
+import { CURRENT_USER, SAVED_SEARCHES_SETTING, SEARCH_CRITERIA_SETTING } from '@rentfinder/shared';
 import { byRecency } from '../recency.js';
 import type { FilterConfig, ListingView, SourceStateView, StatsData } from '../types.js';
 import type { SavedSearch } from '../saved-searches.js';
@@ -301,6 +301,28 @@ export async function patchListing(
     sql: `UPDATE listings SET ${assignments.join(', ')} WHERE id = ?`,
     args,
   });
+  // La même décision rejoint `listing_user_state`, où elle vivra le jour où
+  // l'application portera plusieurs utilisateurs (migration 19). On écrit aux
+  // deux endroits : une table remplie une fois puis laissée de côté aurait
+  // divergé dès le lendemain, et la bascule serait partie de données fausses.
+  const entries = Object.entries(patch).filter(([, value]) => value !== undefined);
+  const columns = entries.map(([column]) => column);
+  if (columns.length > 0) {
+    await client().execute({
+      sql: `INSERT INTO listing_user_state (user_id, listing_id, ${columns.join(', ')}, updated_at)
+            VALUES (?, ?, ${columns.map(() => '?').join(', ')}, ?)
+            ON CONFLICT(user_id, listing_id) DO UPDATE SET ${columns
+              .map((column) => `${column} = excluded.${column}`)
+              .concat('updated_at = excluded.updated_at')
+              .join(', ')}`,
+      args: [
+        CURRENT_USER,
+        id,
+        ...entries.map(([, value]) => (typeof value === 'boolean' ? (value ? 1 : 0) : value)),
+        new Date().toISOString(),
+      ],
+    });
+  }
   invalidate();
 }
 

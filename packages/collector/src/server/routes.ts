@@ -21,6 +21,7 @@
  */
 
 import type { Client } from '@libsql/client';
+import { CURRENT_USER } from '@rentfinder/shared';
 
 /**
  * Fonctionnalités disponibles uniquement en mode local (elles touchent le
@@ -353,7 +354,54 @@ async function updateListing(
   });
 
   if (result.rowsAffected === 0) return jsonError(404, 'Annonce introuvable');
+  await mirrorUserState(db, id, userStatePatch(body));
   return { id, ...body };
+}
+
+/** Les champs du corps qui sont des décisions personnelles, en colonnes SQL. */
+function userStatePatch(body: {
+  viewed?: unknown;
+  archived?: unknown;
+  favorite?: unknown;
+  tracking?: unknown;
+}): Record<string, string | number> {
+  const patch: Record<string, string | number> = {};
+  if (typeof body.viewed === 'boolean') patch['viewed'] = body.viewed ? 1 : 0;
+  if (typeof body.archived === 'boolean') patch['archived'] = body.archived ? 1 : 0;
+  if (typeof body.favorite === 'boolean') patch['favorite'] = body.favorite ? 1 : 0;
+  if (typeof body.tracking === 'string') patch['tracking'] = body.tracking;
+  return patch;
+}
+
+/**
+ * Consigne la même décision dans `listing_user_state`, où elle vivra le jour
+ * où l'application portera plusieurs utilisateurs (migration 19).
+ *
+ * Les colonnes de `listings` restent la source lue par le reste du code ; on
+ * écrit aux deux endroits pour que la table ne diverge pas dès le lendemain
+ * de sa création. Une ligne de plus par clic, pas par collecte (§30).
+ */
+async function mirrorUserState(
+  db: Client,
+  listingId: string,
+  patch: Readonly<Record<string, string | number>>,
+): Promise<void> {
+  const columns = Object.keys(patch);
+  if (columns.length === 0) return;
+  await db.execute({
+    sql: `INSERT INTO listing_user_state (user_id, listing_id, ${columns.join(', ')}, updated_at)
+          VALUES (?, ?, ${columns.map(() => '?').join(', ')}, ?)
+          ON CONFLICT(user_id, listing_id) DO UPDATE SET ${columns
+            .map((column) => `${column} = excluded.${column}`)
+            .concat('updated_at = excluded.updated_at')
+            .join(', ')}`,
+    args: [
+      CURRENT_USER,
+      listingId,
+      ...columns.map((column) => patch[column] ?? null),
+      new Date().toISOString(),
+    ],
+  });
 }
 
 /**
@@ -410,6 +458,7 @@ async function recordContact(
     sql: 'UPDATE listings SET tracking = ?, updated_at = ? WHERE id = ?',
     args: ['contacted', now, id],
   });
+  await mirrorUserState(db, id, { tracking: 'contacted' });
 
   return { id, followUpIndex, sentAt: now, documents };
 }

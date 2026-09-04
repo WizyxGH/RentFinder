@@ -14,3 +14,4 @@ export * from './criteria.js';
 export * from './source.js';
 export * from './message.js';
 export * from './address.js';
+export * from './user.js';
