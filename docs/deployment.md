@@ -208,9 +208,6 @@ npx wrangler secret put TURSO_DATABASE_URL   # libsql://…
 npx wrangler secret put TURSO_AUTH_TOKEN     # le jeton, qui quitte le navigateur
 npx wrangler secret put SESSION_SECRET       # une longue chaîne aléatoire, à vous
 
-# L'espace des pièces du dossier de candidature (§25), une fois.
-npx wrangler r2 bucket create rentfinder-documents
-
 npx wrangler deploy                          # affiche l'URL du Worker
 ```
 
@@ -234,9 +231,29 @@ Enfin, deux réglages se répondent :
   lors qu'on envoie un cookie — et il le serait à raison.
 - `VITE_API_URL` du build du site = l'URL du Worker.
 
-### Les pièces du dossier de candidature (§25)
+### Les pièces du dossier de candidature (§25) — option payante à activer
 
-Elles vivent dans le seau R2 créé à l'étape 4, **rangées par compte**
+**Le Worker se déploie sans carte bancaire ; R2 en exige une.** Cloudflare
+demande d'enregistrer un moyen de paiement avant de créer le moindre seau, y
+compris pour son palier gratuit de 10 Go. Le binding est donc **commenté par
+défaut** dans `wrangler.toml` : le projet se déploie entièrement sans jamais
+donner de coordonnées bancaires, et tout fonctionne — sauf cet écran.
+
+Pour l'activer, dans cet ordre :
+
+```bash
+npx wrangler r2 bucket create rentfinder-documents   # demande une carte
+# puis décommenter le bloc [[r2_buckets]] de wrangler.toml
+npx wrangler deploy
+```
+
+L'ordre compte : un binding pointe vers un seau qui doit déjà exister, sinon le
+déploiement échoue.
+
+Sans lui, l'API répond `501` sur `/api/documents` et l'écran du dossier ne
+s'affiche pas — plutôt que d'accepter des fichiers pour les perdre.
+
+Une fois actives, les pièces vivent dans le seau, **rangées par compte**
 (`<utilisateur>/<fichier>`) : un dossier contient une fiche de paie et une pièce
 d'identité, il n'y a pas de pièces communes. PDF et images, 10 Mo par pièce.
 
@@ -245,9 +262,7 @@ qui les rendait inatteignables depuis le téléphone, alors qu'une candidature
 s'envoie d'où l'on est.
 
 **Rien n'est jamais envoyé automatiquement** (§24) : le site dépose, liste,
-consulte et supprime ; c'est vous qui joignez. Sans le binding `DOCUMENTS`,
-l'API répond `501` et l'écran se tait, plutôt que d'accepter des fichiers pour
-les perdre.
+consulte et supprime ; c'est vous qui joignez.
 
 ### Il n'y a plus d'accès direct à Turso
 

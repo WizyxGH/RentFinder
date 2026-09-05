@@ -15,12 +15,27 @@ compatibility_date = "2026-01-01"
 # navigateurs dès lors qu'on envoie un cookie — et il le serait à raison.
 ALLOWED_ORIGIN = "https://wizyxgh.github.io"
 
-# Les pièces du dossier de candidature (§25). À créer une fois :
+# --- Pièces du dossier de candidature (§25) — DÉSACTIVÉ PAR DÉFAUT ----------
 #
-#   npx wrangler r2 bucket create rentfinder-documents
+# CE BLOC EST COMMENTÉ POUR UNE RAISON DE FACTURATION, PAS DE TECHNIQUE.
+# Le Worker se déploie sur le palier gratuit sans aucune carte bancaire. R2,
+# lui, exige d'enregistrer un moyen de paiement AVANT de pouvoir créer le
+# moindre seau — y compris pour son propre palier gratuit (10 Go). Laisser ce
+# binding actif imposait donc une carte à quiconque déploie le projet, pour une
+# fonctionnalité annexe.
 #
-# Sans ce binding, la fonctionnalité répond 501 et l'écran le dit — plutôt que
-# d'accepter des fichiers pour les perdre au rechargement.
-[[r2_buckets]]
-binding = "DOCUMENTS"
-bucket_name = "rentfinder-documents"
+# Le déploiement échouerait d'ailleurs tant que le seau n'existe pas : un
+# binding pointe vers un seau qu'on doit avoir créé.
+#
+# POUR L'ACTIVER, deux gestes, dans cet ordre :
+#
+#   npx wrangler r2 bucket create rentfinder-documents   # demande une carte
+#   puis décommenter les trois lignes ci-dessous, et redéployer.
+#
+# Sans ce binding, l'API répond 501 sur /api/documents et l'écran du dossier ne
+# s'affiche pas — plutôt que d'accepter des fichiers pour les perdre. Tout le
+# reste du site fonctionne à l'identique.
+#
+# [[r2_buckets]]
+# binding = "DOCUMENTS"
+# bucket_name = "rentfinder-documents"
