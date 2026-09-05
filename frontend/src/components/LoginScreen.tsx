@@ -47,7 +47,7 @@ export function LoginScreen({
 
   return (
     <main className="mx-auto flex min-h-screen max-w-[420px] flex-col justify-center px-4">
-      <h1 className="mb-1 text-2xl font-bold tracking-tight">Recherche Nice</h1>
+      <h1 className="mb-1 text-2xl font-bold tracking-tight">Maïoun</h1>
       <p className="text-muted-foreground mb-5 text-sm">Connectez-vous pour voir vos annonces.</p>
 
       <Card>

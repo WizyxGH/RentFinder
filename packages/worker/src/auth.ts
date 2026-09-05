@@ -19,8 +19,28 @@
  * modifié ne vérifie plus, et il est refusé.
  */
 
-/** Recommandation OWASP 2023 pour PBKDF2-HMAC-SHA-256. */
-const ITERATIONS = 210_000;
+/**
+ * Le PLAFOND DE LA PLATEFORME, et non la recommandation.
+ *
+ * OWASP 2023 conseille 210 000 tours pour PBKDF2-HMAC-SHA-256, et c'est ce que
+ * ce fichier utilisait. Mais l'implémentation WebCrypto des Workers REFUSE
+ * au-delà de cent mille : « Pbkdf2 failed: iteration counts above 100000 are
+ * not supported ».
+ *
+ * La panne était particulièrement sournoise. `add-user` tourne sous Node, qui
+ * accepte 210 000 : le compte se créait sans un mot d'avertissement. C'est la
+ * VÉRIFICATION, côté Worker, qui échouait — une exception, donc une 500, donc
+ * « la connexion a échoué » sans jamais dire pourquoi. Le mot de passe était
+ * bon, l'identifiant aussi.
+ *
+ * Cent mille tours de PBKDF2-SHA-256 restent une défense sérieuse contre une
+ * attaque hors ligne. On ne peut simplement pas monter plus haut ici, et mieux
+ * vaut un chiffre tenu qu'un chiffre affiché.
+ */
+export const ITERATIONS = 100_000;
+
+/** Ce que l'implémentation des Workers accepte. Au-delà, elle lève. */
+export const MAX_WORKER_ITERATIONS = 100_000;
 const KEY_BITS = 256;
 
 /** Durée d'une session. Assez longue pour ne pas agacer, assez courte pour compter. */
@@ -87,6 +107,11 @@ export async function verifyPassword(password: string, stored: string): Promise<
   if (scheme !== 'pbkdf2' || salt === undefined || hash === undefined) return false;
   const rounds = Number(iterations);
   if (!Number.isFinite(rounds) || rounds <= 0) return false;
+  // Un hash produit avec plus de tours que la plateforme n'en accepte ne peut
+  // PAS être vérifié ici : `deriveBits` lève, et l'exception devient une 500
+  // muette au moment de la connexion. On refuse proprement — le mot de passe
+  // devra être redéposé, ce qui le réécrira au bon nombre de tours.
+  if (rounds > MAX_WORKER_ITERATIONS) return false;
 
   const key = await crypto.subtle.importKey('raw', encoder.encode(password), 'PBKDF2', false, [
     'deriveBits',

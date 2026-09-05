@@ -8,7 +8,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { clearedCookie, sessionCookie } from './auth.js';
+import { ITERATIONS, MAX_WORKER_ITERATIONS, clearedCookie, sessionCookie } from './auth.js';
 
 describe('sessionCookie', () => {
   const cookie = sessionCookie('jeton');
@@ -48,5 +48,19 @@ describe('clearedCookie', () => {
     for (const flag of ['HttpOnly', 'Secure', 'SameSite=None', 'Path=/']) {
       expect(cleared, `« ${flag} » manque au cookie de déconnexion`).toContain(flag);
     }
+  });
+});
+
+describe('itérations PBKDF2', () => {
+  it('ne dépasse jamais ce que les Workers acceptent', () => {
+    // OWASP conseille 210 000 ; l'implémentation WebCrypto des Workers refuse
+    // au-delà de cent mille et lève une exception. Le piège : `add-user`
+    // tourne sous Node, qui accepte — le compte se créait sans avertissement,
+    // et c'est la connexion qui échouait ensuite par une 500 muette.
+    expect(ITERATIONS).toBeLessThanOrEqual(MAX_WORKER_ITERATIONS);
+  });
+
+  it('reste assez élevé pour valoir quelque chose', () => {
+    expect(ITERATIONS).toBeGreaterThanOrEqual(100_000);
   });
 });
