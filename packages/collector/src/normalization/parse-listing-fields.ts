@@ -251,13 +251,31 @@ export function parseFurnished(text: string | null | undefined): boolean | null 
  * colocation » décrit une place dans un logement partagé → `true`.
  * `null` quand le texte ne dit rien (§17).
  */
-export function parseFlatShare(text: string | null | undefined): boolean | null {
+export function parseFlatShare(
+  text: string | null | undefined,
+  /**
+   * Le TITRE seul, quand l'appelant le connaît.
+   *
+   * Une annonce intitulée « Chambre meublée à Nice nord » loue une chambre, et
+   * on ne loue une chambre seule que dans un logement partagé. La règle
+   * générale exigeait une préposition — « chambre DANS un appartement » — et
+   * laissait donc passer les titres qui disent la chose sans la construire.
+   *
+   * C'est le titre et non la description : « trois chambres » apparaît dans la
+   * composition de n'importe quel T4. Relevé du 2026-09-05 : sur dix-huit
+   * annonces ainsi intitulées, quinze étaient DÉJÀ reconnues comme colocations
+   * par les autres règles — le critère les rejoint plus qu'il n'invente.
+   */
+  title?: string | null,
+): boolean | null {
   const lower = comparable(text);
-  if (lower === '') return null;
+  const heading = comparable(title);
+  if (lower === '' && heading === '') return null;
   if (/colocation (possible|acceptee|envisageable)|possibilite de colocation/.test(lower)) {
     return false;
   }
   if (/\bcolocation\b|\bcoloc\b/.test(lower)) return true;
+  if (/^chambre\b/.test(heading)) return true;
   return SHARED_DWELLING.test(lower) ? true : null;
 }
 
@@ -289,12 +307,17 @@ const SHARED_DWELLING =
  *   - « bail étudiant » — bail meublé de neuf mois, par définition scolaire ;
  *   - « bail mobilité » — un à dix mois, réservé par la loi aux étudiants,
  *     stagiaires et personnes en mission, et non renouvelable ;
- *   - résidence étudiante, CROUS, « réservé/exclusivement aux étudiants ».
+ *   - résidence étudiante, CROUS, « réservé/exclusivement aux étudiants » ;
+ *   - « colocation étudiante », « coloc étudiants » — la formule NOMME les
+ *     occupants, elle ne vante pas un quartier. Relevé du 2026-09-05 : vingt-
+ *     trois annonces de l'inventaire l'emploient, aucune à titre d'argument de
+ *     vente. Les trois qui ne viennent pas d'une plateforme étudiante sont des
+ *     colocations avérées, dont une louée « de septembre à juin ».
  *
  * Le texte est comparé en forme `comparable` : minuscules, sans accent.
  */
 const STUDENT_ONLY =
-  /residence etudiante|logement etudiant|reserv\w+ aux etudiant|exclusivement (aux |pour )?etudiant|uniquement (pour |aux )?etudiant|(location |bail )?etudiant\w{0,2} uniquement|\bcrous\b|bail etudiant|bail (de )?mobilite/;
+  /residence etudiante|logement etudiant|reserv\w+ aux etudiant|exclusivement (aux |pour )?etudiant|uniquement (pour |aux )?etudiant|(location |bail )?etudiant\w{0,2} uniquement|\bcrous\b|bail etudiant|bail (de )?mobilite|\bcoloc\w*\s+etudiant\w*/;
 
 /** `true` si l'annonce réserve le logement aux étudiants ou à un bail qui s'arrête. */
 export function isStudentOnlyHousing(text: string | null | undefined): boolean {

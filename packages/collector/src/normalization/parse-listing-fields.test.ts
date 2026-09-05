@@ -693,3 +693,40 @@ describe('parseChargesField', () => {
     expect(parseChargesField(undefined)).toBeNull();
   });
 });
+
+describe('colocation et location étudiante — relevés du 2026-09-05', () => {
+  it('reconnaît la colocation étudiante comme réservée aux étudiants', () => {
+    // Vingt-trois annonces de l'inventaire l'écrivaient sans être reconnues.
+    // La formule NOMME les occupants, elle ne vante pas un quartier.
+    expect(isStudentOnlyHousing('Colocation étudiante à Nice, avenue Mont Rabeau')).toBe(true);
+    expect(isStudentOnlyHousing('Coloc étudiant(e)s IUT STAPS')).toBe(true);
+    expect(isStudentOnlyHousing('3P meublé — idéal colocation étudiante')).toBe(true);
+  });
+
+  it('continue d’ignorer les arguments de vente', () => {
+    // Deux cents annonces portent ces formules, et la plupart sont de vrais
+    // logements à l'année : les compter viderait la liste (§17).
+    expect(isStudentOnlyHousing('Idéal étudiant, proche des facs')).toBe(false);
+    expect(isStudentOnlyHousing('Quartier étudiant animé')).toBe(false);
+    expect(isStudentOnlyHousing('À cinq minutes de la fac')).toBe(false);
+  });
+
+  it('lit « chambre » en tête de TITRE comme un logement partagé', () => {
+    // On ne loue une chambre seule que dans un logement partagé. La règle
+    // générale exigeait « chambre DANS un appartement » et laissait passer les
+    // titres qui disent la chose sans la construire.
+    expect(parseFlatShare('', 'Chambre meublée à Nice nord')).toBe(true);
+    expect(parseFlatShare('', 'Chambre avec balcon privatif')).toBe(true);
+  });
+
+  it('ne prend pas les chambres d’une composition pour une colocation', () => {
+    // « trois chambres » figure dans la description de n'importe quel T4 :
+    // c'est bien le TITRE, et son début, qui portent le sens.
+    expect(parseFlatShare('Appartement T4 avec trois chambres', 'T4 avec terrasse')).toBeNull();
+    expect(parseFlatShare('', 'Appartement 3 chambres Port-Garibaldi')).toBeNull();
+  });
+
+  it('laisse « colocation possible » désigner un logement entier', () => {
+    expect(parseFlatShare('Grand T4, colocation acceptée', 'T4 lumineux')).toBe(false);
+  });
+});

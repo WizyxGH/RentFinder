@@ -301,7 +301,7 @@ export function normalizeListing(
     bedrooms: parseBedrooms(text.bedrooms),
     propertyType: parsePropertyType(text.type),
     furnished: parseFurnished(text.furnished),
-    flatShare: parseFlatShare(`${text.type} ${raw.description ?? ''}`),
+    flatShare: parseFlatShare(`${text.type} ${raw.description ?? ''}`, raw.title),
     dpe: resolveDpe(raw),
     // Publié en toutes lettres dans la description des meublés courte durée.
     maxOccupants: parseMaxOccupants(text.prose),
