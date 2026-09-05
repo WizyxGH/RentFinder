@@ -170,6 +170,25 @@ où la source ne publie simplement rien.
 | **dinamy**        | 27      | 0 %         | La fiche ne publie ni charges, ni dépôt, ni honoraires. Rien à récupérer.                                                  |
 | **foncia**        | 16      | 0 %         | Application monopage : les données arrivent en JSON embarqué. À creuser.                                                   |
 
+### Le correctif ne rattrape pas le passé
+
+Mesure après la première collecte suivant le correctif Apimo : les fiches
+**découvertes depuis** portent toutes leurs charges — Palais Immobilier 8/8,
+AKOR 2/2, Ashley Parker 1/1 — tandis que les anciennes restent à zéro : Dazur
+0/24, CL Immo 0/16, Agence de la Victoire 0/10.
+
+Ce n'est pas une régression, c'est la conception : le scraper Apimo ne visite
+que les fiches NOUVELLES et confirme les connues par le sitemap, sans requête
+(§30, §32). Une fiche déjà en base garde donc l'extraction du jour où elle est
+entrée.
+
+`pnpm reprocess` ne peut rien y faire non plus : il rejoue l'extraction sur le
+texte STOCKÉ, et le bloc de critères n'a jamais été stocké — il n'était pas
+extrait. Seul un passage en mode backfill (§8, `BACKFILL_ENABLED=true`)
+re-visiterait ces fiches. Décision à prendre en connaissance du coût : environ
+130 requêtes vers des sites d'agences, pour un gain qui viendra de toute façon
+au fil du renouvellement des annonces.
+
 Enseignement à garder : un taux à zéro n'est pas forcément un bug. Trois des
 quatre sources examinées ne publient pas l'information, et seule la famille
 Apimo laissait vraiment passer ce qu'elle affichait.
