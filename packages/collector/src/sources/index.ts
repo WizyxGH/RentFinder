@@ -46,6 +46,11 @@ import { emailAlertsScraper } from './email-alerts/index.js';
 import { ladresseScraper } from './ladresse/index.js';
 import { albertiScraper } from './alberti/index.js';
 import { akorimmoScraper } from './akorimmo/index.js';
+import { immoJbfScraper } from './immo-jbf/index.js';
+import { immo3000Scraper } from './immo3000/index.js';
+import { acropolisImmoScraper } from './acropolis-immo/index.js';
+import { partnersImmoScraper } from './partners-immo/index.js';
+import { agenceLongchampScraper } from './agence-longchamp/index.js';
 import { climmoScraper } from './climmo/index.js';
 import { palaisImmobilierScraper } from './palais-immobilier/index.js';
 import { beaumontScraper } from './beaumont/index.js';
@@ -101,6 +106,11 @@ export const ALL_SCRAPERS: readonly Scraper[] = [
   ladresseScraper,
   albertiScraper,
   akorimmoScraper,
+  immoJbfScraper,
+  immo3000Scraper,
+  acropolisImmoScraper,
+  partnersImmoScraper,
+  agenceLongchampScraper,
   climmoScraper,
   palaisImmobilierScraper,
   beaumontScraper,

@@ -155,6 +155,31 @@ Note studapart : accès conforme trouvé le 2026-08-18. `robots.txt` du site pri
 `{"data":[{"index":["search_properties_prod","residence_properties_prod"]},{"size":0,"body":{"query":{"bool":{"filter":[{"term":{"online":true}},{"terms":{"tags":["search-<ville>"]}},{"term":{"announcementType":"rental"}}]}},"aggs":{"distinctProperties":{"terms":{"field":"distinctId","size":201},"aggs":{"hit":{"top_hits":{"size":1}}}}}}}]}`.
 Réponse : `responses[0].aggregations.distinctProperties.buckets[].hit.hits.hits[0]._source`. Le tag `search-<ville>` se dérive du slug (ex. `search-nice`). Attention : beaucoup de biens sont en **colocation** (`rentedByRoom: true`) → écartés par le filtre perso, c'est voulu.
 
+### Balayage systématique du 2026-09-05
+
+Méthode reproductible, à préférer aux recherches web qui ne rendent que des
+domaines devinés : l'**annuaire FNAIM des agences niçoises**
+(`/agences-immobilieres/43-nice-06000.htm`, non interdit par son robots.txt)
+donne les sites des agences adhérentes. Vingt-trois domaines externes en sont
+sortis, tous passés à `scripts/probe-agency.mjs`.
+
+| Source                                                                                                                       | Vérifié    | Verdict            | Locations ciblées                                                 |
+| ---------------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------ | ----------------------------------------------------------------- |
+| **Immo JBF** (immo-jbf.com)                                                                                                  | 2026-09-05 | ✅ **Implémentée** | **151** — la plus grosse source locale du projet.                 |
+| **Immo 3000** (immo3000.com)                                                                                                 | 2026-09-05 | ✅ **Implémentée** | 63, uniquement des appartements.                                  |
+| **Acropolis Immobilier** (acropolisimmo.com)                                                                                 | 2026-09-05 | ✅ **Implémentée** | 49.                                                               |
+| **Partners Immo** (partners-immo.fr)                                                                                         | 2026-09-05 | ✅ **Implémentée** | 33.                                                               |
+| **Agence Longchamp** (agencelongchamp.com)                                                                                   | 2026-09-05 | ✅ **Implémentée** | 10, le reste en commerces.                                        |
+| **Cimiez Boulevard** (cimiez-boulevard.fr)                                                                                   | 2026-09-05 | ⏸️ En attente      | 12, mais plateforme inconnue : demanderait un scraper sur mesure. |
+| **AGIR** (agir.immo)                                                                                                         | 2026-09-05 | ⏸️ Écartée         | 2, plateforme La Boîte Immo — première rencontrée.                |
+| 107promenade, agencecalifornie, agerim, aifelimmo, barbera-gestion, cabinet-bgi, cabinetamandola, immobilier-nice, savi-nice | 2026-09-05 | ⏸️ Écartées        | 0 location ciblée, ou site injoignable.                           |
+
+**APIMO DOMINE NICE**, et c'est le fait qui compte pour la suite : cinq des six
+candidats retenus sont sur cette plateforme. Ajouter une agence Apimo coûte
+dix-huit lignes ; écrire un scraper pour une plateforme rencontrée une seule
+fois en coûte deux cents. Tant que la fabrique Apimo couvre la majorité, c'est
+là qu'est le rendement.
+
 ## Ce que chaque source donne vraiment (audit du 2026-09-04)
 
 Mesure sur les 989 occurrences actives : **134 portaient des charges, soit
