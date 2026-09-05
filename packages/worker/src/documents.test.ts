@@ -15,6 +15,7 @@ import {
   sanitizeDocumentName,
   saveDocument,
   type DocumentStore,
+  type StoredMeta,
 } from './documents.js';
 
 describe('sanitizeDocumentName', () => {
@@ -73,33 +74,25 @@ describe('sanitizeDocumentName', () => {
  * qui sépare les comptes.
  */
 function fakeStore(): DocumentStore & { readonly keys: () => string[] } {
-  const objects = new Map<string, { bytes: ArrayBuffer; contentType?: string; uploaded: Date }>();
+  const entries = new Map<string, { bytes: ArrayBuffer; meta: StoredMeta }>();
   return {
-    keys: () => [...objects.keys()],
-    list: ({ prefix }) =>
-      Promise.resolve({
-        objects: [...objects.entries()]
+    keys: () => [...entries.keys()],
+    list: (prefix) =>
+      Promise.resolve(
+        [...entries.entries()]
           .filter(([key]) => key.startsWith(prefix))
-          .map(([key, value]) => ({ key, size: value.bytes.byteLength, uploaded: value.uploaded })),
-      }),
-    put: (key, value, options) => {
-      objects.set(key, {
-        bytes: value,
-        contentType: options?.httpMetadata?.contentType,
-        uploaded: new Date('2026-09-04T10:00:00Z'),
-      });
-      return Promise.resolve(null);
+          .map(([key, value]) => ({ key, meta: value.meta })),
+      ),
+    put: (key, bytes, meta) => {
+      entries.set(key, { bytes, meta });
+      return Promise.resolve();
     },
     get: (key) => {
-      const found = objects.get(key);
-      if (found === undefined) return Promise.resolve(null);
-      return Promise.resolve({
-        body: new Blob([found.bytes]).stream(),
-        httpMetadata: { contentType: found.contentType },
-      });
+      const found = entries.get(key);
+      return Promise.resolve(found === undefined ? null : { body: found.bytes, meta: found.meta });
     },
     delete: (key) => {
-      objects.delete(key);
+      entries.delete(key);
       return Promise.resolve();
     },
   };

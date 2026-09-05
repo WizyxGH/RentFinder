@@ -3,9 +3,17 @@
  *
  * ELLES ÉTAIENT SUR UN DISQUE, ce qui condamnait la fonctionnalité le jour où
  * le serveur local a été retiré : une page hébergée ne peut pas lire votre
- * ordinateur. Elles vivent maintenant à côté de l'API, dans un espace de
- * fichiers Cloudflare — ce qui les rend surtout ATTEIGNABLES DEPUIS LE
- * TÉLÉPHONE, et donc joignables à une candidature envoyée d'où que ce soit.
+ * ordinateur. Elles vivent maintenant à côté de l'API — ce qui les rend surtout
+ * ATTEIGNABLES DEPUIS LE TÉLÉPHONE, et donc joignables à une candidature
+ * envoyée d'où que ce soit.
+ *
+ * DANS KV, ET NON DANS R2, POUR UNE RAISON DE FACTURATION. R2 est le stockage
+ * de fichiers naturel de Cloudflare, mais il exige d'enregistrer une carte
+ * bancaire avant de créer le moindre seau — y compris pour son palier gratuit.
+ * KV est inclus dans le plan gratuit des Workers, sans carte : 1 Go, cent mille
+ * lectures et mille écritures par jour, vingt-cinq méga-octets par valeur. Un
+ * dossier de candidature en compte une dizaine de dix méga-octets au plus : on
+ * est à deux ordres de grandeur des limites.
  *
  * CHACUN LES SIENNES. La clé est préfixée par l'identifiant du compte :
  * `<utilisateur>/<nom de fichier>`. Un dossier de candidature contient une
@@ -15,28 +23,29 @@
  * supprime ; c'est vous qui décidez de joindre.
  */
 
+/** Ce qu'on sait d'une pièce sans la lire : de quoi dresser la liste. */
+export interface StoredMeta {
+  readonly contentType: string;
+  readonly size: number;
+  readonly uploadedAt: string;
+}
+
 /**
- * Ce que ce module utilise VRAIMENT d'un seau R2 : quatre opérations.
+ * Les quatre opérations dont ce module a besoin, et rien de plus.
  *
- * Le décrire ici plutôt que de dépendre du type ambiant de Cloudflare a deux
- * effets. Le module se teste avec un faux seau — sans quoi rien de ce fichier
- * ne serait couvert. Et il reste vérifié : `index.ts` lui passe le vrai
- * binding, et c'est là que TypeScript contrôle que la forme correspond
- * toujours.
+ * NEUTRE VIS-À-VIS DU STOCKAGE, volontairement. La première version épousait
+ * la forme de R2 ; passer à KV aurait alors demandé de réécrire chaque
+ * fonction. Décrite ainsi, la bascule n'a touché qu'un adaptateur de trente
+ * lignes — et le jour où le stockage changera encore, ce sera pareil.
+ *
+ * Le module se teste avec un faux magasin, sans quoi rien de ce fichier ne
+ * serait couvert. L'adaptateur réel, lui, est vérifié par TypeScript à
+ * l'endroit où `index.ts` le construit.
  */
 export interface DocumentStore {
-  list(options: { prefix: string }): Promise<{
-    objects: readonly { key: string; size: number; uploaded: Date }[];
-  }>;
-  put(
-    key: string,
-    value: ArrayBuffer,
-    options?: { httpMetadata?: { contentType?: string } },
-  ): Promise<unknown>;
-  get(key: string): Promise<{
-    body: ReadableStream;
-    httpMetadata?: { contentType?: string };
-  } | null>;
+  list(prefix: string): Promise<readonly { key: string; meta: StoredMeta }[]>;
+  put(key: string, bytes: ArrayBuffer, meta: StoredMeta): Promise<void>;
+  get(key: string): Promise<{ body: ArrayBuffer; meta: StoredMeta | null } | null>;
   delete(key: string): Promise<void>;
 }
 
@@ -103,20 +112,20 @@ export interface DocumentInfo {
 }
 
 export async function listDocuments(
-  bucket: DocumentStore,
+  store: DocumentStore,
   userId: string,
 ): Promise<readonly DocumentInfo[]> {
   const prefix = `${userId}/`;
-  const listed = await bucket.list({ prefix });
-  return listed.objects.map((object) => ({
-    name: object.key.slice(prefix.length),
-    size: object.size,
-    uploadedAt: object.uploaded.toISOString(),
+  const entries = await store.list(prefix);
+  return entries.map((entry) => ({
+    name: entry.key.slice(prefix.length),
+    size: entry.meta.size,
+    uploadedAt: entry.meta.uploadedAt,
   }));
 }
 
 export async function saveDocument(
-  bucket: DocumentStore,
+  store: DocumentStore,
   userId: string,
   rawName: string,
   bytes: ArrayBuffer,
@@ -128,28 +137,28 @@ export async function saveDocument(
   if (bytes.byteLength === 0) return { ok: false, error: 'Fichier vide.' };
   if (bytes.byteLength > MAX_BYTES) return { ok: false, error: 'Fichier trop lourd (10 Mo max).' };
 
-  await bucket.put(keyOf(userId, name), bytes, {
-    httpMetadata: { contentType: contentTypeOf(name) },
-  });
-  return {
-    ok: true,
-    document: { name, size: bytes.byteLength, uploadedAt: new Date().toISOString() },
+  const meta: StoredMeta = {
+    contentType: contentTypeOf(name),
+    size: bytes.byteLength,
+    uploadedAt: new Date().toISOString(),
   };
+  await store.put(keyOf(userId, name), bytes, meta);
+  return { ok: true, document: { name, size: meta.size, uploadedAt: meta.uploadedAt } };
 }
 
 export async function readDocument(
-  bucket: DocumentStore,
+  store: DocumentStore,
   userId: string,
   rawName: string,
 ): Promise<Response | null> {
   const name = sanitizeDocumentName(rawName);
   if (name === null) return null;
-  const object = await bucket.get(keyOf(userId, name));
-  if (object === null) return null;
+  const found = await store.get(keyOf(userId, name));
+  if (found === null) return null;
 
-  return new Response(object.body, {
+  return new Response(found.body, {
     headers: {
-      'Content-Type': object.httpMetadata?.contentType ?? contentTypeOf(name),
+      'Content-Type': found.meta?.contentType ?? contentTypeOf(name),
       // `inline` : une fiche de paie se relit d'un coup d'œil avant de la
       // joindre ; forcer le téléchargement obligerait à ouvrir un fichier pour
       // vérifier qu'on a pris le bon.
@@ -161,12 +170,12 @@ export async function readDocument(
 }
 
 export async function deleteDocument(
-  bucket: DocumentStore,
+  store: DocumentStore,
   userId: string,
   rawName: string,
 ): Promise<boolean> {
   const name = sanitizeDocumentName(rawName);
   if (name === null) return false;
-  await bucket.delete(keyOf(userId, name));
+  await store.delete(keyOf(userId, name));
   return true;
 }

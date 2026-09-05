@@ -231,38 +231,40 @@ Enfin, deux réglages se répondent :
   lors qu'on envoie un cookie — et il le serait à raison.
 - `VITE_API_URL` du build du site = l'URL du Worker.
 
-### Les pièces du dossier de candidature (§25) — option payante à activer
+### Les pièces du dossier de candidature (§25) — option gratuite à activer
 
-**Le Worker se déploie sans carte bancaire ; R2 en exige une.** Cloudflare
-demande d'enregistrer un moyen de paiement avant de créer le moindre seau, y
-compris pour son palier gratuit de 10 Go. Le binding est donc **commenté par
-défaut** dans `wrangler.toml` : le projet se déploie entièrement sans jamais
-donner de coordonnées bancaires, et tout fonctionne — sauf cet écran.
+Elles vivent dans le **stockage clé-valeur des Workers**, compris dans le plan
+gratuit : 1 Go, cent mille lectures et mille écritures par jour, vingt-cinq
+méga-octets par valeur. Un dossier en compte une dizaine, de dix méga-octets au
+plus — deux ordres de grandeur sous les limites.
 
-Pour l'activer, dans cet ordre :
+**R2 aurait été le choix naturel pour des fichiers, et il a été écarté :** il
+exige d'enregistrer une carte bancaire avant de créer le moindre seau, y compris
+pour son palier gratuit. KV n'en demande aucune.
+
+Le binding reste commenté dans `wrangler.toml`, parce qu'il a besoin de
+l'identifiant d'un espace qui doit déjà exister. Deux gestes :
 
 ```bash
-npx wrangler r2 bucket create rentfinder-documents   # demande une carte
-# puis décommenter le bloc [[r2_buckets]] de wrangler.toml
+npx wrangler kv namespace create DOCUMENTS
+# recopier l'`id` affiché dans wrangler.toml, décommenter le bloc
 npx wrangler deploy
 ```
 
-L'ordre compte : un binding pointe vers un seau qui doit déjà exister, sinon le
-déploiement échoue.
+Les pièces sont **rangées par compte** (`<utilisateur>/<fichier>`) : un dossier
+contient une fiche de paie et une pièce d'identité, il n'y a pas de pièces
+communes. PDF et images, 10 Mo par pièce.
 
-Sans lui, l'API répond `501` sur `/api/documents` et l'écran du dossier ne
-s'affiche pas — plutôt que d'accepter des fichiers pour les perdre.
-
-Une fois actives, les pièces vivent dans le seau, **rangées par compte**
-(`<utilisateur>/<fichier>`) : un dossier contient une fiche de paie et une pièce
-d'identité, il n'y a pas de pièces communes. PDF et images, 10 Mo par pièce.
-
-Elles étaient auparavant sur le disque de la machine qui servait le site — ce
-qui les rendait inatteignables depuis le téléphone, alors qu'une candidature
-s'envoie d'où l'on est.
+Sans ce binding, l'API répond `501` sur `/api/documents` et l'écran ne s'affiche
+pas — plutôt que d'accepter des fichiers pour les perdre. Tout le reste du site
+est identique.
 
 **Rien n'est jamais envoyé automatiquement** (§24) : le site dépose, liste,
 consulte et supprime ; c'est vous qui joignez.
+
+UNE CONTREPARTIE À CONNAÎTRE : KV est _éventuellement cohérent_. Une pièce tout
+juste déposée peut ne pas figurer dans la liste pendant quelques secondes —
+l'écran l'ajoute donc à sa liste sans attendre de relire.
 
 ### Il n'y a plus d'accès direct à Turso
 

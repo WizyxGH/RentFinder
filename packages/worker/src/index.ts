@@ -23,6 +23,7 @@ import { createClient, type Client } from '@libsql/client/web';
 import { route } from '@rentfinder/collector/server/routes';
 import { clearedCookie, issueSession, readCookie, readSession, sessionCookie } from './auth.js';
 import { deleteDocument, listDocuments, readDocument, saveDocument } from './documents.js';
+import { kvDocumentStore, type KeyValueNamespace } from './kv-store.js';
 import { forbiddenOrigin } from './origin.js';
 
 export interface Env {
@@ -34,11 +35,14 @@ export interface Env {
   /** Origine autorisée à appeler l'API (le site). */
   readonly ALLOWED_ORIGIN?: string;
   /**
-   * Espace de fichiers des pièces du dossier (§25). Absent = la
-   * fonctionnalité répond 501 et le dit, plutôt que d'accepter des fichiers
-   * pour les perdre.
+   * Espace des pièces du dossier (§25), dans le stockage clé-valeur des
+   * Workers. Absent = la fonctionnalité répond 501 et le dit, plutôt que
+   * d'accepter des fichiers pour les perdre.
+   *
+   * KV et non R2 : R2 réclame une carte bancaire avant de créer le moindre
+   * seau, KV est compris dans le plan gratuit (voir `kv-store.ts`).
    */
-  readonly DOCUMENTS?: R2Bucket;
+  readonly DOCUMENTS?: KVNamespace;
 }
 
 function corsHeaders(env: Env, request: Request): Record<string, string> {
@@ -135,16 +139,20 @@ async function documents(
   userId: string,
   name: string | undefined,
 ): Promise<Response> {
-  const bucket = env.DOCUMENTS;
-  if (bucket === undefined) {
+  const namespace = env.DOCUMENTS;
+  if (namespace === undefined) {
     return json({ error: 'Aucun espace de fichiers configuré.' }, cors, 501);
   }
+  // L'adaptateur est construit ICI, et c'est le seul endroit où le type réel
+  // de Cloudflare rencontre notre interface : TypeScript y vérifie que les
+  // deux coïncident encore.
+  const store = kvDocumentStore(namespace as unknown as KeyValueNamespace);
 
   if (request.method === 'GET' && name === undefined) {
-    return json({ documents: await listDocuments(bucket, userId) }, cors);
+    return json({ documents: await listDocuments(store, userId) }, cors);
   }
   if (request.method === 'GET' && name !== undefined) {
-    const found = await readDocument(bucket, userId, decodeURIComponent(name));
+    const found = await readDocument(store, userId, decodeURIComponent(name));
     if (found === null) return json({ error: 'Pièce introuvable' }, cors, 404);
     for (const [key, value] of Object.entries(cors)) found.headers.set(key, value);
     return found;
@@ -153,11 +161,11 @@ async function documents(
     const form = await request.formData().catch(() => null);
     const file = form?.get('file');
     if (!(file instanceof File)) return json({ error: 'Aucun fichier reçu' }, cors, 400);
-    const result = await saveDocument(bucket, userId, file.name, await file.arrayBuffer());
+    const result = await saveDocument(store, userId, file.name, await file.arrayBuffer());
     return result.ok ? json(result.document, cors, 201) : json({ error: result.error }, cors, 400);
   }
   if (request.method === 'DELETE' && name !== undefined) {
-    const done = await deleteDocument(bucket, userId, decodeURIComponent(name));
+    const done = await deleteDocument(store, userId, decodeURIComponent(name));
     return done
       ? new Response(null, { status: 204, headers: cors })
       : json({ error: 'Nom refusé' }, cors, 400);

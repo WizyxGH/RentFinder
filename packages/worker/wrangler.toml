@@ -15,27 +15,27 @@ compatibility_date = "2026-01-01"
 # navigateurs dès lors qu'on envoie un cookie — et il le serait à raison.
 ALLOWED_ORIGIN = "https://wizyxgh.github.io"
 
-# --- Pièces du dossier de candidature (§25) — DÉSACTIVÉ PAR DÉFAUT ----------
+# --- Pièces du dossier de candidature (§25) — à activer si vous les voulez ---
 #
-# CE BLOC EST COMMENTÉ POUR UNE RAISON DE FACTURATION, PAS DE TECHNIQUE.
-# Le Worker se déploie sur le palier gratuit sans aucune carte bancaire. R2,
-# lui, exige d'enregistrer un moyen de paiement AVANT de pouvoir créer le
-# moindre seau — y compris pour son propre palier gratuit (10 Go). Laisser ce
-# binding actif imposait donc une carte à quiconque déploie le projet, pour une
-# fonctionnalité annexe.
+# GRATUIT, SANS CARTE BANCAIRE. Le stockage clé-valeur des Workers est compris
+# dans le plan gratuit : 1 Go, cent mille lectures et mille écritures par jour,
+# vingt-cinq méga-octets par valeur. Un dossier en compte une dizaine de dix
+# méga-octets au plus.
 #
-# Le déploiement échouerait d'ailleurs tant que le seau n'existe pas : un
-# binding pointe vers un seau qu'on doit avoir créé.
+# R2 aurait été le choix naturel pour des fichiers, mais il exige d'enregistrer
+# une carte AVANT de créer le moindre seau, y compris pour son palier gratuit.
 #
-# POUR L'ACTIVER, deux gestes, dans cet ordre :
+# Le bloc reste commenté parce qu'un binding KV a besoin de l'IDENTIFIANT d'un
+# espace qui doit déjà exister — sans quoi le déploiement échoue. Deux gestes,
+# dans cet ordre :
 #
-#   npx wrangler r2 bucket create rentfinder-documents   # demande une carte
-#   puis décommenter les trois lignes ci-dessous, et redéployer.
+#   npx wrangler kv namespace create DOCUMENTS
+#   puis recopier l'`id` affiché ci-dessous, décommenter, et redéployer.
 #
 # Sans ce binding, l'API répond 501 sur /api/documents et l'écran du dossier ne
 # s'affiche pas — plutôt que d'accepter des fichiers pour les perdre. Tout le
 # reste du site fonctionne à l'identique.
 #
-# [[r2_buckets]]
+# [[kv_namespaces]]
 # binding = "DOCUMENTS"
-# bucket_name = "rentfinder-documents"
+# id = "à remplacer par l'identifiant affiché"
