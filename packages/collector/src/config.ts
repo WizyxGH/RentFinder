@@ -15,7 +15,7 @@
  */
 
 import { fileURLToPath } from 'node:url';
-import type { SearchCriteria, TenantProfile } from '@rentfinder/shared';
+import type { GuarantorKind, SearchCriteria, TenantProfile } from '@rentfinder/shared';
 import { MVP_CRITERIA } from '@rentfinder/shared';
 import type { TravelMode } from './core/geo.js';
 
@@ -250,6 +250,22 @@ export function loadReferenceAddresses(
  * @returns `null` si le profil n'est pas configuré — la génération de message
  *          est alors désactivée plutôt que de produire un texte à trous.
  */
+/**
+ * La garantie de loyer déclarée, `none` si rien de reconnaissable.
+ *
+ * `TENANT_HAS_GUARANTOR=true` reste compris : c'est ce que les `.env` existants
+ * contiennent, et une variable d'environnement ne se met pas à jour toute
+ * seule. Elle vaut « personne physique », le seul sens qu'elle ait jamais eu.
+ * Une valeur inconnue vaut `none` plutôt que d'inventer une garantie (§17).
+ */
+function readGuarantor(env: NodeJS.ProcessEnv): GuarantorKind {
+  const declared = env['TENANT_GUARANTOR']?.trim().toLowerCase() ?? '';
+  const known: readonly GuarantorKind[] = ['none', 'physical', 'visale', 'garantme', 'other'];
+  const match = known.find((kind) => kind === declared);
+  if (match !== undefined) return match;
+  return env['TENANT_HAS_GUARANTOR'] === 'true' ? 'physical' : 'none';
+}
+
 export function loadTenantProfile(env: NodeJS.ProcessEnv = process.env): TenantProfile | null {
   const firstName = env['TENANT_FIRST_NAME'];
   const lastName = env['TENANT_LAST_NAME'];
@@ -260,6 +276,7 @@ export function loadTenantProfile(env: NodeJS.ProcessEnv = process.env): TenantP
   // verbatim s'il est renseigné (§24). Multi-ligne accepté (guillemets dans .env).
   const applicationMessage = env['TENANT_APPLICATION_MESSAGE']?.trim();
   const applicationSubject = env['TENANT_APPLICATION_SUBJECT']?.trim();
+  const guarantorName = env['TENANT_GUARANTOR_NAME']?.trim();
 
   return {
     firstName,
@@ -268,7 +285,7 @@ export function loadTenantProfile(env: NodeJS.ProcessEnv = process.env): TenantP
     phone: env['TENANT_PHONE'] ?? '',
     situation: env['TENANT_SITUATION'] ?? '',
     monthlyIncome: Number.isFinite(income) ? income : null,
-    hasGuarantor: env['TENANT_HAS_GUARANTOR'] === 'true',
+    guarantor: readGuarantor(env),
     moveInDate: env['TENANT_MOVE_IN_DATE'] ?? null,
     ...(applicationMessage !== undefined && applicationMessage !== ''
       ? { applicationMessage }
@@ -276,6 +293,7 @@ export function loadTenantProfile(env: NodeJS.ProcessEnv = process.env): TenantP
     ...(applicationSubject !== undefined && applicationSubject !== ''
       ? { applicationSubject }
       : {}),
+    ...(guarantorName !== undefined && guarantorName !== '' ? { guarantorName } : {}),
   };
 }
 

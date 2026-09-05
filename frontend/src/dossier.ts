@@ -10,6 +10,8 @@
  * intitulés — il ne lit, n'envoie et ne stocke rien.
  */
 
+import type { GuarantorKind } from '@rentfinder/shared';
+
 export interface DossierSlot {
   /** Identifiant court, préfixé au nom du fichier pour le ranger. */
   readonly id: string;
@@ -46,8 +48,16 @@ const CORE: readonly (readonly [string, string, string])[] = [
   ],
 ];
 
-export const DOSSIER_SLOTS: readonly DossierSlot[] = [
-  ...CORE.map(([id, label, hint]) => ({ id, label, hint, forGuarantor: false })),
+/** Les pièces du candidat lui-même : toujours les mêmes, quelle que soit la garantie. */
+const TENANT_SLOTS: readonly DossierSlot[] = CORE.map(([id, label, hint]) => ({
+  id,
+  label,
+  hint,
+  forGuarantor: false,
+}));
+
+/** Les pièces d'une caution PERSONNE PHYSIQUE : son dossier entier, plus l'acte. */
+const PHYSICAL_GUARANTOR_SLOTS: readonly DossierSlot[] = [
   ...CORE.map(([id, label, hint]) => ({
     id: `garant-${id}`,
     label,
@@ -61,6 +71,56 @@ export const DOSSIER_SLOTS: readonly DossierSlot[] = [
     forGuarantor: true,
   },
 ];
+
+const VISALE_SLOT: DossierSlot = {
+  id: 'garant-visale',
+  label: 'Visa Visale',
+  hint: 'Attestation de visa délivrée sur visale.fr, à obtenir AVANT de candidater. Elle tient lieu de garant à elle seule : le bailleur n’a pas à réclamer les pièces d’une caution.',
+  forGuarantor: true,
+};
+
+const CERTIFICATE_SLOT: DossierSlot = {
+  id: 'garant-certificat',
+  label: 'Certificat de garantie',
+  hint: 'Le certificat délivré par l’organisme, portant votre nom et le montant couvert. Il tient lieu de garant.',
+  forGuarantor: true,
+};
+
+/**
+ * TOUS les emplacements existants, garanties confondues.
+ *
+ * Sert au RANGEMENT, pas à l'affichage : une pièce déposée du temps où l'on
+ * déclarait un garant physique doit rester reconnue après un passage à Visale,
+ * sinon elle bascule dans « Non classées » sans que rien ne l'explique.
+ */
+export const DOSSIER_SLOTS: readonly DossierSlot[] = [
+  ...TENANT_SLOTS,
+  ...PHYSICAL_GUARANTOR_SLOTS,
+  VISALE_SLOT,
+  CERTIFICATE_SLOT,
+];
+
+/**
+ * Les emplacements À REMPLIR, selon la garantie déclarée.
+ *
+ * Neuf emplacements étaient affichés à tout le monde, dont cinq pour un garant
+ * que la plupart n'ont pas : le dossier semblait perpétuellement incomplet, et
+ * le compteur « 0/5 » ne pouvait jamais atteindre son total. Une garantie
+ * Visale n'appelle qu'une seule pièce ; l'absence de garantie, aucune.
+ */
+export function dossierSlots(guarantor: GuarantorKind): readonly DossierSlot[] {
+  switch (guarantor) {
+    case 'physical':
+      return [...TENANT_SLOTS, ...PHYSICAL_GUARANTOR_SLOTS];
+    case 'visale':
+      return [...TENANT_SLOTS, VISALE_SLOT];
+    case 'garantme':
+    case 'other':
+      return [...TENANT_SLOTS, CERTIFICATE_SLOT];
+    case 'none':
+      return TENANT_SLOTS;
+  }
+}
 
 /**
  * Pièces COURAMMENT demandées et pourtant interdites par le décret.

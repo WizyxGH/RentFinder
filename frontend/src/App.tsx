@@ -1301,7 +1301,7 @@ export function App(): React.JSX.Element {
           <Button variant="ghost" className="mb-2" onClick={() => setView('profile')}>
             <ArrowLeft aria-hidden="true" className="size-4" /> Retour
           </Button>
-          <DocumentsSection />
+          <DocumentsSection profile={profile} />
         </Shell>
       );
     }

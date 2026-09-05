@@ -24,6 +24,22 @@ import type { PropertyType } from './listing.js';
  * elles vivent dans l'environnement du collecteur ou dans le `localStorage` du
  * navigateur, selon le mode d'usage (§26).
  */
+/**
+ * La forme que prend la garantie de paiement, quand il y en a une.
+ *
+ * UN BOOLÉEN NE SUFFISAIT PAS. « J'ai un garant » recouvrait trois situations
+ * que les bailleurs ne traitent pas du tout pareil : une personne physique qui
+ * se porte caution, la garantie Visale — gratuite, adossée à Action Logement,
+ * et à ce titre l'argument le plus fort qu'un candidat sans garant puisse
+ * avancer —, et les cautions payantes du type Garantme. Les annoncer par le
+ * même mot revenait à taire ce qui distingue une candidature.
+ *
+ * La distinction ne change pas que la phrase du message : elle change les
+ * PIÈCES à fournir. Une caution physique remet son propre dossier complet ;
+ * une garantie institutionnelle le remplace par une attestation unique.
+ */
+export type GuarantorKind = 'none' | 'physical' | 'visale' | 'garantme' | 'other';
+
 export interface TenantProfile {
   readonly firstName: string;
   readonly lastName: string;
@@ -32,7 +48,13 @@ export interface TenantProfile {
   /** Situation professionnelle, ex. « CDI », « fonctionnaire », « étudiant ». */
   readonly situation: string;
   readonly monthlyIncome: number | null;
-  readonly hasGuarantor: boolean;
+  readonly guarantor: GuarantorKind;
+  /**
+   * Le nom du dispositif quand `guarantor` vaut `other` — « Loca-Pass »,
+   * « Cautioneo »… Ailleurs, il est ignoré : on ne nomme pas une garantie que
+   * l'utilisateur n'a pas déclarée (§17).
+   */
+  readonly guarantorName?: string;
   /** Date d'entrée souhaitée, au format `AAAA-MM-JJ`. */
   readonly moveInDate: string | null;
   /**
@@ -101,8 +123,36 @@ function describeSolvency(profile: TenantProfile): string {
   if (profile.monthlyIncome !== null) {
     parts.push(`avec des revenus mensuels de ${Math.round(profile.monthlyIncome)} €`);
   }
-  if (profile.hasGuarantor) parts.push('et un garant');
+  const guarantee = describeGuarantee(profile);
+  if (guarantee !== '') parts.push(guarantee);
   return parts.length === 0 ? '' : `Je suis ${parts.join(' ')}.`;
+}
+
+/**
+ * La garantie, dite dans les termes qu'un bailleur reconnaît.
+ *
+ * Visale est NOMMÉE : c'est un dispositif identifié, et le bailleur qui le
+ * connaît sait qu'il couvre les loyers impayés sans lui coûter un centime. Le
+ * taire pour dire « un garant » perdrait tout ce qui fait la force du dossier.
+ *
+ * Un dispositif « autre » n'est nommé que s'il a été nommé (§17) : sinon on
+ * s'en tient à « une garantie de loyer », qui reste vrai.
+ */
+function describeGuarantee(profile: TenantProfile): string {
+  switch (profile.guarantor) {
+    case 'physical':
+      return 'et un garant';
+    case 'visale':
+      return 'et couvert par la garantie Visale';
+    case 'garantme':
+      return 'et couvert par la garantie Garantme';
+    case 'other': {
+      const name = profile.guarantorName?.trim() ?? '';
+      return name === '' ? 'et couvert par une garantie de loyer' : `et couvert par ${name}`;
+    }
+    case 'none':
+      return '';
+  }
 }
 
 /** Formate une date ISO en date française lisible. */

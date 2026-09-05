@@ -34,6 +34,18 @@ export interface ChangelogEntry {
  */
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    id: '2026-09-05-garantie',
+    date: '2026-09-05',
+    title: 'Visale, Garantme : dites laquelle est la vôtre',
+    body: 'La case « j’ai un garant » devient un choix : une personne, la garantie Visale, une caution privée ou aucune. Vos messages le disent dans les termes qu’un bailleur reconnaît, et le dossier ne réclame plus que les pièces qui vous concernent — une attestation Visale au lieu du dossier complet d’un garant.',
+  },
+  {
+    id: '2026-09-05-alertes',
+    date: '2026-09-05',
+    title: 'L’historique des alertes ne s’efface plus',
+    body: 'Les annonces dont vous avez été prévenu restent dans l’historique, même si elles sortent ensuite de vos critères. Et toucher une notification rouvre bien l’annonce.',
+  },
+  {
     id: '2026-09-04-adresses',
     date: '2026-09-04',
     title: 'Vos adresses de référence se règlent depuis le site',

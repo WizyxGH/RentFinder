@@ -33,13 +33,14 @@ import { Button } from '@/components/ui/button.js';
 import { ChevronDown, FileCheck2, FileWarning, Trash2, Upload } from './icons.js';
 import { SettingsGroup, SettingsRow } from './SettingsRow.js';
 import {
-  DOSSIER_SLOTS,
   FORBIDDEN_PIECES,
   displayName,
+  dossierSlots,
   slotOf,
   slotPrefix,
   type DossierSlot,
 } from '../dossier.js';
+import type { TenantProfile } from '@rentfinder/shared';
 
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} o`;
@@ -163,7 +164,18 @@ function Slot({
   );
 }
 
-export function DocumentsSection(): React.JSX.Element | null {
+/**
+ * @param profile Le profil locataire, pour la GARANTIE qu'il déclare : elle
+ *   décide des pièces demandées. Un visa Visale remplace à lui seul tout le
+ *   dossier d'une caution, et afficher les cinq emplacements d'un garant qu'on
+ *   n'a pas laissait croire à un dossier incomplétable. Profil absent : on ne
+ *   suppose aucune garantie (§17).
+ */
+export function DocumentsSection({
+  profile,
+}: {
+  readonly profile: TenantProfile | null;
+}): React.JSX.Element | null {
   const [documents, setDocuments] = useState<readonly DocumentInfo[]>([]);
   const [openSlot, setOpenSlot] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -212,8 +224,9 @@ export function DocumentsSection(): React.JSX.Element | null {
   // disparaissent pas de l'écran pour autant.
   const unsorted = documents.filter((doc) => slotOf(doc.name) === null);
 
-  const tenant = DOSSIER_SLOTS.filter((slot) => !slot.forGuarantor);
-  const guarantor = DOSSIER_SLOTS.filter((slot) => slot.forGuarantor);
+  const slots = dossierSlots(profile?.guarantor ?? 'none');
+  const tenant = slots.filter((slot) => !slot.forGuarantor);
+  const guarantee = slots.filter((slot) => slot.forGuarantor);
   const done = (slots: readonly DossierSlot[]): number =>
     slots.filter((slot) => inSlot(slot.id).length > 0).length;
 
@@ -255,9 +268,11 @@ export function DocumentsSection(): React.JSX.Element | null {
         {group(tenant)}
       </SettingsGroup>
 
-      <SettingsGroup title="Garant" count={`${done(guarantor)}/${guarantor.length}`}>
-        {group(guarantor)}
-      </SettingsGroup>
+      {guarantee.length > 0 && (
+        <SettingsGroup title="Garantie" count={`${done(guarantee)}/${guarantee.length}`}>
+          {group(guarantee)}
+        </SettingsGroup>
+      )}
 
       {unsorted.length > 0 && (
         <SettingsGroup title="Non classées">

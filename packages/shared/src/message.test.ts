@@ -15,7 +15,7 @@ const PROFILE: TenantProfile = {
   phone: '06 00 00 00 00',
   situation: 'CDI',
   monthlyIncome: 2400,
-  hasGuarantor: true,
+  guarantor: 'physical',
   moveInDate: null,
 };
 
@@ -90,5 +90,35 @@ describe('prepareMessage — message unique', () => {
       FOLLOW_UP_TEMPLATE,
     );
     expect(prepared.templateId).toBe(FOLLOW_UP_TEMPLATE.id);
+  });
+});
+
+describe('garantie de loyer', () => {
+  /**
+   * Visale est le seul argument dont dispose un candidat sans proche capable de
+   * se porter caution ; le dire « un garant » l'effacerait alors qu'il porte le
+   * dossier. Le bailleur qui connaît le dispositif sait qu'il ne lui coûte rien.
+   */
+  it('nomme Visale plutôt que de dire « un garant »', () => {
+    const { body } = prepareMessage(listing('agency'), { ...PROFILE, guarantor: 'visale' });
+    expect(body).toContain('garantie Visale');
+  });
+
+  it('cite le dispositif nommé par l’utilisateur, et rien d’autre (§17)', () => {
+    const named = prepareMessage(listing('agency'), {
+      ...PROFILE,
+      guarantor: 'other',
+      guarantorName: 'Loca-Pass',
+    }).body;
+    expect(named).toContain('Loca-Pass');
+
+    // Sans nom, on n'en invente pas un : « une garantie de loyer » reste vrai.
+    const unnamed = prepareMessage(listing('agency'), { ...PROFILE, guarantor: 'other' }).body;
+    expect(unnamed).toContain('une garantie de loyer');
+  });
+
+  it('ne promet aucune garantie quand il n’y en a pas', () => {
+    const { body } = prepareMessage(listing('agency'), { ...PROFILE, guarantor: 'none' });
+    expect(body).not.toContain('garant');
   });
 });

@@ -6,8 +6,8 @@
  */
 
 import { useState } from 'react';
-import type { TenantProfile } from '@rentfinder/shared';
-import { EMPTY_PROFILE } from '../profile.js';
+import type { GuarantorKind, TenantProfile } from '@rentfinder/shared';
+import { EMPTY_PROFILE, GUARANTOR_OPTIONS } from '../profile.js';
 import { Button } from '@/components/ui/button.js';
 
 interface ProfileFormProps {
@@ -35,6 +35,9 @@ export function ProfileForm({
   const update = <K extends keyof TenantProfile>(key: K, value: TenantProfile[K]): void => {
     setProfile((previous) => ({ ...previous, [key]: value }));
   };
+
+  const selected =
+    GUARANTOR_OPTIONS.find((option) => option.kind === profile.guarantor) ?? GUARANTOR_OPTIONS[0]!;
 
   return (
     <form
@@ -126,14 +129,37 @@ export function ProfileForm({
           />
         </label>
 
-        <label className="flex flex-row items-center gap-2 text-[0.88rem] text-muted-foreground">
-          <input
-            type="checkbox"
-            checked={profile.hasGuarantor}
-            onChange={(event) => update('hasGuarantor', event.target.checked)}
-          />
-          J’ai un garant
+        {/* Une liste et non une case à cocher : « j'ai un garant » recouvrait
+            une personne, Visale et les cautions payantes, que les bailleurs ne
+            lisent pas du tout de la même façon. L'indication sous le choix
+            explique le dispositif à qui ne le connaît pas. */}
+        <label className={`${FIELD} sm:col-span-2`}>
+          Garantie de loyer
+          <select
+            value={profile.guarantor}
+            onChange={(event) => update('guarantor', event.target.value as GuarantorKind)}
+            className="rounded-lg border border-border bg-card px-2.5 py-2 text-[0.9rem] text-foreground"
+          >
+            {GUARANTOR_OPTIONS.map((option) => (
+              <option key={option.kind} value={option.kind}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          <span className="text-[0.8rem]">{selected.hint}</span>
         </label>
+
+        {profile.guarantor === 'other' && (
+          <label className={`${FIELD} sm:col-span-2`}>
+            Nom de la garantie
+            <input
+              type="text"
+              value={profile.guarantorName ?? ''}
+              onChange={(event) => update('guarantorName', event.target.value)}
+              placeholder="Loca-Pass, Cautioneo…"
+            />
+          </label>
+        )}
       </div>
 
       {/* §24 : message de candidature UNIQUE, envoyé tel quel pour toutes les

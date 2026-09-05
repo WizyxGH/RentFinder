@@ -13,6 +13,7 @@
 import type { TenantProfile } from '@rentfinder/shared';
 import { BadgeEuro, CalendarDays, Mail, Phone, ShieldCheck, User } from './icons.js';
 import { UNKNOWN_LABEL, formatPhone } from '../format.js';
+import { guarantorLabel } from '../profile.js';
 import { SettingsGroup, SettingsRow } from './SettingsRow.js';
 import { Button } from '@/components/ui/button.js';
 
@@ -53,8 +54,8 @@ function lines(profile: TenantProfile): readonly {
     {
       key: 'guarantor',
       Icon: ShieldCheck,
-      label: 'Garant',
-      value: profile.hasGuarantor ? 'Oui' : 'Non',
+      label: 'Garantie',
+      value: guarantorLabel(profile),
     },
     {
       key: 'moveIn',
