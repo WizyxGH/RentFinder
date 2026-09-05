@@ -29,6 +29,20 @@ ALLOWED_ORIGIN = "https://wizyxgh.github.io"
 # perdraient en silence (§17).
 ALERT_ADDRESS_TEMPLATE = ""
 
+# --- Mot de passe oublié (§26) ------------------------------------------------
+#
+# Adresse publique du site : c'est elle qui compose le lien de réinitialisation.
+SITE_URL = "https://wizyxgh.github.io/RentFinder/"
+
+# Expéditeur des messages. La CLÉ d'API, elle, est un secret et se dépose à part :
+#
+#   npx wrangler secret put EMAIL_API_KEY
+#
+# Sans l'une ou l'autre, l'écran « mot de passe oublié » dit franchement que la
+# fonctionnalité n'est pas configurée, au lieu d'annoncer un message qui ne
+# partira jamais (§17).
+EMAIL_FROM = ""
+
 # --- Pièces du dossier de candidature (§25) — à activer si vous les voulez ---
 #
 # GRATUIT, SANS CARTE BANCAIRE. Le stockage clé-valeur des Workers est compris

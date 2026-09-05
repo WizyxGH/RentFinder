@@ -365,6 +365,50 @@ export async function fetchAlertAddress(): Promise<string | null> {
   return response.address;
 }
 
+/**
+ * Demande un lien de réinitialisation.
+ *
+ * `sent` QUOI QU'IL ARRIVE quand la fonctionnalité est configurée, même pour un
+ * identifiant inconnu : le serveur ne dit pas si un compte existe, et l'écran
+ * ne doit donc rien laisser deviner non plus. `unconfigured` est le seul cas où
+ * l'on peut promettre qu'aucun message ne partira — le taire ferait attendre
+ * pour rien (§17).
+ */
+export async function requestPasswordReset(
+  login: string,
+): Promise<'sent' | 'unconfigured' | 'error'> {
+  if (DEMO || API_URL === '') return 'unconfigured';
+  try {
+    await request('/api/password/forgot', {
+      method: 'POST',
+      body: JSON.stringify({ login }),
+    });
+    return 'sent';
+  } catch (caught) {
+    return caught instanceof ApiError && caught.status === 501 ? 'unconfigured' : 'error';
+  }
+}
+
+/**
+ * Pose le nouveau mot de passe. `invalid` couvre jeton inconnu, expiré ou déjà
+ * servi — le serveur ne les distingue pas, et l'écran non plus.
+ */
+export async function resetPassword(
+  token: string,
+  password: string,
+): Promise<'done' | 'invalid' | 'error'> {
+  if (DEMO || API_URL === '') return 'error';
+  try {
+    await request('/api/password/reset', {
+      method: 'POST',
+      body: JSON.stringify({ token, password }),
+    });
+    return 'done';
+  } catch (caught) {
+    return caught instanceof ApiError && caught.status === 400 ? 'invalid' : 'error';
+  }
+}
+
 export async function fetchSources(): Promise<{ sources: readonly SourceStateView[] }> {
   if (DEMO) {
     const { MOCK_SOURCES } = await demoData();

@@ -34,6 +34,12 @@ export interface ChangelogEntry {
  */
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    id: '2026-09-05-mdp',
+    date: '2026-09-05',
+    title: 'Un mot de passe oublié ne perd plus le compte',
+    body: 'L’écran de connexion propose « Mot de passe oublié » : un lien part vers l’adresse de votre compte, valable une heure et une seule fois. Pensez à renseigner cette adresse — sans elle, il n’y a nulle part où écrire.',
+  },
+  {
     id: '2026-09-05-filtres',
     date: '2026-09-05',
     title: 'Les filtres filtrent enfin, et le thème change vraiment',

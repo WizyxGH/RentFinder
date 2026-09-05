@@ -12,6 +12,11 @@
  * LE MOT DE PASSE NE S'AFFICHE PAS et n'est jamais journalisé. Il n'atteint pas
  * non plus la ligne de commande : le passer en argument le laisserait dans
  * l'historique du terminal (§26). Seule son empreinte PBKDF2 est écrite.
+ *
+ * ELLE SERT AUSSI À CHANGER UN MOT DE PASSE OU UNE ADRESSE : relancée sur un
+ * identifiant existant, elle met à jour ce qui est renseigné et laisse le reste
+ * en place. C'est le recours quand la réinitialisation par e-mail n'est pas
+ * configurée, ou quand c'est l'adresse elle-même qui est perdue.
  */
 
 import { createInterface } from 'node:readline/promises';
@@ -69,6 +74,16 @@ async function main() {
     const login = (await rl.question('Identifiant : ')).trim();
     if (login === '') throw new Error('Identifiant vide.');
     const name = (await rl.question('Nom affiché (facultatif) : ')).trim();
+    /**
+     * L'ADRESSE EST LE SEUL RECOURS EN CAS DE MOT DE PASSE OUBLIÉ. Sans elle,
+     * la réinitialisation n'a nulle part où écrire : le compte se perd avec son
+     * mot de passe, ses favoris et ses pièces déposées. Facultative quand même
+     * — on ne force personne à donner une adresse —, mais l'écran de
+     * réinitialisation restera muet pour ce compte-là.
+     */
+    const email = (await rl.question('Adresse e-mail (pour retrouver un mot de passe perdu) : '))
+      .trim()
+      .toLowerCase();
     const password = await askPassword(rl);
 
     const db = createClient({ url, authToken: process.env.TURSO_AUTH_TOKEN });
@@ -79,12 +94,16 @@ async function main() {
     });
 
     if (existing.rows.length > 0) {
+      // `COALESCE(NULLIF(...))` : une réponse vide LAISSE la valeur en place.
+      // Relancer la commande pour changer un mot de passe ne doit pas effacer
+      // le nom affiché ni l'adresse au passage.
       await db.execute({
-        sql: 'UPDATE users SET password_hash = ?, display_name = COALESCE(NULLIF(?, %s), display_name) WHERE login = ?'.replace(
-          '%s',
-          "''",
-        ),
-        args: [hash, name, login],
+        sql: `UPDATE users
+              SET password_hash = ?,
+                  display_name = COALESCE(NULLIF(?, ''), display_name),
+                  email = COALESCE(NULLIF(?, ''), email)
+              WHERE login = ?`,
+        args: [hash, name, email, login],
       });
       console.log(`Mot de passe mis à jour pour « ${login} ».`);
       return;
@@ -112,9 +131,10 @@ async function main() {
 
     if (named === 0 && placeholder === 1) {
       await db.execute({
-        sql: `UPDATE users SET login = ?, password_hash = ?, display_name = ?
+        sql: `UPDATE users SET login = ?, password_hash = ?, display_name = ?,
+                     email = COALESCE(NULLIF(?, ''), email)
               WHERE id = 'moi'`,
-        args: [login, hash, name === '' ? null : name],
+        args: [login, hash, name === '' ? null : name, email],
       });
       console.log(`Compte « ${login} » créé, sur les données déjà en base.`);
       console.log('Vos favoris, votre suivi et vos réglages lui restent attachés.');
@@ -126,9 +146,9 @@ async function main() {
       // Le jeton d'adresse de transfert est tiré ici, et non à la première
       // visite : un compte sans jeton n'aurait pas d'adresse à afficher, et
       // rien ne viendrait le signaler.
-      sql: `INSERT INTO users (id, login, password_hash, display_name, created_at, alert_token)
-            VALUES (?, ?, ?, ?, datetime('now'), lower(hex(randomblob(9))))`,
-      args: [login, login, hash, name === '' ? null : name],
+      sql: `INSERT INTO users (id, login, password_hash, display_name, created_at, alert_token, email)
+            VALUES (?, ?, ?, ?, datetime('now'), lower(hex(randomblob(9))), ?)`,
+      args: [login, login, hash, name === '' ? null : name, email === '' ? null : email],
     });
     console.log(`Compte « ${login} » créé.`);
     console.log(

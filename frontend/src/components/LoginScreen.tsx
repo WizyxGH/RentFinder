@@ -22,8 +22,11 @@ import { Card } from '@/components/ui/card.js';
 
 export function LoginScreen({
   onSignedIn,
+  onForgot,
 }: {
   readonly onSignedIn: () => void;
+  /** Ouvre la demande de lien. Absent : le lien ne s'affiche pas. */
+  readonly onForgot?: () => void;
 }): React.JSX.Element {
   const [identifiant, setIdentifiant] = useState('');
   const [password, setPassword] = useState('');
@@ -95,6 +98,20 @@ export function LoginScreen({
             <LogIn aria-hidden="true" className="size-4" />
             {busy ? 'Connexion…' : 'Se connecter'}
           </Button>
+
+          {/* UN MOT DE PASSE PERDU ÉTAIT UN COMPTE PERDU : ses favoris, son
+            suivi, ses pièces déposées. Le lien est discret — on le cherche
+            rarement, mais quand on le cherche il faut le trouver du premier
+            coup, et sur cet écran-là. */}
+          {onForgot !== undefined && (
+            <button
+              type="button"
+              onClick={onForgot}
+              className="text-muted-foreground hover:text-foreground cursor-pointer text-center text-[0.82rem] underline"
+            >
+              Mot de passe oublié ?
+            </button>
+          )}
         </form>
       </Card>
 

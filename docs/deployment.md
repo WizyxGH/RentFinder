@@ -276,6 +276,64 @@ UNE CONTREPARTIE À CONNAÎTRE : KV est _éventuellement cohérent_. Une pièce 
 juste déposée peut ne pas figurer dans la liste pendant quelques secondes —
 l'écran l'ajoute donc à sa liste sans attendre de relire.
 
+### Mot de passe oublié (§26) — option gratuite à activer
+
+Sans elle, un mot de passe perdu est un compte perdu : ses favoris, son suivi,
+ses pièces déposées et ses recherches enregistrées avec. Le seul recours est
+alors `pnpm --filter @rentfinder/worker user:add`, relancé sur l'identifiant
+existant depuis une machine qui a accès à la base.
+
+Trois choses à mettre en place, dans cet ordre :
+
+**1. Une adresse par compte.** Un compte n'en avait pas — la réinitialisation
+n'aurait eu nulle part où écrire. Elle se saisit à la création, et se rattrape
+en relançant la même commande sur un identifiant existant : les champs laissés
+vides ne sont pas écrasés.
+
+```bash
+pnpm --filter @rentfinder/worker user:add
+```
+
+**2. Un service d'envoi.** Un Worker Cloudflare ne peut pas ouvrir de connexion
+SMTP : il lui faut une API HTTP. Le collecteur, lui, le pourrait, mais il ne
+tourne que sur minuterie — personne n'attend son mot de passe deux heures.
+
+[Resend](https://resend.com) est employé par défaut : palier gratuit **sans
+carte bancaire**, trois mille messages par mois, et son expéditeur de démarrage
+fonctionne sans posséder de domaine. Le fournisseur est isolé dans
+`packages/worker/src/mailer.ts` — en changer revient à réécrire une vingtaine de
+lignes, sans toucher au reste.
+
+```bash
+npx wrangler secret put EMAIL_API_KEY   # la clé, jamais dans un fichier versionné
+```
+
+**3. L'expéditeur et l'adresse du site**, dans `wrangler.toml` :
+
+```toml
+EMAIL_FROM = "Maïoun <onboarding@resend.dev>" # secret-scan-ignore
+SITE_URL = "https://<vous>.github.io/RentFinder/"
+```
+
+Puis `npx wrangler deploy`.
+
+Tant que l'un des trois manque, l'écran « mot de passe oublié » **dit qu'il
+n'est pas configuré** au lieu d'annoncer un message qui ne partira jamais (§17).
+
+CE QUI EST GARANTI PAR CONSTRUCTION, et qu'il vaut mieux connaître avant de
+toucher à ce code :
+
+- **la demande répond toujours la même chose**, que l'identifiant existe ou non.
+  Un formulaire qui dirait « compte inconnu » serait un annuaire de comptes,
+  interrogeable en boucle ;
+- **le jeton n'est pas stocké**, seule son empreinte SHA-256 l'est. Une base qui
+  fuite ne doit pas livrer de laissez-passer utilisables ;
+- **il expire en une heure et ne sert qu'une fois** — un lien qui traîne des
+  mois dans une boîte est une porte laissée entrouverte, et une boîte se
+  compromet ;
+- **une nouvelle demande annule la précédente** : deux liens valables à la fois
+  doublent la surface d'attaque sans rendre service.
+
 ### Il n'y a plus d'accès direct à Turso
 
 Le site a longtemps su interroger la base lui-même, avec une adresse et un jeton

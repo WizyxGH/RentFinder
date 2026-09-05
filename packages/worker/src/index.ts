@@ -26,6 +26,8 @@ import { deleteDocument, listDocuments, readDocument, saveDocument } from './doc
 import { kvDocumentStore, type KeyValueNamespace } from './kv-store.js';
 import { forbiddenOrigin } from './origin.js';
 import { alertAddress } from './alert-address.js';
+import { mailerConfigured, sendEmail } from './mailer.js';
+import { completeReset, openReset, resetEmailBody, resetLink } from './password-reset.js';
 
 export interface Env {
   /** URL `libsql://…` de la base. Secret de la plateforme, jamais publié. */
@@ -54,6 +56,16 @@ export interface Env {
    * ne viendraient jamais.
    */
   readonly ALERT_ADDRESS_TEMPLATE?: string;
+  /**
+   * Adresse publique du site, pour composer le lien de réinitialisation.
+   * Absente, la réinitialisation est refusée : un lien sans domaine ne mène
+   * nulle part, et l'annoncer envoyé serait mentir (§17).
+   */
+  readonly SITE_URL?: string;
+  /** Clé d'API du service d'envoi d'e-mails. Absente = pas de réinitialisation. */
+  readonly EMAIL_API_KEY?: string;
+  /** Expéditeur des messages, ex. `Maïoun <compte@example.invalid>`. */
+  readonly EMAIL_FROM?: string;
 }
 
 function corsHeaders(env: Env, request: Request): Record<string, string> {
@@ -207,6 +219,60 @@ async function documents(
   return json({ error: 'Route inconnue' }, cors, 404);
 }
 
+/**
+ * Les deux temps d'une réinitialisation : demander un lien, puis s'en servir.
+ *
+ * LA DEMANDE RÉPOND TOUJOURS PAREIL — 204, quoi qu'il arrive. Distinguer
+ * « compte inconnu » de « message envoyé » ferait de ce formulaire un annuaire
+ * de comptes, interrogeable en boucle. Le seul cas où l'on répond autre chose
+ * est l'ABSENCE DE CONFIGURATION : là, aucun message ne partira jamais, pour
+ * personne, et le taire laisserait l'utilisateur rafraîchir sa boîte en vain.
+ */
+async function passwordRoute(
+  db: Client,
+  request: Request,
+  env: Env,
+  cors: Record<string, string>,
+  action: string | undefined,
+): Promise<Response> {
+  const siteUrl = env.SITE_URL ?? '';
+
+  if (action === 'forgot') {
+    if (!mailerConfigured(env) || siteUrl === '') {
+      return json({ error: 'unconfigured' }, cors, 501);
+    }
+    const body = (await request.json().catch(() => ({}))) as { login?: unknown };
+    const login = typeof body.login === 'string' ? body.login : '';
+    if (login.trim() !== '') {
+      const pending = await openReset(db, login, Date.now());
+      if (pending !== null) {
+        await sendEmail(env, {
+          to: pending.email,
+          subject: 'Réinitialiser votre mot de passe Maïoun',
+          text: resetEmailBody(resetLink(siteUrl, pending.token)),
+        });
+      }
+    }
+    return new Response(null, { status: 204, headers: cors });
+  }
+
+  if (action === 'reset') {
+    const body = (await request.json().catch(() => ({}))) as {
+      token?: unknown;
+      password?: unknown;
+    };
+    const token = typeof body.token === 'string' ? body.token : '';
+    const password = typeof body.password === 'string' ? body.password : '';
+    if (token === '') return json({ error: 'invalid' }, cors, 400);
+
+    const outcome = await completeReset(db, token, password, Date.now());
+    if (outcome === 'ok') return new Response(null, { status: 204, headers: cors });
+    return json({ error: outcome }, cors, 400);
+  }
+
+  return json({ error: 'Route inconnue' }, cors, 404);
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const cors = corsHeaders(env, request);
@@ -234,6 +300,12 @@ export default {
         status: 204,
         headers: { 'Set-Cookie': clearedCookie(), ...cors },
       });
+    }
+
+    // MOT DE PASSE OUBLIÉ. Avant la lecture de session, forcément : celui qui
+    // l'a oublié n'en a pas.
+    if (segments[1] === 'password' && request.method === 'POST') {
+      return passwordRoute(db, request, env, cors, segments[2]);
     }
 
     const userId = await readSession(

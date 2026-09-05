@@ -60,6 +60,8 @@ import { SourcesPanel } from './components/SourcesPanel.js';
 import { SavedSearchesPanel } from './components/SavedSearchesPanel.js';
 import { HomePanel } from './components/HomePanel.js';
 import { LoginScreen } from './components/LoginScreen.js';
+import { ForgotPassword } from './components/ForgotPassword.js';
+import { ResetPassword } from './components/ResetPassword.js';
 import { UnconfiguredScreen } from './components/UnconfiguredScreen.js';
 import { ChangelogModal } from './components/ChangelogModal.js';
 import { latestEntryId, unseenEntries, type ChangelogEntry } from './changelog.js';
@@ -1177,13 +1179,25 @@ export function App(): React.JSX.Element {
     // n'est branché ».
     if (isUnconfigured()) return <UnconfiguredScreen />;
 
+    // LE LIEN DE RÉINITIALISATION PASSE AVANT LA SESSION, et il le faut : on
+    // arrive dessus précisément parce qu'on ne peut pas se connecter. Attendre
+    // la réponse de `/api/me` pour l'afficher renverrait vers l'écran de
+    // connexion, c'est-à-dire vers le mur qu'on essaie de contourner.
+    if (view === 'reset') {
+      return <ResetPassword token={route.id ?? ''} onDone={() => replace({ view: 'home' })} />;
+    }
+
     // Un instant blanc vaut mieux qu'un écran de connexion qui clignote chez
     // quelqu'un déjà connecté.
     if (currentUser === undefined) return <></>;
 
     if (currentUser === null) {
+      if (view === 'forgot') {
+        return <ForgotPassword onBack={() => replace({ view: 'home' })} />;
+      }
       return (
         <LoginScreen
+          onForgot={() => go({ view: 'forgot' })}
           onSignedIn={() => {
             setCurrentUser('inconnu');
             void fetchCurrentUser()

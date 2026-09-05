@@ -42,6 +42,8 @@ export type View =
   | 'agencies'
   | 'agency'
   | 'alerts'
+  | 'forgot'
+  | 'reset'
   | 'onboarding';
 
 /**
@@ -75,13 +77,15 @@ const VIEW_PRESENCE: Record<View, true> = {
   agencies: true,
   agency: true,
   alerts: true,
+  forgot: true,
+  reset: true,
   onboarding: true,
 };
 
 export const ALL_VIEWS: readonly View[] = Object.keys(VIEW_PRESENCE) as View[];
 
 /** Les écrans qui regardent quelque chose : leur adresse porte un identifiant. */
-export const VIEWS_WITH_ID: readonly View[] = ['detail', 'source', 'agency'];
+export const VIEWS_WITH_ID: readonly View[] = ['detail', 'source', 'agency', 'reset'];
 
 /** Où l'on se trouve : un écran, et ce qu'il regarde. */
 export interface Route {
@@ -108,6 +112,7 @@ const SIMPLE_ROUTES: Readonly<Record<string, View>> = {
   sources: 'sources',
   agencies: 'agencies',
   welcome: 'onboarding',
+  forgot: 'forgot',
 };
 
 /** Sous-écrans des paramètres : `/settings/<clé>`. */
@@ -175,6 +180,9 @@ export function routeFromPath(pathname: string): Route {
     return { view: 'detail', id: second };
   }
   if (first === 'agency' && second !== undefined) return { view: 'agency', id: second };
+  // Le jeton de réinitialisation voyage dans le chemin : il arrive d'un lien
+  // reçu par e-mail, et le site n'a rien d'autre pour savoir qui le présente.
+  if (first === 'reset' && second !== undefined) return { view: 'reset', id: second };
   if (first === 'sources' && second !== undefined) return { view: 'source', id: second };
 
   if (first === 'settings') {
@@ -196,6 +204,7 @@ export function pathFromRoute(route: Route): string {
   // notifications : deux constantes séparées avaient divergé en silence.
   if (view === 'detail') return listingPath(id ?? '');
   if (view === 'agency') return `/agency/${encodeURIComponent(id ?? '')}`;
+  if (view === 'reset') return `/reset/${encodeURIComponent(id ?? '')}`;
   if (view === 'source') return `/sources/${encodeURIComponent(id ?? '')}`;
   if (view === 'profile') return '/settings';
 
