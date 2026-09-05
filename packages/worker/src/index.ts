@@ -61,6 +61,24 @@ function corsHeaders(env: Env, request: Request): Record<string, string> {
   };
 }
 
+/**
+ * Garantit les en-têtes CORS sur une réponse, quelle qu'en soit l'origine.
+ *
+ * Une réponse d'erreur sans `Access-Control-Allow-Origin` est refusée par le
+ * navigateur AVANT d'atteindre le code : le `fetch` échoue, et le statut HTTP
+ * est perdu. Un « 401 session expirée » devient alors indiscernable d'une
+ * coupure réseau, et l'écran ne peut plus renvoyer vers la connexion.
+ */
+function withCors(response: Response, cors: Record<string, string>): Response {
+  const headers = new Headers(response.headers);
+  for (const [key, value] of Object.entries(cors)) headers.set(key, value);
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
 function json(body: unknown, cors: Record<string, string>, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -222,6 +240,14 @@ export default {
 
     // L'API sait maintenant QUI demande : favoris, suivi et archivage sont
     // lus et écrits pour cet utilisateur-là, pas pour la fiche partagée.
-    return route(db, request, url, segments, cors, userId);
+    //
+    // LE CORS EST POSÉ ICI, AU POINT DE SORTIE, et pas seulement dans chaque
+    // réponse. Les erreurs construites par `routes.ts` n'en portaient aucun :
+    // un navigateur BLOQUE alors la réponse, si bien qu'un 400 ou un 404
+    // n'arrive jamais comme tel — il devient un échec réseau opaque, et
+    // l'écran affiche « la connexion a échoué » pour une requête qui a
+    // parfaitement abouti. Un seul endroit à ne pas oublier vaut mieux que
+    // vingt.
+    return withCors(await route(db, request, url, segments, cors, userId), cors);
   },
 };

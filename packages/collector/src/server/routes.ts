@@ -88,7 +88,10 @@ function json(data: unknown, cors: Record<string, string>, status = 200): Respon
 
 /** Reconstitue une fiche à partir de sa ligne et de son payload JSON. */
 function rowToListing(row: Record<string, unknown>): Record<string, unknown> {
-  const payload = JSON.parse(String(row['payload'] ?? '{}')) as Record<string, unknown>;
+  // `payload_light` n'existe que pour la LISTE, où description et raisons de
+  // score ont été retirées en SQL. La fiche, elle, n'a que `payload`.
+  const source = row['payload_light'] ?? row['payload'];
+  const payload = JSON.parse(String(source ?? '{}')) as Record<string, unknown>;
   return {
     id: String(row['id']),
     lifecycle: row['lifecycle'],
@@ -130,6 +133,33 @@ const USER_STATE_COLUMNS = `listings.*,
   COALESCE(us.notified, 0) AS notified,
   us.notified_at AS notified_at,
   COALESCE(us.drafted, 0) AS drafted`;
+
+/**
+ * Ce que la LISTE n'a pas besoin de transporter.
+ *
+ * Les fiches actives pèsent 5,3 Mo de `payload`, envoyés à chaque chargement.
+ * Sur le palier gratuit d'un Worker — dix millisecondes de processeur par
+ * requête — analyser puis réémettre tout cela à chaque fois est le premier
+ * poste de dépense, et de loin.
+ *
+ * DEUX CHAMPS SEULEMENT SONT RETIRÉS, et parce que la carte ne les lit pas :
+ *
+ *   - `description` (0,70 Mo) : la carte affiche un titre, jamais le texte ;
+ *   - les `reasons` des quatre scores (0,78 Mo) : la carte montre une barre de
+ *     priorité, et le détail des raisons appartient à la fiche (§37).
+ *
+ * CE QUI RESTE, ET POURQUOI. Les photos servent au carrousel de la carte, le
+ * contact à son bouton d'appel, les occurrences au filtre par source : les
+ * couper aurait cassé l'écran pour économiser un peu moins.
+ *
+ * La FICHE, elle, recharge tout : `getListing` ne passe pas par ici.
+ */
+const LIST_PAYLOAD = `json_remove(listings.payload,
+  '$.description',
+  '$.scores.match.reasons',
+  '$.scores.opportunity.reasons',
+  '$.scores.visitProbability.reasons',
+  '$.scores.risk.reasons') AS payload_light`;
 
 async function listListings(
   db: Client,
@@ -193,7 +223,7 @@ async function listListings(
   const filter = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
   const result = await db.execute({
-    sql: `SELECT ${USER_STATE_COLUMNS} FROM listings ${USER_STATE_JOIN} ${filter}
+    sql: `SELECT ${USER_STATE_COLUMNS}, ${LIST_PAYLOAD} FROM listings ${USER_STATE_JOIN} ${filter}
           ORDER BY ${orderBy} LIMIT ? OFFSET ?`,
     args: [userId, ...filterArgs, limit, offset],
   });
