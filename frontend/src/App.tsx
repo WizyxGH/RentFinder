@@ -331,6 +331,20 @@ function bottomTabFor(
 }
 
 /**
+ * Le retour vers les Paramètres, depuis un de leurs sous-écrans.
+ *
+ * Quatre copies mot pour mot. Aucune ne pouvait diverger sans qu'on s'en
+ * aperçoive — mais la cinquième, oui.
+ */
+function BackToSettings({ onBack }: { readonly onBack: () => void }): React.JSX.Element {
+  return (
+    <Button variant="ghost" className="mb-2" onClick={onBack}>
+      <ArrowLeft aria-hidden="true" className="size-4" /> Retour
+    </Button>
+  );
+}
+
+/**
  * Les RÉSULTATS d'une recherche : le chargement, le vide, et les deux mises
  * en page possibles.
  *
@@ -1238,19 +1252,29 @@ export function App(): React.JSX.Element {
   const entrance = entranceScreen();
   if (entrance !== null) return entrance;
 
+  /**
+   * LES SIX PROPS QUE TOUS LES ÉCRANS PASSENT À L'IDENTIQUE.
+   *
+   * Elles étaient recopiées seize fois. Rien ne cassait — c'est bien le
+   * problème : ajouter un écran demandait de les recopier justes, et un
+   * `unreadAlerts` oublié n'aurait produit qu'une pastille muette, sans erreur
+   * ni test rouge. Un seul objet rend l'oubli impossible.
+   */
+  const shell = {
+    view,
+    favoritesOnly,
+    onNavigate: navigate,
+    unreadAlerts,
+    bottomTab,
+    onBottomSelect: selectBottomTab,
+  };
+
   // Vues « secondaires » (plein écran), regroupées hors du corps principal pour
   // garder App lisible : chacune rend sa coquille ou `null` si non concernée.
   const secondaryView = (): React.JSX.Element | null => {
     if (view === 'home') {
       return (
-        <Shell
-          view={view}
-          favoritesOnly={favoritesOnly}
-          onNavigate={navigate}
-          unreadAlerts={unreadAlerts}
-          bottomTab={bottomTab}
-          onBottomSelect={selectBottomTab}
-        >
+        <Shell {...shell}>
           <HomePanel
             listings={listings}
             sources={sources}
@@ -1299,14 +1323,7 @@ export function App(): React.JSX.Element {
     // leur page, comme les autres.
     if (view === 'profile') {
       return (
-        <Shell
-          view={view}
-          favoritesOnly={favoritesOnly}
-          onNavigate={navigate}
-          unreadAlerts={unreadAlerts}
-          bottomTab={bottomTab}
-          onBottomSelect={selectBottomTab}
-        >
+        <Shell {...shell}>
           <h1 className="mb-4 text-xl font-bold">Paramètres</h1>
           {/* L'INTERRUPTEUR DES ALERTES VIVAIT ICI, seul de son espèce au
             milieu de liens. Il est passé derrière « Notifications », qui porte
@@ -1320,76 +1337,37 @@ export function App(): React.JSX.Element {
     }
     if (view === 'documents') {
       return (
-        <Shell
-          view={view}
-          favoritesOnly={favoritesOnly}
-          onNavigate={navigate}
-          unreadAlerts={unreadAlerts}
-          bottomTab={bottomTab}
-          onBottomSelect={selectBottomTab}
-        >
-          <Button variant="ghost" className="mb-2" onClick={() => setView('profile')}>
-            <ArrowLeft aria-hidden="true" className="size-4" /> Retour
-          </Button>
+        <Shell {...shell}>
+          <BackToSettings onBack={() => setView('profile')} />
           <DocumentsSection profile={profile} />
         </Shell>
       );
     }
     if (view === 'forwarding') {
       return (
-        <Shell
-          view={view}
-          favoritesOnly={favoritesOnly}
-          onNavigate={navigate}
-          unreadAlerts={unreadAlerts}
-          bottomTab={bottomTab}
-          onBottomSelect={selectBottomTab}
-        >
-          <Button variant="ghost" className="mb-2" onClick={() => setView('profile')}>
-            <ArrowLeft aria-hidden="true" className="size-4" /> Retour
-          </Button>
+        <Shell {...shell}>
+          <BackToSettings onBack={() => setView('profile')} />
           <ForwardingPanel />
         </Shell>
       );
     }
     if (view === 'notifications') {
       return (
-        <Shell
-          view={view}
-          favoritesOnly={favoritesOnly}
-          onNavigate={navigate}
-          unreadAlerts={unreadAlerts}
-          bottomTab={bottomTab}
-          onBottomSelect={selectBottomTab}
-        >
+        <Shell {...shell}>
           <NotificationSettingsPanel onBack={() => setView('profile')} />
         </Shell>
       );
     }
     if (view === 'theme') {
       return (
-        <Shell
-          view={view}
-          favoritesOnly={favoritesOnly}
-          onNavigate={navigate}
-          unreadAlerts={unreadAlerts}
-          bottomTab={bottomTab}
-          onBottomSelect={selectBottomTab}
-        >
+        <Shell {...shell}>
           <ThemePanel onBack={() => setView('profile')} />
         </Shell>
       );
     }
     if (view === 'agencies') {
       return (
-        <Shell
-          view={view}
-          favoritesOnly={favoritesOnly}
-          onNavigate={navigate}
-          unreadAlerts={unreadAlerts}
-          bottomTab={bottomTab}
-          onBottomSelect={selectBottomTab}
-        >
+        <Shell {...shell}>
           {agencies.length === 0 && loading ? (
             <RowsSkeleton />
           ) : (
@@ -1404,14 +1382,7 @@ export function App(): React.JSX.Element {
     }
     if (view === 'agency') {
       return (
-        <Shell
-          view={view}
-          favoritesOnly={favoritesOnly}
-          onNavigate={navigate}
-          unreadAlerts={unreadAlerts}
-          bottomTab={bottomTab}
-          onBottomSelect={selectBottomTab}
-        >
+        <Shell {...shell}>
           {agencyDetail === null ? (
             <RowsSkeleton />
           ) : (
@@ -1429,31 +1400,15 @@ export function App(): React.JSX.Element {
     }
     if (view === 'reference') {
       return (
-        <Shell
-          view={view}
-          favoritesOnly={favoritesOnly}
-          onNavigate={navigate}
-          unreadAlerts={unreadAlerts}
-          bottomTab={bottomTab}
-          onBottomSelect={selectBottomTab}
-        >
-          <Button variant="ghost" className="mb-2" onClick={() => setView('profile')}>
-            <ArrowLeft aria-hidden="true" className="size-4" /> Retour
-          </Button>
+        <Shell {...shell}>
+          <BackToSettings onBack={() => setView('profile')} />
           <ReferencePointsSection />
         </Shell>
       );
     }
     if (view === 'saved') {
       return (
-        <Shell
-          view={view}
-          favoritesOnly={favoritesOnly}
-          onNavigate={navigate}
-          unreadAlerts={unreadAlerts}
-          bottomTab={bottomTab}
-          onBottomSelect={selectBottomTab}
-        >
+        <Shell {...shell}>
           <SavedSearchesPanel
             searches={savedSearches}
             nowMs={nowMs}
@@ -1478,14 +1433,7 @@ export function App(): React.JSX.Element {
     }
     if (view === 'tenant') {
       return (
-        <Shell
-          view={view}
-          favoritesOnly={favoritesOnly}
-          onNavigate={navigate}
-          unreadAlerts={unreadAlerts}
-          bottomTab={bottomTab}
-          onBottomSelect={selectBottomTab}
-        >
+        <Shell {...shell}>
           {/* `back` et non « aller aux paramètres » : on arrive ici depuis les
             paramètres OU depuis une annonce qu'on s'apprêtait à contacter, et
             c'est l'historique qui sait laquelle des deux. */}
@@ -1534,14 +1482,7 @@ export function App(): React.JSX.Element {
     }
     if (view === 'sources') {
       return (
-        <Shell
-          view={view}
-          favoritesOnly={favoritesOnly}
-          onNavigate={navigate}
-          unreadAlerts={unreadAlerts}
-          bottomTab={bottomTab}
-          onBottomSelect={selectBottomTab}
-        >
+        <Shell {...shell}>
           <SourcesPanel
             sources={sources}
             nowMs={nowMs}
@@ -1553,14 +1494,7 @@ export function App(): React.JSX.Element {
     }
     if (view === 'source' && selectedSourceId !== null) {
       return (
-        <Shell
-          view={view}
-          favoritesOnly={favoritesOnly}
-          onNavigate={navigate}
-          unreadAlerts={unreadAlerts}
-          bottomTab={bottomTab}
-          onBottomSelect={selectBottomTab}
-        >
+        <Shell {...shell}>
           <SourcePanel
             sourceId={selectedSourceId}
             state={sources.find((one) => one.sourceId === selectedSourceId) ?? null}
@@ -1575,34 +1509,18 @@ export function App(): React.JSX.Element {
     }
     if (view === 'stats') {
       return (
-        <Shell
-          view={view}
-          favoritesOnly={favoritesOnly}
-          onNavigate={navigate}
-          unreadAlerts={unreadAlerts}
-          bottomTab={bottomTab}
-          onBottomSelect={selectBottomTab}
-        >
+        <Shell {...shell}>
           {/* SEUL ÉCRAN DES PARAMÈTRES SANS RETOUR : on y entrait par la liste
             des réglages et l'on ne pouvait en ressortir que par la barre
             d'onglets du bas, qui n'y ramène pas. */}
-          <Button variant="ghost" className="mb-2" onClick={() => setView('profile')}>
-            <ArrowLeft aria-hidden="true" className="size-4" /> Retour
-          </Button>
+          <BackToSettings onBack={() => setView('profile')} />
           <StatsPanel />
         </Shell>
       );
     }
     if (view === 'detail') {
       return (
-        <Shell
-          view={view}
-          favoritesOnly={favoritesOnly}
-          onNavigate={navigate}
-          unreadAlerts={unreadAlerts}
-          bottomTab={bottomTab}
-          onBottomSelect={selectBottomTab}
-        >
+        <Shell {...shell}>
           {selected === null ? (
             <ListingDetailSkeleton />
           ) : (
