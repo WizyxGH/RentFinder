@@ -38,23 +38,111 @@ import type { PropertyType } from './listing.js';
  * PIÈCES à fournir. Une caution physique remet son propre dossier complet ;
  * une garantie institutionnelle le remplace par une attestation unique.
  */
-export type GuarantorKind = 'none' | 'physical' | 'visale' | 'garantme' | 'other';
+export type GuarantorKind = 'physical' | 'visale' | 'garantme' | 'other';
+
+/**
+ * Une garantie déclarée : sa nature, et son nom quand il en faut un.
+ *
+ * `name` ne sert qu'à deux choses : nommer un dispositif « autre » (Loca-Pass,
+ * Cautioneo…), et distinguer DEUX GARANTS PHYSIQUES l'un de l'autre — « mon
+ * père », « ma mère » — dans l'écran du dossier, où chacun a ses propres
+ * pièces à fournir. Vide, on n'invente rien (§17).
+ */
+export interface Guarantor {
+  readonly kind: GuarantorKind;
+  readonly name?: string;
+}
+
+/**
+ * Combien de garanties au plus.
+ *
+ * DEUX PARENTS QUI SE PORTENT CAUTION ENSEMBLE est le cas courant, trois se
+ * voit, au-delà aucun bailleur ne suit. La borne existe surtout pour le
+ * dossier : chaque garant physique ajoute cinq emplacements de pièces, et une
+ * liste sans fin y deviendrait ingérable.
+ */
+export const MAX_GUARANTORS = 4;
+
+/**
+ * Les situations professionnelles proposées au choix.
+ *
+ * C'ÉTAIT UN CHAMP LIBRE, et il produisait des phrases fausses. Le message dit
+ * « Je suis {situation} » : « en CDI » se lit bien, « en fonctionnaire » non
+ * — et « fonctionnaire » figurait dans l'exemple donné à l'utilisateur. Chaque
+ * entrée porte donc sa PROPRE tournure, plutôt qu'un « en » collé devant tout.
+ *
+ * La liste reprend les situations que les bailleurs et les organismes de
+ * caution distinguent réellement : c'est sur elles qu'un dossier est jugé.
+ * `other` garde le champ libre pour ce qui n'y figure pas — la liste ne
+ * prétend pas à l'exhaustivité (§17).
+ */
+export interface TenantSituation {
+  /** Valeur stockée dans le profil. */
+  readonly value: string;
+  /** Intitulé du menu. */
+  readonly label: string;
+  /** Ce qui suit « Je suis » dans le message. */
+  readonly phrase: string;
+}
+
+export const TENANT_SITUATIONS: readonly TenantSituation[] = [
+  { value: 'cdi', label: 'CDI', phrase: 'en CDI' },
+  {
+    value: 'cdi-essai',
+    label: 'CDI en période d’essai',
+    phrase: 'en CDI, en période d’essai',
+  },
+  { value: 'cdd', label: 'CDD', phrase: 'en CDD' },
+  { value: 'interim', label: 'Intérim', phrase: 'en intérim' },
+  { value: 'fonctionnaire', label: 'Fonctionnaire', phrase: 'fonctionnaire' },
+  { value: 'independant', label: 'Indépendant ou freelance', phrase: 'à mon compte' },
+  { value: 'liberal', label: 'Profession libérale', phrase: 'en profession libérale' },
+  { value: 'dirigeant', label: 'Chef d’entreprise', phrase: 'chef d’entreprise' },
+  { value: 'etudiant', label: 'Étudiant', phrase: 'étudiant' },
+  { value: 'alternance', label: 'Alternance ou apprentissage', phrase: 'en alternance' },
+  { value: 'stage', label: 'Stage', phrase: 'en stage' },
+  { value: 'retraite', label: 'Retraité', phrase: 'retraité' },
+  { value: 'recherche', label: 'En recherche d’emploi', phrase: 'en recherche d’emploi' },
+  { value: 'other', label: 'Autre', phrase: '' },
+];
+
+/**
+ * La tournure à mettre après « Je suis ».
+ *
+ * Une valeur inconnue est rendue telle quelle, précédée de « en » : c'est le
+ * comportement d'avant la liste, et il fait vivre les profils saisis à la main
+ * comme ceux venus d'un `.env`. On ne réécrit pas ce que l'utilisateur a écrit.
+ */
+export function situationPhrase(situation: string): string {
+  const trimmed = situation.trim();
+  if (trimmed === '') return '';
+  const known = TENANT_SITUATIONS.find(
+    (one) => one.value === trimmed || one.label.toLowerCase() === trimmed.toLowerCase(),
+  );
+  if (known !== undefined) return known.phrase === '' ? trimmed : known.phrase;
+  return `en ${trimmed}`;
+}
 
 export interface TenantProfile {
   readonly firstName: string;
   readonly lastName: string;
   readonly email: string;
   readonly phone: string;
-  /** Situation professionnelle, ex. « CDI », « fonctionnaire », « étudiant ». */
+  /**
+   * Situation professionnelle : une valeur de `TENANT_SITUATIONS`, ou un texte
+   * libre pour ce qui n'y figure pas. `situationPhrase` sait rendre les deux.
+   */
   readonly situation: string;
   readonly monthlyIncome: number | null;
-  readonly guarantor: GuarantorKind;
   /**
-   * Le nom du dispositif quand `guarantor` vaut `other` — « Loca-Pass »,
-   * « Cautioneo »… Ailleurs, il est ignoré : on ne nomme pas une garantie que
-   * l'utilisateur n'a pas déclarée (§17).
+   * Les garanties de paiement, dans l'ordre où on les annonce. Vide = aucune.
+   *
+   * UNE LISTE ET NON UN CHOIX UNIQUE : deux parents se portent souvent caution
+   * ensemble, et l'on cumule volontiers un garant physique avec une garantie
+   * Visale — c'est même ce qui fait la force d'un dossier. Un champ unique
+   * obligeait à taire la moitié de ce qu'on a.
    */
-  readonly guarantorName?: string;
+  readonly guarantors: readonly Guarantor[];
   /** Date d'entrée souhaitée, au format `AAAA-MM-JJ`. */
   readonly moveInDate: string | null;
   /**
@@ -119,13 +207,44 @@ function describeListing(listing: MessageListing): string {
  */
 function describeSolvency(profile: TenantProfile): string {
   const parts: string[] = [];
-  if (profile.situation !== '') parts.push(`en ${profile.situation}`);
+  const situation = situationPhrase(profile.situation);
+  if (situation !== '') parts.push(situation);
   if (profile.monthlyIncome !== null) {
     parts.push(`avec des revenus mensuels de ${Math.round(profile.monthlyIncome)} €`);
   }
-  const guarantee = describeGuarantee(profile);
+  const guarantee = describeGuarantees(profile.guarantors);
   if (guarantee !== '') parts.push(guarantee);
   return parts.length === 0 ? '' : `Je suis ${parts.join(' ')}.`;
+}
+
+/**
+ * Toutes les garanties en une seule proposition.
+ *
+ * ON LES ÉNUMÈRE TOUTES : chacune compte pour le bailleur, et taire la seconde
+ * affaiblirait un dossier qui en a deux. Les doublons sont écartés — « et deux
+ * garants et un garant » ne veut rien dire — mais deux garants PHYSIQUES se
+ * disent bien « deux garants ».
+ */
+function describeGuarantees(guarantors: readonly Guarantor[]): string {
+  const physical = guarantors.filter((one) => one.kind === 'physical').length;
+  const parts: string[] = [];
+  if (physical === 1) parts.push('un garant');
+  else if (physical > 1) parts.push(`${physical} garants`);
+
+  for (const guarantor of guarantors) {
+    if (guarantor.kind === 'physical') continue;
+    const phrase = describeGuarantee(guarantor);
+    if (phrase !== '' && !parts.includes(phrase)) parts.push(phrase);
+  }
+
+  if (parts.length === 0) return '';
+  return `et couvert par ${joinWithAnd(parts)}`;
+}
+
+/** « a, b et c » — l'énumération française, sans virgule avant le « et ». */
+function joinWithAnd(parts: readonly string[]): string {
+  if (parts.length <= 1) return parts[0] ?? '';
+  return `${parts.slice(0, -1).join(', ')} et ${parts[parts.length - 1]}`;
 }
 
 /**
@@ -138,20 +257,18 @@ function describeSolvency(profile: TenantProfile): string {
  * Un dispositif « autre » n'est nommé que s'il a été nommé (§17) : sinon on
  * s'en tient à « une garantie de loyer », qui reste vrai.
  */
-function describeGuarantee(profile: TenantProfile): string {
-  switch (profile.guarantor) {
+function describeGuarantee(guarantor: Guarantor): string {
+  switch (guarantor.kind) {
     case 'physical':
-      return 'et un garant';
+      return 'un garant';
     case 'visale':
-      return 'et couvert par la garantie Visale';
+      return 'la garantie Visale';
     case 'garantme':
-      return 'et couvert par la garantie Garantme';
+      return 'la garantie Garantme';
     case 'other': {
-      const name = profile.guarantorName?.trim() ?? '';
-      return name === '' ? 'et couvert par une garantie de loyer' : `et couvert par ${name}`;
+      const name = guarantor.name?.trim() ?? '';
+      return name === '' ? 'une garantie de loyer' : name;
     }
-    case 'none':
-      return '';
   }
 }
 

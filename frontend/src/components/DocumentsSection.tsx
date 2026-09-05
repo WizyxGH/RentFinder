@@ -165,11 +165,12 @@ function Slot({
 }
 
 /**
- * @param profile Le profil locataire, pour la GARANTIE qu'il déclare : elle
- *   décide des pièces demandées. Un visa Visale remplace à lui seul tout le
+ * @param profile Le profil locataire, pour les GARANTIES qu'il déclare : elles
+ *   décident des pièces demandées. Un visa Visale remplace à lui seul tout le
  *   dossier d'une caution, et afficher les cinq emplacements d'un garant qu'on
- *   n'a pas laissait croire à un dossier incomplétable. Profil absent : on ne
- *   suppose aucune garantie (§17).
+ *   n'a pas laissait croire à un dossier incomplétable. Deux garants physiques,
+ *   à l'inverse, ont bien chacun leur dossier. Profil absent : on ne suppose
+ *   aucune garantie (§17).
  */
 export function DocumentsSection({
   profile,
@@ -224,7 +225,7 @@ export function DocumentsSection({
   // disparaissent pas de l'écran pour autant.
   const unsorted = documents.filter((doc) => slotOf(doc.name) === null);
 
-  const slots = dossierSlots(profile?.guarantor ?? 'none');
+  const slots = dossierSlots(profile?.guarantors ?? []);
   const tenant = slots.filter((slot) => !slot.forGuarantor);
   const guarantee = slots.filter((slot) => slot.forGuarantor);
   const done = (slots: readonly DossierSlot[]): number =>

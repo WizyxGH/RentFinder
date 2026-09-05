@@ -11,7 +11,7 @@
  * divulguer une donnée qu'aucun de ses composants ne reçoit.
  */
 
-import type { GuarantorKind, TenantProfile } from '@rentfinder/shared';
+import type { Guarantor, GuarantorKind, TenantProfile } from '@rentfinder/shared';
 
 const PROFILE_STORAGE_KEY = 'rentfinder.tenantProfile';
 
@@ -23,7 +23,7 @@ export const EMPTY_PROFILE: TenantProfile = {
   phone: '',
   situation: '',
   monthlyIncome: null,
-  guarantor: 'none',
+  guarantors: [],
   moveInDate: null,
 };
 
@@ -42,14 +42,16 @@ export interface GuarantorOption {
   readonly kind: GuarantorKind;
   readonly label: string;
   readonly hint: string;
+  /** L'intitulé attend un nom à côté (dispositif, ou lien de parenté). */
+  readonly namePlaceholder?: string;
 }
 
 export const GUARANTOR_OPTIONS: readonly GuarantorOption[] = [
-  { kind: 'none', label: 'Aucune', hint: 'Le dossier repose sur vos seuls revenus.' },
   {
     kind: 'physical',
     label: 'Un garant (une personne)',
     hint: 'Un proche qui se porte caution. Il fournit son propre dossier complet, plus l’acte de cautionnement.',
+    namePlaceholder: 'Mon père, ma sœur…',
   },
   {
     kind: 'visale',
@@ -65,45 +67,63 @@ export const GUARANTOR_OPTIONS: readonly GuarantorOption[] = [
     kind: 'other',
     label: 'Une autre garantie',
     hint: 'Loca-Pass, Cautioneo, garantie d’une école… Nommez-la : elle sera citée telle quelle dans vos messages.',
+    namePlaceholder: 'Loca-Pass, Cautioneo…',
   },
 ];
 
-/** L'intitulé d'une garantie, tel qu'il s'affiche dans le récapitulatif. */
-export function guarantorLabel(profile: TenantProfile): string {
-  if (profile.guarantor === 'other') {
-    const name = profile.guarantorName?.trim() ?? '';
-    return name === '' ? 'Une autre garantie' : name;
-  }
-  return GUARANTOR_OPTIONS.find((option) => option.kind === profile.guarantor)?.label ?? 'Aucune';
+/** L'intitulé d'une garantie, nom compris quand il y en a un. */
+export function guarantorLabel(guarantor: Guarantor): string {
+  const option = GUARANTOR_OPTIONS.find((one) => one.kind === guarantor.kind);
+  const base = option?.label ?? 'Une garantie';
+  const name = guarantor.name?.trim() ?? '';
+  if (name === '') return base;
+  return guarantor.kind === 'physical' ? `Garant : ${name}` : name;
+}
+
+/** Le récapitulatif de toutes les garanties, ou « Aucune ». */
+export function guarantorsLabel(profile: TenantProfile): string {
+  if (profile.guarantors.length === 0) return 'Aucune';
+  return profile.guarantors.map(guarantorLabel).join(' · ');
 }
 
 /**
- * Rattrape les profils enregistrés du temps du booléen « j'ai un garant ».
+ * Rattrape les profils enregistrés avant que les garanties ne soient une liste.
  *
  * Le profil vit dans ce navigateur, et rien ne le met à jour : un profil écrit
- * il y a six mois est lu tel quel. Sans cette reprise, un utilisateur qui avait
- * coché la case se retrouverait déclaré SANS garant — son message perdrait
- * l'argument, en silence, et il n'aurait aucune raison de rouvrir le
- * formulaire pour s'en apercevoir.
+ * il y a six mois est lu tel quel. Sans cette reprise, un utilisateur se
+ * retrouverait déclaré SANS garantie — son message perdrait l'argument, en
+ * silence, et il n'aurait aucune raison de rouvrir le formulaire pour s'en
+ * apercevoir.
  *
- * Une case cochée devient « personne physique » : c'est ce qu'elle voulait dire
- * à l'époque où Visale n'était pas proposée ici. Rien n'est deviné au-delà.
+ * DEUX ÉTATS ANCIENS À REPRENDRE : le booléen `hasGuarantor` des tout premiers
+ * profils, puis le choix unique `guarantor` + `guarantorName`. Rien n'est
+ * deviné au-delà de ce que chacun disait à son époque.
  */
-function migrateGuarantor(
-  parsed: Partial<TenantProfile> & { hasGuarantor?: boolean },
-): Pick<TenantProfile, 'guarantor'> | Record<string, never> {
-  if (parsed.guarantor !== undefined) return {};
-  return parsed.hasGuarantor === true ? { guarantor: 'physical' } : {};
+type LegacyProfile = Partial<TenantProfile> & {
+  hasGuarantor?: boolean;
+  guarantor?: GuarantorKind | 'none';
+  guarantorName?: string;
+};
+
+function migrateGuarantors(parsed: LegacyProfile): Pick<TenantProfile, 'guarantors'> | object {
+  if (Array.isArray(parsed.guarantors)) return {};
+  if (parsed.guarantor !== undefined && parsed.guarantor !== 'none') {
+    const name = parsed.guarantorName?.trim() ?? '';
+    return { guarantors: [{ kind: parsed.guarantor, ...(name === '' ? {} : { name }) }] };
+  }
+  // Une case cochée valait « personne physique », le seul sens qu'elle ait eu.
+  if (parsed.hasGuarantor === true) return { guarantors: [{ kind: 'physical' as const }] };
+  return {};
 }
 
 export function loadProfile(): TenantProfile | null {
   try {
     const raw = localStorage.getItem(PROFILE_STORAGE_KEY);
     if (raw === null) return null;
-    const parsed = JSON.parse(raw) as Partial<TenantProfile> & { hasGuarantor?: boolean };
+    const parsed = JSON.parse(raw) as LegacyProfile;
     // Un profil sans nom ne permet pas de composer un message crédible.
     if (!parsed.firstName || !parsed.lastName) return null;
-    return { ...EMPTY_PROFILE, ...parsed, ...migrateGuarantor(parsed) };
+    return { ...EMPTY_PROFILE, ...parsed, ...migrateGuarantors(parsed) };
   } catch {
     return null;
   }

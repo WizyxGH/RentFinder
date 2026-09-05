@@ -10,7 +10,7 @@
  * intitulés — il ne lit, n'envoie et ne stocke rien.
  */
 
-import type { GuarantorKind } from '@rentfinder/shared';
+import { MAX_GUARANTORS, type Guarantor } from '@rentfinder/shared';
 
 export interface DossierSlot {
   /** Identifiant court, préfixé au nom du fichier pour le ranger. */
@@ -56,21 +56,32 @@ const TENANT_SLOTS: readonly DossierSlot[] = CORE.map(([id, label, hint]) => ({
   forGuarantor: false,
 }));
 
-/** Les pièces d'une caution PERSONNE PHYSIQUE : son dossier entier, plus l'acte. */
-const PHYSICAL_GUARANTOR_SLOTS: readonly DossierSlot[] = [
-  ...CORE.map(([id, label, hint]) => ({
-    id: `garant-${id}`,
-    label,
-    hint,
-    forGuarantor: true,
-  })),
-  {
-    id: 'garant-caution',
-    label: 'Acte de cautionnement',
-    hint: 'Engagement signé du garant, portant le montant du loyer et la mention de la durée.',
-    forGuarantor: true,
-  },
-];
+/**
+ * Les pièces d'une caution PERSONNE PHYSIQUE : son dossier entier, plus l'acte.
+ *
+ * Le préfixe porte le RANG du garant — `garant2-identite` — parce qu'ils sont
+ * plusieurs et que leurs pièces ne se mélangent pas. Le premier garde les
+ * identifiants historiques, sans rang : les pièces déjà déposées du temps où
+ * l'on n'en déclarait qu'un doivent rester à leur place.
+ */
+function physicalGuarantorSlots(rank: number, who: string): DossierSlot[] {
+  const prefix = rank === 0 ? 'garant' : `garant${rank + 1}`;
+  const suffix = who === '' ? '' : ` — ${who}`;
+  return [
+    ...CORE.map(([id, label, hint]) => ({
+      id: `${prefix}-${id}`,
+      label: `${label}${suffix}`,
+      hint,
+      forGuarantor: true,
+    })),
+    {
+      id: `${prefix}-caution`,
+      label: `Acte de cautionnement${suffix}`,
+      hint: 'Engagement signé du garant, portant le montant du loyer et la mention de la durée.',
+      forGuarantor: true,
+    },
+  ];
+}
 
 const VISALE_SLOT: DossierSlot = {
   id: 'garant-visale',
@@ -91,35 +102,50 @@ const CERTIFICATE_SLOT: DossierSlot = {
  *
  * Sert au RANGEMENT, pas à l'affichage : une pièce déposée du temps où l'on
  * déclarait un garant physique doit rester reconnue après un passage à Visale,
- * sinon elle bascule dans « Non classées » sans que rien ne l'explique.
+ * sinon elle bascule dans « Non classées » sans que rien ne l'explique. Les
+ * rangs vont jusqu'au maximum autorisé, pour la même raison : retirer un garant
+ * ne doit pas égarer ses pièces.
  */
 export const DOSSIER_SLOTS: readonly DossierSlot[] = [
   ...TENANT_SLOTS,
-  ...PHYSICAL_GUARANTOR_SLOTS,
+  ...Array.from({ length: MAX_GUARANTORS }, (_one, rank) =>
+    physicalGuarantorSlots(rank, ''),
+  ).flat(),
   VISALE_SLOT,
   CERTIFICATE_SLOT,
 ];
 
 /**
- * Les emplacements À REMPLIR, selon la garantie déclarée.
+ * Les emplacements À REMPLIR, selon les garanties déclarées.
  *
  * Neuf emplacements étaient affichés à tout le monde, dont cinq pour un garant
  * que la plupart n'ont pas : le dossier semblait perpétuellement incomplet, et
  * le compteur « 0/5 » ne pouvait jamais atteindre son total. Une garantie
  * Visale n'appelle qu'une seule pièce ; l'absence de garantie, aucune.
+ *
+ * Deux garanties de même nature ne demandent pas deux fois les mêmes pièces —
+ * un seul visa Visale suffit —, mais DEUX GARANTS PHYSIQUES ont chacun leur
+ * dossier, et c'est bien ce que le bailleur réclamera.
  */
-export function dossierSlots(guarantor: GuarantorKind): readonly DossierSlot[] {
-  switch (guarantor) {
-    case 'physical':
-      return [...TENANT_SLOTS, ...PHYSICAL_GUARANTOR_SLOTS];
-    case 'visale':
-      return [...TENANT_SLOTS, VISALE_SLOT];
-    case 'garantme':
-    case 'other':
-      return [...TENANT_SLOTS, CERTIFICATE_SLOT];
-    case 'none':
-      return TENANT_SLOTS;
+export function dossierSlots(guarantors: readonly Guarantor[]): readonly DossierSlot[] {
+  const slots: DossierSlot[] = [...TENANT_SLOTS];
+  let physicalRank = 0;
+  let visale = false;
+  let certificate = false;
+
+  for (const guarantor of guarantors) {
+    if (guarantor.kind === 'physical') {
+      slots.push(...physicalGuarantorSlots(physicalRank, guarantor.name?.trim() ?? ''));
+      physicalRank += 1;
+    } else if (guarantor.kind === 'visale') {
+      if (!visale) slots.push(VISALE_SLOT);
+      visale = true;
+    } else {
+      if (!certificate) slots.push(CERTIFICATE_SLOT);
+      certificate = true;
+    }
   }
+  return slots;
 }
 
 /**

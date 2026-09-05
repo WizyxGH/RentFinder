@@ -1,17 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { DOSSIER_SLOTS, displayName, dossierSlots, slotOf, slotPrefix } from './dossier.js';
 
+const guarantorIds = (slots: readonly { id: string; forGuarantor: boolean }[]): string[] =>
+  slots.filter((slot) => slot.forGuarantor).map((slot) => slot.id);
+
 describe('liste des pièces', () => {
   it('couvre les quatre justificatifs du décret, pour le locataire ET le garant', () => {
-    const tenant = dossierSlots('physical')
-      .filter((s) => !s.forGuarantor)
-      .map((s) => s.id);
+    const slots = dossierSlots([{ kind: 'physical' }]);
+    const tenant = slots.filter((slot) => !slot.forGuarantor).map((slot) => slot.id);
     expect(tenant).toEqual(['identite', 'domicile', 'situation', 'ressources']);
     // Le garant fournit les mêmes, plus l'acte de cautionnement.
-    const guarantor = dossierSlots('physical')
-      .filter((s) => s.forGuarantor)
-      .map((s) => s.id);
-    expect(guarantor).toEqual([
+    expect(guarantorIds(slots)).toEqual([
       'garant-identite',
       'garant-domicile',
       'garant-situation',
@@ -26,36 +25,68 @@ describe('liste des pièces', () => {
    * un compteur « 0/5 » que personne ne pouvait jamais compléter.
    */
   it('ne demande qu’une attestation pour Visale, et rien sans garantie', () => {
-    expect(
-      dossierSlots('visale')
-        .filter((s) => s.forGuarantor)
-        .map((s) => s.id),
-    ).toEqual(['garant-visale']);
-    expect(
-      dossierSlots('garantme')
-        .filter((s) => s.forGuarantor)
-        .map((s) => s.id),
-    ).toEqual(['garant-certificat']);
-    expect(dossierSlots('none').filter((s) => s.forGuarantor)).toEqual([]);
+    expect(guarantorIds(dossierSlots([{ kind: 'visale' }]))).toEqual(['garant-visale']);
+    expect(guarantorIds(dossierSlots([{ kind: 'garantme' }]))).toEqual(['garant-certificat']);
+    expect(guarantorIds(dossierSlots([]))).toEqual([]);
     // Les pièces du candidat, elles, ne dépendent d'aucune garantie.
-    for (const kind of ['none', 'physical', 'visale', 'garantme', 'other'] as const) {
-      expect(dossierSlots(kind).filter((s) => !s.forGuarantor)).toHaveLength(4);
-    }
+    expect(dossierSlots([]).filter((slot) => !slot.forGuarantor)).toHaveLength(4);
+  });
+
+  /**
+   * DEUX GARANTS PHYSIQUES ONT CHACUN LEUR DOSSIER — deux parents qui se
+   * portent caution ensemble est le cas courant, et le bailleur réclamera bien
+   * les pièces des deux. Le premier garde les identifiants sans rang : les
+   * pièces déposées du temps où l'on n'en déclarait qu'un restent à leur place.
+   */
+  it('donne ses propres emplacements à chaque garant physique', () => {
+    const slots = dossierSlots([
+      { kind: 'physical', name: 'mon père' },
+      { kind: 'physical', name: 'ma mère' },
+    ]);
+    expect(guarantorIds(slots)).toEqual([
+      'garant-identite',
+      'garant-domicile',
+      'garant-situation',
+      'garant-ressources',
+      'garant-caution',
+      'garant2-identite',
+      'garant2-domicile',
+      'garant2-situation',
+      'garant2-ressources',
+      'garant2-caution',
+    ]);
+    // Le nom distingue les deux dossiers à l'écran, sinon indiscernables.
+    expect(slots.find((slot) => slot.id === 'garant2-identite')?.label).toContain('ma mère');
+  });
+
+  it('ne demande pas deux fois la même attestation institutionnelle', () => {
+    // Deux visas Visale n'existent pas : un seul emplacement suffit.
+    expect(guarantorIds(dossierSlots([{ kind: 'visale' }, { kind: 'visale' }]))).toEqual([
+      'garant-visale',
+    ]);
+  });
+
+  it('cumule un garant physique et une garantie institutionnelle', () => {
+    const slots = dossierSlots([{ kind: 'physical' }, { kind: 'visale' }]);
+    expect(guarantorIds(slots)).toContain('garant-caution');
+    expect(guarantorIds(slots)).toContain('garant-visale');
+  });
+
+  it('n’a aucun identifiant en double', () => {
+    const ids = DOSSIER_SLOTS.map((slot) => slot.id);
+    expect(new Set(ids).size).toBe(ids.length);
   });
 
   /**
    * Le rangement doit survivre à un changement de garantie : une pièce déposée
    * du temps d'un garant physique ne doit pas basculer en « non classée » parce
-   * que le profil est passé à Visale.
+   * que le profil est passé à Visale — ni parce qu'un second garant a été
+   * retiré.
    */
   it('reconnaît un emplacement même s’il n’est plus demandé', () => {
     expect(slotOf(`${slotPrefix('garant-caution')}acte.pdf`)).toBe('garant-caution');
     expect(slotOf(`${slotPrefix('garant-visale')}visa.pdf`)).toBe('garant-visale');
-  });
-
-  it('n’a aucun identifiant en double', () => {
-    const ids = DOSSIER_SLOTS.map((s) => s.id);
-    expect(new Set(ids).size).toBe(ids.length);
+    expect(slotOf(`${slotPrefix('garant3-identite')}cni.pdf`)).toBe('garant3-identite');
   });
 });
 

@@ -34,6 +34,18 @@ export interface ChangelogEntry {
  */
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    id: '2026-09-05-filtres',
+    date: '2026-09-05',
+    title: 'Les filtres filtrent enfin, et le thème change vraiment',
+    body: 'Colocations, locations étudiantes, bailleur et meublé s’appliquent désormais à la liste que vous avez sous les yeux, sans attendre la collecte suivante. Le choix clair/sombre agit pour de bon. Le tri sort des filtres et gagne « Le plus proche ».',
+  },
+  {
+    id: '2026-09-05-garanties',
+    date: '2026-09-05',
+    title: 'Plusieurs garanties, et une situation à choisir',
+    body: 'Deux parents qui se portent caution ensemble, ou un garant doublé d’une garantie Visale : déclarez-les toutes. Chaque garant physique a ses propres pièces au dossier. La situation professionnelle se choisit dans une liste — vos messages s’accordent enfin.',
+  },
+  {
     id: '2026-09-05-transfert',
     date: '2026-09-05',
     title: 'Vos alertes Leboncoin et SeLoger, sur votre compte',

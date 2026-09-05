@@ -15,7 +15,7 @@
  */
 
 import { fileURLToPath } from 'node:url';
-import type { GuarantorKind, SearchCriteria, TenantProfile } from '@rentfinder/shared';
+import type { Guarantor, GuarantorKind, SearchCriteria, TenantProfile } from '@rentfinder/shared';
 import { MVP_CRITERIA } from '@rentfinder/shared';
 import type { TravelMode } from './core/geo.js';
 
@@ -251,19 +251,36 @@ export function loadReferenceAddresses(
  *          est alors désactivée plutôt que de produire un texte à trous.
  */
 /**
- * La garantie de loyer déclarée, `none` si rien de reconnaissable.
+ * Les garanties de loyer déclarées, dans l'ordre où elles sont écrites.
+ *
+ * UNE LISTE SÉPARÉE PAR DES VIRGULES — `TENANT_GUARANTOR=physical,visale` —
+ * parce qu'on en cumule : deux parents qui se portent caution ensemble, ou un
+ * garant doublé d'une garantie Visale, sont des dossiers courants et l'ancien
+ * champ unique obligeait à en taire la moitié.
  *
  * `TENANT_HAS_GUARANTOR=true` reste compris : c'est ce que les `.env` existants
  * contiennent, et une variable d'environnement ne se met pas à jour toute
  * seule. Elle vaut « personne physique », le seul sens qu'elle ait jamais eu.
- * Une valeur inconnue vaut `none` plutôt que d'inventer une garantie (§17).
+ * Une valeur inconnue est ignorée plutôt qu'inventée (§17).
  */
-function readGuarantor(env: NodeJS.ProcessEnv): GuarantorKind {
-  const declared = env['TENANT_GUARANTOR']?.trim().toLowerCase() ?? '';
-  const known: readonly GuarantorKind[] = ['none', 'physical', 'visale', 'garantme', 'other'];
-  const match = known.find((kind) => kind === declared);
-  if (match !== undefined) return match;
-  return env['TENANT_HAS_GUARANTOR'] === 'true' ? 'physical' : 'none';
+function readGuarantors(env: NodeJS.ProcessEnv): Guarantor[] {
+  const known: readonly GuarantorKind[] = ['physical', 'visale', 'garantme', 'other'];
+  const name = env['TENANT_GUARANTOR_NAME']?.trim() ?? '';
+
+  const declared = (env['TENANT_GUARANTOR'] ?? '')
+    .split(',')
+    .map((part) => part.trim().toLowerCase())
+    .filter((part) => part !== '' && part !== 'none');
+
+  const guarantors = declared
+    .map((part) => known.find((kind) => kind === part))
+    .filter((kind): kind is GuarantorKind => kind !== undefined)
+    // Le nom ne vaut que pour un dispositif « autre » : c'est le seul qu'il
+    // faille nommer pour que le message dise quelque chose (§17).
+    .map((kind) => (kind === 'other' && name !== '' ? { kind, name } : { kind }));
+
+  if (guarantors.length > 0) return guarantors;
+  return env['TENANT_HAS_GUARANTOR'] === 'true' ? [{ kind: 'physical' }] : [];
 }
 
 export function loadTenantProfile(env: NodeJS.ProcessEnv = process.env): TenantProfile | null {
@@ -276,7 +293,6 @@ export function loadTenantProfile(env: NodeJS.ProcessEnv = process.env): TenantP
   // verbatim s'il est renseigné (§24). Multi-ligne accepté (guillemets dans .env).
   const applicationMessage = env['TENANT_APPLICATION_MESSAGE']?.trim();
   const applicationSubject = env['TENANT_APPLICATION_SUBJECT']?.trim();
-  const guarantorName = env['TENANT_GUARANTOR_NAME']?.trim();
 
   return {
     firstName,
@@ -285,7 +301,7 @@ export function loadTenantProfile(env: NodeJS.ProcessEnv = process.env): TenantP
     phone: env['TENANT_PHONE'] ?? '',
     situation: env['TENANT_SITUATION'] ?? '',
     monthlyIncome: Number.isFinite(income) ? income : null,
-    guarantor: readGuarantor(env),
+    guarantors: readGuarantors(env),
     moveInDate: env['TENANT_MOVE_IN_DATE'] ?? null,
     ...(applicationMessage !== undefined && applicationMessage !== ''
       ? { applicationMessage }
@@ -293,7 +309,6 @@ export function loadTenantProfile(env: NodeJS.ProcessEnv = process.env): TenantP
     ...(applicationSubject !== undefined && applicationSubject !== ''
       ? { applicationSubject }
       : {}),
-    ...(guarantorName !== undefined && guarantorName !== '' ? { guarantorName } : {}),
   };
 }
 

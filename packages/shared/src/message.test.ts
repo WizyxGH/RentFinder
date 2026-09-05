@@ -15,7 +15,7 @@ const PROFILE: TenantProfile = {
   phone: '06 00 00 00 00',
   situation: 'CDI',
   monthlyIncome: 2400,
-  guarantor: 'physical',
+  guarantors: [{ kind: 'physical' }],
   moveInDate: null,
 };
 
@@ -93,32 +93,90 @@ describe('prepareMessage — message unique', () => {
   });
 });
 
-describe('garantie de loyer', () => {
+describe('garanties de loyer', () => {
   /**
    * Visale est le seul argument dont dispose un candidat sans proche capable de
    * se porter caution ; le dire « un garant » l'effacerait alors qu'il porte le
    * dossier. Le bailleur qui connaît le dispositif sait qu'il ne lui coûte rien.
    */
   it('nomme Visale plutôt que de dire « un garant »', () => {
-    const { body } = prepareMessage(listing('agency'), { ...PROFILE, guarantor: 'visale' });
+    const { body } = prepareMessage(listing('agency'), {
+      ...PROFILE,
+      guarantors: [{ kind: 'visale' }],
+    });
     expect(body).toContain('garantie Visale');
   });
 
   it('cite le dispositif nommé par l’utilisateur, et rien d’autre (§17)', () => {
     const named = prepareMessage(listing('agency'), {
       ...PROFILE,
-      guarantor: 'other',
-      guarantorName: 'Loca-Pass',
+      guarantors: [{ kind: 'other', name: 'Loca-Pass' }],
     }).body;
     expect(named).toContain('Loca-Pass');
 
     // Sans nom, on n'en invente pas un : « une garantie de loyer » reste vrai.
-    const unnamed = prepareMessage(listing('agency'), { ...PROFILE, guarantor: 'other' }).body;
+    const unnamed = prepareMessage(listing('agency'), {
+      ...PROFILE,
+      guarantors: [{ kind: 'other' }],
+    }).body;
     expect(unnamed).toContain('une garantie de loyer');
   });
 
   it('ne promet aucune garantie quand il n’y en a pas', () => {
-    const { body } = prepareMessage(listing('agency'), { ...PROFILE, guarantor: 'none' });
+    const { body } = prepareMessage(listing('agency'), { ...PROFILE, guarantors: [] });
     expect(body).not.toContain('garant');
+  });
+
+  /**
+   * DEUX PARENTS QUI SE PORTENT CAUTION ENSEMBLE est le cas courant, et le
+   * champ unique d'avant obligeait à n'en annoncer qu'un. Taire le second
+   * affaiblit un dossier qui en a deux.
+   */
+  it('compte les garants physiques plutôt que d’en répéter la mention', () => {
+    const { body } = prepareMessage(listing('agency'), {
+      ...PROFILE,
+      guarantors: [{ kind: 'physical', name: 'mon père' }, { kind: 'physical' }],
+    });
+    expect(body).toContain('2 garants');
+    expect(body).not.toContain('un garant et un garant');
+  });
+
+  it('énumère un garant ET une garantie institutionnelle', () => {
+    const { body } = prepareMessage(listing('agency'), {
+      ...PROFILE,
+      guarantors: [{ kind: 'physical' }, { kind: 'visale' }],
+    });
+    expect(body).toContain('un garant');
+    expect(body).toContain('garantie Visale');
+    // L'énumération française : pas de virgule avant le « et ».
+    expect(body).toContain('un garant et la garantie Visale');
+  });
+});
+
+describe('situation professionnelle', () => {
+  /**
+   * Le message dit « Je suis {situation} ». Le champ libre produisait « Je suis
+   * en fonctionnaire » — et « fonctionnaire » était l'exemple donné à
+   * l'utilisateur. Chaque situation connue porte donc sa propre tournure.
+   */
+  it('accorde la phrase à la situation choisie', () => {
+    const cdi = prepareMessage(listing('agency'), { ...PROFILE, situation: 'cdi' }).body;
+    expect(cdi).toContain('Je suis en CDI');
+
+    const agent = prepareMessage(listing('agency'), {
+      ...PROFILE,
+      situation: 'fonctionnaire',
+    }).body;
+    expect(agent).toContain('Je suis fonctionnaire');
+    expect(agent).not.toContain('en fonctionnaire');
+  });
+
+  /** Un profil ancien porte du texte libre : on ne réécrit pas ce qu'il a écrit. */
+  it('laisse passer une situation libre, précédée de « en »', () => {
+    const { body } = prepareMessage(listing('agency'), {
+      ...PROFILE,
+      situation: 'intermittent du spectacle',
+    });
+    expect(body).toContain('Je suis en intermittent du spectacle');
   });
 });

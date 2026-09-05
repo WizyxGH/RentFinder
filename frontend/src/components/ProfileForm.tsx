@@ -6,8 +6,10 @@
  */
 
 import { useState } from 'react';
-import type { GuarantorKind, TenantProfile } from '@rentfinder/shared';
+import type { Guarantor, GuarantorKind, TenantProfile } from '@rentfinder/shared';
+import { MAX_GUARANTORS, TENANT_SITUATIONS } from '@rentfinder/shared';
 import { EMPTY_PROFILE, GUARANTOR_OPTIONS } from '../profile.js';
+import { Plus, Trash2 } from './icons.js';
 import { Button } from '@/components/ui/button.js';
 
 interface ProfileFormProps {
@@ -36,8 +38,26 @@ export function ProfileForm({
     setProfile((previous) => ({ ...previous, [key]: value }));
   };
 
-  const selected =
-    GUARANTOR_OPTIONS.find((option) => option.kind === profile.guarantor) ?? GUARANTOR_OPTIONS[0]!;
+  /** `false` quand la situation est un texte libre : le champ « Autre » s'ouvre. */
+  const knownSituation = TENANT_SITUATIONS.some(
+    (one) => one.value === profile.situation && one.value !== 'other',
+  );
+
+  const setGuarantors = (guarantors: readonly Guarantor[]): void =>
+    setProfile((previous) => ({ ...previous, guarantors }));
+
+  const setGuarantor = (index: number, guarantor: Guarantor): void => {
+    // Un nom vide est RETIRÉ plutôt que stocké : le profil ne garde pas de
+    // chaîne vide qui se retrouverait ensuite dans un message (§17).
+    const name = guarantor.name?.trim() ?? '';
+    const cleaned: Guarantor = { kind: guarantor.kind, ...(name === '' ? {} : { name }) };
+    setGuarantors(profile.guarantors.map((one, i) => (i === index ? cleaned : one)));
+  };
+
+  const removeGuarantor = (index: number): void =>
+    setGuarantors(profile.guarantors.filter((_one, i) => i !== index));
+
+  const addGuarantor = (): void => setGuarantors([...profile.guarantors, { kind: 'physical' }]);
 
   return (
     <form
@@ -93,15 +113,39 @@ export function ProfileForm({
           />
         </label>
 
+        {/* UN MENU, ET NON UN CHAMP LIBRE. Le message dit « Je suis {situation} » :
+            le texte libre produisait « Je suis en fonctionnaire », et
+            « fonctionnaire » était justement l'exemple donné à l'utilisateur.
+            Chaque entrée de la liste porte sa propre tournure. La liste reprend
+            les situations que bailleurs et organismes de caution distinguent. */}
         <label className={FIELD}>
           Situation professionnelle
-          <input
-            type="text"
-            placeholder="CDI, fonctionnaire, étudiant…"
-            value={profile.situation}
-            onChange={(event) => update('situation', event.target.value)}
-          />
+          <select
+            value={knownSituation ? profile.situation : 'other'}
+            onChange={(event) =>
+              update('situation', event.target.value === 'other' ? '' : event.target.value)
+            }
+            className="border-border bg-card text-foreground rounded-lg border px-2.5 py-2 text-[0.9rem]"
+          >
+            {TENANT_SITUATIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
         </label>
+
+        {!knownSituation && (
+          <label className={FIELD}>
+            Précisez votre situation
+            <input
+              type="text"
+              placeholder="Intermittent, pensionné…"
+              value={profile.situation}
+              onChange={(event) => update('situation', event.target.value)}
+            />
+          </label>
+        )}
 
         <label className={FIELD}>
           Revenus mensuels (€)
@@ -129,37 +173,76 @@ export function ProfileForm({
           />
         </label>
 
-        {/* Une liste et non une case à cocher : « j'ai un garant » recouvrait
-            une personne, Visale et les cautions payantes, que les bailleurs ne
-            lisent pas du tout de la même façon. L'indication sous le choix
-            explique le dispositif à qui ne le connaît pas. */}
-        <label className={`${FIELD} sm:col-span-2`}>
-          Garantie de loyer
-          <select
-            value={profile.guarantor}
-            onChange={(event) => update('guarantor', event.target.value as GuarantorKind)}
-            className="rounded-lg border border-border bg-card px-2.5 py-2 text-[0.9rem] text-foreground"
-          >
-            {GUARANTOR_OPTIONS.map((option) => (
-              <option key={option.kind} value={option.kind}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-          <span className="text-[0.8rem]">{selected.hint}</span>
-        </label>
+        {/* PLUSIEURS GARANTIES, et non plus une seule. Deux parents se portent
+            souvent caution ensemble, et l'on cumule volontiers un garant
+            physique avec une garantie Visale — c'est même ce qui fait la force
+            d'un dossier. Un champ unique obligeait à taire la moitié de ce
+            qu'on a. */}
+        <fieldset className="sm:col-span-2">
+          <legend className="text-muted-foreground mb-1 text-[0.88rem]">Garanties de loyer</legend>
 
-        {profile.guarantor === 'other' && (
-          <label className={`${FIELD} sm:col-span-2`}>
-            Nom de la garantie
-            <input
-              type="text"
-              value={profile.guarantorName ?? ''}
-              onChange={(event) => update('guarantorName', event.target.value)}
-              placeholder="Loca-Pass, Cautioneo…"
-            />
-          </label>
-        )}
+          {profile.guarantors.length === 0 && (
+            <p className="text-muted-foreground mb-2 text-[0.82rem]">
+              Aucune pour l’instant. Le dossier reposera sur vos seuls revenus.
+            </p>
+          )}
+
+          <ul className="mb-2 flex flex-col gap-2">
+            {profile.guarantors.map((guarantor, index) => {
+              const option = GUARANTOR_OPTIONS.find((one) => one.kind === guarantor.kind);
+              return (
+                <li key={index} className="border-border rounded-xl border p-2.5">
+                  <div className="flex items-start gap-2">
+                    <select
+                      aria-label={`Garantie ${index + 1}`}
+                      value={guarantor.kind}
+                      onChange={(event) =>
+                        setGuarantor(index, { kind: event.target.value as GuarantorKind })
+                      }
+                      className="border-border bg-card text-foreground min-w-0 flex-1 rounded-lg border px-2.5 py-2 text-[0.9rem]"
+                    >
+                      {GUARANTOR_OPTIONS.map((one) => (
+                        <option key={one.kind} value={one.kind}>
+                          {one.label}
+                        </option>
+                      ))}
+                    </select>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      aria-label={`Retirer la garantie ${index + 1}`}
+                      onClick={() => removeGuarantor(index)}
+                    >
+                      <Trash2 aria-hidden="true" className="size-4" />
+                    </Button>
+                  </div>
+
+                  {option?.namePlaceholder !== undefined && (
+                    <input
+                      type="text"
+                      aria-label={`Nom de la garantie ${index + 1}`}
+                      placeholder={option.namePlaceholder}
+                      value={guarantor.name ?? ''}
+                      onChange={(event) =>
+                        setGuarantor(index, { kind: guarantor.kind, name: event.target.value })
+                      }
+                      className="mt-2 w-full"
+                    />
+                  )}
+
+                  <p className="text-muted-foreground mt-1.5 text-[0.8rem]">{option?.hint}</p>
+                </li>
+              );
+            })}
+          </ul>
+
+          {profile.guarantors.length < MAX_GUARANTORS && (
+            <Button type="button" variant="outline" size="sm" onClick={addGuarantor}>
+              <Plus aria-hidden="true" className="size-4" /> Ajouter une garantie
+            </Button>
+          )}
+        </fieldset>
       </div>
 
       {/* §24 : message de candidature UNIQUE, envoyé tel quel pour toutes les
