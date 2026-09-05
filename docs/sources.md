@@ -155,6 +155,25 @@ Note studapart : accès conforme trouvé le 2026-08-18. `robots.txt` du site pri
 `{"data":[{"index":["search_properties_prod","residence_properties_prod"]},{"size":0,"body":{"query":{"bool":{"filter":[{"term":{"online":true}},{"terms":{"tags":["search-<ville>"]}},{"term":{"announcementType":"rental"}}]}},"aggs":{"distinctProperties":{"terms":{"field":"distinctId","size":201},"aggs":{"hit":{"top_hits":{"size":1}}}}}}}]}`.
 Réponse : `responses[0].aggregations.distinctProperties.buckets[].hit.hits.hits[0]._source`. Le tag `search-<ville>` se dérive du slug (ex. `search-nice`). Attention : beaucoup de biens sont en **colocation** (`rentedByRoom: true`) → écartés par le filtre perso, c'est voulu.
 
+## Ce que chaque source donne vraiment (audit du 2026-09-04)
+
+Mesure sur les 989 occurrences actives : **134 portaient des charges, soit
+14 %**. L'audit visait à savoir où le manque venait d'un défaut d'extraction, et
+où la source ne publie simplement rien.
+
+| Source            | Actives | Charges     | Diagnostic                                                                                                                 |
+| ----------------- | ------- | ----------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Famille **Apimo** | ~200    | 0 % → élevé | **Défaut d'extraction, corrigé.** Le bloc « Financier » publie la provision sous un intitulé stable ; on ne le lisait pas. |
+| **studapart**     | 201     | 1 %         | Meublés étudiants, loyer tout compris : il n'y a souvent pas de provision distincte.                                       |
+| **email-alerts**  | 199     | 0 %         | Les digests ne portent ni charges ni adresse — limite de la source, pas du parseur.                                        |
+| **fnaim**         | 76      | 1 %         | La carte de résultat ne porte pas les charges, et **tronque la description**. Les fiches ne sont pas visitées (§30).       |
+| **dinamy**        | 27      | 0 %         | La fiche ne publie ni charges, ni dépôt, ni honoraires. Rien à récupérer.                                                  |
+| **foncia**        | 16      | 0 %         | Application monopage : les données arrivent en JSON embarqué. À creuser.                                                   |
+
+Enseignement à garder : un taux à zéro n'est pas forcément un bug. Trois des
+quatre sources examinées ne publient pas l'information, et seule la famille
+Apimo laissait vraiment passer ce qu'elle affichait.
+
 ## Ordre d'implémentation recommandé
 
 1. **Laforêt** — fait. Sert de source pilote et de référence d'architecture.
