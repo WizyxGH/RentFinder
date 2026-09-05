@@ -162,7 +162,18 @@ export function routeFromPath(pathname: string): Route {
 
   if (first === 'favorites') return { view: 'list', favoritesOnly: true };
 
-  if (first === 'listing' && second !== undefined) return { view: 'detail', id: second };
+  // `annonce` EST L'ANCIEN NOM DE `listing`, et il doit continuer de marcher.
+  // Les notifications Web Push partent avec l'adresse du jour où elles sont
+  // émises et vivent ensuite dans le centre de notifications du téléphone,
+  // parfois des semaines. Toutes celles envoyées avant le passage des adresses
+  // en anglais portent `/annonce/…` : sans cette ligne, les toucher ramène à
+  // l'accueil, sans un mot — ce qui ressemble à une panne.
+  //
+  // Un alias ne coûte rien et ne périme jamais ; c'est `pathFromRoute` qui décide
+  // de l'adresse ÉCRITE, et elle n'en connaît qu'une.
+  if ((first === 'listing' || first === 'annonce') && second !== undefined) {
+    return { view: 'detail', id: second };
+  }
   if (first === 'agency' && second !== undefined) return { view: 'agency', id: second };
   if (first === 'sources' && second !== undefined) return { view: 'source', id: second };
 

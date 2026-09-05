@@ -108,11 +108,16 @@ export const MVP_CRITERIA: SearchCriteria = {
 /**
  * De combien une annonce peut dépasser les critères et rester « proche ».
  *
- * Dix pour cent : au-delà, ce n'est plus un arrondi mais un autre budget. Sur
- * un plafond de 700 €, cela signale les 701–770 € — la fourchette où l'on
- * hésite vraiment, et où une annonce bien placée mérite un coup d'œil.
+ * CINQ POUR CENT. C'était dix, et dix était trop : sur un plafond de 700 €,
+ * cela signalait jusqu'à 770 € — soixante-dix euros par mois, huit cent
+ * quarante par an. Ce n'est plus un arrondi, c'est un autre budget, et une
+ * alerte qui le propose ne rend pas service : elle fait douter du filtre.
+ *
+ * À cinq pour cent, la fourchette signalée est 701–735 € : de quoi rattraper
+ * une annonce dont les charges basculent le loyer d'un cheveu, sans jamais
+ * proposer ce qu'on a explicitement écarté.
  *
  * La même marge s'applique à la surface, dans l'autre sens : 20 m² accepte
- * 18 m².
+ * 19 m².
  */
-export const NEAR_MATCH_MARGIN = 0.1;
+export const NEAR_MATCH_MARGIN = 0.05;

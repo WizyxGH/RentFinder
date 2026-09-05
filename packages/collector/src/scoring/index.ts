@@ -13,7 +13,7 @@ import type {
 } from '@rentfinder/shared';
 import type { ReferencePoint } from '../config.js';
 import { estimateDurationMinutes, haversineKm, type Coordinates } from '../core/geo.js';
-import { scoreMatch } from './match.js';
+import { isStudentHousing, scoreMatch } from './match.js';
 import { scoreOpportunity } from './opportunity.js';
 import { scoreRisk } from './risk.js';
 import { scoreVisitProbability } from './visit-probability.js';
@@ -119,6 +119,10 @@ export function scoreListing(listing: AggregatedListing, options: ScoringOptions
     },
     distances,
     matchesCriteria: match.matchesCriteria && !commuteTooLong,
+    // Calculé ici QUE L'UTILISATEUR EXCLUE OU NON les locations étudiantes : ce
+    // n'est pas un verdict de filtrage, c'est un fait sur l'annonce. C'est ce
+    // qui permet de changer d'avis sur le filtre sans rien recollecter.
+    studentOnly: isStudentHousing(listing),
     priceDropped,
   };
 }

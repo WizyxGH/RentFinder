@@ -1,5 +1,5 @@
 /**
- * Modale « Trier et filtrer » (§36).
+ * Modale « Filtres » (§36).
  *
  * Regroupe en un seul endroit ce qui était éparpillé en trois menus déroulants
  * de la barre d'outils : le tri, les options d'affichage et le filtre par
@@ -12,8 +12,15 @@
  * réglages ne font que trier. Deux familles à comprendre pour un seul geste —
  * régler sa recherche — c'était une explication de plus à lire, pas une aide.
  *
- * Le tri est en tête : il donne son nom à la modale et se perdait entre « Type
- * de bien » et « Affichage ».
+ * LE TRI N'EST PLUS ICI. Il y vivait, en tête : on ouvrait donc une modale de
+ * filtres pour changer d'ordre, puis on la refermait pour voir le résultat.
+ * Changer de tri est un geste fréquent et sans conséquence ; il est passé à
+ * l'air libre, dans la barre d'outils. Cette modale ne garde que ce qui
+ * RESTREINT la liste — d'où son nom.
+ *
+ * AFFICHAGE ET SOURCES SONT REPLIÉS. Les cinquante sources dépliées occupaient
+ * à elles seules plus de place que tout le reste, et il fallait faire défiler
+ * une demi-page pour atteindre le bouton qui compte.
  *
  * L'EN-TÊTE ET LE PIED SONT FIXES. Le bouton qui compte — celui qui dit combien
  * d'annonces restent — se trouvait après huit sections de défilement, et le
@@ -27,9 +34,8 @@
  * fond, et le focus part sur le premier contrôle.
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { X } from './icons.js';
-import type { SortMode } from '../types.js';
 import type { PropertyType } from '@rentfinder/shared';
 import { formatPropertyType, formatSourceName } from '../format.js';
 import {
@@ -39,15 +45,12 @@ import {
   type QuickFilterValues,
 } from './QuickFilters.js';
 import { FiltersPanel } from './FiltersPanel.js';
+import { MultiSelect } from '@/components/ui/multi-select.js';
 import { Button } from '@/components/ui/button.js';
 
 export interface SortFilterModalProps {
   readonly open: boolean;
   readonly onClose: () => void;
-
-  readonly sort: SortMode;
-  readonly onSortChange: (sort: SortMode) => void;
-  readonly sortOptions: readonly { readonly value: SortMode; readonly label: string }[];
 
   /** Bascules d'affichage : libellé, état, setter. */
   readonly toggles: readonly (readonly [string, boolean, (value: boolean) => void])[];
@@ -87,9 +90,6 @@ function FieldLabel({ children }: { readonly children: React.ReactNode }): React
 export function SortFilterModal({
   open,
   onClose,
-  sort,
-  onSortChange,
-  sortOptions,
   toggles,
   quickFilters,
   onQuickFiltersChange,
@@ -103,22 +103,23 @@ export function SortFilterModal({
   dirty,
 }: SortFilterModalProps): React.JSX.Element | null {
   const panel = useRef<HTMLDivElement>(null);
-  // Filtre de la liste des sources : elles sont une quarantaine, retrouver
-  // une agence à l'œil devenait pénible.
-  const [sourceQuery, setSourceQuery] = useState('');
 
-  const comparable = (value: string): string =>
-    value.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  // Les sources sont une cinquantaine : `MultiSelect` porte la recherche.
+  const sourceOptions = useMemo(
+    () => sources.map((id) => ({ value: id, label: formatSourceName(id) })),
+    [sources],
+  );
 
-  const shownSources = useMemo(() => {
-    const query = comparable(sourceQuery).trim();
-    if (query === '') return sources;
-    // On cherche dans le nom LISIBLE (« L'Adresse ») comme dans l'identifiant
-    // technique (« ladresse ») : l'un ou l'autre vient à l'esprit.
-    return sources.filter(
-      (id) => comparable(formatSourceName(id)).includes(query) || comparable(id).includes(query),
-    );
-  }, [sources, sourceQuery]);
+  // Les bascules d'affichage deviennent une sélection multiple : ce sont
+  // quatre booléens indépendants, exactement ce qu'un tel menu représente.
+  const toggleOptions = useMemo(
+    () => toggles.map(([label]) => ({ value: label, label })),
+    [toggles],
+  );
+  const activeToggles = useMemo(
+    () => new Set(toggles.filter(([, checked]) => checked).map(([label]) => label)),
+    [toggles],
+  );
 
   const patch = (part: Partial<QuickFilterValues>): void =>
     onQuickFiltersChange({ ...quickFilters, ...part });
@@ -163,7 +164,7 @@ export function SortFilterModal({
         ref={panel}
         role="dialog"
         aria-modal="true"
-        aria-label="Trier et filtrer"
+        aria-label="Filtres"
         // Le clic à l'intérieur ne doit pas fermer la modale.
         onClick={(event) => event.stopPropagation()}
         // Le voile se fond, le panneau monte : sur téléphone il vient du bas,
@@ -172,7 +173,7 @@ export function SortFilterModal({
         className="rf-rise flex max-h-[85vh] w-full flex-col rounded-t-2xl border border-border bg-card shadow-xl sm:max-w-md sm:rounded-2xl"
       >
         <div className="flex items-center justify-between border-b border-border px-5 py-3.5">
-          <h2 className="text-lg font-semibold">Trier et filtrer</h2>
+          <h2 className="text-lg font-semibold">Filtres</h2>
           <Button
             variant="ghost"
             size="sm"
@@ -185,29 +186,7 @@ export function SortFilterModal({
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
-          {/* LE TRI D'ABORD : il donne son nom à la modale, et se perdait entre
-            « Type de bien » et « Affichage ». Un menu et non une liste dépliée —
-            c'est un choix unique parmi quatre, et le `<select>` natif est le
-            plus sûr au doigt (§39, §65). */}
-          <div className="flex items-center gap-3">
-            <label htmlFor="sort-select" className="text-sm font-medium text-muted-foreground">
-              Trier par
-            </label>
-            <select
-              id="sort-select"
-              value={sort}
-              onChange={(event) => onSortChange(event.target.value as SortMode)}
-              className="min-w-0 flex-1"
-            >
-              {sortOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="mt-5">
+          <div>
             <fieldset className="mb-4">
               <FieldLabel>Budget</FieldLabel>
               {/* Fourchette libre plutôt que des paliers : chaque recherche a son
@@ -309,65 +288,38 @@ export function SortFilterModal({
               </fieldset>
             )}
 
+            {/* AFFICHAGE ET SOURCES, REPLIÉS. Quatre cases et cinquante lignes
+              de sources dépliées remplaçaient à elles seules deux écrans de
+              défilement, pour des réglages qu'on touche rarement. Repliés,
+              chacun tient sur une ligne et dit ce qu'il contient. */}
             <fieldset className="mb-4">
               <FieldLabel>Affichage</FieldLabel>
-              <ul className="flex flex-col gap-0.5">
-                {toggles.map(([label, checked, setter]) => (
-                  <li key={label}>
-                    <label className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-2 hover:bg-muted">
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={(event) => setter(event.target.checked)}
-                      />
-                      <span>{label}</span>
-                    </label>
-                  </li>
-                ))}
-              </ul>
+              <MultiSelect
+                label="Afficher"
+                options={toggleOptions}
+                selected={activeToggles}
+                onToggle={(label) => {
+                  const entry = toggles.find(([name]) => name === label);
+                  if (entry !== undefined) entry[2](!entry[1]);
+                }}
+                emptyLabel="Réglages par défaut"
+                summarize={(count) => `${count} options`}
+              />
             </fieldset>
 
             {sources.length > 1 && (
-              <fieldset>
-                <legend className="mb-2 flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                  Sources
-                  {selectedSources.size > 0 && (
-                    <button
-                      type="button"
-                      onClick={onClearSources}
-                      className="cursor-pointer font-normal underline hover:text-foreground"
-                    >
-                      tout afficher
-                    </button>
-                  )}
-                </legend>
-                <input
-                  type="search"
-                  value={sourceQuery}
-                  onChange={(event) => setSourceQuery(event.target.value)}
-                  placeholder="Filtrer les sources…"
-                  aria-label="Filtrer les sources par nom"
-                  className="mb-2 w-full rounded-lg border border-border px-2 py-1.5 text-sm"
+              <fieldset className="mb-4">
+                <FieldLabel>Sources</FieldLabel>
+                <MultiSelect
+                  label="Sources"
+                  options={sourceOptions}
+                  selected={selectedSources}
+                  onToggle={onToggleSource}
+                  onClear={onClearSources}
+                  searchable
+                  emptyLabel="Toutes"
+                  summarize={(count) => `${count} sources`}
                 />
-                <ul className="flex max-h-56 flex-col overflow-y-auto">
-                  {shownSources.length === 0 && (
-                    <li className="px-2 py-1.5 text-sm text-muted-foreground">
-                      Aucune source trouvée.
-                    </li>
-                  )}
-                  {shownSources.map((sourceId) => (
-                    <li key={sourceId}>
-                      <label className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-muted">
-                        <input
-                          type="checkbox"
-                          checked={selectedSources.has(sourceId)}
-                          onChange={() => onToggleSource(sourceId)}
-                        />
-                        <span className="truncate">{formatSourceName(sourceId)}</span>
-                      </label>
-                    </li>
-                  ))}
-                </ul>
               </fieldset>
             )}
 

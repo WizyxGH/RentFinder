@@ -53,6 +53,29 @@
     color-scheme: light dark;
   }
 
+  /* LE CHOIX CLAIR/SOMBRE PASSE PAR CES DEUX RÈGLES, et il ne marchait pas sans
+     elles. `light-dark()` n'existe pas dans le CSS publié : Lightning CSS, que
+     Vite emploie pour minifier, le REMPLACE par un couple de variables qu'il
+     bascule lui-même. Or il ne les bascule qu'aux endroits où il VOIT un
+     `color-scheme` écrit dans la feuille de style — la requête média du système,
+     et les sélecteurs ci-dessous.
+
+     Le thème était posé en JavaScript, par un `style.colorScheme` sur la
+     racine. Lightning CSS ne peut pas le voir : les variables restaient donc
+     celles du système, et les boutons « Clair » et « Sombre » ne changeaient
+     rien d'autre que l'apparence des cases à cocher natives. Rien ne pouvait
+     le signaler — la page s'affichait, simplement dans le mauvais thème.
+
+     Un ATTRIBUT plutôt qu'un style en ligne, pour que la bascule soit écrite
+     ici, en CSS, où l'outil de compilation la trouve. */
+  html[data-theme='light'] {
+    color-scheme: light;
+  }
+
+  html[data-theme='dark'] {
+    color-scheme: dark;
+  }
+
   body {
     background: var(--color-background);
     color: var(--color-foreground);

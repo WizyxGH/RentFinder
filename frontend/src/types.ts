@@ -117,7 +117,7 @@ export interface SourceStateView {
   readonly averageNewListingCount: number;
 }
 
-export type SortMode = 'priority' | 'recent' | 'price';
+export type SortMode = 'priority' | 'recent' | 'price' | 'closest';
 
 /** Un point de l'historique de l'inventaire (§33). */
 export interface DailyStat {

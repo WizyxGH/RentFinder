@@ -59,7 +59,7 @@ const CITY_POSTAL_CODES: Readonly<Record<string, readonly string[]>> = {
  * sur la carte : si les deux divergeaient, l'utilisateur verrait un badge sur
  * une annonce non exclue, ou l'inverse.
  */
-function isStudentHousing(listing: AggregatedListing): boolean {
+export function isStudentHousing(listing: AggregatedListing): boolean {
   const raw = `${listing.title.value ?? ''} ${listing.description.value ?? ''}`;
   if (isStudentOnlyHousing(raw)) return true;
   if (isShortTermStudentLease(raw)) return true;

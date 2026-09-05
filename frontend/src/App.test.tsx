@@ -67,8 +67,11 @@ describe('liste des annonces', () => {
     await renderSearch();
     await screen.findAllByTestId('listing-card');
 
-    // Le réglage vit dans la modale « Trier et filtrer ».
-    await user.click(screen.getByRole('button', { name: /Trier et filtrer/ }));
+    // Le réglage vit dans la modale « Filtres », derrière le menu « Afficher » :
+    // quatre bascules dépliées remplaçaient un écran de défilement pour des
+    // options qu'on touche rarement.
+    await user.click(screen.getByRole('button', { name: /Filtres/ }));
+    await user.click(screen.getByRole('button', { name: /Afficher/ }));
     await user.click(screen.getByLabelText(/hors critères/i));
 
     const cards = await screen.findAllByTestId('listing-card');
@@ -86,16 +89,18 @@ describe('liste des annonces', () => {
     expect(first).toBeInTheDocument();
   });
 
-  it('permet de trier par loyer croissant', async () => {
+  /**
+   * LE TRI EST HORS DE LA MODALE, et ce test le vérifie en ne l'ouvrant pas :
+   * il vivait derrière les filtres, si bien qu'il fallait ouvrir un panneau,
+   * choisir, puis le refermer pour voir le résultat d'un geste sans
+   * conséquence.
+   */
+  it('permet de trier par loyer croissant sans ouvrir les filtres', async () => {
     const user = userEvent.setup();
     await renderSearch();
     await screen.findAllByTestId('listing-card');
 
-    await user.click(screen.getByRole('button', { name: /Trier et filtrer/ }));
-    // Le tri est un MENU : un choix unique parmi quatre n'avait pas à occuper
-    // un quart du panneau en liste dépliée.
     await user.selectOptions(screen.getByLabelText('Trier par'), 'price');
-    await user.click(screen.getByRole('button', { name: /^(Voir \d+ annonces?|Aucun résultat)$/ }));
 
     const cards = await screen.findAllByTestId('listing-card');
     // 420 € est le loyer le plus bas parmi les annonces dans les critères.

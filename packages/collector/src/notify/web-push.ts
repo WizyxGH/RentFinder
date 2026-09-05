@@ -179,11 +179,15 @@ export function reminderContentFor(listing: NotifiableListing, siteUrl: string):
 }
 
 /**
- * Une annonce JUSTE au-dessus des critères (§29).
+ * Une annonce PROCHE des critères (§29).
  *
- * LE TITRE LE DIT, ET LE CORPS LE CHIFFRE. Une alerte pour un logement à 730 €
+ * LE TITRE LE DIT, ET LE CORPS LE CHIFFRE. Une alerte pour un logement à 720 €
  * quand on a fixé 700 € passerait pour un défaut du filtre si rien ne
  * l'expliquait — et la première réaction serait de couper les notifications.
+ *
+ * « Proche » et non « juste au-dessus » : l'écart peut porter sur le loyer
+ * comme sur la surface, et « au-dessus » ne veut alors rien dire dans le bon
+ * sens — une surface proche est en dessous du minimum, pas au-dessus.
  */
 export function nearMatchContentFor(
   listing: NotifiableListing & { readonly overshoot: string },
@@ -191,7 +195,7 @@ export function nearMatchContentFor(
 ): PushPayload {
   const location = locationLabel(listing);
   return {
-    title: 'Juste au-dessus de vos critères',
+    title: 'Proche de vos critères',
     body: [
       listing.title ?? 'Une annonce',
       listing.overshoot !== '' ? `⚠️ ${listing.overshoot}` : null,

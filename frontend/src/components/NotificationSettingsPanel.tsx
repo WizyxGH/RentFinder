@@ -17,6 +17,7 @@
  * annoncé vaut mieux que le laisser deviner absent.
  */
 
+import { NEAR_MATCH_MARGIN } from '@rentfinder/shared';
 import { useEffect, useState } from 'react';
 import { ArrowLeft, Bell, Clock, Heart, Mail, TriangleAlert } from './icons.js';
 import type { IconComponent } from './icons.js';
@@ -50,8 +51,10 @@ const KINDS: readonly KindInfo[] = [
   },
   {
     key: 'nearMatches',
-    label: 'Juste au-dessus de vos critères',
-    hint: '10 % de budget en plus, ou 10 % de surface en moins. La notification dit lequel.',
+    label: 'Proche de vos critères',
+    // Le chiffre vient de NEAR_MATCH_MARGIN, seule définition de la marge : le
+    // réécrire ici en toutes lettres aurait fini par mentir.
+    hint: `${Math.round(NEAR_MATCH_MARGIN * 100)} % de budget en plus, ou autant de surface en moins. La notification dit lequel.`,
     Icon: TriangleAlert,
   },
   {

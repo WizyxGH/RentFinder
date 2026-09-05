@@ -23,7 +23,6 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { Check } from './icons.js';
 import type { FilterConfig } from '../types.js';
 import { fetchFilters, saveFilters } from '../api/client.js';
 import { PanelSkeleton } from './Skeletons.js';
@@ -211,17 +210,17 @@ export function FiltersPanel(): React.JSX.Element {
         </div>
       </dl>
 
-      {/* L'accusé occupe une ligne RÉSERVÉE : sans elle, son apparition
-        déplaçait le contenu sous le doigt au moment précis où l'on règle. */}
-      <p role="status" className="mt-2 min-h-5 text-[0.82rem] text-muted-foreground">
-        {status === 'saving' && 'Enregistrement…'}
-        {status === 'saved' && (
-          <span className="text-good inline-flex items-center gap-1">
-            <Check aria-hidden="true" className="size-3.5" /> Enregistré
-          </span>
-        )}
-        {status === 'error' && <span className="text-bad">Échec de l’enregistrement.</span>}
-      </p>
+      {/* ON NE DIT PLUS « Enregistré », on ne dit que ce qui va mal. Un réglage
+        qui s'applique sous le doigt n'a pas besoin d'être confirmé : la liste
+        derrière la modale change, et c'est la seule confirmation qui compte.
+        L'accusé clignotait à chaque frappe et attirait l'œil là où il n'y avait
+        rien à lire. L'ÉCHEC, LUI, RESTE DIT : c'est la seule chose que
+        l'utilisateur ne peut pas deviner en regardant l'écran. */}
+      {status === 'error' && (
+        <p role="status" className="text-bad mt-2 text-[0.82rem]">
+          Échec de l’enregistrement.
+        </p>
+      )}
     </section>
   );
 }

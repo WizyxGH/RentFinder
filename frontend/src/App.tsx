@@ -122,11 +122,19 @@ type NavTarget = View | 'favorites';
 /** Seuil de mise en avant : au-delà, l'annonce mérite un contact immédiat. */
 const HOT_PRIORITY = 85;
 
-/** Options de tri de la liste (§36). L'ordre définit celui du menu. */
+/**
+ * Options de tri de la liste (§36). L'ordre définit celui du menu.
+ *
+ * « LE PLUS PROCHE » CLASSE PAR DURÉE DE TRAJET vers vos adresses de référence,
+ * et non par kilomètres : la distance n'est délibérément pas publiée (§26 —
+ * couplée aux coordonnées d'une annonce, elle permettrait de retrouver votre
+ * domicile). C'est de toute façon la durée qui décide, pas les kilomètres.
+ */
 const SORT_OPTIONS: readonly { value: SortMode; label: string }[] = [
   { value: 'priority', label: 'Priorité d’action' },
   { value: 'recent', label: 'Plus récentes' },
   { value: 'price', label: 'Loyer croissant' },
+  { value: 'closest', label: 'Le plus proche' },
 ];
 
 /**
@@ -579,6 +587,13 @@ export function App(): React.JSX.Element {
    */
   useEffect(() => {
     if (view !== 'detail' || selectedId === null) return;
+    // TANT QU'ON NE SAIT PAS QUI DEMANDE, ON NE DEMANDE RIEN. La vérification de
+    // session est en vol au premier rendu : partir chercher la fiche tout de
+    // suite pouvait rendre un 401, dont la reprise ci-dessous écrase l'adresse
+    // par celle de la liste. Le lien de la notification était alors perdu avant
+    // même que l'écran de connexion ait paru, et revenir dessus ne ramenait plus
+    // à l'annonce.
+    if (currentUser === undefined || currentUser === null) return;
     if (listings.some((listing) => listing.id === selectedId)) return;
 
     let cancelled = false;
@@ -596,7 +611,7 @@ export function App(): React.JSX.Element {
     return () => {
       cancelled = true;
     };
-  }, [view, selectedId, listings, go, favoritesOnly]);
+  }, [view, selectedId, listings, go, favoritesOnly, currentUser]);
 
   // L'annuaire n'est demandé qu'en arrivant dessus : c'est une agrégation en
   // base, inutile à qui ne l'ouvre jamais (§30).
@@ -1554,6 +1569,12 @@ export function App(): React.JSX.Element {
           bottomTab={bottomTab}
           onBottomSelect={selectBottomTab}
         >
+          {/* SEUL ÉCRAN DES PARAMÈTRES SANS RETOUR : on y entrait par la liste
+            des réglages et l'on ne pouvait en ressortir que par la barre
+            d'onglets du bas, qui n'y ramène pas. */}
+          <Button variant="ghost" className="mb-2" onClick={() => setView('profile')}>
+            <ArrowLeft aria-hidden="true" className="size-4" /> Retour
+          </Button>
           <StatsPanel />
         </Shell>
       );
@@ -1710,19 +1731,22 @@ export function App(): React.JSX.Element {
               />
             </div>
 
-            {/* Tri, affichage et sources dans une seule modale : trois menus
-              côte à côte tenaient mal, et rien ne disait qu'ils formaient un
-              même réglage (§36). Le libellé disparaît sur mobile — l'icône et
-              la pastille suffisent, et la recherche gagne la place. */}
+            {/* LE TRI N'EST PLUS ICI. Il vivait dans cette modale, en tête d'une
+              liste de filtres : on l'ouvrait pour changer d'ordre, ce qui
+              obligeait à refermer pour voir le résultat. C'est un geste
+              fréquent et sans conséquence — il a sa place à l'air libre, sous
+              la barre de recherche. La modale ne garde que ce qui RESTREINT.
+              Le libellé disparaît sur mobile : l'icône et la pastille
+              suffisent, et la recherche gagne la place. */}
             <Button
               variant="outline"
               size="sm"
               className="shrink-0"
-              aria-label="Trier et filtrer"
+              aria-label="Filtres"
               onClick={() => setSortFilterOpen(true)}
             >
               <SlidersHorizontal aria-hidden="true" className="size-4" />
-              <span className="hidden sm:inline">Trier et filtrer</span>
+              <span className="hidden sm:inline">Filtres</span>
               {toolbarBadge > 0 && (
                 <span className="rounded-full bg-primary px-1.5 text-xs font-semibold text-primary-foreground">
                   {toolbarBadge}
@@ -1731,8 +1755,28 @@ export function App(): React.JSX.Element {
             </Button>
           </div>
 
-          {/* Seconde rangée : bascule de vue à gauche, compteur à droite. */}
+          {/* Seconde rangée : bascule de vue et tri à gauche, compteur à droite. */}
           <div className="flex flex-wrap items-center gap-2">
+            {/* LE TRI À L'AIR LIBRE. Un `select` natif : c'est un choix unique
+              parmi quatre, et le contrôle du système reste le plus sûr au doigt
+              (§39, §65). L'intitulé est visuellement caché mais lu par les
+              lecteurs d'écran — à l'œil, la valeur choisie se suffit. */}
+            <label htmlFor="sort-select" className="sr-only">
+              Trier par
+            </label>
+            <select
+              id="sort-select"
+              value={sort}
+              onChange={(event) => setSort(event.target.value as SortMode)}
+              className="min-h-9 shrink-0 py-1 text-sm"
+            >
+              {SORT_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+
             {/* Bascule Liste ⇄ Carte, SUR PETIT ÉCRAN SEULEMENT. Au-dessus de
               1024 px les deux s'affichent côte à côte : il n'y a plus rien à
               choisir, et un bouton qui ne change rien est pire qu'absent. */}
@@ -1783,9 +1827,6 @@ export function App(): React.JSX.Element {
           <SortFilterModal
             open={sortFilterOpen}
             onClose={() => setSortFilterOpen(false)}
-            sort={sort}
-            onSortChange={setSort}
-            sortOptions={SORT_OPTIONS}
             toggles={[
               ['Masquer les annonces à vérifier', hideUncertain, setHideUncertain],
               ['Favoris uniquement', favoritesOnly, setFavoritesOnly],

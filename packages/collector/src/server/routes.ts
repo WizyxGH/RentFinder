@@ -47,10 +47,23 @@ import {
  * candidature et le fichier de filtres ne quittent jamais la machine (§25, §26).
  */
 /** Sous-ensemble des filtres utilisé pour le raffinage « live » des listes. */
+/**
+ * Les critères appliqués À LA LECTURE de la liste, et non à la collecte.
+ *
+ * TOUT CE QUI EST ICI PREND EFFET IMMÉDIATEMENT. Seuls le loyer et la surface
+ * l'étaient ; les quatre autres se figeaient dans `matches_criteria` au moment
+ * de la collecte, si bien que cocher « exclure les colocations » ne changeait
+ * rien à la liste qu'on avait sous les yeux — et rien ne le disait.
+ */
 export interface LiveFilters {
   readonly maxPrice: number;
   readonly minPrice?: number;
   readonly minArea: number;
+  readonly excludeFlatShare?: boolean;
+  readonly excludeStudent?: boolean;
+  readonly landlordFilter?: 'all' | 'private' | 'agency';
+  readonly furnishedFilter?: 'all' | 'furnished' | 'unfurnished';
+  readonly maxCommuteMinutes?: number;
 }
 
 /** Statuts de suivi acceptés par l'API (§35). */
@@ -178,6 +191,30 @@ interface ListQuery {
  * deux DOIVENT filtrer à l'identique, faute de quoi la version dirait « rien
  * n'a changé » pour un ensemble qui n'est pas celui qu'on rend.
  */
+/**
+ * Les ordres de tri acceptés, et leur traduction en SQL.
+ *
+ * UNE TABLE plutôt qu'une cascade de ternaires : c'est elle qu'on relit pour
+ * savoir ce que le site propose, et un tri inconnu retombe sur la priorité
+ * plutôt que de rendre une liste dans un ordre arbitraire.
+ *
+ * LES VALEURS MANQUANTES VONT EN DERNIER, toujours. SQLite classe les NULL en
+ * tête d'un tri croissant : les cinq premières annonces du classement « moins
+ * cher » n'avaient pas de prix du tout, et celles du classement « le plus
+ * proche » seraient celles dont on ignore où elles sont.
+ *
+ * « LE PLUS PROCHE » TRIE SUR UNE DURÉE, pas sur des kilomètres. La distance
+ * n'est délibérément pas publiée (§26 : couplée aux coordonnées de l'annonce,
+ * elle permettrait de retrouver le domicile). Une durée de trajet répond de
+ * toute façon mieux à la question qu'on se pose vraiment.
+ */
+const ORDER_BY: Readonly<Record<string, string>> = {
+  priority: 'action_priority DESC, first_seen_at DESC',
+  recent: 'first_seen_at DESC',
+  price: 'price IS NULL, price ASC',
+  closest: 'commute_minutes IS NULL, commute_minutes ASC, action_priority DESC',
+};
+
 export function buildListQuery(url: URL, filters?: LiveFilters): ListQuery {
   const limit = Math.min(
     500,
@@ -202,12 +239,7 @@ export function buildListQuery(url: URL, filters?: LiveFilters): ListQuery {
    * classement « prix » n'avaient pas de prix du tout.
    */
   const sort = url.searchParams.get('sort') ?? 'priority';
-  const orderBy =
-    sort === 'recent'
-      ? 'first_seen_at DESC'
-      : sort === 'price'
-        ? 'price IS NULL, price ASC'
-        : 'action_priority DESC, first_seen_at DESC';
+  const orderBy = ORDER_BY[sort] ?? ORDER_BY['priority']!;
 
   // §53 scénario 3 : les annonces hors critères ne remontent pas par défaut.
   const includeAll = url.searchParams.get('all') === 'true';
@@ -217,10 +249,10 @@ export function buildListQuery(url: URL, filters?: LiveFilters): ListQuery {
   if (!includeAll) {
     conditions.push('matches_criteria = 1', "lifecycle != 'inactive'");
 
-    // Filtres NUMÉRIQUES appliqués en direct : ajuster le budget ou la surface
-    // depuis l'interface se répercute immédiatement, sans re-collecter. Un
-    // champ NULL n'exclut jamais (§17). Les exclusions coloc/étudiant, elles,
-    // sont figées à la collecte (matches_criteria) et changent au prochain run.
+    // TOUS les filtres s'appliquent en direct : les changer depuis l'interface
+    // se répercute sur la liste immédiatement, sans re-collecter. Un champ NULL
+    // n'exclut JAMAIS (§17) — c'est ce qui évite qu'une annonce disparaisse
+    // parce que la source s'est tue sur un détail.
     if (filters !== undefined) {
       conditions.push('(price IS NULL OR price <= ?)');
       filterArgs.push(filters.maxPrice);
@@ -230,6 +262,7 @@ export function buildListQuery(url: URL, filters?: LiveFilters): ListQuery {
       }
       conditions.push('(area IS NULL OR area >= ?)');
       filterArgs.push(filters.minArea);
+      applyTraitFilters(filters, conditions, filterArgs);
     }
   }
 
@@ -909,6 +942,46 @@ const DEFAULT_FILTERS = {
  * la collecte suivante. Les exclusions (colocation, étudiant) restent figées à
  * la collecte — elles demandent le texte de l'annonce, pas un nombre.
  */
+/**
+ * Les quatre exclusions et le plafond de trajet, en conditions SQL.
+ *
+ * UN TRAIT INCONNU NE FAIT JAMAIS SORTIR UNE ANNONCE (§17). C'est la règle qui
+ * gouverne chaque ligne ci-dessous : « exclure les colocations » écarte ce qui
+ * est une colocation, pas ce dont on ignore si c'en est une. La plupart des
+ * annonces ne disent rien de leur ameublement ou de leur bailleur ; les traiter
+ * comme des « non » viderait la liste.
+ *
+ * Les colonnes sont NULLES tant que le rejeu (`reprocess`) n'a pas eu lieu :
+ * la même règle fait que les filtres laissent alors tout passer, au lieu
+ * d'écarter au hasard.
+ */
+function applyTraitFilters(
+  filters: LiveFilters,
+  conditions: string[],
+  args: Array<string | number>,
+): void {
+  if (filters.excludeFlatShare === true) conditions.push('COALESCE(flat_share, 0) = 0');
+  if (filters.excludeStudent === true) conditions.push('COALESCE(student_only, 0) = 0');
+
+  // « Particuliers seuls » garde les bailleurs inconnus : beaucoup d'annonces de
+  // particuliers ne se déclarent pas comme telles. « Agences uniquement », au
+  // contraire, demande une agence AVÉRÉE — c'est le sens de la demande.
+  if (filters.landlordFilter === 'private')
+    conditions.push("COALESCE(landlord_kind, '') != 'agency'");
+  if (filters.landlordFilter === 'agency') conditions.push("landlord_kind = 'agency'");
+
+  if (filters.furnishedFilter === 'furnished') conditions.push('COALESCE(furnished, 1) = 1');
+  if (filters.furnishedFilter === 'unfurnished') conditions.push('COALESCE(furnished, 0) = 0');
+
+  // Le trajet manque pour toute annonce sans adresse publiée — la majorité.
+  // Les écarter reviendrait à masquer la liste entière dès qu'on règle un
+  // plafond, ce que personne n'attend d'un curseur de durée.
+  if (typeof filters.maxCommuteMinutes === 'number') {
+    conditions.push('(commute_minutes IS NULL OR commute_minutes <= ?)');
+    args.push(filters.maxCommuteMinutes);
+  }
+}
+
 async function liveFilters(db: Client, userId: string): Promise<LiveFilters | undefined> {
   const stored = await db.execute({
     sql: 'SELECT value FROM app_settings WHERE user_id = ? AND key = ?',
@@ -923,6 +996,17 @@ async function liveFilters(db: Client, userId: string): Promise<LiveFilters | un
       maxPrice: parsed.maxPrice,
       minArea: parsed.minArea,
       ...(typeof parsed.minPrice === 'number' ? { minPrice: parsed.minPrice } : {}),
+      ...(parsed.excludeFlatShare === true ? { excludeFlatShare: true } : {}),
+      ...(parsed.excludeStudent === true ? { excludeStudent: true } : {}),
+      ...(parsed.landlordFilter === 'private' || parsed.landlordFilter === 'agency'
+        ? { landlordFilter: parsed.landlordFilter }
+        : {}),
+      ...(parsed.furnishedFilter === 'furnished' || parsed.furnishedFilter === 'unfurnished'
+        ? { furnishedFilter: parsed.furnishedFilter }
+        : {}),
+      ...(typeof parsed.maxCommuteMinutes === 'number'
+        ? { maxCommuteMinutes: parsed.maxCommuteMinutes }
+        : {}),
     };
   } catch {
     return undefined;

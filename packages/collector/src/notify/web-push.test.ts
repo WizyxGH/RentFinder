@@ -201,7 +201,7 @@ describe('nearMatchContentFor', () => {
       'https://exemple.invalid/',
     );
 
-    expect(content.title).toMatch(/au-dessus de vos critères/i);
+    expect(content.title).toMatch(/proche de vos critères/i);
     expect(content.body).toContain('730 € au lieu de 700 € max');
     expect(content.url).toContain('/listing/l7');
   });

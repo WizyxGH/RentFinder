@@ -159,6 +159,12 @@ export function listingHash(listing: ScoredListing): string {
     listing.charges.value,
     listing.flatShare.value,
     listing.furnished.value,
+    // Le caractère étudiant et la nature du bailleur SE FILTRENT désormais en
+    // direct depuis leurs propres colonnes. Sans eux ici, une fiche dont le
+    // texte révèle un bail étudiant après coup ne serait jamais réécrite : la
+    // colonne resterait nulle, et le filtre la laisserait passer à tort.
+    listing.studentOnly,
+    listing.contact.kind,
     listing.district.value,
     listing.availableAt.value,
     listing.contact.phone,
@@ -171,6 +177,14 @@ export function listingHash(listing: ScoredListing): string {
   return createHash('sha256').update(material).digest('hex').slice(0, 32);
 }
 
+/**
+ * Un booléen « peut-être », rendu tel quel à SQLite.
+ *
+ * `null` RESTE `null`, et c'est essentiel : les filtres de la liste ne
+ * l'écartent jamais (§17). Le convertir en 0 changerait « on ne sait pas » en
+ * « non », et ferait disparaître des annonces sur une information que la
+ * source n'a jamais donnée.
+ */
 const boolToInt = (value: boolean | null): number | null => (value === null ? null : value ? 1 : 0);
 
 export interface UpsertReport {
@@ -583,6 +597,20 @@ async function recordUserState(
   );
 }
 
+/**
+ * Le trajet LE PLUS COURT vers les adresses de référence, en minutes.
+ *
+ * Le plus court et non le premier : on en configure plusieurs — travail, gare
+ * — et « le plus proche » veut dire proche d'un point qui compte, pas du
+ * premier de la liste. `null` quand aucune adresse de référence n'est réglée :
+ * le tri par proximité relègue alors ces annonces en fin de liste plutôt que
+ * de leur prêter une distance qu'on ignore.
+ */
+function shortestCommuteMinutes(listing: ScoredListing): number | null {
+  const durations = listing.distances.map((distance) => distance.durationMinutes);
+  return durations.length === 0 ? null : Math.min(...durations);
+}
+
 export function createRepository(db: Database): Repository {
   return {
     async knownRefs(sourceId) {
@@ -877,8 +905,9 @@ export function createRepository(db: Database): Repository {
               id, title, price, area, rooms, property_type, city, postal_code,
               latitude, longitude, published_at, first_seen_at, last_seen_at,
               lifecycle, tracking, match_score, opportunity_score, visit_score,
-              risk_score, action_priority, matches_criteria, payload, content_hash, updated_at
-            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+              risk_score, action_priority, matches_criteria, payload, content_hash, updated_at,
+              flat_share, student_only, furnished, landlord_kind, commute_minutes
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             ON CONFLICT(id) DO UPDATE SET
               title = excluded.title, price = excluded.price, area = excluded.area,
               rooms = excluded.rooms, property_type = excluded.property_type,
@@ -891,7 +920,14 @@ export function createRepository(db: Database): Repository {
               action_priority = excluded.action_priority,
               matches_criteria = excluded.matches_criteria,
               payload = excluded.payload, content_hash = excluded.content_hash,
-              updated_at = excluded.updated_at
+              updated_at = excluded.updated_at,
+              -- Les traits que la LISTE filtre en direct. Ils doublent ce que
+              -- porte le payload, volontairement : une colonne se lit en SQL,
+              -- un JSON non (et le caractère étudiant ne s'y trouve nulle part,
+              -- il se déduit du texte au scoring).
+              flat_share = excluded.flat_share, student_only = excluded.student_only,
+              furnished = excluded.furnished, landlord_kind = excluded.landlord_kind,
+              commute_minutes = excluded.commute_minutes
           `,
           args: [
             listing.id,
@@ -918,6 +954,11 @@ export function createRepository(db: Database): Repository {
             JSON.stringify(serializeListing(listing)),
             hash,
             new Date().toISOString(),
+            boolToInt(listing.flatShare.value),
+            listing.studentOnly ? 1 : 0,
+            boolToInt(listing.furnished.value),
+            listing.contact.kind === 'unknown' ? null : listing.contact.kind,
+            shortestCommuteMinutes(listing),
           ],
         });
 

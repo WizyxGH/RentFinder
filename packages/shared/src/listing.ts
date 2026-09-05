@@ -314,6 +314,16 @@ export interface ScoredListing extends AggregatedListing {
   /** `false` si l'annonce sort des critères de recherche actifs (§16). */
   readonly matchesCriteria: boolean;
   /**
+   * Location réservée aux étudiants (bail neuf mois, « réservé étudiants »…).
+   *
+   * DÉDUIT DU TEXTE, et c'est pourquoi il est porté ici plutôt que recalculé à
+   * la demande : le reconnaître demande une série d'expressions régulières sur
+   * le titre et la description, que la base ne sait pas rejouer. Sans cette
+   * valeur, le filtre « exclure les locations étudiantes » ne pouvait
+   * s'appliquer qu'à la collecte — donc jamais à ce qui est déjà affiché.
+   */
+  readonly studentOnly: boolean;
+  /**
    * `true` si le loyer d'au moins une source a baissé récemment (§17 : signal
    * d'opportunité — agir maintenant). Déduit de `listing_history`.
    */

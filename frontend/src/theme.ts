@@ -6,12 +6,21 @@
  * suffisante : un téléphone réglé en sombre toute la journée rend les photos
  * d'annonces ternes, et certains yeux préfèrent l'inverse de leur système.
  *
- * L'IMPLÉMENTATION TIENT EN UNE PROPRIÉTÉ. Les couleurs du site sont écrites en
- * `light-dark(clair, sombre)`, et c'est `color-scheme` qui tranche. Régler le
- * thème revient donc à poser `light`, `dark` ou `light dark` sur la racine :
- * aucune classe `dark:` à répéter dans les composants, aucun second jeu de
- * variables à tenir à jour, et les contrôles natifs — cases, menus, barres de
- * défilement — suivent d'eux-mêmes.
+ * L'IMPLÉMENTATION TIENT EN UN ATTRIBUT. Les couleurs du site sont écrites en
+ * `light-dark(clair, sombre)`, et c'est `color-scheme` qui tranche. Poser
+ * `data-theme` sur la racine suffit donc : aucune classe `dark:` à répéter dans
+ * les composants, aucun second jeu de variables à tenir à jour, et les contrôles
+ * natifs — cases, menus, barres de défilement — suivent d'eux-mêmes.
+ *
+ * L'ATTRIBUT EST INDISPENSABLE, et ce n'était pas évident. On posait d'abord
+ * `style.colorScheme` directement, ce qui aurait dû suffire — et ne suffisait
+ * pas : `light-dark()` n'existe pas dans le CSS publié. Lightning CSS, que Vite
+ * emploie pour minifier, le remplace par un couple de variables qu'il bascule
+ * aux seuls endroits où il VOIT un `color-scheme` écrit dans la feuille de
+ * style. Un style posé en JavaScript lui est invisible : les couleurs
+ * continuaient donc de suivre le système, et les boutons « Clair » et
+ * « Sombre » ne changeaient rien. `styles.css` porte les deux règles
+ * `html[data-theme=…]` qui rendent la bascule visible à la compilation.
  *
  * LE CHOIX EST LOCAL À L'APPAREIL, volontairement. C'est une préférence
  * d'affichage, comme la luminosité : elle n'a pas à voyager du téléphone vers
@@ -55,12 +64,17 @@ export function readTheme(): ThemePreference {
 /**
  * Applique le thème et le mémorise.
  *
- * `color-scheme` sur la RACINE et non sur le corps : c'est elle qui détermine
- * la couleur de la zone hors page — celle qu'on voit en tirant sur une liste,
- * et qui trahissait un fond blanc sous un site sombre.
+ * Sur la RACINE et non sur le corps : c'est elle qui détermine la couleur de la
+ * zone hors page — celle qu'on voit en tirant sur une liste, et qui trahissait
+ * un fond blanc sous un site sombre.
+ *
+ * « Automatique » RETIRE l'attribut au lieu d'en poser un troisième : c'est
+ * l'absence de consigne qui laisse la requête média du système décider.
  */
 export function applyTheme(preference: ThemePreference): void {
-  document.documentElement.style.colorScheme = preference === 'auto' ? 'light dark' : preference;
+  const root = document.documentElement;
+  if (preference === 'auto') root.removeAttribute('data-theme');
+  else root.setAttribute('data-theme', preference);
   try {
     if (preference === 'auto') localStorage.removeItem(KEY);
     else localStorage.setItem(KEY, preference);
