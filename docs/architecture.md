@@ -137,7 +137,7 @@ est personnel.**
 | L'état de santé des sources       | Critères de recherche (`app_settings`)       |
 | Le journal des collectes          | Recherches enregistrées, adresses de réf.    |
 | Le cache de géocodage             | Préférences d'alertes, abonnements push      |
-|                                   | Pièces du dossier (R2, préfixées par compte) |
+|                                   | Pièces du dossier (KV, préfixées par compte) |
 
 ### Pourquoi la collecte reste unique
 
@@ -148,28 +148,47 @@ du site. Les annonces qu'il révèle entrent dans la base commune — c'est le p
 d'une collecte partagée, et c'est assumé. Qui ne le veut pas laisse les deux
 lignes vides : la source retombe en mode public.
 
-**Les alertes e-mail lisent UNE boîte, la vôtre.** Lire celle de chaque compte
-demanderait de conserver un mot de passe d'application de messagerie par
-personne — donc des identifiants de messagerie dans une base de données. Ce
-projet ne le fera pas (§26) : un mot de passe d'application Gmail ouvre toute
-la boîte, pas seulement les alertes immobilières.
+**Les alertes e-mail arrivent par TRANSFERT, depuis le 2026-09-05.** Le
+collecteur lit une seule boîte, celle du projet ; chaque compte y fait suivre
+ses propres alertes depuis la sienne.
 
-### Ce qu'il faudrait pour aller plus loin
+C'est l'utilisateur qui pose la règle de transfert, dans sa messagerie, et qui
+la retire quand il veut. **Nous ne détenons aucun de ses identifiants.** L'écran
+Paramètres → Alertes des portails lui donne une adresse qui n'est qu'à lui,
+`alertes+<jeton>@…`, où le jeton vient de la colonne `users.alert_token`. Ce
+jeton n'est pas un secret de connexion : il rend l'adresse indevinable — sans
+lui, une adresse commune serait publique et n'importe qui pourrait y déverser ce
+qu'il veut — et il dit quel compte a transféré.
 
-Deux voies existent, et aucune n'est un petit ajout :
+Le gabarit vit dans `ALERT_ADDRESS_TEMPLATE` (Worker et collecteur). Vide,
+l'écran dit que la fonctionnalité n'est pas configurée au lieu d'afficher une
+adresse : une règle de transfert vers le vide n'échoue jamais bruyamment, et
+l'utilisateur attendrait pour rien des alertes qui ne viendraient jamais (§17).
 
-1. **Une adresse de réception par compte.** Chacun règle ses alertes de portail
-   pour qu'elles arrivent sur une adresse dédiée (`vous+alertes@…`, ou une
-   boîte du projet), et l'import trie par destinataire. Aucun mot de passe à
-   conserver, mais il faut une boîte de réception à administrer.
-2. **OAuth Gmail par compte.** Un jeton révocable et limité à la lecture,
-   au lieu d'un mot de passe. C'est la voie propre, et c'est un chantier :
-   écran de consentement Google, vérification de l'application, rafraîchissement
-   des jetons.
+### Pourquoi pas OAuth
 
-Tant que l'outil sert une ou deux personnes, la collecte commune est la réponse
-juste : elle ne demande rien à personne et ne conserve aucun identifiant de
-tiers.
+La question s'est posée le 2026-09-05, et OAuth a été écarté pour trois raisons
+dont chacune suffirait :
+
+1. **Il ne couvre pas les boîtes visées.** OAuth existe chez Google et
+   Microsoft. Les messageries des utilisateurs français — laposte.net, Orange,
+   Free, SFR, Bouygues — n'offrent que l'IMAP avec mot de passe. Le premier
+   utilisateur du projet est chez laposte.net : la voie « propre » ne l'aurait
+   pas servi.
+2. **Lire des messages est un périmètre RESTREINT chez Google.** Passer en
+   production exige une évaluation de sécurité annuelle et payante. Sans elle :
+   cent utilisateurs au plus, un écran d'avertissement, et surtout des jetons de
+   rafraîchissement qui expirent tous les SEPT JOURS — intenable pour un
+   collecteur qui tourne seul toutes les demi-heures.
+3. **Il faudrait quand même conserver quelque chose.** Un jeton de
+   rafraîchissement par compte, en base, ouvrant sa boîte personnelle. C'est
+   mieux qu'un mot de passe d'application — révocable, limité à la lecture —
+   mais ce n'est pas rien, là où le transfert ne demande rien du tout.
+
+**Ce qui reste commun.** Les annonces issues d'un transfert entrent dans la base
+COMMUNE, comme toutes les autres : ce qu'un compte fait suivre profite à tous.
+C'est la contrepartie assumée d'une collecte partagée, et c'est aussi ce qui
+fait la valeur du gisement.
 
 ## Limites connues
 

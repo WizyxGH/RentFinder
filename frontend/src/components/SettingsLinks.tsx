@@ -25,6 +25,7 @@ import {
   Bookmark,
   ChevronRight,
   FileText,
+  Mail,
   MapPin,
   Palette,
   Radio,
@@ -76,6 +77,16 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
         label: 'Recherches enregistrées',
         hint: 'Retrouver une recherche déjà réglée, sans tout refaire.',
         Icon: Bookmark,
+      },
+      {
+        // Les portails qui interdisent qu'on les visite (§10) n'ont qu'une voie
+        // conforme : leur propre alerte par e-mail. Encore faut-il savoir où la
+        // faire suivre — d'où cet écran, rangé avec ce qui décide de ce qu'on
+        // voit, et non avec les réglages de l'application.
+        key: 'forwarding',
+        label: 'Alertes des portails',
+        hint: 'Faites suivre vos alertes Leboncoin ou SeLoger vers votre adresse.',
+        Icon: Mail,
       },
       {
         // L'INTERRUPTEUR VIT DERRIÈRE CETTE PORTE, et non plus au-dessus de la

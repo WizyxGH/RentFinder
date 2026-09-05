@@ -348,6 +348,23 @@ export async function fetchAlerts(): Promise<readonly ListingView[]> {
   return response.listings;
 }
 
+/**
+ * L'adresse à laquelle ce compte fait suivre ses alertes de portail (§6).
+ *
+ * `null` quand la fonctionnalité n'est pas configurée : l'écran n'affiche alors
+ * rien du tout, plutôt qu'une adresse inventée vers laquelle l'utilisateur
+ * poserait une règle de transfert pour rien (§17).
+ *
+ * Route à part et chargée à l'ouverture des réglages seulement : elle coûte une
+ * lecture de ligne, et l'écran d'accueil n'en a pas besoin (§30).
+ */
+export async function fetchAlertAddress(): Promise<string | null> {
+  if (DEMO) return 'alertes+demo@exemple.invalid';
+  if (API_URL === '') return null;
+  const response = await request<{ address: string | null }>('/api/alert-address');
+  return response.address;
+}
+
 export async function fetchSources(): Promise<{ sources: readonly SourceStateView[] }> {
   if (DEMO) {
     const { MOCK_SOURCES } = await demoData();

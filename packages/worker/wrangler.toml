@@ -15,6 +15,20 @@ compatibility_date = "2026-01-01"
 # navigateurs dès lors qu'on envoie un cookie — et il le serait à raison.
 ALLOWED_ORIGIN = "https://wizyxgh.github.io"
 
+# --- Alertes des portails par transfert (§6) --------------------------------
+#
+# Adresse montrée à chaque compte, `{token}` étant remplacé par son jeton. Elle
+# doit désigner la boîte que LE COLLECTEUR lit (IMAP_USER), et cette boîte doit
+# accepter le sous-adressage `+` — Gmail le fait, gratuitement et sans carte.
+#
+# Ce n'est pas un secret : sans le jeton d'un compte, l'adresse ne mène nulle
+# part. Le jeton, lui, vit en base et n'est montré qu'à son propriétaire.
+#
+# Laissée vide, l'écran des réglages dit que la fonctionnalité n'est pas
+# configurée au lieu d'afficher une adresse vers laquelle les alertes se
+# perdraient en silence (§17).
+ALERT_ADDRESS_TEMPLATE = ""
+
 # --- Pièces du dossier de candidature (§25) — à activer si vous les voulez ---
 #
 # GRATUIT, SANS CARTE BANCAIRE. Le stockage clé-valeur des Workers est compris

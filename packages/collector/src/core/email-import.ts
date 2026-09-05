@@ -9,6 +9,7 @@
 
 import { ImapFlow } from 'imapflow';
 import { simpleParser } from 'mailparser';
+import { ALERT_SENDER_MATCHES } from '@rentfinder/shared';
 import type { ImapConfig } from '../config.js';
 
 export interface EmailImportOptions {
@@ -26,14 +27,7 @@ export interface EmailImportOptions {
  * remonte QUE les e-mails d'un de ces expéditeurs — les mails personnels de
  * l'utilisateur ne sont JAMAIS lus (§26), même si la boîte est INBOX.
  */
-const ALERT_SENDERS: readonly string[] = [
-  'leboncoin',
-  'seloger',
-  'bienici',
-  'bien-ici',
-  'pap.fr',
-  'logic-immo',
-];
+const ALERT_SENDERS: readonly string[] = ALERT_SENDER_MATCHES;
 
 /** Sous-ensemble d'ImapFlow réellement utilisé (facilite l'injection en test). */
 export interface ImapLike {

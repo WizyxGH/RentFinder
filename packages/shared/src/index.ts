@@ -18,3 +18,4 @@ export * from './user.js';
 export * from './routes.js';
 export * from './reference-points.js';
 export * from './notification-preferences.js';
+export * from './alert-senders.js';

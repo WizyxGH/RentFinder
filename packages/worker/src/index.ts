@@ -25,6 +25,7 @@ import { clearedCookie, issueSession, readCookie, readSession, sessionCookie } f
 import { deleteDocument, listDocuments, readDocument, saveDocument } from './documents.js';
 import { kvDocumentStore, type KeyValueNamespace } from './kv-store.js';
 import { forbiddenOrigin } from './origin.js';
+import { alertAddress } from './alert-address.js';
 
 export interface Env {
   /** URL `libsql://…` de la base. Secret de la plateforme, jamais publié. */
@@ -43,6 +44,16 @@ export interface Env {
    * seau, KV est compris dans le plan gratuit (voir `kv-store.ts`).
    */
   readonly DOCUMENTS?: KVNamespace;
+  /**
+   * Gabarit de l'adresse de transfert des alertes (§6), avec `{token}` à la
+   * place du jeton du compte — par exemple `alertes+{token}@exemple.fr`.
+   *
+   * Absent : l'écran n'affiche rien plutôt qu'une adresse inventée (§17). Une
+   * adresse fausse serait pire que pas d'adresse du tout : l'utilisateur
+   * poserait une règle de transfert vers le vide et attendrait des alertes qui
+   * ne viendraient jamais.
+   */
+  readonly ALERT_ADDRESS_TEMPLATE?: string;
 }
 
 function corsHeaders(env: Env, request: Request): Record<string, string> {
@@ -238,6 +249,21 @@ export default {
     if (segments[1] === 'me') return json({ user: userId }, cors);
 
     if (userId === null) return json({ error: 'Connexion requise' }, cors, 401);
+
+    // L'adresse de transfert des alertes (§6). Route À PART, et non un champ de
+    // `/api/me` : `me` répond à chaque ouverture du site sans toucher la base,
+    // et y ajouter une lecture de ligne la ferait payer à tout le monde pour un
+    // écran de réglages qu'on ouvre une fois (§30).
+    if (segments[1] === 'alert-address' && request.method === 'GET') {
+      const row = await db.execute({
+        sql: 'SELECT alert_token FROM users WHERE id = ? LIMIT 1',
+        args: [userId],
+      });
+      return json(
+        { address: alertAddress(env.ALERT_ADDRESS_TEMPLATE, row.rows[0]?.['alert_token']) },
+        cors,
+      );
+    }
 
     if (segments[1] === 'documents') {
       return documents(request, env, cors, userId, segments[2]);

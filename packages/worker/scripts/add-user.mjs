@@ -123,8 +123,11 @@ async function main() {
 
     // L'identifiant sert d'id : lisible dans les données, et stable.
     await db.execute({
-      sql: `INSERT INTO users (id, login, password_hash, display_name, created_at)
-            VALUES (?, ?, ?, ?, datetime('now'))`,
+      // Le jeton d'adresse de transfert est tiré ici, et non à la première
+      // visite : un compte sans jeton n'aurait pas d'adresse à afficher, et
+      // rien ne viendrait le signaler.
+      sql: `INSERT INTO users (id, login, password_hash, display_name, created_at, alert_token)
+            VALUES (?, ?, ?, ?, datetime('now'), lower(hex(randomblob(9))))`,
       args: [login, login, hash, name === '' ? null : name],
     });
     console.log(`Compte « ${login} » créé.`);

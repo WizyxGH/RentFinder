@@ -48,6 +48,7 @@ import { formatSourceName } from './format.js';
 import { markAlertsSeen, readAlertsSeenAt, unreadAlertCount } from './notifications.js';
 import { Button } from '@/components/ui/button.js';
 import { DocumentsSection } from './components/DocumentsSection.js';
+import { ForwardingPanel } from './components/ForwardingPanel.js';
 import { ReferencePointsSection } from './components/ReferencePointsSection.js';
 import { NotificationSettingsPanel } from './components/NotificationSettingsPanel.js';
 import { ThemePanel } from './components/ThemePanel.js';
@@ -1302,6 +1303,23 @@ export function App(): React.JSX.Element {
             <ArrowLeft aria-hidden="true" className="size-4" /> Retour
           </Button>
           <DocumentsSection profile={profile} />
+        </Shell>
+      );
+    }
+    if (view === 'forwarding') {
+      return (
+        <Shell
+          view={view}
+          favoritesOnly={favoritesOnly}
+          onNavigate={navigate}
+          unreadAlerts={unreadAlerts}
+          bottomTab={bottomTab}
+          onBottomSelect={selectBottomTab}
+        >
+          <Button variant="ghost" className="mb-2" onClick={() => setView('profile')}>
+            <ArrowLeft aria-hidden="true" className="size-4" /> Retour
+          </Button>
+          <ForwardingPanel />
         </Shell>
       );
     }

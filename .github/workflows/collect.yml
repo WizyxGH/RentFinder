@@ -84,6 +84,20 @@ jobs:
           BEP_SUBSCRIBER_USER: ${{ secrets.BEP_SUBSCRIBER_USER }}
           BEP_SUBSCRIBER_PASSWORD: ${{ secrets.BEP_SUBSCRIBER_PASSWORD }}
 
+          # Alertes e-mail des portails (§6, §10). CES VARIABLES MANQUAIENT, et
+          # la source se désactivait donc en silence à chaque passage : elle ne
+          # fonctionnait QUE lors d'une collecte lancée à la main sur la machine
+          # de son propriétaire. Leboncoin et SeLoger n'ont pas d'autre voie
+          # conforme — c'était donc tout un pan du gisement qui manquait, sans
+          # qu'aucune erreur ne le dise.
+          #
+          # La boîte est celle DU PROJET : chaque compte y fait suivre ses
+          # alertes depuis la sienne (voir ALERT_ADDRESS_TEMPLATE).
+          IMAP_USER: ${{ secrets.IMAP_USER }}
+          IMAP_APP_PASSWORD: ${{ secrets.IMAP_APP_PASSWORD }}
+          IMAP_HOST: ${{ vars.IMAP_HOST }}
+          IMAP_MAILBOX: ${{ vars.IMAP_MAILBOX }}
+
           # Identification honnête du collecteur (§10).
           COLLECTOR_USER_AGENT: ${{ vars.COLLECTOR_USER_AGENT }}
 

@@ -34,6 +34,12 @@ export interface ChangelogEntry {
  */
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    id: '2026-09-05-transfert',
+    date: '2026-09-05',
+    title: 'Vos alertes Leboncoin et SeLoger, sur votre compte',
+    body: 'Ces portails interdisent qu’on visite leurs pages : leur alerte par e-mail est la seule voie autorisée. Paramètres → Alertes des portails vous donne une adresse qui n’est qu’à vous, vers laquelle faire suivre ces e-mails depuis votre boîte. Nous ne vous demandons jamais votre mot de passe.',
+  },
+  {
     id: '2026-09-05-garantie',
     date: '2026-09-05',
     title: 'Visale, Garantme : dites laquelle est la vôtre',

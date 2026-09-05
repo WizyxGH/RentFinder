@@ -35,6 +35,7 @@ export type View =
   | 'reference'
   | 'saved'
   | 'notifications'
+  | 'forwarding'
   | 'theme'
   | 'sources'
   | 'source'
@@ -67,6 +68,7 @@ const VIEW_PRESENCE: Record<View, true> = {
   reference: true,
   saved: true,
   notifications: true,
+  forwarding: true,
   theme: true,
   sources: true,
   source: true,
@@ -115,6 +117,7 @@ const SETTINGS_ROUTES: Readonly<Record<string, View>> = {
   addresses: 'reference',
   searches: 'saved',
   notifications: 'notifications',
+  forwarding: 'forwarding',
   theme: 'theme',
 };
 
