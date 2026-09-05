@@ -202,14 +202,24 @@ sont lisibles par quiconque voit le dépôt.
 
 ```bash
 cd packages/worker
-
-# Les trois secrets. Ils ne sont NI dans le dépôt, NI dans le bundle, NI dans .env.
-npx wrangler secret put TURSO_DATABASE_URL   # libsql://…
-npx wrangler secret put TURSO_AUTH_TOKEN     # le jeton, qui quitte le navigateur
-npx wrangler secret put SESSION_SECRET       # une longue chaîne aléatoire, à vous
-
-npx wrangler deploy                          # affiche l'URL du Worker
+npx wrangler login
+npx wrangler deploy        # répondre « Y » au sous-domaine workers.dev
+pnpm run secrets           # dépose les trois secrets, sans les afficher
 ```
+
+`pnpm run secrets` lit `TURSO_DATABASE_URL` et `TURSO_AUTH_TOKEN` dans votre
+`.env` et les envoie directement à wrangler : rien ne passe par un
+copier-coller, où un jeton de deux cents caractères se rate d'un espace — et
+l'erreur ne se voit alors qu'à la première requête du site, sous la forme d'une
+panne sans rapport apparent.
+
+`SESSION_SECRET` est tiré au hasard par le script. Il ne sert qu'à signer les
+cookies de session : personne n'a à le connaître, et le perdre ne fait que
+déconnecter tout le monde.
+
+Vérifiez ensuite avec `npx wrangler secret list` — trois noms doivent
+apparaître, sans leurs valeurs. **Une liste vide (`[]`) signifie que le Worker
+répondra en erreur à la première requête.**
 
 Puis, une fois par personne :
 

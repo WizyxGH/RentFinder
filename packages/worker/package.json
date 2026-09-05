@@ -7,7 +7,8 @@
     "build": "tsc --build",
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "user:add": "node --env-file=../../.env ./scripts/add-user.mjs"
+    "user:add": "node --env-file=../../.env ./scripts/add-user.mjs",
+    "secrets": "node ./scripts/put-secrets.mjs"
   },
   "dependencies": {
     "@libsql/client": "^0.14.0",
