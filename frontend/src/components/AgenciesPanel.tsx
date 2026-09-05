@@ -13,7 +13,8 @@
  * préférable à un regroupement inventé qui mélangerait deux enseignes (§17).
  */
 
-import { Agency, ArrowLeft, Mail, Phone } from './icons.js';
+import { ArrowLeft, Mail, Phone } from './icons.js';
+import { AgencyLogo } from './AgencyLogo.js';
 import type { AgencySummary } from '../api/client.js';
 import type { ListingView } from '../types.js';
 import { formatSourceName } from '../format.js';
@@ -80,7 +81,7 @@ export function AgenciesPanel({
                 className="border-border hover:bg-muted rf-rise flex w-full cursor-pointer items-center gap-3 rounded-xl border p-3 text-left transition-colors"
                 style={{ '--rf-delay': `${Math.min(rank, 10) * 25}ms` } as React.CSSProperties}
               >
-                <Agency aria-hidden="true" className="text-muted-foreground size-5 shrink-0" />
+                <AgencyLogo sources={agency.sources} name={agency.name} className="size-6" />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-medium">{agency.name}</span>
                   <span className="text-muted-foreground block text-[0.8rem]">
@@ -125,7 +126,12 @@ export function AgencyPanel({
         </Button>
       </header>
 
-      <h1 className="text-xl font-bold">{agency.name}</h1>
+      {/* Le logo accompagne le nom sur la fiche aussi : c'est le même repère,
+        et son absence ici donnerait l'impression d'une autre agence. */}
+      <div className="flex items-center gap-3">
+        <AgencyLogo sources={agency.sources} name={agency.name} className="size-9" />
+        <h1 className="min-w-0 flex-1 text-xl font-bold">{agency.name}</h1>
+      </div>
       <p className="text-muted-foreground text-[0.9rem]">
         {agency.listings} annonce{agency.listings > 1 ? 's' : ''} en ligne
         {agency.sources.length > 0 && <> · {agency.sources.map(formatSourceName).join(', ')}</>}

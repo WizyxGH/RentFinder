@@ -6,6 +6,7 @@
  * coup d'œil « aucun favori » de « la source ne publie pas les favoris ».
  */
 
+import { SOURCES } from './sources.generated.js';
 import type { PropertyType, TrackingStatus } from '@rentfinder/shared';
 import { formatCommune, formatLocation } from '@rentfinder/shared';
 
@@ -298,54 +299,17 @@ export const TRACKING_ORDER: readonly TrackingStatus[] = [
  * qui ne connaît aucune source). Ajouter une source ici quand on en ajoute une
  * là-bas — l'oubli est sans gravité : le repli reprend la main.
  */
-const SOURCE_NAMES: Readonly<Record<string, string>> = {
-  'agence-du-centre': 'Agence du Centre',
-  'agence-victoire': 'Agence de la Victoire',
-  alberti: 'Alberti Immobilier',
-  'ashley-parker': 'Ashley & Parker',
-  beaumont: 'Beaumont Immobilier',
-  'borne-delaunay': 'Borne & Delaunay',
-  era: 'ERA Immobilier',
-  fnaim: 'FNAIM',
-  bep: 'BEP Logement',
-  'bep-abonnes': 'BEP Logement (abonné)',
-  century21: 'Century 21',
-  citya: 'Citya Immobilier',
-  climmo: 'CL Immo Gestion',
-  dazur: "D'Azur Immobilier",
-  dgimmo: 'DG Immo',
-  dinamy: 'Dinamy Immobilier',
-  drago: 'Cabinet Drago',
-  'email-alerts': 'Alertes e-mail',
-  foncia: 'Foncia',
-  'gestion-cassini': 'Gestion Cassini',
-  giletta: 'Giletta Immobilier',
-  'groupe-foch': 'Foch Immobilier',
-  'immo-sud': 'Immo-Sud Nice',
-  'immobiliere-nicoise': "L'Immobilière Niçoise",
-  inli: "In'li",
-  ladresse: "L'Adresse",
-  laforet: 'Laforêt',
-  lamy: 'Lamy Immobilier',
-  'leprince-realty': 'Leprince Realty',
-  lodgis: 'Lodgis',
-  'lt-immobilier': 'LT Immobilier',
-  mirabello: 'Mirabello Immobilier',
-  nousgerons: 'NousGérons',
-  orpi: 'Orpi',
-  pap: 'PAP',
-  personalimmo: 'Personal Immo',
-  privilege: 'Agence Privilège',
-  rentumo: 'Rentumo',
-  'saint-roch': 'Saint Roch Immobilier',
-  'savi-esteve': 'Agence Savi Estève',
-  studapart: 'Studapart',
-  winter: 'Winter Immobilier',
-};
 
-/** Nom lisible d'une source à partir de son identifiant. */
+/**
+ * Nom lisible d'une source à partir de son identifiant.
+ *
+ * La table vient du collecteur, ENGENDRÉE : sa version manuelle avait dérivé,
+ * et huit sources s'affichaient par le repli ci-dessous — « Akorimmo » au lieu
+ * d'AKOR Immo. Rien ne cassait, ce qui est le propre d'une table tenue à la
+ * main : elle ne signale jamais qu'elle est incomplète.
+ */
 export function formatSourceName(sourceId: string): string {
-  const known = SOURCE_NAMES[sourceId];
+  const known = SOURCES[sourceId]?.name;
   if (known !== undefined) return known;
   // Source inconnue de la table : mieux vaut un nom approximatif qu'un
   // identifiant brut à l'écran.

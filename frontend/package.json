@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "test": "vitest run --config vitest.config.ts",
     "test:e2e": "playwright test",
-    "icons": "node scripts/build-icons.mjs"
+    "icons": "node scripts/build-icons.mjs",
+    "sources": "node scripts/build-sources.mjs"
   },
   "dependencies": {
     "@rentfinder/shared": "workspace:*",
@@ -22,6 +23,7 @@
     "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {
+    "@rentfinder/collector": "workspace:*",
     "@phosphor-icons/react": "^2.1.10",
     "@playwright/test": "^1.49.1",
     "@tailwindcss/vite": "^4.3.3",
