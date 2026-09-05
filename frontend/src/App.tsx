@@ -26,6 +26,7 @@ import {
   fetchChangelogSeen,
   fetchOnboardingDone,
   fetchSavedSearches,
+  fetchAlerts,
   fetchSources,
   isDemoMode,
   isUnconfigured,
@@ -556,6 +557,14 @@ export function App(): React.JSX.Element {
   const [onboardingDone, setOnboardingDone] = useState<boolean | undefined>(undefined);
   /** Nouveautés publiées depuis la dernière visite. Vide = rien à annoncer. */
   const [news, setNews] = useState<readonly ChangelogEntry[]>([]);
+  /**
+   * L'historique des alertes, chargé à part.
+   *
+   * Il se construisait à partir de la liste courante, qui écarte les annonces
+   * hors critères : une détection qui s'améliore effaçait alors des alertes bel
+   * et bien parties. Sur cent seize signalées, trente-deux restaient visibles.
+   */
+  const [alerts, setAlerts] = useState<readonly ListingView[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -780,6 +789,15 @@ export function App(): React.JSX.Element {
    * considère qu'il a été fait — mieux vaut ne pas le montrer que le montrer à
    * chaque chargement sans pouvoir le refermer.
    */
+  // L'historique ne se charge qu'en OUVRANT l'écran : c'est une consultation
+  // occasionnelle, pas une donnée dont la liste a besoin (§30).
+  useEffect(() => {
+    if (view !== 'alerts' || currentUser === undefined || currentUser === null) return;
+    void fetchAlerts()
+      .then(setAlerts)
+      .catch(() => undefined);
+  }, [view, currentUser]);
+
   useEffect(() => {
     if (currentUser === undefined || currentUser === null) return;
     void fetchOnboardingDone()
@@ -1237,7 +1255,7 @@ export function App(): React.JSX.Element {
             <ArrowLeft aria-hidden="true" className="size-4" /> Retour
           </Button>
           <NotificationsPanel
-            listings={listings}
+            listings={alerts}
             nowMs={nowMs}
             onOpen={openListing}
             seenAtMs={alertsViewedFrom}

@@ -20,6 +20,7 @@
  *   GET   /api/sources               état des sources (§63)
  *   GET   /api/stats                 statistiques de suivi (§33)
  *   GET/PUT /api/config              critères de recherche (§66)
+ *   GET     /api/alerts             historique des annonces signalées (§29)
  *   GET/PUT /api/settings/<clé>      réglages du compte (recherches, repères)
  *   GET     /api/agencies            annuaire des agences rencontrées
  *   GET     /api/agencies/<nom>      une agence et ses annonces
@@ -438,6 +439,32 @@ async function getAgency(db: Client, name: string, userId: string): Promise<unkn
     },
     listings: listings.rows.map((one) => rowToListing(one as Record<string, unknown>)),
   };
+}
+
+/**
+ * Les annonces dont ce compte a été PRÉVENU, quel que soit leur sort depuis.
+ *
+ * L'historique se construisait à partir de la liste courante, et perdait donc
+ * tout ce que la liste écarte. Relevé du 2026-09-05 : sur cent seize annonces
+ * signalées, trente-deux restaient visibles — les quatre-vingt-quatre autres
+ * étaient devenues « hors critères » parce que la détection des colocations et
+ * des locations étudiantes s'était AMÉLIORÉE, et les excluait désormais.
+ *
+ * C'est juste pour la liste, et faux pour un historique. « Vous avez été
+ * prévenu de cette annonce » est un fait passé : le reclasser ne l'efface pas.
+ * Cette route ignore donc les critères, l'archivage et le cycle de vie, et ne
+ * retient qu'une chose — une alerte est-elle partie.
+ *
+ * Deux cents entrées au plus : un historique se parcourt, il ne s'archive pas.
+ */
+async function listAlerts(db: Client, userId: string): Promise<unknown> {
+  const result = await db.execute({
+    sql: `SELECT ${USER_STATE_COLUMNS}, ${LIST_PAYLOAD} FROM listings ${USER_STATE_JOIN}
+          WHERE us.notified_at IS NOT NULL
+          ORDER BY us.notified_at DESC LIMIT 200`,
+    args: [userId],
+  });
+  return { listings: result.rows.map((row) => rowToListing(row as Record<string, unknown>)) };
 }
 
 async function listSources(db: Client): Promise<unknown> {
@@ -1009,6 +1036,9 @@ export async function route(
   }
   if (resource === 'agencies' && method === 'GET') {
     return json(id === undefined ? await listAgencies(db) : await getAgency(db, id, userId), cors);
+  }
+  if (resource === 'alerts' && method === 'GET') {
+    return json(await listAlerts(db, userId), cors);
   }
   if (resource === 'sources' && method === 'GET') return json(await listSources(db), cors);
   if (resource === 'stats' && method === 'GET') return json(await getStats(db), cors);

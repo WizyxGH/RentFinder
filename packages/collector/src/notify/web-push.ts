@@ -11,6 +11,7 @@
  * à ouvrir le site, ce qu'une alerte doit précisément éviter.
  */
 
+import { listingUrl } from '@rentfinder/shared';
 import webpush from 'web-push';
 import type { Logger } from '../core/logger.js';
 import type { NotifiableListing, Repository } from '../db/repository.js';
@@ -60,19 +61,6 @@ export interface PushPayload {
   readonly listingId?: string;
   /** Téléphone publié : le service worker en fait un bouton « Appeler ». */
   readonly phone?: string;
-}
-
-/**
- * L'adresse de la fiche.
- *
- * ELLE POINTAIT SUR `?listing=<id>`, que RIEN ne lisait côté site : toucher une
- * notification ouvrait l'accueil, et il fallait retrouver à la main l'annonce
- * dont on venait d'être prévenu. Depuis que chaque écran a son adresse, elle
- * mène à la fiche.
- */
-function listingUrl(siteUrl: string, id: string): string {
-  const base = siteUrl.endsWith('/') ? siteUrl : `${siteUrl}/`;
-  return `${base}annonce/${encodeURIComponent(id)}`;
 }
 
 /**

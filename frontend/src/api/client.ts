@@ -331,6 +331,23 @@ export async function recordContact(
   });
 }
 
+/**
+ * L'historique des annonces signalées (§29).
+ *
+ * Une route à part, et non un filtrage de la liste : celle-ci écarte les
+ * annonces hors critères, et une détection qui s'améliore effaçait alors des
+ * alertes bel et bien parties. Un historique ne se réécrit pas.
+ */
+export async function fetchAlerts(): Promise<readonly ListingView[]> {
+  if (DEMO) {
+    const { MOCK_LISTINGS } = await demoData();
+    return MOCK_LISTINGS.filter((listing) => listing.notifiedAt != null);
+  }
+  if (API_URL === '') return [];
+  const response = await request<{ listings: readonly ListingView[] }>('/api/alerts');
+  return response.listings;
+}
+
 export async function fetchSources(): Promise<{ sources: readonly SourceStateView[] }> {
   if (DEMO) {
     const { MOCK_SOURCES } = await demoData();

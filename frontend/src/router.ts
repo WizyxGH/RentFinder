@@ -21,6 +21,8 @@
  * `useRoute`, à côté, pour que la table des routes se teste sans navigateur.
  */
 
+import { listingPath } from '@rentfinder/shared';
+
 /** Les écrans de l'application. */
 export type View =
   | 'home'
@@ -176,7 +178,9 @@ export function pathFromRoute(route: Route): string {
   const { view, id, favoritesOnly } = route;
 
   if (view === 'list') return favoritesOnly === true ? '/favorites' : '/search';
-  if (view === 'detail') return `/listing/${encodeURIComponent(id ?? '')}`;
+  // Définition PARTAGÉE avec le collecteur, qui glisse ce chemin dans les
+  // notifications : deux constantes séparées avaient divergé en silence.
+  if (view === 'detail') return listingPath(id ?? '');
   if (view === 'agency') return `/agency/${encodeURIComponent(id ?? '')}`;
   if (view === 'source') return `/sources/${encodeURIComponent(id ?? '')}`;
   if (view === 'profile') return '/settings';

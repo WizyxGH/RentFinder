@@ -7,6 +7,7 @@ import {
   pushContentsFor,
   reminderContentFor,
 } from './web-push.js';
+import { listingPath } from '@rentfinder/shared';
 import type { NotifiableListing } from '../db/repository.js';
 
 const listing = (over: Record<string, unknown> = {}): never =>
@@ -92,7 +93,12 @@ describe('pushContentFor', () => {
     // L'adresse MÈNE À LA FICHE. Elle pointait sur `?listing=<id>`, que rien
     // ne lisait côté site : toucher la notification ouvrait l'accueil, et il
     // fallait retrouver à la main l'annonce dont on venait d'être prévenu.
-    expect(content.url).toContain('/annonce/l1');
+    //
+    // Le chemin est celui du PAQUET PARTAGÉ, et non une chaîne recopiée : ce
+    // test figeait « /annonce/ », il a continué de passer quand les adresses
+    // sont passées en anglais, et la notification a renvoyé vers une page
+    // inconnue pendant une journée.
+    expect(content.url).toContain('/listing/l1');
   });
 
   it('n’invente ni photo ni téléphone quand la source n’en publie pas (§17)', () => {
@@ -152,7 +158,7 @@ describe('les autres familles d’alertes', () => {
 
     expect(content.title).toMatch(/plus disponible/i);
     expect(content.body).toContain('Studio Libération');
-    expect(content.url).toContain('/annonce/l9');
+    expect(content.url).toContain('/listing/l9');
     // Une étiquette DISTINCTE de l'alerte « nouvelle annonce » : sinon la
     // seconde remplacerait la première dans le tiroir du téléphone.
     expect(content.tag).not.toBe(`rentfinder-${suivi.id}`);
@@ -197,6 +203,23 @@ describe('nearMatchContentFor', () => {
 
     expect(content.title).toMatch(/au-dessus de vos critères/i);
     expect(content.body).toContain('730 € au lieu de 700 € max');
-    expect(content.url).toContain('/annonce/l7');
+    expect(content.url).toContain('/listing/l7');
+  });
+});
+
+describe('lien de la notification', () => {
+  it('suit la définition PARTAGÉE du chemin de fiche', () => {
+    // Une chaîne recopiée avait divergé du routeur en silence : le site
+    // ramène volontairement toute adresse inconnue à l'accueil, si bien que
+    // toucher une alerte ouvrait l'accueil sans le moindre message.
+    const content = pushContentFor(listing({ id: 'l42' }), 'https://exemple.invalid/');
+    expect(content.url).toBe(`https://exemple.invalid${listingPath('l42')}`);
+  });
+
+  it('supporte une adresse de site avec ou sans barre finale', () => {
+    const avec = pushContentFor(listing(), 'https://exemple.invalid/');
+    const sans = pushContentFor(listing(), 'https://exemple.invalid');
+    expect(avec.url).toBe(sans.url);
+    expect(avec.url).not.toContain('//listing');
   });
 });
