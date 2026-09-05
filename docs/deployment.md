@@ -19,7 +19,7 @@ Coût : 0 €, tout tient dans les paliers gratuits.
 ```bash
 pnpm install
 pnpm collect      # collecte réelle → data/local.db (créée automatiquement)
-pnpm verify       # format + lint + types + tests + secrets
+pnpm verify       # format + lint + types + tests + end-to-end + secrets
 ```
 
 - La base locale est un fichier SQLite (`data/local.db`, ignoré par git).
@@ -124,7 +124,7 @@ base à jeton, jamais dans le dépôt (§26).
 | `pnpm collect -- --backfill` | descend dans l'historique (exige `BACKFILL_ENABLED=true`) |
 | `pnpm publish:turso`         | pousse l'inventaire local vers la base cloud              |
 | `pnpm dev`                   | interface seule, en mode démonstration                    |
-| `pnpm verify`                | format + lint + types + tests + secrets                   |
+| `pnpm verify`                | format + lint + types + tests + end-to-end + secrets      |
 
 La page « Sources » du site montre l'état et le dernier passage de chaque
 source : c'est là qu'on vérifie que tout tourne.

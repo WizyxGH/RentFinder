@@ -38,9 +38,9 @@ for (const { name, width, height } of WIDTHS) {
     await expect(page.getByTestId('listing-card').first()).toBeVisible();
     expect(await overflow(page)).toBeLessThanOrEqual(1);
 
-    // La modale « Trier et filtrer » : c'est elle qui porte le plus de contrôles
+    // La modale « Filtres » : c'est elle qui porte le plus de contrôles
     // sur une petite largeur.
-    await page.getByRole('button', { name: /Trier et filtrer/ }).click();
+    await page.getByRole('button', { name: /Filtres/ }).click();
     await expect(page.getByRole('dialog')).toBeVisible();
     expect(await overflow(page)).toBeLessThanOrEqual(1);
     await page.getByRole('button', { name: /^(Voir \d+ annonces?|Aucun résultat)$/ }).click();
@@ -86,9 +86,9 @@ test('le bouton de résultats reste visible sans dérouler la modale (§39)', as
     .getByRole('navigation', { name: 'Navigation', exact: true })
     .getByRole('button', { name: 'Recherche' })
     .click();
-  await page.getByRole('button', { name: /Trier et filtrer/ }).click();
+  await page.getByRole('button', { name: /Filtres/ }).click();
 
-  const dialog = page.getByRole('dialog', { name: 'Trier et filtrer' });
+  const dialog = page.getByRole('dialog', { name: 'Filtres' });
   const resultats = dialog.getByRole('button', {
     name: /^(Voir \d+ annonces?|Aucun résultat)$/,
   });

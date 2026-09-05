@@ -89,8 +89,11 @@ test('scénario 3 — une annonce hors critères est écartée de la liste (§53
   // L'annonce à 750 € dépasse le budget : absente par défaut.
   await expect(page.getByText('750 €')).toHaveCount(0);
 
-  // Le réglage vit dans la modale « Trier et filtrer ».
-  await page.getByRole('button', { name: /Trier et filtrer/ }).click();
+  // Le réglage vit dans la modale « Filtres », derrière le menu « Afficher » :
+  // quatre bascules dépliées remplaçaient un écran de défilement pour des
+  // options qu'on touche rarement.
+  await page.getByRole('button', { name: /Filtres/ }).click();
+  await page.getByRole('button', { name: /Afficher/ }).click();
   await page.getByRole('checkbox', { name: 'Annonces hors critères' }).check();
   await page.getByRole('button', { name: /^(Voir \d+ annonces?|Aucun résultat)$/ }).click();
   await expect(page.getByText('750 €').first()).toBeVisible();
@@ -162,13 +165,11 @@ test('une annonce risquée reste visible, avec ses raisons (§19)', async ({ pag
 });
 
 test('le tri et le changement de statut fonctionnent (§35, §54)', async ({ page }) => {
-  // Le tri vit dans la modale « Trier et filtrer ».
-  const toolbar = page.getByRole('group', { name: 'Barre de filtres' });
-  await toolbar.getByRole('button', { name: /Trier et filtrer/ }).click();
-  // Le tri est un MENU : un choix unique parmi quatre n'occupe plus un quart
-  // du panneau en liste dépliée.
+  // LE TRI EST HORS DE LA MODALE, et ce test le vérifie en ne l'ouvrant pas :
+  // il vivait derrière les filtres, si bien qu'il fallait ouvrir un panneau,
+  // choisir, puis le refermer pour voir le résultat d'un geste sans
+  // conséquence.
   await page.getByLabel('Trier par').selectOption('price');
-  await page.getByRole('button', { name: /^(Voir \d+ annonces?|Aucun résultat)$/ }).click();
   await expect(page.getByTestId('listing-card').first()).toContainText('420 €');
 
   await page.getByTestId('listing-card').first().click();
@@ -217,16 +218,28 @@ test('les critères de recherche sont réglables depuis le site (§66)', async (
   // encadré à part — trois façons de les mettre à l'écart. Ils sont maintenant
   // dans la même liste que les autres filtres, et se comportent comme eux.
   const toolbar = page.getByRole('group', { name: 'Barre de filtres' });
-  await toolbar.getByRole('button', { name: /Trier et filtrer/ }).click();
+  await toolbar.getByRole('button', { name: /Filtres/ }).click();
 
   const trajet = page.getByLabel('Trajet max domicile→travail (min)');
   await expect(trajet).toBeVisible();
   await trajet.fill('45');
 
-  // Aucun bouton à presser : le critère s'enregistre seul, comme le tri et les
+  // AUCUN BOUTON À PRESSER : le critère s'applique à la saisie, comme les
   // filtres juste au-dessus. Il fallait auparavant « Appliquer les critères »,
-  // dans le seul bloc de l'écran qui n'agissait pas à la saisie.
-  await expect(page.getByText('Enregistré', { exact: true })).toBeVisible();
+  // dans le seul bloc de l'écran qui n'agissait pas tout seul — qui réglait
+  // puis refermait perdait tout, sans rien pour l'en avertir.
+  //
+  // ON NE VÉRIFIE PLUS L'ACCUSÉ « Enregistré » : il clignotait à chaque frappe
+  // et attirait l'œil là où il n'y avait rien à lire. Reste ce que ce scénario
+  // peut honnêtement constater ici : le champ est éditable, il retient la
+  // valeur, et rien ne signale d'échec.
+  //
+  // LA PERSISTANCE, ELLE, NE SE TESTE PAS DANS CE MODE : la démonstration n'a
+  // pas d'API, `saveFilters` n'y écrit nulle part et `fetchFilters` rend
+  // toujours les mêmes valeurs. L'affirmer ici ne prouverait rien du vrai
+  // enregistrement — celui-là est couvert côté serveur.
+  await expect(trajet).toHaveValue('45');
+  await expect(page.getByText(/Échec de l’enregistrement/)).toHaveCount(0);
 });
 
 test('la localisation ouvre Maps facilement (§20)', async ({ page }) => {
@@ -318,22 +331,25 @@ test('on peut filtrer la liste par source (menu déroulant)', async ({ page }) =
   const before = await cards.count();
   expect(before).toBeGreaterThan(1);
 
-  // Ouvrir le menu « Sources » de la barre de filtres (distinct de l'onglet
-  // de navigation du même nom).
-  // Le filtre par source vit dans la modale « Trier et filtrer ».
+  // Le filtre par source vit dans la modale « Filtres », derrière un menu
+  // déroulant : cinquante sources dépliées occupaient à elles seules plus que
+  // tout le reste du panneau.
   const toolbar = page.getByRole('group', { name: 'Barre de filtres' });
-  await toolbar.getByRole('button', { name: /Trier et filtrer/ }).click();
+  const dialog = page.getByRole('dialog', { name: 'Filtres' });
+  await toolbar.getByRole('button', { name: /Filtres/ }).click();
 
   // Cocher une source restreint la liste.
+  await dialog.getByRole('button', { name: /^Sources/ }).click();
   await page.getByRole('checkbox', { name: 'Demo Agence' }).check();
   await page.getByRole('button', { name: /^(Voir \d+ annonces?|Aucun résultat)$/ }).click();
   const filtered = await cards.count();
   expect(filtered).toBeGreaterThan(0);
   expect(filtered).toBeLessThanOrEqual(before);
 
-  // « Tout afficher » réinitialise — il vit dans la modale, à rouvrir.
-  await toolbar.getByRole('button', { name: /Trier et filtrer/ }).click();
-  await page.getByRole('button', { name: /tout afficher/i }).click();
+  // « Tout désélectionner » réinitialise — il vit au pied du menu, à rouvrir.
+  await toolbar.getByRole('button', { name: /Filtres/ }).click();
+  await dialog.getByRole('button', { name: /^Sources/ }).click();
+  await page.getByRole('button', { name: /tout désélectionner/i }).click();
   await page.getByRole('button', { name: /^(Voir \d+ annonces?|Aucun résultat)$/ }).click();
   await expect(cards).toHaveCount(before);
 });
@@ -348,7 +364,7 @@ test('les filtres rapides (façon SeLoger) affinent la liste et se retirent', as
   await expect(toolbar.getByText(/résultats?$/)).toBeVisible();
 
   // Filtre « Pièces » : au moins 2 pièces → la liste ne grandit pas.
-  await toolbar.getByRole('button', { name: /Trier et filtrer/ }).click();
+  await toolbar.getByRole('button', { name: /Filtres/ }).click();
   await page.getByRole('button', { name: '2+', exact: true }).click();
   await page.getByRole('button', { name: /^(Voir \d+ annonces?|Aucun résultat)$/ }).click();
   const filtered = await cards.count();
@@ -379,7 +395,7 @@ test('la barre basse mène aux quatre destinations (mobile)', async ({ page }) =
   // « Recherche » ouvre la RECHERCHE, et non le menu de tri : on demandait à
   // voir des annonces, on obtenait un panneau de réglages par-dessus la page.
   await basse.getByRole('button', { name: 'Recherche' }).click();
-  await expect(page.getByRole('dialog', { name: 'Trier et filtrer' })).toBeHidden();
+  await expect(page.getByRole('dialog', { name: 'Filtres' })).toBeHidden();
   await expect(page.getByTestId('listing-card').first()).toBeVisible();
 
   await basse.getByRole('button', { name: 'Paramètres' }).click();

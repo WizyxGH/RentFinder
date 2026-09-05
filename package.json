@@ -28,7 +28,7 @@
     "test:e2e": "pnpm --filter frontend run test:e2e",
     "check:secrets": "node scripts/check-secrets.mjs",
     "db:migrate": "pnpm --filter @rentfinder/collector run db:migrate",
-    "verify": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run test:frontend && pnpm run check:secrets",
+    "verify": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run test:frontend && pnpm run test:e2e && pnpm run check:secrets",
     "publish:turso": "node packages/collector/scripts/publish-turso.mjs"
   },
   "devDependencies": {
