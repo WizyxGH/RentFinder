@@ -10,6 +10,7 @@
 import type { IsoDateTime, SourceId } from './provenance.js';
 import type { RawListing } from './listing.js';
 import type { SearchCriteria } from './criteria.js';
+import type { LandlordKind } from './contact.js';
 
 /** Famille de source, utilisée pour le tri et les fréquences par défaut (§7). */
 export type SourceKind = 'portal' | 'agencyNetwork' | 'localAgency' | 'aggregator';
@@ -141,6 +142,23 @@ export interface SourceDescriptor {
     readonly email?: string;
   };
 
+  /**
+   * La nature des bailleurs que cette source publie, quand elle est certaine.
+   *
+   * ON N'A JAMAIS DÉTECTÉ UN SEUL PARTICULIER : sur mille cent fiches, huit
+   * cent soixante-deux agences et deux cent quarante-trois inconnus, zéro
+   * particulier. La déduction ne reposait que sur le mot « particulier » dans
+   * le texte — or les deux tiers des annonces viennent des digests de portails,
+   * qui n'ont AUCUNE description. Le filtre « particuliers seuls » ne pouvait
+   * donc rien isoler.
+   *
+   * Certaines sources tranchent d'elles-mêmes : PAP ne publie QUE des annonces
+   * de particulier à particulier — c'est sa raison d'être. Ce n'est pas une
+   * supposition sur une annonce, c'est un fait sur la source (§17).
+   *
+   * Absent = on ne sait pas, et le texte reste seul juge.
+   */
+  readonly landlord?: LandlordKind;
   readonly notes: string;
 }
 

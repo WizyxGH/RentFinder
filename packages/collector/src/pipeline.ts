@@ -595,9 +595,18 @@ export async function runPipeline(options: PipelineOptions): Promise<PipelineRep
 
   // --- 3. Normalisation -----------------------------------------------------
   const nowMs = clock.now();
-  const normalized = [...rawBySource.entries()].flatMap(([sourceId, raws]) =>
-    withAgencyContact(normalizeAll(raws, { sourceId, nowMs }), sourceId, scrapers),
-  );
+  const normalized = [...rawBySource.entries()].flatMap(([sourceId, raws]) => {
+    // Le descripteur peut déclarer la nature de ses bailleurs — PAP ne publie
+    // que du particulier à particulier. C'est un fait sur la SOURCE, pas une
+    // supposition sur l'annonce, et c'est le seul indice disponible pour les
+    // digests de portails, qui n'ont aucune description à fouiller (§17).
+    const landlord = scrapers.find((one) => one.descriptor.id === sourceId)?.descriptor.landlord;
+    return withAgencyContact(
+      normalizeAll(raws, { sourceId, nowMs, ...(landlord !== undefined ? { landlord } : {}) }),
+      sourceId,
+      scrapers,
+    );
+  });
   logger.info('pipeline.normalized', { count: normalized.length });
 
   // --- 4. Persistance des occurrences --------------------------------------

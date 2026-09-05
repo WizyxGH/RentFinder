@@ -191,3 +191,40 @@ describe('rederiveFromText — rattrapage des annonces déjà en base', () => {
     ).toBeNull();
   });
 });
+
+describe('nature du bailleur', () => {
+  it('une agence nommée tranche', () => {
+    const n = normalizeListing(raw({ cityText: 'nice', agencyName: 'Cabinet Martin' }), OPTIONS);
+    expect(n?.contact.kind).toBe('agency');
+  });
+
+  /**
+   * ON N'AVAIT JAMAIS DÉTECTÉ UN SEUL PARTICULIER : sur mille cent fiches, zéro.
+   * La déduction ne reposait que sur le mot « particulier » dans le texte — or
+   * les deux tiers des annonces viennent des digests de portails, qui n'ont
+   * AUCUNE description à fouiller. Le filtre « particuliers seuls » ne pouvait
+   * donc rien isoler.
+   *
+   * PAP ne publie que du particulier à particulier : c'est un fait sur la
+   * source, pas une supposition sur l'annonce.
+   */
+  it('la source tranche quand le texte ne dit rien', () => {
+    const muet = raw({ cityText: 'nice', title: 'Studio 25 m²' });
+    expect(normalizeListing(muet, OPTIONS)?.contact.kind).toBe('unknown');
+    expect(normalizeListing(muet, { ...OPTIONS, landlord: 'private' })?.contact.kind).toBe(
+      'private',
+    );
+  });
+
+  it('une agence nommée l’emporte sur la nature déclarée par la source', () => {
+    const n = normalizeListing(raw({ cityText: 'nice', agencyName: 'Cabinet Martin' }), {
+      ...OPTIONS,
+      landlord: 'private',
+    });
+    expect(n?.contact.kind).toBe('agency');
+  });
+
+  it('sans aucun indice, on ne suppose rien (§17)', () => {
+    expect(normalizeListing(raw({ cityText: 'nice' }), OPTIONS)?.contact.kind).toBe('unknown');
+  });
+});

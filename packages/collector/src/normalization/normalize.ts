@@ -57,6 +57,13 @@ export interface NormalizeOptions {
    * Absente pour une annonce nouvellement découverte.
    */
   readonly firstSeenAt?: string;
+  /**
+   * La nature des bailleurs de la source, quand elle est certaine — c'est le
+   * `landlord` de son descripteur. Elle tranche pour les annonces où le texte
+   * ne dit rien, ce qui est le cas de la plupart : les digests de portails ne
+   * portent aucune description.
+   */
+  readonly landlord?: LandlordKind;
 }
 
 /** Identifiant stable et lisible d'une occurrence. */
@@ -95,18 +102,29 @@ function toNull(value: string | undefined): string | null {
 
 /**
  * Déduit la nature du bailleur.
- * Une agence nommée suffit à trancher ; sans indice, on reste sur `unknown`
- * plutôt que de supposer un particulier (§17).
+ *
+ * TROIS INDICES, DU PLUS SÛR AU PLUS FAIBLE. Une agence nommée tranche. Le mot
+ * « particulier » dans le texte tranche aussi. Reste ce que dit LA SOURCE
+ * elle-même : PAP ne publie que du particulier à particulier, et c'est un fait
+ * sur la source, pas une supposition sur l'annonce.
+ *
+ * CE TROISIÈME INDICE MANQUAIT, et son absence rendait le filtre « particuliers
+ * seuls » inopérant : sur mille cent fiches, aucune n'était classée
+ * particulier. Le mot ne pouvait pas se trouver — les deux tiers des annonces
+ * viennent des digests de portails, qui n'ont aucune description à fouiller.
+ *
+ * Sans aucun indice, on reste sur `unknown` plutôt que de supposer (§17), et le
+ * filtre laisse alors passer.
  */
-function inferLandlordKind(raw: RawListing): LandlordKind {
+function inferLandlordKind(raw: RawListing, sourceLandlord?: LandlordKind): LandlordKind {
   if (toNull(raw.agencyName) !== null) return 'agency';
   const haystack = comparable(`${raw.title ?? ''} ${raw.description ?? ''}`);
   if (/\bparticulier\b|\bde particulier a particulier\b/.test(haystack)) return 'private';
-  return 'unknown';
+  return sourceLandlord ?? 'unknown';
 }
 
 /** Construit les coordonnées à partir des champs bruts (§21). */
-function buildContact(raw: RawListing, sourceId: SourceId): Contact {
+function buildContact(raw: RawListing, sourceId: SourceId, landlord?: LandlordKind): Contact {
   const phone = parsePhone(raw.phoneText);
   const email = parseEmail(raw.emailText);
   const agencyName = toNull(raw.agencyName);
@@ -125,7 +143,7 @@ function buildContact(raw: RawListing, sourceId: SourceId): Contact {
     email,
     formUrl,
     reference,
-    kind: inferLandlordKind(raw),
+    kind: inferLandlordKind(raw, landlord),
     providedBy: hasAny ? [sourceId] : [],
   };
 }
@@ -315,7 +333,7 @@ export function normalizeListing(
     latitude: location.latitude,
     longitude: location.longitude,
 
-    contact: buildContact(raw, options.sourceId),
+    contact: buildContact(raw, options.sourceId, options.landlord),
 
     publishedAt: parsePublishedAt(raw.publishedAtText, options.nowMs),
     availableAt: resolveAvailability(raw, options.nowMs),

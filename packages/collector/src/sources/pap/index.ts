@@ -41,6 +41,9 @@ export const PAP_DESCRIPTOR: SourceDescriptor = {
   name: 'PAP',
   domain: 'pap.fr',
   kind: 'portal',
+  // PAP = « De Particulier à Particulier » : aucune agence n'y publie, c'est sa
+  // raison d'être. Le seul portail dont la nature du bailleur soit certaine.
+  landlord: 'private',
   method: 'html',
   priority: 1,
   schedule: scheduleFor('portal', { baseIntervalMinutes: 30 }),
