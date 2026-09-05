@@ -177,21 +177,36 @@ interface ListQuery {
  * deux DOIVENT filtrer à l'identique, faute de quoi la version dirait « rien
  * n'a changé » pour un ensemble qui n'est pas celui qu'on rend.
  */
-function buildListQuery(url: URL, filters?: LiveFilters): ListQuery {
+export function buildListQuery(url: URL, filters?: LiveFilters): ListQuery {
   const limit = Math.min(
     500,
     Math.max(1, Number.parseInt(url.searchParams.get('limit') ?? '30', 10)),
   );
   const offset = Math.max(0, Number.parseInt(url.searchParams.get('offset') ?? '0', 10));
 
-  // §36 : par défaut, le classement suit la priorité d'action — pas le prix.
+  /**
+   * §36 : par défaut, le classement suit la priorité d'action — pas le prix.
+   *
+   * « RÉCENT » SE COMPTE À LA DÉCOUVERTE, pas à la dernière vue. `last_seen_at`
+   * se rafraîchit à CHAQUE collecte : une annonce en ligne depuis trois mois y
+   * paraissait plus récente qu'une trouvée le matin même. Relevé du
+   * 2026-09-05 : la première du classement avait été découverte quatre jours
+   * plus tôt, la vingtième le jour même. `first_seen_at` est complet — aucune
+   * valeur nulle — et dit ce que l'utilisateur entend par « nouveau » :
+   * nouveau POUR LUI. `published_at` serait plus juste encore, mais manque
+   * dans deux tiers des fiches.
+   *
+   * « MOINS CHER » MET LES SANS-PRIX EN DERNIER. SQLite classe les valeurs
+   * nulles EN TÊTE d'un tri croissant : les cinq premières annonces du
+   * classement « prix » n'avaient pas de prix du tout.
+   */
   const sort = url.searchParams.get('sort') ?? 'priority';
   const orderBy =
     sort === 'recent'
-      ? 'last_seen_at DESC'
+      ? 'first_seen_at DESC'
       : sort === 'price'
-        ? 'price ASC'
-        : 'action_priority DESC, last_seen_at DESC';
+        ? 'price IS NULL, price ASC'
+        : 'action_priority DESC, first_seen_at DESC';
 
   // §53 scénario 3 : les annonces hors critères ne remontent pas par défaut.
   const includeAll = url.searchParams.get('all') === 'true';

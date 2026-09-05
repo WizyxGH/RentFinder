@@ -346,10 +346,27 @@ export function normalizeListing(
 function fillGaps(
   occurrence: NormalizedListing,
   text: string,
-): Pick<NormalizedListing, 'flatShare' | 'charges' | 'rooms' | 'dpe' | 'district'> {
+): Pick<
+  NormalizedListing,
+  'flatShare' | 'charges' | 'rooms' | 'dpe' | 'district' | 'maxOccupants'
+> {
   return {
+    // Le TITRE est transmis à part : « Chambre meublée à Nice nord » loue une
+    // chambre, et on ne loue une chambre seule que dans un logement partagé.
+    // Noyé dans la description, ce signal se perdait.
     flatShare:
-      occurrence.flatShare === null && parseFlatShare(text) === true ? true : occurrence.flatShare,
+      occurrence.flatShare === null && parseFlatShare(text, occurrence.title) === true
+        ? true
+        : occurrence.flatShare,
+    /**
+     * LE NOMBRE D'OCCUPANTS MANQUAIT ICI, et c'est ce qui le rendait
+     * irrattrapable : il se lit entièrement dans le texte conservé — « idéal
+     * pour 3 colocataires » —, donc exactement ce que ce rejeu sait faire, mais
+     * personne ne le recalculait. Les fiches déjà en base restaient à ce que
+     * l'extraction savait le jour de leur collecte.
+     */
+    maxOccupants:
+      occurrence.maxOccupants === null ? parseMaxOccupants(text) : occurrence.maxOccupants,
     // Bornées par le loyer quand il est connu : au-delà, ce n'est pas une
     // provision de charges mais un loyer qu'une tournure a laissé passer.
     charges:
@@ -440,7 +457,7 @@ export function rederiveFromText(occurrence: NormalizedListing): NormalizedListi
   const features = gained.length > 0 ? [...occurrence.features, ...gained] : occurrence.features;
 
   const filled = fillGaps(occurrence, text);
-  const { flatShare, charges, rooms, dpe, district } = filled;
+  const { flatShare, charges, rooms, dpe, district, maxOccupants } = filled;
 
   if (
     address === occurrence.address &&
@@ -450,7 +467,8 @@ export function rederiveFromText(occurrence: NormalizedListing): NormalizedListi
     charges === occurrence.charges &&
     rooms === occurrence.rooms &&
     dpe === occurrence.dpe &&
-    district === occurrence.district
+    district === occurrence.district &&
+    maxOccupants === occurrence.maxOccupants
   ) {
     return null;
   }
@@ -464,6 +482,7 @@ export function rederiveFromText(occurrence: NormalizedListing): NormalizedListi
     rooms,
     dpe,
     district,
+    maxOccupants,
   };
 }
 
