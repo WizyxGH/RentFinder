@@ -2,7 +2,7 @@
  * Recherches enregistrées.
  *
  * POURQUOI. Les réglages d'une recherche vivaient à deux endroits sans
- * rapport : les critères de collecte dans un repli de « Trier et filtrer », et
+ * rapport : les critères de collecte dans un repli de « Filtres », et
  * l'affinage de la liste dans le reste de la même modale. On réglait sept
  * champs, on trouvait ce qu'on cherchait, et le lendemain il fallait tout
  * recommencer — rien ne gardait le jeu complet.

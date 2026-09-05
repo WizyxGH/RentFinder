@@ -3,7 +3,7 @@
  *
  * Ils affinent la liste DÉJÀ chargée, sans toucher aux critères de collecte
  * réglés dans l'onglet « Filtres ». Les CONTRÔLES vivent dans la modale
- * « Trier et filtrer » (voir `SortFilterModal.tsx`) ; ce composant n'affiche
+ * « Filtres » (voir `SortFilterModal.tsx`) ; ce composant n'affiche
  * plus que les puces des filtres posés, pour les voir d'un coup d'œil et les
  * retirer un à un ou tous d'un coup — les menus déroulants d'origine faisaient
  * doublon avec la modale.

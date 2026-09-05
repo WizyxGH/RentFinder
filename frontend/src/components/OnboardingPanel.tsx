@@ -149,7 +149,7 @@ export function OnboardingPanel({
           </h1>
           <p className="text-muted-foreground mt-1 mb-4 text-[0.9rem]">
             Ces filtres décident de ce qu’on vous signale. Ils se modifient à tout moment depuis «
-            Trier et filtrer », et s’enregistrent au fur et à mesure.
+            Filtres », et s’appliquent au fur et à mesure.
           </p>
           <FiltersPanel />
           <div className="mt-6 flex flex-col gap-2">

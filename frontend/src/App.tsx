@@ -292,7 +292,7 @@ function isDefaultView(view: {
 
 /**
  * Nombre de réglages qui écartent l'affichage de son état d'ouverture — c'est
- * la pastille du bouton « Trier et filtrer ». Hors du composant : ce n'est
+ * la pastille du bouton « Filtres ». Hors du composant : ce n'est
  * qu'un décompte, et l'y laisser alourdissait `App` sans rien apprendre.
  */
 function countActiveSettings(view: {
