@@ -64,23 +64,49 @@ export function openDatabase(options: DatabaseOptions): Database {
   return client;
 }
 
+/** Où la collecte va écrire, et par quelle règle. */
+export interface DatabaseTarget {
+  /**
+   * `turso` : la base que lit le site. `memory` : les tests. `local` : un
+   * fichier sur cette machine, QUE PLUS AUCUNE INTERFACE NE LIT.
+   */
+  readonly kind: 'turso' | 'local' | 'memory';
+  readonly url: string;
+}
+
 /**
- * Ouvre la base à partir de l'environnement.
+ * Décide de la cible SANS l'ouvrir.
  *
- * Priorités : `TEST_DATABASE_URL` (tests, §52) → `TURSO_DATABASE_URL` (mode
- * cloud optionnel — c'est la variable que renseignent GitHub Actions et le
- * Worker) → `DATABASE_URL` (autre fichier local) → base locale par défaut.
+ * Séparé de l'ouverture pour que les appelants puissent le DIRE avant d'écrire.
+ * Le repli local est devenu un piège silencieux le jour où le serveur local a
+ * été retiré : une collecte sans `TURSO_DATABASE_URL` annonce « 42 annonces
+ * collectées » et les range dans un fichier qu'aucun écran ne saura ouvrir. On
+ * a cherché la panne du côté des sources, alors que les données étaient
+ * simplement ailleurs.
+ *
+ * Le repli n'est pas retiré pour autant : il reste la bonne façon d'essayer un
+ * nouveau scraper sans toucher à la base de production. Ce qui devait
+ * disparaître, c'est son silence.
+ *
+ * Priorités : tests (§52) → `TURSO_DATABASE_URL` → `DATABASE_URL` → fichier
+ * local par défaut.
  */
-export function openDatabaseFromEnv(env: NodeJS.ProcessEnv = process.env): Database {
+export function databaseTarget(env: NodeJS.ProcessEnv = process.env): DatabaseTarget {
   if (env['NODE_ENV'] === 'test' || env['VITEST'] === 'true') {
-    return openDatabase({ url: env['TEST_DATABASE_URL'] ?? ':memory:' });
+    return { kind: 'memory', url: env['TEST_DATABASE_URL'] ?? ':memory:' };
   }
 
   const turso = env['TURSO_DATABASE_URL'];
-  if (turso !== undefined && turso !== '') {
-    return openDatabase({ url: turso, authToken: env['TURSO_AUTH_TOKEN'] });
-  }
+  if (turso !== undefined && turso !== '') return { kind: 'turso', url: turso };
 
   const url = env['DATABASE_URL'];
-  return openDatabase({ url: url !== undefined && url !== '' ? url : defaultLocalDatabaseUrl() });
+  return { kind: 'local', url: url !== undefined && url !== '' ? url : defaultLocalDatabaseUrl() };
+}
+
+/** Ouvre la base désignée par l'environnement. Voir `databaseTarget`. */
+export function openDatabaseFromEnv(env: NodeJS.ProcessEnv = process.env): Database {
+  const target = databaseTarget(env);
+  return target.kind === 'turso'
+    ? openDatabase({ url: target.url, authToken: env['TURSO_AUTH_TOKEN'] })
+    : openDatabase({ url: target.url });
 }

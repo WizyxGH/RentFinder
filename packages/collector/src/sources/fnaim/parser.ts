@@ -9,10 +9,12 @@
  * beaucoup de ces agences n'ont pas de site scrapable. C'est la seule source
  * étudiée qui atteigne les petites agences en une requête.
  *
- * TOUT EST SUR LA CARTE : titre (type, pièces, surface, ville, CP), loyer,
- * description avec ses retours à la ligne — qui contient souvent l'adresse en
- * toutes lettres —, équipements, agence, téléphone, photos. Aucune fiche n'est
- * visitée (§30).
+ * LA CARTE PORTE L'ESSENTIEL : titre (type, pièces, surface, ville, CP), loyer,
+ * agence, téléphone, photos. Mais elle COUPE la description vers 250
+ * caractères, et ce qu'elle coupe contient souvent l'adresse en toutes lettres.
+ * Les fiches NOUVELLES sont donc visitées, vingt par passage au plus (§30) —
+ * l'en-tête a longtemps prétendu le contraire, et cette phrase périmée a fait
+ * conclure à tort qu'enrichir FNAIM coûterait soixante-seize requêtes.
  *
  * ANCRAGE : classes sémantiques du gabarit (`li.item`, `.price`,
  * `.description`, `.agence .nom`, `.telNumber`), et l'attribut `data-title`
@@ -168,10 +170,50 @@ export function listUrl(page: number): string {
  * @returns le complément à fusionner, ou `null` si la fiche n'apprend rien —
  *          auquel cas on garde ce que la carte avait donné (§17).
  */
+/**
+ * Le tableau « Caractéristiques du bien » d'une fiche.
+ *
+ * Balisage régulier : `<li><span>Intitulé&nbsp;: </span> Valeur</li>`, groupé
+ * sous des titres (Composition, Extérieur, Partie commune). On ne cherche pas
+ * un intitulé précis — chaque agence remplit ce qu'elle veut — on ramasse tout.
+ *
+ * LES « NON » SONT ÉCARTÉS, et c'est le point délicat. Ce tableau répond par
+ * « Oui » ou « Non » : « Balcon : Non » recopié tel quel dans le texte des
+ * atouts y ferait apparaître un balcon, puisque la normalisation cherche le
+ * mot. On inventerait un équipement à partir de son absence, ce qui est
+ * exactement l'inverse de ce que §17 demande.
+ *
+ * Un « Oui » perd sa valeur et ne garde que l'intitulé : « Ascenseur » se lit,
+ * « Ascenseur : Oui » ne se lit pas mieux.
+ */
+export function parseCharacteristics(html: string): string | undefined {
+  const $ = cheerio.load(html);
+  const parts: string[] = [];
+
+  $('.caracteristique li').each((_index, element) => {
+    const item = $(element);
+    const label = cleanText(item.find('span').first().text()).replace(/\s*:\s*$/, '');
+    if (label === '') return;
+    const value = cleanText(item.clone().children('span').remove().end().text());
+    if (value === '' || /^non$/i.test(value)) return;
+    parts.push(/^oui$/i.test(value) ? label : `${label} : ${value}`);
+  });
+
+  return parts.length > 0 ? parts.join(' · ') : undefined;
+}
+
 export function parseDetail(html: string): RawDraft | null {
   const $ = cheerio.load(html);
   const node = $('[itemprop="description"]').first();
+  // Une annonce retirée renvoie la page de LISTE, qui n'a pas de description :
+  // c'est ce qui distingue les deux, et ce qui évite de recopier la description
+  // d'une annonce voisine sur celle qu'on cherchait.
   if (node.length === 0) return null;
   const description = htmlToText($, node as unknown as cheerio.Cheerio<never>);
-  return description.length > 0 ? { description } : null;
+  if (description.length === 0) return null;
+
+  // La fiche est déjà téléchargée pour sa description : lire le tableau des
+  // caractéristiques au passage ne coûte aucune requête de plus.
+  const features = parseCharacteristics(html);
+  return features === undefined ? { description } : { description, extra: { features } };
 }

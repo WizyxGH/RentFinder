@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { normalizeListing } from '../../normalization/normalize.js';
-import { listUrl, parseDetail, parseListPage, splitTitle } from './parser.js';
+import { listUrl, parseCharacteristics, parseDetail, parseListPage, splitTitle } from './parser.js';
 
 const HTML = readFileSync(
   fileURLToPath(new URL('../../../../../tests/fixtures/fnaim/liste.html', import.meta.url)),
@@ -118,5 +118,40 @@ describe('parseDetail (FNAIM)', () => {
 
   it('ne conclut rien d’une page sans description (§17)', () => {
     expect(parseDetail('<html><body><p>rien</p></body></html>')).toBeNull();
+  });
+});
+
+describe('parseCharacteristics', () => {
+  const page = (body: string): string => `<html><body>${body}</body></html>`;
+
+  it('lit les couples intitulé / valeur', () => {
+    const html = page(`<div class="caracteristique">
+      <ul><li><span>Type d'habitation&nbsp;: </span> Appartement</li>
+          <li><span>Surface habitable&nbsp;: </span> 16 m²</li></ul></div>`);
+    expect(parseCharacteristics(html)).toBe(
+      "Type d'habitation : Appartement · Surface habitable : 16 m²",
+    );
+  });
+
+  it('ÉCARTE les « Non » — sans quoi on inventerait un balcon', () => {
+    // La normalisation cherche le MOT « balcon » dans ce texte : recopier
+    // « Balcon : Non » y ferait apparaître un balcon que l'annonce dit ne pas
+    // avoir. On déduirait un équipement de son absence (§17).
+    const html = page(`<div class="caracteristique">
+      <ul><li><span>Balcon&nbsp;: </span> Non</li>
+          <li><span>Terrasse&nbsp;: </span> Non</li>
+          <li><span>Ascenseur&nbsp;: </span> Non</li></ul></div>`);
+    expect(parseCharacteristics(html)).toBeUndefined();
+  });
+
+  it('réduit un « Oui » à son intitulé', () => {
+    // « Ascenseur » se lit ; « Ascenseur : Oui » ne se lit pas mieux.
+    const html = page(`<div class="caracteristique">
+      <ul><li><span>Ascenseur&nbsp;: </span> Oui</li></ul></div>`);
+    expect(parseCharacteristics(html)).toBe('Ascenseur');
+  });
+
+  it('ignore une fiche sans tableau', () => {
+    expect(parseCharacteristics(page('<p>rien</p>'))).toBeUndefined();
   });
 });

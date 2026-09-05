@@ -18,7 +18,7 @@
 
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
-import { openDatabaseFromEnv } from '../db/client.js';
+import { databaseTarget, openDatabaseFromEnv } from '../db/client.js';
 import { migrate } from '../db/migrate.js';
 import { createRepository } from '../db/repository.js';
 import { createRegistry } from '../core/registry.js';
@@ -203,6 +203,20 @@ async function main(): Promise<void> {
   // un réglage à deux domiciles est un réglage dont personne ne sait lequel
   // fait autorité.
   const fileConfig = loadPublicConfig((message) => logger.warn('config.invalid', { message }));
+
+  // OÙ L'ON ÉCRIT, DIT AVANT D'ÉCRIRE. Sans `TURSO_DATABASE_URL`, la collecte
+  // range tout dans un fichier local qu'aucune interface ne lit depuis le
+  // retrait du serveur local : on lisait « 42 annonces collectées » et rien
+  // n'apparaissait sur le site, sans que rien n'explique pourquoi.
+  const target = databaseTarget();
+  if (target.kind === 'local') {
+    logger.warn('database.local_only', {
+      url: target.url,
+      message:
+        'TURSO_DATABASE_URL absent : la collecte écrit dans un fichier local, ' +
+        'que le site publié ne lit pas. Utile pour essayer un scraper ; sans effet visible ailleurs.',
+    });
+  }
 
   const db = openDatabaseFromEnv();
 

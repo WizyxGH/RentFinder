@@ -48,7 +48,13 @@ export * from './scoring/index.js';
 export { prepareMessage, TEMPLATES, type PreparedMessage } from '@rentfinder/shared';
 export { evaluateAutoContact, type AutoContactDecision } from './contact/guards.js';
 
-export { openDatabase, openDatabaseFromEnv, type Database } from './db/client.js';
+export {
+  databaseTarget,
+  openDatabase,
+  openDatabaseFromEnv,
+  type Database,
+  type DatabaseTarget,
+} from './db/client.js';
 export { migrate, loadMigrations, splitStatements } from './db/migrate.js';
 export { createRepository, occurrenceHash, listingHash, type Repository } from './db/repository.js';
 
