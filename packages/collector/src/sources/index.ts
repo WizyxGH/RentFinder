@@ -64,6 +64,8 @@ import { dinamyScraper } from './dinamy/index.js';
 import { immobiliereNicoiseScraper } from './immobiliere-nicoise/index.js';
 import { dragoScraper } from './drago/index.js';
 import { privilegeScraper } from './privilege/index.js';
+import { centragenceScraper } from './centragence/index.js';
+import { iciImmobilierScraper } from './ici-immobilier/index.js';
 
 /**
  * Nom lisible de chaque source, par identifiant — dérivé des descripteurs pour
@@ -119,6 +121,8 @@ export const ALL_SCRAPERS: readonly Scraper[] = [
   immoSudScraper,
   winterScraper,
   privilegeScraper,
+  centragenceScraper,
+  iciImmobilierScraper,
   lodgisScraper,
   saviEsteveScraper,
   ashleyParkerScraper,

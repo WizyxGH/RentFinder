@@ -108,6 +108,44 @@ générée sous /admin, interdit par robots → laissé inconnu, §17).
 | aagestion.net                                   | 2026-08-17 | ⚪ Hektor confirmé | Liste `/location/1` sans fiche au moment de l'étude.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | agencedesdomaines.com (Cagnes)                  | 2026-08-17 | ⚪ Hektor confirmé | Liste `/a-louer/1` sans fiche au moment de l'étude.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 
+**Plateforme « Netty »** — adaptateur générique implanté le 2026-09-05
+(`sources/netty`), troisième plateforme couverte après Apimo/Cello et
+Hektor/La Boîte Immo. Signature : `robots.txt` n'interdisant que `/*.pdf` et
+demandant `Crawl-delay: 5` (**respecté : le budget passe de 4 à 5 s**, une
+demande de délai ne s'arrondit pas à la baisse) ; sitemap déclaré, **sans
+`lastmod`** mais petit et purgé ; fiches `/{location|vente}/{slug}-{CP},{réf}` ;
+JSON-LD `Product` dont le bien tient sous `offers.itemOffered` — deux niveaux
+plus bas que chez Apimo, ce qui rendait l'adaptateur existant inutilisable tel
+quel.
+
+Deux points méritent d'être retenus pour les prochaines instances :
+
+- **Les classes CSS sont hachées** (`_1o6jcyu`, `_s2u4i5`) et changent à chaque
+  reconstruction du thème. Le parser ne vise que du STRUCTUREL : les composants
+  `[data-author="Netty.fr"]`, les `<li>` à deux éléments de texte, les
+  intertitres en toutes lettres. Un test reconstruit la fiche avec des classes
+  toutes différentes et vérifie qu'elle se lit encore.
+- **Les charges ne vivent que dans les mentions légales.** Ni les
+  caractéristiques ni le JSON-LD ne les portent. Ce bloc, engendré par la
+  plateforme, donne aussi le loyer de base, le dépôt de garantie et les classes
+  énergie/climat. On le reconnaît à sa tournure machinale (« Loyer de base X
+  €/mois », « Classe énergie C, Classe climat A ») et non au mot
+  « honoraires » : la description rédigée par l'agence reprend souvent les
+  mêmes informations à sa façon, et se faisait prendre pour le bloc légal.
+
+| Source                                                 | Vérifié    | Verdict            | Détail                                                                                                                                                                                                                                                                                                            |
+| ------------------------------------------------------ | ---------- | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Centragence** (centragence.net)                      | 2026-09-05 | ✅ **Implémentée** | Agence indépendante niçoise depuis 2006, demandée explicitement. 9 locations ciblées sur 25 URL. Fiches très complètes : loyer, provision sur charges, dépôt, honoraires, classes énergie et climat, étage, exposition, ameublement, et le **type de bail** — plusieurs locations étudiantes de septembre à juin. |
+| **I.C.I Info Conseil Immobilier** (ici-immobilier.com) | 2026-09-05 | ✅ **Implémentée** | Demandée explicitement sous « INFO CONSEIL IMMOBILIER ». N'était connue que par la FNAIM, qui n'en relayait qu'une annonce ; son site en publie davantage, avec la description complète. 4 locations au relevé — petit volume assumé (§30 : une source Netty inchangée coûte une requête).                        |
+
+**The New Agency / La Nouvelle Agence** et **EMERIA EUROPE**, demandées le même
+jour, n'ont pas été retenues — faute d'objet, non de conformité :
+
+| Source                              | Vérifié    | Verdict    | Détail                                                                                                                                                                                                                                                      |
+| ----------------------------------- | ---------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The New Agency / La Nouvelle Agence | 2026-09-05 | ⏸️ Écartée | Aucune agence de ce nom à Nice n'a pu être identifiée avec certitude : les résultats renvoient soit à une agence de Château-Thierry, soit à des noms voisins (L'Agence, Nice Agency). On ne devine pas un domaine (§17) — **l'URL exacte reste à fournir**. |
+| EMERIA EUROPE                       | 2026-09-05 | ⏸️ Écartée | Holding (ex-groupe Foncia), et non une agence : elle ne publie aucune annonce en propre. Ses enseignes sont déjà collectées séparément — **Foncia** et **Lamy** figurent parmi les sources actives.                                                         |
+
 Écartés notables : portissim, renoirimmobilier, alpesazur, portimmo,
 atrioimmobilier, riviera-bay, azur-mediterranee (hébergeur coupant les clients
 non-navigateur — on ne contourne pas, §10) ; nicolaspisani.com (robots

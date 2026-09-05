@@ -21,6 +21,7 @@
 
 import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import prettier from 'prettier';
 
 // Le collecteur est une dépendance de DÉVELOPPEMENT : ce script ne tourne
 // qu'ici, et rien de son code n'entre dans le bundle publié.
@@ -65,5 +66,14 @@ ${entries.join('\n')}
 };
 `;
 
-writeFileSync(OUT, file, 'utf8');
+// FORMATÉ AVANT D'ÊTRE ÉCRIT. Sans cela, chaque régénération produisait un
+// fichier que `pnpm verify` refusait aussitôt — guillemets doubles, clés
+// inutilement citées — et il fallait repasser Prettier à la main. Un fichier
+// engendré doit sortir conforme du premier coup.
+const formatted = await prettier.format(file, {
+  ...(await prettier.resolveConfig(OUT)),
+  filepath: OUT,
+});
+
+writeFileSync(OUT, formatted, 'utf8');
 console.log(`${entries.length} sources écrites dans src/sources.generated.ts`);
