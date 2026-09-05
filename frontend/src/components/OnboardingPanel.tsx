@@ -64,7 +64,11 @@ export function OnboardingPanel({
   const [step, setStep] = useState<Step>('welcome');
 
   return (
-    <div className="mx-auto max-w-md py-6">
+    // `px-5` : cet écran vit HORS de la coquille commune, qui porte
+    // habituellement les marges. Sans elles, le texte touchait les deux bords
+    // du téléphone. `pb-10` laisse respirer le dernier bouton au-dessus de la
+    // barre système.
+    <div className="mx-auto max-w-md px-5 py-6 pb-10">
       <Progress step={step} />
 
       {step === 'welcome' && (

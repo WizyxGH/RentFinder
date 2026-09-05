@@ -55,7 +55,12 @@ function corsHeaders(env: Env, request: Request): Record<string, string> {
   return {
     'Access-Control-Allow-Origin': same ? origin : allowed,
     'Access-Control-Allow-Credentials': 'true',
-    'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
+    // PUT MANQUAIT, et c'est le genre d'oubli qui ne se voit qu'à l'usage :
+    // le navigateur REFUSE la requête avant de l'envoyer, si bien que l'écran
+    // annonce un échec pour un appel que le serveur n'a jamais reçu. Les
+    // critères de recherche et les réglages de compte s'enregistrent en PUT :
+    // aucun des deux ne fonctionnait.
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
     Vary: 'Origin',
   };

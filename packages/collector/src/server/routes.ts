@@ -161,12 +161,23 @@ const LIST_PAYLOAD = `json_remove(listings.payload,
   '$.scores.visitProbability.reasons',
   '$.scores.risk.reasons') AS payload_light`;
 
-async function listListings(
-  db: Client,
-  url: URL,
-  userId: string,
-  filters?: LiveFilters,
-): Promise<unknown> {
+/** Ce qui décrit une interrogation de la liste, sans l'exécuter. */
+interface ListQuery {
+  readonly filter: string;
+  readonly filterArgs: readonly (string | number)[];
+  readonly orderBy: string;
+  readonly limit: number;
+  readonly offset: number;
+}
+
+/**
+ * Traduit les paramètres d'URL en clauses SQL.
+ *
+ * Extrait de `listListings` pour être partagé avec le calcul de version : les
+ * deux DOIVENT filtrer à l'identique, faute de quoi la version dirait « rien
+ * n'a changé » pour un ensemble qui n'est pas celui qu'on rend.
+ */
+function buildListQuery(url: URL, filters?: LiveFilters): ListQuery {
   const limit = Math.min(
     500,
     Math.max(1, Number.parseInt(url.searchParams.get('limit') ?? '30', 10)),
@@ -194,8 +205,6 @@ async function listListings(
     // depuis l'interface se répercute immédiatement, sans re-collecter. Un
     // champ NULL n'exclut jamais (§17). Les exclusions coloc/étudiant, elles,
     // sont figées à la collecte (matches_criteria) et changent au prochain run.
-    // En mode cloud (pas d'accès au fichier de filtres), `matches_criteria`
-    // calculé à la collecte fait seul autorité.
     if (filters !== undefined) {
       conditions.push('(price IS NULL OR price <= ?)');
       filterArgs.push(filters.maxPrice);
@@ -220,24 +229,75 @@ async function listListings(
   // utilisateur : ni grisé, ni montré). §32/§33.
   conditions.push('rented = 0');
 
-  const filter = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+  return {
+    filter: conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '',
+    filterArgs,
+    orderBy,
+    limit,
+    offset,
+  };
+}
 
+/**
+ * Une empreinte de la liste, obtenue SANS la transporter.
+ *
+ * POURQUOI. La liste ne bouge qu'à la collecte, toutes les vingt minutes, ou
+ * quand on met une annonce en favori. Entre-temps, chaque ouverture de page
+ * renvoyait les mêmes 3,8 Mo — analysés puis réémis par un Worker qui ne
+ * dispose que de dix millisecondes de processeur.
+ *
+ * Trois agrégats suffisent à savoir si quoi que ce soit a changé : combien de
+ * fiches, la plus récente modification d'annonce, et la plus récente
+ * modification d'état pour CE compte. Un favori posé change la troisième.
+ *
+ * Cette requête remplace le `COUNT(*)` qu'on faisait déjà : à contenu
+ * inchangé, on passe donc de deux interrogations dont une lourde à une seule
+ * légère.
+ */
+async function listSignature(
+  db: Client,
+  query: ListQuery,
+  userId: string,
+): Promise<{ etag: string; total: number }> {
   const result = await db.execute({
-    sql: `SELECT ${USER_STATE_COLUMNS}, ${LIST_PAYLOAD} FROM listings ${USER_STATE_JOIN} ${filter}
-          ORDER BY ${orderBy} LIMIT ? OFFSET ?`,
-    args: [userId, ...filterArgs, limit, offset],
+    sql: `SELECT COUNT(*) AS n,
+                 MAX(listings.updated_at) AS listing_at,
+                 MAX(us.updated_at) AS state_at
+          FROM listings ${USER_STATE_JOIN} ${query.filter}`,
+    args: [userId, ...query.filterArgs],
   });
+  const row = (result.rows[0] ?? {}) as Record<string, unknown>;
+  const total = Number(row['n'] ?? 0);
+  // Le tri et la pagination font partie de la réponse : deux tris différents
+  // sur le même contenu ne sont pas la même page.
+  const parts = [
+    total,
+    String(row['listing_at'] ?? ''),
+    String(row['state_at'] ?? ''),
+    query.orderBy,
+    query.limit,
+    query.offset,
+  ];
+  return { etag: `W/"${parts.join('|')}"`, total };
+}
 
-  const total = await db.execute({
-    sql: `SELECT COUNT(*) AS n FROM listings ${USER_STATE_JOIN} ${filter}`,
-    args: [userId, ...filterArgs],
+async function listListings(
+  db: Client,
+  query: ListQuery,
+  userId: string,
+  total: number,
+): Promise<unknown> {
+  const result = await db.execute({
+    sql: `SELECT ${USER_STATE_COLUMNS}, ${LIST_PAYLOAD} FROM listings ${USER_STATE_JOIN} ${query.filter}
+          ORDER BY ${query.orderBy} LIMIT ? OFFSET ?`,
+    args: [userId, ...query.filterArgs, query.limit, query.offset],
   });
 
   return {
     listings: result.rows.map((row) => rowToListing(row as Record<string, unknown>)),
-    total: Number(total.rows[0]?.['n'] ?? 0),
-    limit,
-    offset,
+    total,
+    limit: query.limit,
+    offset: query.offset,
   };
 }
 
@@ -298,14 +358,18 @@ async function getListing(db: Client, id: string, userId: string): Promise<unkno
  */
 async function listAgencies(db: Client): Promise<unknown> {
   const result = await db.execute(`
+    -- group_id et non listing_id : c'est ainsi que la table occurrences
+    -- designe la fiche qui la regroupe. Le mauvais nom compilait sans broncher
+    -- (une chaine SQL n'est pas typee) et l'ecran affichait « aucune agence
+    -- identifiee » alors que 966 occurrences en nomment une.
     SELECT o.contact_agency                AS name,
-           COUNT(DISTINCT o.listing_id)    AS listings,
+           COUNT(DISTINCT o.group_id)      AS listings,
            MAX(o.contact_phone)            AS phone,
            MAX(o.contact_email)            AS email,
            GROUP_CONCAT(DISTINCT o.source_id) AS sources,
            MAX(l.last_seen_at)             AS lastSeenAt
     FROM occurrences o
-    JOIN listings l ON l.id = o.listing_id
+    JOIN listings l ON l.id = o.group_id
     WHERE o.contact_agency IS NOT NULL AND TRIM(o.contact_agency) != ''
       AND l.lifecycle != 'inactive' AND l.rented = 0
     GROUP BY o.contact_agency
@@ -331,7 +395,7 @@ async function getAgency(db: Client, name: string, userId: string): Promise<unkn
   const listings = await db.execute({
     sql: `SELECT ${USER_STATE_COLUMNS} FROM listings ${USER_STATE_JOIN}
           WHERE listings.id IN (
-            SELECT listing_id FROM occurrences WHERE contact_agency = ?
+            SELECT group_id FROM occurrences WHERE contact_agency = ?
           )
           AND listings.lifecycle != 'inactive' AND listings.rented = 0
           ORDER BY listings.action_priority DESC, listings.last_seen_at DESC
@@ -836,7 +900,32 @@ async function handleListingsRoute(
 ): Promise<Response> {
   // Collection : GET /api/listings
   if (id === undefined && method === 'GET') {
-    return json(await listListings(db, url, userId, await liveFilters(db, userId)), cors);
+    const query = buildListQuery(url, await liveFilters(db, userId));
+    const { etag, total } = await listSignature(db, query, userId);
+
+    // REQUÊTE CONDITIONNELLE. Le navigateur renvoie l'empreinte qu'il détient ;
+    // si rien n'a bougé, on répond 304 sans corps et il ressert sa copie. Le
+    // code de la page n'en sait rien : il reçoit un 200 et ses données.
+    if (request.headers.get('If-None-Match') === etag) {
+      return new Response(null, {
+        status: 304,
+        headers: { ...cors, ETag: etag, 'Cache-Control': 'private, no-cache' },
+      });
+    }
+
+    const body = await listListings(db, query, userId, total);
+    return new Response(JSON.stringify(body), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+        ...cors,
+        ETag: etag,
+        // `no-cache` et NON `no-store` : le navigateur GARDE la réponse et
+        // revient simplement demander si elle est toujours bonne. C'est ce qui
+        // rend le 304 possible.
+        'Cache-Control': 'private, no-cache',
+      },
+    });
   }
   if (id === undefined) return json({ error: 'Route inconnue' }, cors, 404);
 

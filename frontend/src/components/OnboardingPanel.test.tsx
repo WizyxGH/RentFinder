@@ -56,3 +56,16 @@ describe('OnboardingPanel', () => {
     expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '3');
   });
 });
+
+describe('marges', () => {
+  it('porte ses propres marges horizontales', () => {
+    // Cet écran vit HORS de la coquille commune, qui porte habituellement les
+    // marges : sans les siennes, le texte touchait les deux bords du
+    // téléphone. Le défaut ne se voit qu'à l'œil, sur un vrai appareil.
+    const { container } = render(
+      <OnboardingPanel profile={null} onSaveProfile={vi.fn()} onFinish={vi.fn()} />,
+    );
+    const panel = container.firstElementChild;
+    expect(panel?.className).toMatch(/\bpx-\d/);
+  });
+});
