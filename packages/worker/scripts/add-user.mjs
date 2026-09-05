@@ -90,6 +90,37 @@ async function main() {
       return;
     }
 
+    /**
+     * LE PREMIER COMPTE ADOPTE LES DONNÉES EXISTANTES.
+     *
+     * La migration multi-compte a laissé une ligne `moi` sans identifiant de
+     * connexion, et TOUT ce qui précède y est rattaché : états d'annonces,
+     * favoris, réglages, recherches enregistrées. L'identifiant servant d'id,
+     * créer « wizyx » aurait fabriqué un compte vierge à côté — on se serait
+     * connecté pour découvrir zéro favori, et conclu à une perte de données.
+     *
+     * On ne l'adopte que dans le cas où il n'y a rien à trancher : la ligne
+     * existe, elle n'a pas de login, et aucun autre compte n'en a un. Dès qu'un
+     * vrai compte existe, un nouveau est créé normalement.
+     */
+    const orphan = await db.execute(
+      `SELECT (SELECT COUNT(*) FROM users WHERE login IS NOT NULL) AS named,
+              (SELECT COUNT(*) FROM users WHERE id = 'moi' AND login IS NULL) AS placeholder`,
+    );
+    const named = Number(orphan.rows[0]?.['named'] ?? 0);
+    const placeholder = Number(orphan.rows[0]?.['placeholder'] ?? 0);
+
+    if (named === 0 && placeholder === 1) {
+      await db.execute({
+        sql: `UPDATE users SET login = ?, password_hash = ?, display_name = ?
+              WHERE id = 'moi'`,
+        args: [login, hash, name === '' ? null : name],
+      });
+      console.log(`Compte « ${login} » créé, sur les données déjà en base.`);
+      console.log('Vos favoris, votre suivi et vos réglages lui restent attachés.');
+      return;
+    }
+
     // L'identifiant sert d'id : lisible dans les données, et stable.
     await db.execute({
       sql: `INSERT INTO users (id, login, password_hash, display_name, created_at)
