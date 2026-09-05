@@ -448,16 +448,42 @@ function numericAttr(value: string | undefined): number {
  *
  * On ne lit que ce qui est écrit, jamais une déduction (§17). Une fourchette
  * (« 2/3 personnes ») rend son PLAFOND, qui est la promesse faite.
+ *
+ * LES COLOCATIONS LE DISENT AUTREMENT : « idéal pour 3 colocataires », « il y a
+ * 4 locataires au total ». Relevé du 2026-09-05 sur l'inventaire, chaque
+ * correspondance vérifiée une à une — les quatre trouvées sont de vrais comptes
+ * d'occupants, sans une seule fausse.
+ *
+ * CE QUI A ÉTÉ EXAMINÉ ET REFUSÉ, parce que le chiffre y désigne autre chose :
+ *
+ *   - « location étudiants jusqu'à 30 juin » — une DATE, six annonces Dazur ;
+ *   - « table pouvant recevoir jusqu'à 8 convives » — des places assises ;
+ *   - « 4 chambres (1 occupant par chambre) » — il faudrait multiplier, donc
+ *     déduire ; §17 l'interdit, même quand le calcul paraît évident.
  */
 export function parseMaxOccupants(text: string | null | undefined): number | null {
   const lower = comparable(text);
   if (lower === '') return null;
+
   // « 4 personnes », « 2 3 personnes » (la barre oblique a sauté au nettoyage),
   // « couchages ». Le dernier nombre d'une fourchette est le plafond.
-  const match = /(\d{1,2})(?:\s+(\d{1,2}))?\s+(?:personnes?|couchages?|voyageurs?)\b/.exec(lower);
-  if (match?.[1] === undefined) return null;
-  const value = Number.parseInt(match[2] ?? match[1], 10);
-  // Au-delà de 20, c'est une résidence entière ou un nombre attrapé au vol.
+  const explicit = /(\d{1,2})(?:\s+(\d{1,2}))?\s+(?:personnes?|couchages?|voyageurs?)\b/.exec(
+    lower,
+  );
+  if (explicit?.[1] !== undefined) {
+    return boundedOccupants(Number.parseInt(explicit[2] ?? explicit[1], 10));
+  }
+
+  // Le vocabulaire de la colocation. « au total » est EXIGÉ pour « locataires » :
+  // sans lui, « 1 locataire par chambre » rendrait un, alors que la phrase
+  // énonce une règle et non un effectif.
+  const shared = /(\d{1,2})\s+colocataires?\b|(\d{1,2})\s+locataires?\s+au\s+total\b/.exec(lower);
+  const found = shared?.[1] ?? shared?.[2];
+  return found === undefined ? null : boundedOccupants(Number.parseInt(found, 10));
+}
+
+/** Au-delà de vingt, c'est une résidence entière ou un nombre attrapé au vol. */
+function boundedOccupants(value: number): number | null {
   return Number.isFinite(value) && value >= 1 && value <= 20 ? value : null;
 }
 

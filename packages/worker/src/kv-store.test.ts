@@ -63,7 +63,7 @@ describe('kvDocumentStore', () => {
     await store.put('moi/paie.pdf', new ArrayBuffer(1024), META);
 
     const found = await store.get('moi/paie.pdf');
-    expect(found?.meta.contentType).toBe('application/pdf');
+    expect(found?.meta?.contentType).toBe('application/pdf');
     expect(found?.body.byteLength).toBe(1024);
   });
 

@@ -730,3 +730,38 @@ describe('colocation et location étudiante — relevés du 2026-09-05', () => {
     expect(parseFlatShare('Grand T4, colocation acceptée', 'T4 lumineux')).toBe(false);
   });
 });
+
+describe('parseMaxOccupants — vocabulaire de la colocation', () => {
+  it('lit le nombre de colocataires annoncé', () => {
+    // Quatre annonces de l'inventaire le disent ainsi, et aucune autre donnée
+    // ne le remplace : le nombre de pièces n'en dit rien.
+    expect(parseMaxOccupants('idéal pour 3 colocataires sérieux')).toBe(3);
+    expect(parseMaxOccupants('meublé pour 2 colocataires (élève ou étudiant)')).toBe(2);
+    expect(parseMaxOccupants('il y a 4 locataires au total')).toBe(4);
+  });
+
+  it('refuse une DATE prise pour un effectif', () => {
+    // Six annonces Dazur écrivent « jusqu'à 30 juin ». Trente occupants.
+    expect(parseMaxOccupants('location étudiants jusqu’à 30 juin')).toBeNull();
+  });
+
+  it('refuse des places assises', () => {
+    expect(parseMaxOccupants('grande table pouvant recevoir jusqu’à 8 convives')).toBeNull();
+  });
+
+  it('refuse ce qui demanderait de multiplier', () => {
+    // « 4 chambres, 1 occupant par chambre » vaut quatre — mais il faut le
+    // CALCULER, et §17 l'interdit même quand le calcul paraît évident.
+    expect(
+      parseMaxOccupants('4 chambres toutes équipées (1 occupant/locataire par chambre)'),
+    ).toBeNull();
+  });
+
+  it('exige une borne de mot après « personnes »', () => {
+    // Sans elle, « 3 personnels de ménage » passait pour trois personnes. Le
+    // motif l'a réellement perdue une fois, remplacée par un caractère
+    // d'effacement invisible : d'où ce test, qui le verrait.
+    expect(parseMaxOccupants('3 personnels de ménage interviennent')).toBeNull();
+    expect(parseMaxOccupants('4 personnes maximum')).toBe(4);
+  });
+});
