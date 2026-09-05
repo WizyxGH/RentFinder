@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { buildListQuery } from './routes.js';
+import { buildListQuery, rowToListing } from './routes.js';
 
 const query = (search: string) =>
   buildListQuery(new URL(`https://exemple.invalid/api/listings${search}`));
@@ -46,5 +46,55 @@ describe('ordre de la liste', () => {
 
   it('ouvre aux hors-critères sur demande explicite', () => {
     expect(query('?all=true').filter).not.toContain('matches_criteria = 1');
+  });
+});
+
+/**
+ * LA TRADUCTION D'UNE LIGNE SQL EN FICHE, et ce qu'elle laissait tomber.
+ *
+ * Un champ oublié ici ne lève pas : il vaut `undefined`, et l'écran qui le lit
+ * l'écarte en silence. C'est ce qui est arrivé à la date d'alerte — l'historique
+ * annonçait « aucune alerte » alors que la base en comptait cent dix-huit.
+ */
+describe('rowToListing', () => {
+  const row = (extra: Record<string, unknown> = {}): Record<string, unknown> => ({
+    id: 'src:1',
+    lifecycle: 'active',
+    tracking: 'new',
+    first_seen_at: '2026-09-01T10:00:00.000Z',
+    last_seen_at: '2026-09-05T10:00:00.000Z',
+    matches_criteria: 1,
+    action_priority: 80,
+    payload: '{"title":{"value":"Studio"}}',
+    ...extra,
+  });
+
+  it('rend la DATE DE L’ALERTE, sans quoi l’historique est vide', () => {
+    const listing = rowToListing(row({ notified_at: '2026-09-05T12:03:47.320Z' }));
+    expect(listing['notifiedAt']).toBe('2026-09-05T12:03:47.320Z');
+  });
+
+  it('rend `null` — et non `undefined` — pour une annonce jamais signalée', () => {
+    // `null` DIT quelque chose : cette annonce n'a pas fait l'objet d'une
+    // alerte. `undefined` ne dit rien, et ne se distingue pas d'un champ
+    // qu'on aurait oublié de recopier — c'est précisément la confusion qui a
+    // fait disparaître l'historique.
+    expect(rowToListing(row())['notifiedAt']).toBeNull();
+  });
+
+  it('rend les états qui appartiennent à QUELQU’UN, pas à l’annonce', () => {
+    const listing = rowToListing(
+      row({ viewed: 1, archived: 0, favorite: 1, rented: 0, tracking: 'contacted' }),
+    );
+    expect(listing['viewed']).toBe(true);
+    expect(listing['archived']).toBe(false);
+    expect(listing['favorite']).toBe(true);
+    expect(listing['tracking']).toBe('contacted');
+  });
+
+  it('déplie le payload par-dessus, sans écraser l’identifiant', () => {
+    const listing = rowToListing(row());
+    expect(listing['id']).toBe('src:1');
+    expect(listing['title']).toEqual({ value: 'Studio' });
   });
 });

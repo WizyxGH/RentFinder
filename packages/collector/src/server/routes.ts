@@ -101,7 +101,7 @@ function json(data: unknown, cors: Record<string, string>, status = 200): Respon
 }
 
 /** Reconstitue une fiche à partir de sa ligne et de son payload JSON. */
-function rowToListing(row: Record<string, unknown>): Record<string, unknown> {
+export function rowToListing(row: Record<string, unknown>): Record<string, unknown> {
   // `payload_light` n'existe que pour la LISTE, où description et raisons de
   // score ont été retirées en SQL. La fiche, elle, n'a que `payload`.
   const source = row['payload_light'] ?? row['payload'];
@@ -118,6 +118,23 @@ function rowToListing(row: Record<string, unknown>): Record<string, unknown> {
     archived: Number(row['archived'] ?? 0) === 1,
     favorite: Number(row['favorite'] ?? 0) === 1,
     rented: Number(row['rented'] ?? 0) === 1,
+    /**
+     * LA DATE DE L'ALERTE, ET SON ABSENCE VIDAIT TOUT L'HISTORIQUE.
+     *
+     * L'écran des notifications ne garde que les annonces qui portent cette
+     * date — c'est elle qui les classe et les groupe par jour. Sans elle,
+     * chaque ligne était écartée, et la page annonçait « aucune alerte sur les
+     * trente derniers jours » alors que la base en comptait cent dix-huit.
+     *
+     * La ligne existait dans le client qui parlait à Turso directement. Elle
+     * n'a pas été reprise quand l'API est passée par le Worker, le 2026-09-04 :
+     * `notified_at` était bien SÉLECTIONNÉ en SQL, il n'était simplement plus
+     * recopié ici. Rien ne pouvait le signaler — un champ absent d'un objet
+     * JavaScript ne lève pas, il vaut `undefined`, et un filtre le rejette en
+     * silence. Les données fictives de la démonstration, elles, le portaient :
+     * les scénarios end-to-end passaient donc, sur un historique bien rempli.
+     */
+    notifiedAt: row['notified_at'] ?? null,
     ...payload,
   };
 }
